@@ -52,8 +52,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000"
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env")
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

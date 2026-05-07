@@ -16,10 +16,10 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     response, task_type = await ai_router.chat(
         messages=messages,
-        force_provider=req.force_provider if not req.auto_route else None,
-        force_model=req.force_model if not req.auto_route else None,
+        force_provider=req.force_provider,
+        force_model=req.force_model,
         system_prompt=JARVIS_SYSTEM_PROMPT,
-        auto_detect=req.auto_route,
+        auto_detect=req.auto_route and not req.force_provider,
     )
 
     # Persist to DB
