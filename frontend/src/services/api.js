@@ -97,4 +97,16 @@ export const enrichContact = (id) => api.post(`/api/v1/sync/enrich/${id}`).then(
 export const registerTelegramWebhook = (url) => api.post(`/api/v1/sync/telegram/webhook/register?webhook_url=${encodeURIComponent(url)}`).then(r => r.data)
 export const getTelegramWebhookInfo = () => api.get('/api/v1/sync/telegram/webhook/info').then(r => r.data)
 
+// Phase 5 — Intelligence Layer
+export const getIntelligencePulse = () => api.get('/api/v1/intelligence/pulse').then(r => r.data)
+export const getTechRadar = () => api.get('/api/v1/intelligence/radar').then(r => r.data)
+export const triggerTechScan = () => api.post('/api/v1/intelligence/radar/scan').then(r => r.data)
+export const getRecommendations = (status) => api.get('/api/v1/intelligence/recommendations', { params: status ? { status } : {} }).then(r => r.data)
+export const triggerOptimizationAnalysis = () => api.post('/api/v1/intelligence/recommendations/analyze').then(r => r.data)
+export const approveRecommendation = (id) => api.post(`/api/v1/intelligence/recommendations/${id}/approve`).then(r => r.data)
+export const dismissRecommendation = (id) => api.post(`/api/v1/intelligence/recommendations/${id}/dismiss`).then(r => r.data)
+export const implementRecommendation = (id) => api.post(`/api/v1/intelligence/recommendations/${id}/implement`).then(r => r.data)
+export const getResearchReports = (limit = 20) => api.get('/api/v1/intelligence/reports', { params: { limit } }).then(r => r.data)
+export const generateResearchReport = (topic, category = 'market') => api.post('/api/v1/intelligence/reports/generate', { topic, category }).then(r => r.data)
+
 export default api

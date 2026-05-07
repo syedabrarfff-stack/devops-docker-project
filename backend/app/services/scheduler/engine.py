@@ -142,6 +142,16 @@ async def _register_default_jobs() -> None:
     # Contact sync every 12 hours
     add_interval_job("contact_sync", _job_sync_contacts, hours=12)
 
+    # Phase 5 — Intelligence jobs
+    # Weekly tech radar scan (Monday 06:00 UTC)
+    add_cron_job("weekly_tech_radar_scan", _job_tech_radar_scan, hour=6, minute=0)
+
+    # Daily self-optimization review (23:00 UTC)
+    add_cron_job("daily_optimization_review", _job_optimization_review, hour=23, minute=0)
+
+    # Bi-weekly research report (Sunday 07:00 UTC)
+    add_cron_job("biweekly_research_report", _job_research_report, hour=7, minute=0)
+
     logger.info("✅ Default JARVIS jobs registered")
 
 
@@ -211,3 +221,44 @@ async def _job_sync_contacts() -> None:
         logger.info(f"Contact sync: {count} synced")
     except Exception as e:
         logger.warning(f"Contact sync job failed: {e}")
+
+
+# ── Phase 5 — Intelligence jobs ───────────────────────────────────────────────
+
+async def _job_tech_radar_scan() -> None:
+    logger.info("Scheduler: running weekly tech radar scan")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.tech_radar import scan_technologies
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                count = await scan_technologies(db)
+        logger.info(f"Tech radar: {count} entries updated")
+    except Exception as e:
+        logger.warning(f"Tech radar scan failed: {e}")
+
+
+async def _job_optimization_review() -> None:
+    logger.info("Scheduler: running daily optimization review")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.optimizer import analyze_system
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                count = await analyze_system(db)
+        logger.info(f"Optimization review: {count} recommendations generated")
+    except Exception as e:
+        logger.warning(f"Optimization review failed: {e}")
+
+
+async def _job_research_report() -> None:
+    logger.info("Scheduler: generating bi-weekly research report")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.research import generate_default_reports
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                count = await generate_default_reports(db)
+        logger.info(f"Research reports: {count} generated")
+    except Exception as e:
+        logger.warning(f"Research report generation failed: {e}")

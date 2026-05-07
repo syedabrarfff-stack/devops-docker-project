@@ -15,6 +15,8 @@ class TaskType(str, Enum):
     MULTILINGUAL = "multilingual"
     MATH = "math"
     GENERAL = "general"
+    ANALYSIS = "analysis"    # deep system/operational analysis
+    STRATEGY = "strategy"    # GTM, business, and competitive strategy
 
 
 @dataclass
