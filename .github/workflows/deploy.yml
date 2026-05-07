@@ -1,0 +1,158 @@
+name: JARVIS — Build & Deploy to AWS ECS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: production
+        type: choice
+        options: [production, staging]
+
+env:
+  AWS_REGION:       ap-south-2
+  ECR_BACKEND:      jarvis-production-backend
+  ECR_FRONTEND:     jarvis-production-frontend
+  ECS_CLUSTER:      jarvis-production-cluster
+  ECS_SERVICE:      jarvis-production-backend
+  TASK_FAMILY:      jarvis-production-backend
+
+jobs:
+  # ── Build & push Docker images ────────────────────────────────────────────
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    outputs:
+      backend_image:  ${{ steps.backend.outputs.image }}
+      frontend_image: ${{ steps.frontend.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push backend
+        id: backend
+        env:
+          REGISTRY: ${{ steps.ecr_login.outputs.registry }}
+          TAG:      ${{ github.sha }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_BACKEND:$TAG"
+          docker build -t "$IMAGE" ./backend
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "$REGISTRY/$ECR_BACKEND:latest"
+          docker push "$REGISTRY/$ECR_BACKEND:latest"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Build & push frontend
+        id: frontend
+        env:
+          REGISTRY: ${{ steps.ecr_login.outputs.registry }}
+          TAG:      ${{ github.sha }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_FRONTEND:$TAG"
+          docker build -t "$IMAGE" ./frontend
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "$REGISTRY/$ECR_FRONTEND:latest"
+          docker push "$REGISTRY/$ECR_FRONTEND:latest"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+  # ── Deploy to ECS ─────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to ECS (Hyderabad)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_FAMILY" \
+            --query taskDefinition \
+            > task-def.json
+
+      - name: Update image in task definition
+        id: task_def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name:  backend
+          image:           ${{ needs.build.outputs.backend_image }}
+
+      - name: Deploy to ECS — Blue/Green rolling update
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition:          ${{ steps.task_def.outputs.task-definition }}
+          service:                  ${{ env.ECS_SERVICE }}
+          cluster:                  ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes:         10
+
+      - name: Notify Captain — deployment success
+        if: success()
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "✅ *JARVIS deployed successfully* — `${{ github.sha }}` → ECS (ap-south-2)\nTriggered by: ${{ github.actor }}"
+            }' || true
+
+      - name: Notify Captain — deployment failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "🚨 *JARVIS deployment FAILED* — `${{ github.sha }}`\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' || true
+
+  # ── Terraform plan (runs on PRs — requires manual apply) ─────────────────
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ap-south-2
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Terraform plan
+        working-directory: infra/terraform
+        run: terraform plan -var="db_password=placeholder" -no-color
+        continue-on-error: true

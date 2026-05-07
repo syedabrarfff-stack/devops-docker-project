@@ -3,6 +3,7 @@ from app.api.v1.routes import chat, briefing, approvals, agents, ws
 from app.api.v1.routes import crm, leads, outreach, memory, tasks
 from app.api.v1.routes import auth, scheduler, calendar, notifications, sync
 from app.api.v1.routes import intelligence
+from app.api.v1.routes import governance, emergency, knowledge
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -21,3 +22,6 @@ api_router.include_router(calendar.router)
 api_router.include_router(notifications.router)
 api_router.include_router(sync.router)
 api_router.include_router(intelligence.router)
+api_router.include_router(governance.router)
+api_router.include_router(emergency.router)
+api_router.include_router(knowledge.router)

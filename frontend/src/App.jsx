@@ -16,6 +16,7 @@ import SchedulerView from './components/scheduler/SchedulerView'
 import CalendarView from './components/calendar/CalendarView'
 import SyncView from './components/sync/SyncView'
 import IntelligenceDashboard from './components/intelligence/IntelligenceDashboard'
+import GovernanceDashboard from './components/governance/GovernanceDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -33,6 +34,7 @@ const VIEWS = {
   calendar:      CalendarView,
   sync:          SyncView,
   intelligence:  IntelligenceDashboard,
+  governance:    GovernanceDashboard,
 }
 
 export default function App() {

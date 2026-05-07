@@ -109,4 +109,33 @@ export const implementRecommendation = (id) => api.post(`/api/v1/intelligence/re
 export const getResearchReports = (limit = 20) => api.get('/api/v1/intelligence/reports', { params: { limit } }).then(r => r.data)
 export const generateResearchReport = (topic, category = 'market') => api.post('/api/v1/intelligence/reports/generate', { topic, category }).then(r => r.data)
 
+// Phase 6 — Governance
+export const getInvoices = (params) => api.get('/api/v1/governance/invoices', { params }).then(r => r.data)
+export const createInvoice = (data) => api.post('/api/v1/governance/invoices', data).then(r => r.data)
+export const updateInvoiceStatus = (id, status) => api.post(`/api/v1/governance/invoices/${id}/status`, { status }).then(r => r.data)
+export const getProposals = (params) => api.get('/api/v1/governance/proposals', { params }).then(r => r.data)
+export const generateProposal = (data) => api.post('/api/v1/governance/proposals/generate', data).then(r => r.data)
+export const updateProposalStatus = (id, status) => api.post(`/api/v1/governance/proposals/${id}/status`, { status }).then(r => r.data)
+export const getAgentPermissions = () => api.get('/api/v1/governance/permissions').then(r => r.data)
+export const grantPermission = (data) => api.post('/api/v1/governance/permissions', data).then(r => r.data)
+export const revokePermission = (id) => api.post(`/api/v1/governance/permissions/${id}/revoke`).then(r => r.data)
+export const getGovernanceStats = () => api.get('/api/v1/governance/stats').then(r => r.data)
+
+// Phase 6 — Emergency Control
+export const getSystemHealth = () => api.get('/api/v1/emergency/health').then(r => r.data)
+export const getIncidents = (params) => api.get('/api/v1/emergency/incidents', { params }).then(r => r.data)
+export const declareIncident = (data) => api.post('/api/v1/emergency/incidents', data).then(r => r.data)
+export const resolveIncident = (id, resolution) => api.post(`/api/v1/emergency/incidents/${id}/resolve`, { resolution }).then(r => r.data)
+export const addIncidentAction = (id, action) => api.post(`/api/v1/emergency/incidents/${id}/action`, { action }).then(r => r.data)
+export const sendEmergencyAlert = (data) => api.post('/api/v1/emergency/alert', data).then(r => r.data)
+
+// Phase 6 — Knowledge / SOP
+export const getSOPs = (params) => api.get('/api/v1/knowledge/sops', { params }).then(r => r.data)
+export const generateSOP = (data) => api.post('/api/v1/knowledge/sops/generate', data).then(r => r.data)
+export const getLearnings = (params) => api.get('/api/v1/knowledge/learnings', { params }).then(r => r.data)
+export const logLearning = (data) => api.post('/api/v1/knowledge/learnings', data).then(r => r.data)
+export const searchKnowledge = (query, params) => api.get('/api/v1/knowledge/search', { params: { query, ...params } }).then(r => r.data)
+export const addKnowledgeEntry = (data) => api.post('/api/v1/knowledge/entries', data).then(r => r.data)
+export const getKnowledgeStats = () => api.get('/api/v1/knowledge/stats').then(r => r.data)
+
 export default api

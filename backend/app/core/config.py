@@ -49,13 +49,25 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
 
-    # AWS (Phase 3 — SSM + S3)
+    # AWS (Phase 3 — SSM + S3 | Phase 6 — ECS production)
     USE_AWS: bool = False
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    AWS_REGION: str = "ap-south-1"
+    AWS_REGION: str = "ap-south-2"             # Hyderabad primary
+    AWS_BACKUP_REGION: str = "ap-south-1"      # Mumbai backup (Phase 2)
     AWS_S3_BUCKET: Optional[str] = None
     AWS_SSM_PREFIX: str = "/jarvis"
+    AWS_ECS_CLUSTER: Optional[str] = None
+    AWS_ECS_SERVICE: Optional[str] = None
+
+    # Redis (Phase 6 — production cache + task queue)
+    REDIS_URL: Optional[str] = None
+    REDIS_PASSWORD: Optional[str] = None
+
+    # PayPal (Phase 6 — initial payment system)
+    PAYPAL_CLIENT_ID: Optional[str] = None
+    PAYPAL_CLIENT_SECRET: Optional[str] = None
+    PAYPAL_MODE: str = "sandbox"               # sandbox | live
 
     # CORS
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000"

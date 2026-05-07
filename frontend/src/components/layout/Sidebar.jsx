@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -22,6 +22,7 @@ const NAV = [
   { id: 'calendar',       label: 'Calendar',         icon: Calendar },
   { id: 'sync',           label: 'Sync',             icon: RefreshCw },
   { id: 'intelligence',   label: 'Intelligence',     icon: Brain },
+  { id: 'governance',    label: 'Governance',       icon: Shield },
 ]
 
 export default function Sidebar() {
