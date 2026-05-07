@@ -10,7 +10,8 @@ from app.core.config import settings
 class ZhipuAIProvider(BaseAIProvider):
     name = "zhipuai"
     base_url = "https://open.bigmodel.cn/api/paas/v4"
-    models = {"glm-4-7": "glm-4", "glm-5-1": "glm-4-plus"}
+    # glm-4-flash = ultrafast/cheap | glm-4 = standard | glm-4-plus = premium
+    models = {"glm-4-flash": "glm-4-flash", "glm-4-7": "glm-4", "glm-5-1": "glm-4-plus"}
 
     def is_available(self) -> bool:
         return bool(settings.ZHIPUAI_API_KEY)

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -24,6 +24,7 @@ const NAV = [
   { id: 'intelligence',   label: 'Intelligence',     icon: Brain },
   { id: 'governance',    label: 'Governance',       icon: Shield },
   { id: 'catalog',      label: 'Services',         icon: Layers },
+  { id: 'ai_ops',      label: 'AI Operations',    icon: Server },
 ]
 
 export default function Sidebar() {

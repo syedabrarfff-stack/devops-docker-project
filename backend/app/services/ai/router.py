@@ -1,7 +1,9 @@
 """
 JARVIS AI Router — Intelligent multi-provider AI orchestration engine.
-Selects optimal model per task, handles fallback, logs usage.
+Selects optimal model per task, integrates circuit-breaker health monitoring,
+per-call cost estimation, and automatic latency-aware failover.
 """
+import time
 import logging
 from typing import List, Optional, Tuple
 from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message, TaskType
@@ -13,6 +15,8 @@ from app.services.ai.providers.groq_provider import GroqProvider, MistralProvide
 from app.services.ai.providers.extra_providers import (
     ZhipuAIProvider, QwenProvider, MoonshotProvider, MinimaxProvider, NvidiaProvider
 )
+from app.services.ai.health_monitor import health_monitor
+from app.services.ai.cost_tracker import estimate_cost
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +190,17 @@ ROUTING_TABLE: dict = {
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
     ],
+    TaskType.MULTIMODAL: [
+        ("openai", "gpt-4o"),         # GPT-4o vision
+        ("qwen", "qwen-image"),       # Qwen image editing
+        ("google", "gemini-pro"),     # Gemini multimodal
+    ],
+    TaskType.REALTIME: [
+        ("groq", "llama-4-scout"),    # Groq — ultra-low latency
+        ("groq", "llama-3-3"),
+        ("zhipuai", "glm-4-flash"),   # GLM flash — fast
+        ("deepseek", "deepseek-v4-flash"),
+    ],
 }
 
 
@@ -207,6 +222,10 @@ def detect_task_type(prompt: str) -> TaskType:
         return TaskType.ANALYSIS
     if any(w in p for w in ["strategy", "gtm", "go-to-market", "competitive", "niche", "market position"]):
         return TaskType.STRATEGY
+    if any(w in p for w in ["image", "photo", "picture", "design", "thumbnail", "visual", "screenshot"]):
+        return TaskType.MULTIMODAL
+    if any(w in p for w in ["realtime", "real-time", "instant", "live", "voice", "stream"]):
+        return TaskType.REALTIME
     if any('一' <= c <= '鿿' for c in p):
         return TaskType.MULTILINGUAL
     return TaskType.GENERAL
@@ -261,27 +280,43 @@ class AIRouter:
             task_type = detect_task_type(last_user_msg)
         task_type = task_type or TaskType.GENERAL
 
-        # Force specific provider/model
+        # Force specific provider/model (bypasses circuit breaker — Captain override)
         if force_provider and force_provider in self._providers:
             provider = self._providers[force_provider]
             if provider.is_available():
                 model_id = force_model or list(provider.models.values())[0]
+                t0 = time.monotonic()
                 response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
+                response.latency_ms = latency
+                response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
                 if not response.error:
+                    health_monitor.record_success(force_provider, latency)
                     return response, task_type.value
+                health_monitor.record_failure(force_provider, latency)
 
-        # Route through table with fallback
+        # Route through table with health-aware fallback
         route = ROUTING_TABLE.get(task_type, ROUTING_TABLE[TaskType.GENERAL])
         for provider_key, model_key in route:
+            # Skip providers with open circuit breakers
+            if not health_monitor.is_available(provider_key):
+                logger.debug(f"Skipping {provider_key}: circuit OPEN")
+                continue
             provider = self._providers.get(provider_key)
             if provider and provider.is_available():
                 model_id = self._resolve_model(provider, model_key)
                 logger.info(f"Routing {task_type.value} → {provider_key}/{model_id}")
+                t0 = time.monotonic()
                 response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
+                response.latency_ms = latency
+                response.cost_estimate_usd = estimate_cost(provider_key, model_id, response.tokens_used)
                 if not response.error:
+                    health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
+                health_monitor.record_failure(provider_key, latency)
                 logger.warning(f"Provider {provider_key} failed: {response.error}")
 
         # No provider available — return demo response

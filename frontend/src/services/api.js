@@ -146,4 +146,14 @@ export const getCatalogStats = () => api.get('/api/v1/catalog/stats').then(r => 
 export const seedCatalog = () => api.post('/api/v1/catalog/seed').then(r => r.data)
 export const updateCatalogDivision = (code, data) => api.patch(`/api/v1/catalog/divisions/${code}`, data).then(r => r.data)
 
+// Phase 8 — AI Operations
+export const getAIOpsPulse = () => api.get('/api/v1/ai-ops/pulse').then(r => r.data)
+export const getAIOpsHealth = () => api.get('/api/v1/ai-ops/health').then(r => r.data)
+export const resetAICircuit = (provider) => api.post(`/api/v1/ai-ops/health/${provider}/reset`).then(r => r.data)
+export const getAIOpsCostToday = () => api.get('/api/v1/ai-ops/cost/today').then(r => r.data)
+export const getAIOpsCostSummary = (days = 7) => api.get('/api/v1/ai-ops/cost/summary', { params: { days } }).then(r => r.data)
+export const getAIOpsAudit = (limit = 50, provider) => api.get('/api/v1/ai-ops/audit', { params: { limit, provider } }).then(r => r.data)
+export const getAIOpsCredentials = () => api.get('/api/v1/ai-ops/credentials').then(r => r.data)
+export const getAIOpsRoutingTable = () => api.get('/api/v1/ai-ops/routing-table').then(r => r.data)
+
 export default api

@@ -1,0 +1,61 @@
+{
+  "title": "JARVIS — Aliyar Solutions Operations",
+  "uid": "jarvis-ops",
+  "tags": ["jarvis", "aliyar", "ai-ops"],
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "AI Providers Available",
+      "type": "stat",
+      "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "jarvis_ai_providers_available", "legendFormat": "Active"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "red", "value": 0}, {"color": "yellow", "value": 1}, {"color": "green", "value": 2}]}}}
+    },
+    {
+      "id": 2,
+      "title": "Today's AI Cost (USD)",
+      "type": "stat",
+      "gridPos": {"x": 4, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "jarvis_ai_daily_cost_usd", "legendFormat": "USD"}],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 25}, {"color": "red", "value": 50}]}}}
+    },
+    {
+      "id": 3,
+      "title": "Backend Request Rate",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6},
+      "targets": [{"expr": "rate(http_requests_total{job=\"jarvis-backend\"}[5m])", "legendFormat": "{{method}} {{path}}"}]
+    },
+    {
+      "id": 4,
+      "title": "AI Provider Latency (avg ms)",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 6},
+      "targets": [{"expr": "jarvis_ai_provider_latency_ms", "legendFormat": "{{provider}}"}]
+    },
+    {
+      "id": 5,
+      "title": "Database Connections",
+      "type": "stat",
+      "gridPos": {"x": 8, "y": 0, "w": 4, "h": 4},
+      "targets": [{"expr": "pg_stat_activity_count", "legendFormat": "Connections"}]
+    },
+    {
+      "id": 6,
+      "title": "CPU Usage %",
+      "type": "gauge",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "rate(process_cpu_seconds_total[5m]) * 100", "legendFormat": "CPU %"}],
+      "fieldConfig": {"defaults": {"min": 0, "max": 100, "unit": "percent", "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 70}, {"color": "red", "value": 90}]}}}
+    },
+    {
+      "id": 7,
+      "title": "Memory Usage %",
+      "type": "gauge",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100", "legendFormat": "Memory %"}],
+      "fieldConfig": {"defaults": {"min": 0, "max": 100, "unit": "percent", "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 80}, {"color": "red", "value": 90}]}}}
+    }
+  ]
+}

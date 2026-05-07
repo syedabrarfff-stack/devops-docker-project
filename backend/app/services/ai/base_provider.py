@@ -17,6 +17,8 @@ class TaskType(str, Enum):
     GENERAL = "general"
     ANALYSIS = "analysis"    # deep system/operational analysis
     STRATEGY = "strategy"    # GTM, business, and competitive strategy
+    MULTIMODAL = "multimodal"  # image+text tasks — Qwen Image, GPT-4o-vision
+    REALTIME = "realtime"    # ultra-low latency — Groq, DeepSeek Flash, GLM-4-7
 
 
 @dataclass
@@ -32,6 +34,8 @@ class AIResponse:
     provider: str
     task_type: str
     tokens_used: int = 0
+    latency_ms: int = 0
+    cost_estimate_usd: float = 0.0
     demo: bool = False
     error: Optional[str] = None
 

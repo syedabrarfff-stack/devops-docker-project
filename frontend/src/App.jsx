@@ -18,6 +18,7 @@ import SyncView from './components/sync/SyncView'
 import IntelligenceDashboard from './components/intelligence/IntelligenceDashboard'
 import GovernanceDashboard from './components/governance/GovernanceDashboard'
 import ServiceCatalog from './components/catalog/ServiceCatalog'
+import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -37,6 +38,7 @@ const VIEWS = {
   intelligence:  IntelligenceDashboard,
   governance:    GovernanceDashboard,
   catalog:       ServiceCatalog,
+  ai_ops:        AIOpsDashboard,
 }
 
 export default function App() {
