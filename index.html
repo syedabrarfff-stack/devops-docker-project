@@ -1,2 +1,142 @@
-<h1>DevOps Pipeline by Abrar 🚀</h1>
-<p>Docker + Terraform + AWS + CI/CD</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOps Pipeline by Abrar</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 640px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    #listen-btn {
+      padding: 10px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      margin-top: 20px;
+    }
+    #listen-btn.active {
+      background: #e53935;
+      color: #fff;
+      border-color: #e53935;
+    }
+    #status {
+      margin: 10px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    #waveform {
+      display: block;
+      margin-top: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <h1>DevOps Pipeline by Abrar 🚀</h1>
+  <p>Docker + Terraform + AWS + CI/CD</p>
+
+  <button id="listen-btn">Start Listening</button>
+  <div id="status">Idle</div>
+  <canvas id="waveform" width="600" height="120"></canvas>
+
+  <script>
+    const btn = document.getElementById('listen-btn');
+    const status = document.getElementById('status');
+    const canvas = document.getElementById('waveform');
+    const ctx = canvas.getContext('2d');
+
+    let audioCtx = null;
+    let analyser = null;
+    let stream = null;
+    let rafId = null;
+    let listening = false;
+
+    function drawIdle() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+
+    function drawWaveform() {
+      rafId = requestAnimationFrame(drawWaveform);
+      const bufferLength = analyser.fftSize;
+      const data = new Float32Array(bufferLength);
+      analyser.getFloatTimeDomainData(data);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#1565c0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / bufferLength;
+      let x = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const y = (data[i] * 0.9 + 1) / 2 * canvas.height;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    }
+
+    async function startListening() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        const source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+
+        listening = true;
+        btn.textContent = 'Stop Listening';
+        btn.classList.add('active');
+        status.textContent = 'Listening…';
+        drawWaveform();
+      } catch (err) {
+        const msg = err.name === 'NotAllowedError'
+          ? 'Microphone access denied.'
+          : `Error: ${err.message}`;
+        status.textContent = msg;
+      }
+    }
+
+    function stopListening() {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      if (audioCtx) {
+        audioCtx.close();
+        audioCtx = null;
+      }
+      analyser = null;
+      listening = false;
+      btn.textContent = 'Start Listening';
+      btn.classList.remove('active');
+      status.textContent = 'Idle';
+      drawIdle();
+    }
+
+    btn.addEventListener('click', () => {
+      listening ? stopListening() : startListening();
+    });
+
+    drawIdle();
+  </script>
+</body>
+</html>
