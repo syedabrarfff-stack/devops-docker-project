@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const aiRouter = require('./routes/ai-router');
 const agentsRouter = require('./routes/agents');
 const connectorsRouter = require('./routes/connectors');
+const workflowsRouter = require('./routes/workflows');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,7 +19,7 @@ app.use(express.json({ limit: '10mb' }));
 app.get('/health', (req, res) => {
   res.json({
     status: 'operational',
-    system: 'JARVIS CANS',
+    system: 'JARVIS',
     version: '1.0.0',
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
@@ -55,6 +56,7 @@ app.get('/api/stats', (req, res) => {
 app.use('/api', aiRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/connectors', connectorsRouter);
+app.use('/api/workflows', workflowsRouter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -62,7 +64,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🤖 JARVIS CANS Backend — Online`);
+  console.log(`\n⚡ JARVIS Backend — Online`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`⚡ Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health: http://localhost:${PORT}/health\n`);

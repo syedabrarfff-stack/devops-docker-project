@@ -3,588 +3,555 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>JARVIS CANS — AI Command Center</title>
+<title>JARVIS — AI Command Center</title>
 <style>
   :root {
-    --bg-primary: #050a14;
-    --bg-secondary: #0a1628;
-    --bg-card: #0d1f3c;
-    --bg-card2: #0f2347;
+    --bg: #050a14;
+    --bg2: #0a1628;
+    --card: #0d1f3c;
+    --card2: #0f2347;
     --border: #1a3a6b;
-    --border-glow: #00d4ff44;
     --cyan: #00d4ff;
-    --cyan-dim: #00d4ff88;
+    --cyan2: #00d4ff55;
     --purple: #7c3aed;
     --green: #00ff88;
     --amber: #ffaa00;
     --red: #ff4444;
     --text: #e2eaf8;
-    --text-dim: #7a9cbf;
-    --text-muted: #3d6080;
+    --dim: #7a9cbf;
+    --muted: #3d6080;
     --font: 'Segoe UI', system-ui, sans-serif;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; background: var(--bg-primary); color: var(--text); font-family: var(--font); }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
+  ::-webkit-scrollbar{width:3px}
+  ::-webkit-scrollbar-track{background:var(--bg2)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-  /* SCROLLBARS */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: var(--bg-secondary); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  /* NAV */
+  #nav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;height:52px;
+    background:var(--bg2);border-bottom:1px solid var(--border);
+    position:relative;z-index:100;
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-name{
+    font-size:22px;font-weight:800;letter-spacing:4px;color:var(--cyan);
+    text-shadow:0 0 25px var(--cyan2);
+  }
+  .brand-sub{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+  .nav-center{display:flex;align-items:center;gap:14px}
+  .status-chip{
+    display:flex;align-items:center;gap:5px;
+    font-size:10px;color:var(--dim);
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 2s infinite}
+  .dot.amber{background:var(--amber);box-shadow:0 0 7px var(--amber)}
+  .dot.red{background:var(--red);box-shadow:0 0 7px var(--red)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .nav-right{display:flex;align-items:center;gap:10px}
+  .nav-btn{
+    display:flex;align-items:center;gap:5px;
+    font-size:11px;padding:5px 11px;border-radius:18px;
+    background:var(--card);border:1px solid var(--border);
+    color:var(--dim);cursor:pointer;transition:all .2s;
+  }
+  .nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .nav-btn.active{border-color:var(--cyan);color:var(--cyan);background:#001a2e}
+  #voice-btn{border-color:var(--purple);color:#a78bfa}
+  #voice-btn.listening{border-color:var(--red);color:var(--red);animation:voicepulse 1s infinite}
+  #voice-btn.speaking{border-color:var(--green);color:var(--green)}
+  @keyframes voicepulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(255,68,68,.5)}}
+  #wake-status{font-size:10px;padding:4px 10px;border-radius:10px;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+  #wake-status.active{border-color:var(--amber);color:var(--amber)}
 
-  /* TOP NAV */
-  #nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; height: 52px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    position: relative; z-index: 100;
+  /* LAYOUT */
+  #main{
+    display:grid;grid-template-columns:220px 1fr 255px;
+    height:calc(100vh - 52px - 42px);overflow:hidden;
   }
-  .nav-brand {
-    display: flex; align-items: center; gap: 10px;
-    font-size: 18px; font-weight: 700; letter-spacing: 2px;
-    color: var(--cyan);
-    text-shadow: 0 0 20px var(--cyan-dim);
+  .panel{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .panel:last-child{border-right:none}
+  .ph{
+    padding:10px 13px 9px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
   }
-  .nav-brand span { color: var(--text-dim); font-weight: 400; font-size: 12px; letter-spacing: 1px; }
-  .nav-status { display: flex; align-items: center; gap: 16px; }
-  .status-dot {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; color: var(--text-dim);
-  }
-  .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--green); box-shadow: 0 0 8px var(--green);
-    animation: pulse 2s infinite;
-  }
-  .dot.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-  .dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-  .nav-right { display: flex; align-items: center; gap: 12px; }
-  .model-badge {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 20px; padding: 4px 12px; font-size: 11px;
-    cursor: pointer; transition: border-color .2s;
-  }
-  .model-badge:hover { border-color: var(--cyan); }
-  .model-badge .icon { font-size: 13px; }
-  #auto-route-toggle {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 11px; color: var(--text-dim); cursor: pointer;
-    padding: 4px 10px; border: 1px solid var(--border);
-    border-radius: 20px; background: var(--bg-card);
-    transition: all .2s;
-  }
-  #auto-route-toggle.active { border-color: var(--cyan); color: var(--cyan); }
-  .uptime { font-size: 11px; color: var(--text-muted); }
+  .ph-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  .ph-badge{font-size:10px;padding:2px 7px;border-radius:9px;background:var(--card2);color:var(--cyan);border:1px solid var(--border)}
+  .pb{flex:1;overflow-y:auto}
 
-  /* MAIN LAYOUT */
-  #main {
-    display: grid;
-    grid-template-columns: 230px 1fr 260px;
-    height: calc(100vh - 52px - 44px);
-    overflow: hidden;
+  /* AGENT TEAMS */
+  .team{
+    display:flex;align-items:center;gap:9px;padding:8px 13px;
+    border-bottom:1px solid #0d1f3c;cursor:pointer;transition:background .15s;
+    position:relative;
   }
+  .team:hover{background:var(--card)}
+  .ti{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .tn{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tr{font-size:10px;color:var(--dim)}
+  .ts{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .ts.on{background:var(--green);box-shadow:0 0 5px var(--green);animation:blink 2s infinite}
+  .db{
+    font-size:9px;padding:2px 5px;border-radius:4px;
+    background:transparent;border:1px solid var(--border);
+    color:var(--dim);cursor:pointer;transition:all .15s;display:none;
+  }
+  .team:hover .db{display:block}
+  .db:hover{border-color:var(--purple);color:#a78bfa}
 
-  /* PANELS */
-  .panel {
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden;
+  /* WORKFLOWS PANEL */
+  #workflows-panel{
+    padding:8px;display:flex;flex-direction:column;gap:6px;
   }
-  .panel:last-child { border-right: none; }
-  .panel-header {
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0;
+  .wf-card{
+    padding:11px 12px;border-radius:10px;
+    background:var(--card);border:1px solid var(--border);
+    cursor:pointer;transition:all .2s;
   }
-  .panel-title {
-    font-size: 10px; font-weight: 700; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--text-dim);
+  .wf-card:hover{border-color:var(--cyan2);transform:translateY(-1px)}
+  .wf-card.running{border-color:var(--amber);animation:wfpulse 1.5s infinite}
+  .wf-card.done{border-color:var(--green)}
+  @keyframes wfpulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px rgba(255,170,0,.25)}}
+  .wf-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .wf-icon{font-size:16px}
+  .wf-name{font-size:12px;font-weight:700;color:var(--text);flex:1}
+  .wf-status{font-size:9px;padding:2px 6px;border-radius:8px;background:var(--card2);color:var(--muted)}
+  .wf-status.running{background:#2a1a00;color:var(--amber)}
+  .wf-status.done{background:#002a18;color:var(--green)}
+  .wf-desc{font-size:10px;color:var(--dim);line-height:1.5;margin-bottom:8px}
+  .wf-steps{display:flex;flex-direction:column;gap:3px}
+  .wf-step{
+    display:flex;align-items:center;gap:6px;
+    font-size:10px;color:var(--muted);
   }
-  .panel-badge {
-    font-size: 10px; padding: 2px 7px; border-radius: 10px;
-    background: var(--bg-card2); color: var(--cyan);
-    border: 1px solid var(--border);
+  .wf-step.done{color:var(--green)}
+  .wf-step.active{color:var(--amber)}
+  .step-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .wf-step.done .step-dot{background:var(--green)}
+  .wf-step.active .step-dot{background:var(--amber);animation:blink 1s infinite}
+  .run-btn{
+    width:100%;margin-top:8px;padding:7px;border-radius:7px;
+    background:linear-gradient(135deg,var(--card2),#1a0a3c);
+    border:1px solid var(--border);color:var(--dim);
+    cursor:pointer;font-size:11px;transition:all .2s;
   }
-  .panel-body { flex: 1; overflow-y: auto; }
+  .run-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .run-btn.running{border-color:var(--amber);color:var(--amber);cursor:not-allowed}
 
-  /* AGENT TEAMS — LEFT PANEL */
-  #agents-panel {}
-  .agent-team {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 14px; cursor: pointer;
-    border-bottom: 1px solid #0d1f3c;
-    transition: background .15s;
-    position: relative;
+  /* CHAT */
+  #chat-msgs{
+    flex:1;overflow-y:auto;padding:12px;
+    display:flex;flex-direction:column;gap:9px;
   }
-  .agent-team:hover { background: var(--bg-card); }
-  .agent-team.active-task { background: #0d1f3c; }
-  .agent-icon {
-    width: 30px; height: 30px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0;
+  .msg{display:flex;gap:9px;align-items:flex-start;animation:msgIn .2s ease-out}
+  @keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .msg.user{flex-direction:row-reverse}
+  .av{
+    width:27px;height:27px;border-radius:7px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;
   }
-  .agent-info { flex: 1; min-width: 0; }
-  .agent-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .agent-role { font-size: 10px; color: var(--text-dim); }
-  .agent-meta { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-  .agent-count { font-size: 10px; color: var(--text-muted); }
-  .status-indicator {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--text-muted);
+  .msg.jarvis .av{background:linear-gradient(135deg,#0a2a5c,#1a4a8c);border:1px solid var(--cyan2)}
+  .msg.user .av{background:linear-gradient(135deg,#1a0a4c,#3a1a8c);border:1px solid var(--purple)}
+  .mc{max-width:80%}
+  .mm{font-size:10px;color:var(--muted);margin-bottom:3px}
+  .msg.user .mm{text-align:right}
+  .mb{padding:9px 12px;border-radius:11px;font-size:13px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+  .msg.jarvis .mb{background:var(--card);border:1px solid var(--border);border-top-left-radius:3px}
+  .msg.user .mb{background:linear-gradient(135deg,#1a0a4c,#2a1a6c);border:1px solid #3a2a8c;border-top-right-radius:3px}
+  .mtag{display:inline-block;margin-top:4px;font-size:9px;padding:1px 6px;border-radius:8px;background:var(--card2);color:var(--cyan2);border:1px solid var(--border)}
+  .typing{display:flex;gap:4px;align-items:center;padding:9px 12px}
+  .td{width:5px;height:5px;border-radius:50%;background:var(--cyan2);animation:td .8s infinite}
+  .td:nth-child(2){animation-delay:.15s}
+  .td:nth-child(3){animation-delay:.3s}
+  @keyframes td{0%,80%,100%{transform:scale(.8);opacity:.4}40%{transform:scale(1.1);opacity:1}}
+  #input-area{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
+  .chips{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap}
+  .chip{
+    font-size:10px;padding:3px 8px;border-radius:11px;
+    border:1px solid var(--border);background:var(--card);
+    color:var(--dim);cursor:pointer;transition:all .15s;
   }
-  .status-indicator.active { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
-  .dispatch-btn {
-    font-size: 9px; padding: 2px 6px; border-radius: 4px;
-    background: transparent; border: 1px solid var(--border);
-    color: var(--text-dim); cursor: pointer; transition: all .15s;
-    display: none;
+  .chip:hover{border-color:var(--cyan2);color:var(--cyan)}
+  .chip.sel{border-color:var(--cyan);color:var(--cyan);background:#001a2e}
+  .chip.auto{border-color:var(--purple);color:#a78bfa}
+  .chip.auto.sel{background:#1a0a3c}
+  .irow{display:flex;gap:7px;align-items:flex-end}
+  #mi{
+    flex:1;background:var(--card);border:1px solid var(--border);
+    border-radius:9px;padding:9px 13px;color:var(--text);
+    font-size:13px;font-family:var(--font);resize:none;outline:none;
+    transition:border-color .2s;min-height:40px;max-height:110px;
   }
-  .agent-team:hover .dispatch-btn { display: block; }
-  .dispatch-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  #mi:focus{border-color:var(--cyan2)}
+  #mi::placeholder{color:var(--muted)}
+  #sb{
+    width:40px;height:40px;border-radius:9px;flex-shrink:0;
+    background:linear-gradient(135deg,#0a3a5c,#0a5a8c);
+    border:1px solid var(--cyan2);color:var(--cyan);
+    cursor:pointer;font-size:15px;transition:all .2s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #sb:hover{box-shadow:0 0 14px var(--cyan2)}
+  #sb:disabled{opacity:.4;cursor:not-allowed}
 
-  /* CENTER PANEL — AI CHAT */
-  #chat-panel { border-right: 1px solid var(--border); }
-  #chat-messages {
-    flex: 1; overflow-y: auto; padding: 14px;
-    display: flex; flex-direction: column; gap: 10px;
+  /* CONNECTORS */
+  .csearch{padding:7px 11px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .csearch input{
+    width:100%;background:var(--card);border:1px solid var(--border);
+    border-radius:6px;padding:5px 9px;color:var(--text);font-size:11px;outline:none;
   }
-  .msg {
-    display: flex; gap: 10px; align-items: flex-start;
-    animation: msgIn .2s ease-out;
+  .csearch input:focus{border-color:var(--cyan2)}
+  .csearch input::placeholder{color:var(--muted)}
+  .clist{padding:6px 9px;display:flex;flex-direction:column;gap:2px}
+  .ci{
+    display:flex;align-items:center;gap:7px;padding:6px 7px;
+    border-radius:6px;cursor:pointer;transition:background .15s;
   }
-  @keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
-  .msg.user { flex-direction: row-reverse; }
-  .msg-avatar {
-    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
-  }
-  .msg.jarvis .msg-avatar { background: linear-gradient(135deg,#0a2a5c,#1a4a8c); border: 1px solid var(--cyan-dim); }
-  .msg.user .msg-avatar { background: linear-gradient(135deg,#1a0a4c,#3a1a8c); border: 1px solid var(--purple); }
-  .msg-content { max-width: 78%; }
-  .msg-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
-  .msg.user .msg-meta { text-align: right; }
-  .msg-bubble {
-    padding: 10px 13px; border-radius: 12px; font-size: 13px; line-height: 1.5;
-    white-space: pre-wrap; word-break: break-word;
-  }
-  .msg.jarvis .msg-bubble {
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-top-left-radius: 4px;
-  }
-  .msg.user .msg-bubble {
-    background: linear-gradient(135deg,#1a0a4c,#2a1a6c);
-    border: 1px solid #3a2a8c;
-    border-top-right-radius: 4px;
-  }
-  .model-tag {
-    display: inline-block; margin-top: 5px;
-    font-size: 9px; padding: 2px 7px; border-radius: 10px;
-    background: var(--bg-card2); color: var(--cyan-dim);
-    border: 1px solid var(--border);
-  }
-  .routing-info {
-    font-size: 10px; color: var(--text-muted); margin-bottom: 6px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .routing-arrow { color: var(--cyan); }
-  .typing-indicator {
-    display: flex; gap: 4px; align-items: center; padding: 10px 13px;
-  }
-  .typing-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--cyan-dim);
-    animation: typing .8s infinite;
-  }
-  .typing-dot:nth-child(2) { animation-delay: .15s; }
-  .typing-dot:nth-child(3) { animation-delay: .3s; }
-  @keyframes typing { 0%,80%,100%{transform:scale(.8);opacity:.4} 40%{transform:scale(1.1);opacity:1} }
-  #chat-input-area {
-    padding: 12px 14px; border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .model-selector-row {
-    display: flex; align-items: center; gap: 6px;
-    margin-bottom: 8px; flex-wrap: wrap;
-  }
-  .model-chip {
-    font-size: 10px; padding: 3px 9px; border-radius: 12px;
-    border: 1px solid var(--border); background: var(--bg-card);
-    color: var(--text-dim); cursor: pointer; transition: all .15s;
-    white-space: nowrap;
-  }
-  .model-chip:hover { border-color: var(--cyan-dim); color: var(--cyan); }
-  .model-chip.selected { border-color: var(--cyan); color: var(--cyan); background: #001a2e; }
-  .model-chip.auto { border-color: var(--purple); color: #a78bfa; }
-  .model-chip.auto.selected { background: #1a0a3c; }
-  .input-row { display: flex; gap: 8px; }
-  #msg-input {
-    flex: 1; background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 14px; color: var(--text);
-    font-size: 13px; font-family: var(--font); resize: none; outline: none;
-    transition: border-color .2s; min-height: 42px; max-height: 120px;
-  }
-  #msg-input:focus { border-color: var(--cyan-dim); }
-  #msg-input::placeholder { color: var(--text-muted); }
-  #send-btn {
-    width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
-    background: linear-gradient(135deg,#0a3a5c,#0a5a8c);
-    border: 1px solid var(--cyan-dim); color: var(--cyan);
-    cursor: pointer; font-size: 16px; transition: all .2s;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #send-btn:hover { background: linear-gradient(135deg,#0a5a8c,#0a7abc); box-shadow: 0 0 15px var(--cyan-dim); }
-  #send-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .ci:hover{background:var(--card)}
+  .ci.off{opacity:.4}
+  .cico{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+  .cn{font-size:11px;color:var(--text);flex:1}
+  .ct{font-size:9px;color:var(--muted);background:var(--card2);padding:1px 4px;border-radius:5px}
+  .csd{width:4px;height:4px;border-radius:50%;background:var(--green);flex-shrink:0}
+  .ci.off .csd{background:var(--muted)}
 
-  /* CONNECTOR HUB — RIGHT PANEL */
-  #connector-panel {}
-  .connector-search {
-    padding: 8px 12px; border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+  /* STATUSBAR */
+  #sb2{
+    height:42px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;background:var(--bg2);border-top:1px solid var(--border);
+    font-size:11px;color:var(--dim);flex-shrink:0;
   }
-  .connector-search input {
-    width: 100%; background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 7px; padding: 6px 10px; color: var(--text);
-    font-size: 11px; outline: none; transition: border-color .2s;
+  .sg{display:flex;align-items:center;gap:14px}
+  .si{display:flex;align-items:center;gap:4px}
+  .sv{color:var(--cyan);font-weight:600}
+  .qa{display:flex;gap:6px}
+  .qb{
+    font-size:10px;padding:3px 9px;border-radius:5px;
+    background:var(--card);border:1px solid var(--border);
+    color:var(--dim);cursor:pointer;transition:all .15s;
   }
-  .connector-search input:focus { border-color: var(--cyan-dim); }
-  .connector-search input::placeholder { color: var(--text-muted); }
-  .connector-grid {
-    padding: 8px 10px; display: flex; flex-direction: column; gap: 3px;
-  }
-  .connector-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 8px; border-radius: 7px; cursor: pointer;
-    transition: background .15s;
-  }
-  .connector-item:hover { background: var(--bg-card); }
-  .connector-item.disconnected { opacity: .45; }
-  .connector-logo {
-    width: 24px; height: 24px; border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; flex-shrink: 0;
-  }
-  .connector-name { font-size: 11px; color: var(--text); flex: 1; }
-  .connector-tools {
-    font-size: 10px; color: var(--text-muted);
-    background: var(--bg-card2); padding: 1px 5px; border-radius: 6px;
-  }
-  .connector-status-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--green); flex-shrink: 0;
-  }
-  .connector-item.disconnected .connector-status-dot { background: var(--text-muted); }
+  .qb:hover{border-color:var(--cyan);color:var(--cyan)}
+  .qb.p{border-color:var(--purple);color:#a78bfa}
 
-  /* BOTTOM STATUS BAR */
-  #statusbar {
-    height: 44px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px;
-    background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--text-dim);
-    flex-shrink: 0;
-  }
-  .stat-group { display: flex; align-items: center; gap: 16px; }
-  .stat-item { display: flex; align-items: center; gap: 5px; }
-  .stat-value { color: var(--cyan); font-weight: 600; }
-  .stat-label { color: var(--text-muted); }
-  .quick-actions { display: flex; gap: 8px; }
-  .qa-btn {
-    font-size: 10px; padding: 4px 10px; border-radius: 6px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    color: var(--text-dim); cursor: pointer; transition: all .15s;
-  }
-  .qa-btn:hover { border-color: var(--cyan); color: var(--cyan); }
-  .qa-btn.primary { border-color: var(--purple); color: #a78bfa; }
-  .scan-line {
-    position: fixed; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg,transparent,var(--cyan),transparent);
-    animation: scan 4s linear infinite; opacity: .3;
-  }
-  @keyframes scan { from{top:52px} to{top:calc(100vh - 44px)} }
-  .glow-border {
-    box-shadow: inset 0 0 30px rgba(0,212,255,0.03);
-  }
+  /* SCANLINE */
+  .sl{position:fixed;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:scan 5s linear infinite;opacity:.2;pointer-events:none}
+  @keyframes scan{from{top:52px}to{top:calc(100vh - 42px)}}
 
-  /* SYSTEM MODAL */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 200; backdrop-filter: blur(4px);
-  }
-  .modal {
-    background: var(--bg-secondary); border: 1px solid var(--border);
-    border-radius: 14px; padding: 24px; width: 500px; max-width: 95vw;
-    max-height: 80vh; overflow-y: auto;
-  }
-  .modal h2 { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
-  .modal-close {
-    float: right; background: none; border: none; color: var(--text-dim);
-    cursor: pointer; font-size: 18px;
-  }
-  .model-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  }
-  .model-card {
-    padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
-    background: var(--bg-card); cursor: pointer; transition: all .15s;
-  }
-  .model-card:hover { border-color: var(--cyan-dim); }
-  .model-card.selected { border-color: var(--cyan); background: #001a2e; }
-  .model-card-name { font-size: 12px; font-weight: 600; }
-  .model-card-provider { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-  .model-card-strengths { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
-  .strength-tag { font-size: 9px; padding: 1px 5px; border-radius: 4px; background: var(--bg-card2); color: var(--text-muted); }
-  .key-status { float: right; font-size: 9px; margin-top: 2px; }
-  .key-status.live { color: var(--green); }
-  .key-status.demo { color: var(--amber); }
+  /* MODALS */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:22px;width:480px;max-width:95vw;max-height:80vh;overflow-y:auto}
+  .modal h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:14px}
+  .mc2{float:right;background:none;border:none;color:var(--dim);cursor:pointer;font-size:17px}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .mcard{padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
+  .mcard:hover{border-color:var(--cyan2)}
+  .mcard.sel{border-color:var(--cyan);background:#001a2e}
+  .mcard-name{font-size:12px;font-weight:600}
+  .mcard-prov{font-size:10px;color:var(--dim);margin-top:1px}
+  .mcard-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+  .stag{font-size:9px;padding:1px 4px;border-radius:3px;background:var(--card2);color:var(--muted)}
+  .ks{float:right;font-size:9px;margin-top:1px}
+  .ks.live{color:var(--green)}
+  .ks.demo{color:var(--amber)}
+
+  /* WORKFLOW MODAL */
+  .wm-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px;font-family:var(--font);resize:vertical;outline:none;min-height:70px;margin-bottom:10px}
+  .wm-input:focus{border-color:var(--cyan2)}
+  .wm-sub{width:100%;padding:9px;border-radius:8px;background:linear-gradient(135deg,var(--card2),#1a0a3c);border:1px solid var(--purple);color:#a78bfa;cursor:pointer;font-size:13px;transition:all .2s}
+  .wm-sub:hover{box-shadow:0 0 14px rgba(124,58,237,.3)}
+
+  /* DISPATCH */
+  .disp-area textarea{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-size:13px;font-family:var(--font);resize:vertical;outline:none;min-height:70px;margin-bottom:10px}
+  .disp-area textarea:focus{border-color:var(--cyan2)}
+  .disp-sub{width:100%;padding:9px;border-radius:8px;background:linear-gradient(135deg,var(--card2),#1a0a3c);border:1px solid var(--purple);color:#a78bfa;cursor:pointer;font-size:13px;transition:all .2s}
 
   /* TOAST */
-  #toast {
-    position: fixed; bottom: 60px; right: 20px; z-index: 300;
-    padding: 10px 16px; border-radius: 9px; font-size: 12px;
-    background: var(--bg-card2); border: 1px solid var(--border);
-    color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,.4);
-    transform: translateY(10px); opacity: 0;
-    transition: all .25s; pointer-events: none;
-  }
-  #toast.show { transform: none; opacity: 1; }
+  #toast{position:fixed;bottom:55px;right:18px;z-index:300;padding:9px 14px;border-radius:8px;font-size:11px;background:var(--card2);border:1px solid var(--border);color:var(--text);box-shadow:0 4px 18px rgba(0,0,0,.4);transform:translateY(8px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px}
+  #toast.show{transform:none;opacity:1}
 
   /* WELCOME */
-  .welcome-msg {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 30px; text-align: center;
-  }
-  .welcome-icon { font-size: 48px; margin-bottom: 16px; }
-  .welcome-title { font-size: 18px; font-weight: 700; color: var(--cyan); margin-bottom: 8px; }
-  .welcome-sub { font-size: 12px; color: var(--text-dim); line-height: 1.6; max-width: 300px; }
-  .quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; justify-content: center; }
-  .qp-btn {
-    font-size: 11px; padding: 6px 12px; border-radius: 20px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    color: var(--text-dim); cursor: pointer; transition: all .15s;
-  }
-  .qp-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
+  .welcome-icon{font-size:44px;margin-bottom:14px}
+  .welcome-title{font-size:20px;font-weight:800;color:var(--cyan);letter-spacing:3px;margin-bottom:6px;text-shadow:0 0 20px var(--cyan2)}
+  .welcome-sub{font-size:12px;color:var(--dim);line-height:1.7;max-width:280px}
+  .qps{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px;justify-content:center}
+  .qpb{font-size:11px;padding:6px 11px;border-radius:18px;background:var(--card);border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:all .15s}
+  .qpb:hover{border-color:var(--cyan);color:var(--cyan)}
 
-  /* DISPATCH MODAL */
-  .dispatch-area {
-    padding: 14px;
+  /* VOICE WAVE */
+  #voice-wave{
+    position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
+    display:none;align-items:center;gap:3px;
+    background:var(--card2);border:1px solid var(--border);
+    border-radius:20px;padding:8px 16px;z-index:150;
   }
-  .dispatch-area textarea {
-    width: 100%; background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px; color: var(--text); font-size: 13px;
-    font-family: var(--font); resize: vertical; outline: none; min-height: 80px;
-    margin-bottom: 10px;
-  }
-  .dispatch-area textarea:focus { border-color: var(--cyan-dim); }
-  .dispatch-submit {
-    width: 100%; padding: 10px; border-radius: 8px;
-    background: linear-gradient(135deg,var(--bg-card2),#1a0a4c);
-    border: 1px solid var(--purple); color: #a78bfa;
-    cursor: pointer; font-size: 13px; transition: all .2s;
-  }
-  .dispatch-submit:hover { box-shadow: 0 0 15px rgba(124,58,237,.3); }
+  #voice-wave.show{display:flex}
+  #voice-wave span{font-size:11px;color:var(--amber);margin-right:8px}
+  .wave-bar{width:3px;border-radius:2px;background:var(--amber);animation:wave 0.5s ease-in-out infinite alternate}
+  .wave-bar:nth-child(2){animation-delay:.1s;height:8px}
+  .wave-bar:nth-child(3){animation-delay:.2s;height:14px}
+  .wave-bar:nth-child(4){animation-delay:.3s;height:10px}
+  .wave-bar:nth-child(5){animation-delay:.4s;height:6px}
+  .wave-bar:nth-child(6){animation-delay:.5s;height:12px}
+  @keyframes wave{from{height:4px}to{height:16px}}
 
-  @media (max-width: 768px) {
-    #main { grid-template-columns: 1fr; }
-    #agents-panel, #connector-panel { display: none; }
-  }
+  @media(max-width:768px){#main{grid-template-columns:1fr}#left-panel,#right-panel{display:none}}
 </style>
 </head>
 <body>
+<div class="sl"></div>
 
-<div class="scan-line"></div>
-
-<!-- TOP NAV -->
+<!-- NAV -->
 <nav id="nav">
-  <div class="nav-brand">
-    <span>⚡</span>
-    JARVIS CANS
-    <span>AUTONOMOUS AI COMMAND CENTER</span>
+  <div class="brand">
+    <div>
+      <div class="brand-name">JARVIS</div>
+      <div class="brand-sub">Autonomous AI Command Center</div>
+    </div>
   </div>
-  <div class="nav-status">
-    <div class="status-dot"><div class="dot"></div>SYSTEM ONLINE</div>
-    <div class="status-dot"><div class="dot amber" id="backend-dot"></div><span id="backend-status">CONNECTING...</span></div>
-    <div class="status-dot"><div class="dot"></div><span id="model-count">24 MODELS</span></div>
-    <div class="status-dot"><div class="dot"></div><span id="connector-count">35 CONNECTORS</span></div>
+  <div class="nav-center">
+    <div class="status-chip"><div class="dot"></div>SYSTEM ONLINE</div>
+    <div class="status-chip"><div class="dot amber" id="be-dot"></div><span id="be-txt">CONNECTING</span></div>
+    <div class="status-chip"><div class="dot"></div><span id="m-count">24 MODELS</span></div>
+    <div class="status-chip"><div class="dot"></div><span id="c-count">35 CONNECTORS</span></div>
   </div>
   <div class="nav-right">
-    <div id="auto-route-toggle" class="active" onclick="toggleAutoRoute()">
-      <span>⚡</span> AUTO-ROUTE
-    </div>
-    <div class="model-badge" onclick="openModelModal()">
-      <span class="icon" id="selected-model-icon">🧠</span>
-      <span id="selected-model-name">Claude Sonnet</span>
-      <span style="color:var(--text-muted)">▾</span>
-    </div>
-    <div class="uptime">UP <span id="uptime-display">0s</span></div>
+    <div id="wake-status">🎙 Say "Jarvis"</div>
+    <button id="voice-btn" class="nav-btn" onclick="toggleVoice()">🎙 Voice OFF</button>
+    <div class="nav-btn active" id="ar-btn" onclick="toggleAR()">⚡ AUTO-ROUTE</div>
+    <div class="nav-btn" onclick="openModelModal()" id="sel-model-btn">🧠 Claude Sonnet ▾</div>
+    <div style="font-size:10px;color:var(--muted)">UP <span id="uptime">0s</span></div>
   </div>
 </nav>
 
-<!-- MAIN LAYOUT -->
+<!-- MAIN -->
 <div id="main">
 
-  <!-- LEFT: AGENT TEAMS -->
-  <div class="panel glow-border" id="agents-panel">
-    <div class="panel-header">
-      <span class="panel-title">Agent Teams</span>
-      <span class="panel-badge" id="agents-badge">12 Teams</span>
+  <!-- LEFT: TEAMS -->
+  <div class="panel" id="left-panel">
+    <div class="ph">
+      <span class="ph-title">Agent Teams</span>
+      <span class="ph-badge" id="teams-badge">12 Teams</span>
     </div>
-    <div class="panel-body" id="agents-list"></div>
+    <div class="pb" id="teams-list"></div>
   </div>
 
-  <!-- CENTER: AI CHAT -->
-  <div class="panel" id="chat-panel" style="display:flex;flex-direction:column;">
-    <div class="panel-header">
-      <span class="panel-title">AI Command Interface</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <span id="routing-badge" style="font-size:10px;color:var(--cyan-dim);">⚡ Auto-routing active</span>
-        <button class="qa-btn" onclick="clearChat()" style="padding:2px 8px;font-size:10px;">Clear</button>
+  <!-- CENTER: CHAT -->
+  <div class="panel" id="chat-panel" style="display:flex;flex-direction:column">
+    <div class="ph">
+      <span class="ph-title">AI Command Interface</span>
+      <div style="display:flex;gap:7px;align-items:center">
+        <span id="route-badge" style="font-size:10px;color:var(--cyan2)">⚡ Auto-routing</span>
+        <button class="qb" onclick="clearChat()" style="padding:2px 7px;font-size:10px">Clear</button>
       </div>
     </div>
-    <div id="chat-messages">
-      <div class="welcome-msg" id="welcome-screen">
+    <div id="chat-msgs">
+      <div class="welcome" id="welcome">
         <div class="welcome-icon">⚡</div>
-        <div class="welcome-title">JARVIS CANS ONLINE</div>
+        <div class="welcome-title">JARVIS ONLINE</div>
         <div class="welcome-sub">
-          24 AI models · 35+ connectors · 12 agent teams<br/>
-          Auto-routing picks the best model for your task.
+          Good to have you back, Captain.<br/>
+          24 models · 35+ connectors · 12 agent teams · 5 workflows.<br/>
+          Say <strong style="color:var(--amber)">"Jarvis"</strong> or type a command.
         </div>
-        <div class="quick-prompts">
-          <button class="qp-btn" onclick="quickPrompt('Write Python code to parse a CSV file')">Write Python code</button>
-          <button class="qp-btn" onclick="quickPrompt('Create a marketing email campaign plan')">Marketing campaign</button>
-          <button class="qp-btn" onclick="quickPrompt('Analyze our sales pipeline and suggest improvements')">Sales analysis</button>
-          <button class="qp-btn" onclick="quickPrompt('What are the latest AI trends in 2025?')">AI research</button>
-          <button class="qp-btn" onclick="quickPrompt('Create a social media content calendar for this week')">Social media plan</button>
-          <button class="qp-btn" onclick="quickPrompt('Write a product description for a SaaS startup')">Product copy</button>
+        <div class="qps">
+          <button class="qpb" onclick="qp('Good morning Jarvis, brief me for today')">☀️ Morning Brief</button>
+          <button class="qpb" onclick="qp('Run social media workflow')">📱 Social Media</button>
+          <button class="qpb" onclick="qp('Start sales outreach workflow')">💼 Sales Outreach</button>
+          <button class="qpb" onclick="qp('Run content pipeline workflow')">✍️ Content Pipeline</button>
+          <button class="qpb" onclick="qp('Generate finance report')">💰 Finance Report</button>
+          <button class="qpb" onclick="qp('What can you do, Jarvis?')">⚡ Capabilities</button>
         </div>
       </div>
     </div>
-    <div id="chat-input-area">
-      <div class="model-selector-row" id="model-chips"></div>
-      <div class="input-row">
-        <textarea id="msg-input" placeholder="Command JARVIS… (auto-routes to the best AI model)" rows="1"
-          onkeydown="handleKey(event)"></textarea>
-        <button id="send-btn" onclick="sendMessage()">➤</button>
+    <div id="input-area">
+      <div class="chips" id="chips-row"></div>
+      <div class="irow">
+        <textarea id="mi" placeholder="Command Jarvis, Captain… (say 'Jarvis' to activate voice)" rows="1" onkeydown="handleKey(event)"></textarea>
+        <button id="sb" onclick="send()">➤</button>
       </div>
     </div>
   </div>
 
-  <!-- RIGHT: CONNECTOR HUB -->
-  <div class="panel" id="connector-panel">
-    <div class="panel-header">
-      <span class="panel-title">Connector Hub</span>
-      <span class="panel-badge" id="connector-badge">Loading...</span>
+  <!-- RIGHT: CONNECTORS + WORKFLOWS -->
+  <div class="panel" id="right-panel" style="display:flex;flex-direction:column">
+    <!-- WORKFLOWS -->
+    <div class="ph">
+      <span class="ph-title">Workflows</span>
+      <span class="ph-badge">5 Active</span>
     </div>
-    <div class="connector-search">
-      <input type="text" id="connector-search" placeholder="Search connectors…" oninput="filterConnectors()"/>
+    <div style="border-bottom:1px solid var(--border);flex-shrink:0;overflow-y:auto;max-height:320px">
+      <div id="workflows-panel"></div>
     </div>
-    <div class="panel-body">
-      <div class="connector-grid" id="connectors-list"></div>
+    <!-- CONNECTORS -->
+    <div class="ph" style="flex-shrink:0">
+      <span class="ph-title">Connectors</span>
+      <span class="ph-badge" id="conn-badge">Loading…</span>
+    </div>
+    <div class="csearch" style="flex-shrink:0">
+      <input type="text" placeholder="Search connectors…" oninput="filterConn()"/>
+    </div>
+    <div class="pb">
+      <div class="clist" id="conn-list"></div>
     </div>
   </div>
 </div>
 
-<!-- BOTTOM STATUS BAR -->
-<div id="statusbar">
-  <div class="stat-group">
-    <div class="stat-item">
-      <span class="stat-label">MODELS</span>
-      <span class="stat-value" id="stat-models">24</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">CONNECTORS</span>
-      <span class="stat-value" id="stat-connectors">35</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">AGENTS</span>
-      <span class="stat-value" id="stat-agents">32</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">TOOLS</span>
-      <span class="stat-value" id="stat-tools">—</span>
-    </div>
+<!-- STATUSBAR -->
+<div id="sb2">
+  <div class="sg">
+    <div class="si"><span style="color:var(--muted)">MODELS</span>&nbsp;<span class="sv" id="s-models">24</span></div>
+    <div class="si"><span style="color:var(--muted)">CONNECTORS</span>&nbsp;<span class="sv" id="s-conn">35</span></div>
+    <div class="si"><span style="color:var(--muted)">AGENTS</span>&nbsp;<span class="sv" id="s-agents">32</span></div>
+    <div class="si"><span style="color:var(--muted)">TOOLS</span>&nbsp;<span class="sv" id="s-tools">—</span></div>
   </div>
-  <div class="quick-actions">
-    <button class="qa-btn" onclick="quickPrompt('Run a full system health check')">🔍 Health Check</button>
-    <button class="qa-btn" onclick="quickPrompt('Give me a summary of all active tasks across all agent teams')">📊 Agent Report</button>
-    <button class="qa-btn primary" onclick="openModelModal()">🤖 All Models</button>
-    <button class="qa-btn primary" onclick="quickPrompt('What can you do with all the connected services?')">⚡ Capabilities</button>
+  <div class="qa">
+    <button class="qb" onclick="runWorkflow('morning-briefing')">☀️ Brief Me</button>
+    <button class="qb" onclick="runWorkflow('finance-report')">💰 Finance</button>
+    <button class="qb p" onclick="openModelModal()">🤖 Models</button>
+    <button class="qb p" onclick="qp('Jarvis, full system status report')">📊 Status</button>
   </div>
-  <div>
-    <span style="color:var(--text-muted);">JARVIS CANS v1.0</span>
-    &nbsp;·&nbsp;
-    <span style="color:var(--text-muted);">Syed Abrar (King)</span>
-  </div>
+  <div style="font-size:10px;color:var(--muted)">JARVIS v2.0 &nbsp;·&nbsp; Captain Syed Abrar</div>
 </div>
 
-<!-- MODEL SELECTION MODAL -->
-<div id="model-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModelModal()">
+<!-- VOICE WAVE -->
+<div id="voice-wave">
+  <span id="vw-label">Listening…</span>
+  <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+  <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+</div>
+
+<!-- MODEL MODAL -->
+<div id="mm" class="overlay" style="display:none" onclick="if(event.target===this)closeMM()">
   <div class="modal">
-    <button class="modal-close" onclick="closeModelModal()">✕</button>
+    <button class="mc2" onclick="closeMM()">✕</button>
     <h2>⚡ AI Models — 24 Total</h2>
-    <div class="model-grid" id="model-grid"></div>
+    <div class="mgrid" id="mm-grid"></div>
   </div>
 </div>
 
-<!-- AGENT DISPATCH MODAL -->
-<div id="dispatch-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeDispatch()">
-  <div class="modal" style="width:400px;">
-    <button class="modal-close" onclick="closeDispatch()">✕</button>
-    <h2 id="dispatch-title">Dispatch Task</h2>
-    <div class="dispatch-area">
-      <textarea id="dispatch-task" placeholder="Describe the task for this agent team…"></textarea>
-      <button class="dispatch-submit" onclick="dispatchTask()">⚡ Dispatch Task</button>
+<!-- DISPATCH MODAL -->
+<div id="dm" class="overlay" style="display:none" onclick="if(event.target===this)closeDM()">
+  <div class="modal" style="width:380px">
+    <button class="mc2" onclick="closeDM()">✕</button>
+    <h2 id="dm-title">Dispatch Task</h2>
+    <div class="disp-area">
+      <textarea id="dm-task" placeholder="Describe the task…"></textarea>
+      <button class="disp-sub" onclick="dispatchTask()">⚡ Dispatch to Agent Team</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
+<!-- WORKFLOW INPUT MODAL -->
+<div id="wm" class="overlay" style="display:none" onclick="if(event.target===this)closeWM()">
+  <div class="modal" style="width:400px">
+    <button class="mc2" onclick="closeWM()">✕</button>
+    <h2 id="wm-title">Run Workflow</h2>
+    <p id="wm-desc" style="font-size:12px;color:var(--dim);margin-bottom:12px"></p>
+    <textarea class="wm-input" id="wm-input" placeholder="Additional context or topic (optional)…"></textarea>
+    <button class="wm-sub" onclick="confirmWorkflow()">⚡ Launch Workflow</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────────────
-const API = '/api';  // backend proxy via nginx
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const API = '/api';
 let autoRoute = true;
-let selectedModel = 'claude-sonnet';
-let currentDispatchTeam = null;
-let conversationHistory = [];
-let startTime = Date.now();
-let allConnectors = [];
+let selModel = 'claude-sonnet';
+let selModelName = 'Claude Sonnet';
+let selModelIcon = '🧠';
+let history = [];
 let allModels = [];
+let allConns = [];
+let dispTeam = null;
+let pendingWF = null;
+let startTime = Date.now();
+let voiceEnabled = false;
+let recognition = null;
+let synthesis = window.speechSynthesis;
+let wakeActive = false;
+let wakeRecognition = null;
 
-// ── MODELS DATA (fallback if backend offline) ────────────────────────────────
-const MODELS_FALLBACK = [
-  { key:'claude-sonnet', name:'Claude Sonnet 4.6', provider:'anthropic', icon:'🧠', color:'#d97706', strengths:['code','reasoning','analysis'] },
-  { key:'claude-opus', name:'Claude Opus 4.7', provider:'anthropic', icon:'🧠', color:'#b45309', strengths:['complex-reasoning','research'] },
-  { key:'gpt-4o', name:'GPT-4o', provider:'openai', icon:'⚡', color:'#16a34a', strengths:['general','vision','code'] },
-  { key:'gpt-4o-mini', name:'GPT-4o Mini', provider:'openai', icon:'⚡', color:'#15803d', strengths:['fast','general'] },
-  { key:'gemini-pro', name:'Gemini 1.5 Pro', provider:'google', icon:'💎', color:'#2563eb', strengths:['research','multimodal'] },
-  { key:'gemini-flash', name:'Gemini Flash', provider:'google', icon:'💎', color:'#1d4ed8', strengths:['fast','multimodal'] },
-  { key:'deepseek-v3', name:'DeepSeek V3', provider:'deepseek', icon:'🔬', color:'#7c3aed', strengths:['code','math'] },
-  { key:'deepseek-v4-pro', name:'DeepSeek V4 Pro', provider:'deepseek', icon:'🔬', color:'#6d28d9', strengths:['reasoning','research'] },
-  { key:'deepseek-v4-flash', name:'DeepSeek V4 Flash', provider:'deepseek', icon:'🔬', color:'#5b21b6', strengths:['fast','code'] },
-  { key:'minimax', name:'MiniMax m.2.7', provider:'minimax', icon:'🌊', color:'#0891b2', strengths:['chinese','long-context'] },
-  { key:'glm-4-7', name:'GLM-4.7', provider:'zhipuai', icon:'🌐', color:'#0e7490', strengths:['chinese','general'] },
-  { key:'glm-5-1', name:'GLM-5.1', provider:'zhipuai', icon:'🌐', color:'#155e75', strengths:['chinese','code'] },
-  { key:'qwen-turbo', name:'Qwen Turbo', provider:'qwen', icon:'🌸', color:'#b45309', strengths:['fast','chinese'] },
-  { key:'qwen-image', name:'Qwen Image Edit', provider:'qwen', icon:'🎨', color:'#92400e', strengths:['image-generation'] },
-  { key:'mistral-large', name:'Mistral Large', provider:'mistral', icon:'🌪️', color:'#be185d', strengths:['multilingual','code'] },
-  { key:'kimi-k2', name:'Kimi-k2.6', provider:'moonshot', icon:'🌙', color:'#9d174d', strengths:['long-context','chinese'] },
-  { key:'llama-3-3', name:'Llama 3.3-70B', provider:'meta', icon:'🦙', color:'#1e40af', strengths:['fast','open-source'] },
-  { key:'llama-4-scout', name:'Llama 4-Scout', provider:'meta', icon:'🦙', color:'#1e3a8a', strengths:['multimodal','fast'] },
-  { key:'llama-4', name:'Llama 4', provider:'meta', icon:'🦙', color:'#1e3a8a', strengths:['advanced','multimodal'] },
-  { key:'nvidia-nim', name:'NVIDIA NIM', provider:'nvidia', icon:'🖥️', color:'#76b900', strengths:['technical','scientific'] },
-  { key:'elevenlabs', name:'ElevenLabs Voice', provider:'elevenlabs', icon:'🎙️', color:'#6366f1', strengths:['voice','tts'] },
-  { key:'whisper', name:'Whisper STT', provider:'openai', icon:'🎤', color:'#14532d', strengths:['transcription','stt'] },
-  { key:'dalle-3', name:'DALL-E 3', provider:'openai', icon:'🎨', color:'#065f46', strengths:['image-generation','art'] },
-  { key:'nvidia-asd', name:'NVIDIA Speaker Det.', provider:'nvidia', icon:'🖥️', color:'#608000', strengths:['audio','detection'] },
+// ─── WORKFLOW DEFINITIONS ────────────────────────────────────────────────────
+const WORKFLOWS = [
+  {
+    id: 'morning-briefing',
+    name: 'Morning Briefing',
+    icon: '☀️',
+    desc: 'Calendar · Tasks · Emails · Weather · News',
+    steps: ['Fetch calendar events','Fetch today\'s tasks','Summarise emails','Generate briefing','Speak to Captain'],
+    inputLabel: null,
+  },
+  {
+    id: 'social-post',
+    name: 'Social Media Post',
+    icon: '📱',
+    desc: 'Write + post to all platforms via Canva/Klaviyo',
+    steps: ['Generate platform content','Create visuals prompt','Schedule Instagram','Schedule LinkedIn','Schedule Twitter/X'],
+    inputLabel: 'What topic / product to post about?',
+  },
+  {
+    id: 'sales-outreach',
+    name: 'Sales Outreach',
+    icon: '💼',
+    desc: 'Find leads → personalise → send via HubSpot/Apollo',
+    steps: ['Find target leads via Apollo','Personalise email copy','Load to HubSpot sequence','Send outreach email','Schedule follow-up'],
+    inputLabel: 'Target audience or company type?',
+  },
+  {
+    id: 'content-pipeline',
+    name: 'Content Pipeline',
+    icon: '✍️',
+    desc: 'Write → publish to Notion + Sanity + website',
+    steps: ['Generate content with Claude','Format for Notion','Publish to Sanity CMS','Update website','Notify via Slack'],
+    inputLabel: 'Topic or content brief?',
+  },
+  {
+    id: 'finance-report',
+    name: 'Finance Report',
+    icon: '💰',
+    desc: 'Stripe + Zoho Books → AI summary → Slack report',
+    steps: ['Pull Stripe revenue data','Pull Zoho Books data','Analyse with Claude','Generate PDF summary','Send to Slack'],
+    inputLabel: null,
+  },
 ];
 
-const CONNECTORS_FALLBACK = [
+const wfState = {};
+WORKFLOWS.forEach(w => wfState[w.id] = { status: 'idle', stepsDone: 0 });
+
+// ─── MODELS FALLBACK ─────────────────────────────────────────────────────────
+const MODELS_FB = [
+  {key:'claude-sonnet',name:'Claude Sonnet 4.6',provider:'anthropic',icon:'🧠',color:'#d97706',strengths:['code','reasoning','analysis'],hasKey:false},
+  {key:'claude-opus',name:'Claude Opus 4.7',provider:'anthropic',icon:'🧠',color:'#b45309',strengths:['complex-reasoning','research'],hasKey:false},
+  {key:'gpt-4o',name:'GPT-4o',provider:'openai',icon:'⚡',color:'#16a34a',strengths:['general','vision','code'],hasKey:false},
+  {key:'gpt-4o-mini',name:'GPT-4o Mini',provider:'openai',icon:'⚡',color:'#15803d',strengths:['fast','general'],hasKey:false},
+  {key:'gemini-pro',name:'Gemini 1.5 Pro',provider:'google',icon:'💎',color:'#2563eb',strengths:['research','multimodal'],hasKey:false},
+  {key:'gemini-flash',name:'Gemini Flash',provider:'google',icon:'💎',color:'#1d4ed8',strengths:['fast','multimodal'],hasKey:false},
+  {key:'deepseek-v3',name:'DeepSeek V3',provider:'deepseek',icon:'🔬',color:'#7c3aed',strengths:['code','math'],hasKey:false},
+  {key:'deepseek-v4-pro',name:'DeepSeek V4 Pro',provider:'deepseek',icon:'🔬',color:'#6d28d9',strengths:['reasoning'],hasKey:false},
+  {key:'deepseek-v4-flash',name:'DeepSeek V4 Flash',provider:'deepseek',icon:'🔬',color:'#5b21b6',strengths:['fast','code'],hasKey:false},
+  {key:'minimax',name:'MiniMax m.2.7',provider:'minimax',icon:'🌊',color:'#0891b2',strengths:['chinese','long-context'],hasKey:false},
+  {key:'glm-4-7',name:'GLM-4.7',provider:'zhipuai',icon:'🌐',color:'#0e7490',strengths:['chinese','general'],hasKey:false},
+  {key:'glm-5-1',name:'GLM-5.1',provider:'zhipuai',icon:'🌐',color:'#155e75',strengths:['chinese','code'],hasKey:false},
+  {key:'qwen-turbo',name:'Qwen Turbo',provider:'qwen',icon:'🌸',color:'#b45309',strengths:['fast','chinese'],hasKey:false},
+  {key:'qwen-image',name:'Qwen Image Edit',provider:'qwen',icon:'🎨',color:'#92400e',strengths:['image'],hasKey:false},
+  {key:'mistral-large',name:'Mistral Large',provider:'mistral',icon:'🌪️',color:'#be185d',strengths:['multilingual','code'],hasKey:false},
+  {key:'kimi-k2',name:'Kimi-k2.6',provider:'moonshot',icon:'🌙',color:'#9d174d',strengths:['long-context'],hasKey:false},
+  {key:'llama-3-3',name:'Llama 3.3-70B',provider:'meta',icon:'🦙',color:'#1e40af',strengths:['fast','open-source'],hasKey:false},
+  {key:'llama-4-scout',name:'Llama 4-Scout',provider:'meta',icon:'🦙',color:'#1e3a8a',strengths:['multimodal','fast'],hasKey:false},
+  {key:'llama-4',name:'Llama 4',provider:'meta',icon:'🦙',color:'#1e3a8a',strengths:['advanced'],hasKey:false},
+  {key:'nvidia-nim',name:'NVIDIA NIM',provider:'nvidia',icon:'🖥️',color:'#76b900',strengths:['technical'],hasKey:false},
+  {key:'elevenlabs',name:'ElevenLabs Voice',provider:'elevenlabs',icon:'🎙️',color:'#6366f1',strengths:['voice'],hasKey:false},
+  {key:'whisper',name:'Whisper STT',provider:'openai',icon:'🎤',color:'#14532d',strengths:['transcription'],hasKey:false},
+  {key:'dalle-3',name:'DALL-E 3',provider:'openai',icon:'🎨',color:'#065f46',strengths:['image-generation'],hasKey:false},
+  {key:'nvidia-asd',name:'NVIDIA Speaker Det.',provider:'nvidia',icon:'🖥️',color:'#608000',strengths:['audio'],hasKey:false},
+];
+
+const CONNS_FB = [
   {id:'adobe',name:'Adobe Creative',icon:'🎨',tools:57,status:'connected',color:'#ff0000'},
   {id:'airtable',name:'Airtable',icon:'🗂️',tools:21,status:'connected',color:'#fcb400'},
   {id:'apollo',name:'Apollo.io',icon:'🎯',tools:18,status:'connected',color:'#f59e0b'},
@@ -624,168 +591,366 @@ const CONNECTORS_FALLBACK = [
   {id:'metaview',name:'Metaview',icon:'👁️',tools:0,status:'disconnected',color:'#8b5cf6'},
 ];
 
-const AGENT_TEAMS_FALLBACK = [
-  {id:'executive',name:'JARVIS Commander',role:'Executive AI',agents:1,status:'active',icon:'👑',color:'#fbbf24',model:'Claude Opus'},
-  {id:'sales',name:'Sales Team',role:'Revenue Generation',agents:5,status:'active',icon:'💼',color:'#10b981',model:'GPT-4o'},
-  {id:'marketing',name:'Marketing Team',role:'Growth & Campaigns',agents:4,status:'active',icon:'📣',color:'#f59e0b',model:'Claude Sonnet'},
-  {id:'youtube',name:'YouTube Agent',role:'Video Content',agents:1,status:'active',icon:'📺',color:'#ef4444',model:'Gemini Pro'},
-  {id:'social',name:'Social Media',role:'Social Presence',agents:3,status:'active',icon:'📱',color:'#8b5cf6',model:'GPT-4o'},
-  {id:'hr',name:'HR & Hiring',role:'Team Building',agents:3,status:'idle',icon:'👥',color:'#06b6d4',model:'Claude Sonnet'},
-  {id:'cybersecurity',name:'Cybersecurity',role:'System Protection',agents:2,status:'active',icon:'🛡️',color:'#64748b',model:'DeepSeek V4'},
-  {id:'finance',name:'Finance & Accounting',role:'Financial Mgmt',agents:3,status:'idle',icon:'💰',color:'#84cc16',model:'Claude Sonnet'},
-  {id:'content',name:'Content Creation',role:'Content Factory',agents:3,status:'active',icon:'✍️',color:'#f97316',model:'Claude Opus'},
-  {id:'devops',name:'DevOps & Tech',role:'Infrastructure',agents:2,status:'active',icon:'⚙️',color:'#3b82f6',model:'DeepSeek V3'},
-  {id:'support',name:'Customer Support',role:'Client Success',agents:3,status:'active',icon:'🎧',color:'#ec4899',model:'GPT-4o Mini'},
-  {id:'research',name:'Research & Analytics',role:'Intelligence',agents:2,status:'idle',icon:'🔭',color:'#a78bfa',model:'Gemini Pro'},
+const TEAMS_FB = [
+  {id:'executive',name:'JARVIS Commander',role:'Executive AI',agents:1,status:'active',icon:'👑',color:'#fbbf24'},
+  {id:'sales',name:'Sales Team',role:'Revenue Generation',agents:5,status:'active',icon:'💼',color:'#10b981'},
+  {id:'marketing',name:'Marketing Team',role:'Growth & Campaigns',agents:4,status:'active',icon:'📣',color:'#f59e0b'},
+  {id:'youtube',name:'YouTube Agent',role:'Video Content',agents:1,status:'active',icon:'📺',color:'#ef4444'},
+  {id:'social',name:'Social Media',role:'Social Presence',agents:3,status:'active',icon:'📱',color:'#8b5cf6'},
+  {id:'hr',name:'HR & Hiring',role:'Team Building',agents:3,status:'idle',icon:'👥',color:'#06b6d4'},
+  {id:'cybersecurity',name:'Cybersecurity',role:'System Protection',agents:2,status:'active',icon:'🛡️',color:'#64748b'},
+  {id:'finance',name:'Finance & Accounting',role:'Financial Mgmt',agents:3,status:'idle',icon:'💰',color:'#84cc16'},
+  {id:'content',name:'Content Creation',role:'Content Factory',agents:3,status:'active',icon:'✍️',color:'#f97316'},
+  {id:'devops',name:'DevOps & Tech',role:'Infrastructure',agents:2,status:'active',icon:'⚙️',color:'#3b82f6'},
+  {id:'support',name:'Customer Support',role:'Client Success',agents:3,status:'active',icon:'🎧',color:'#ec4899'},
+  {id:'research',name:'Research & Analytics',role:'Intelligence',agents:2,status:'idle',icon:'🔭',color:'#a78bfa'},
 ];
 
-// ── INIT ────────────────────────────────────────────────────────────────────
+// ─── INIT ────────────────────────────────────────────────────────────────────
 async function init() {
-  renderAgentTeams(AGENT_TEAMS_FALLBACK);
-  renderConnectors(CONNECTORS_FALLBACK);
-  renderModelChips(MODELS_FALLBACK.slice(0,8));
-  allModels = MODELS_FALLBACK;
-  allConnectors = CONNECTORS_FALLBACK;
-  updateStats(CONNECTORS_FALLBACK);
-  startUptimeClock();
+  allModels = MODELS_FB;
+  allConns = CONNS_FB;
+  renderTeams(TEAMS_FB);
+  renderConns(CONNS_FB);
+  renderChips(MODELS_FB.slice(0,6));
+  renderWorkflows();
+  updateStats(CONNS_FB);
+  startClock();
+  initWakeWord();
   await checkBackend();
 }
 
 async function checkBackend() {
   try {
-    const r = await fetch(`${API.replace('/api','')}/health`, { signal: AbortSignal.timeout(3000) });
+    const r = await fetch('/health', {signal: AbortSignal.timeout(3000)});
     if (r.ok) {
-      document.getElementById('backend-dot').classList.remove('amber');
-      document.getElementById('backend-status').textContent = 'BACKEND ONLINE';
-      // load live data
-      await Promise.all([loadModels(), loadConnectors()]);
+      document.getElementById('be-dot').classList.remove('amber');
+      document.getElementById('be-txt').textContent = 'BACKEND ONLINE';
+      const [mr, cr] = await Promise.all([
+        fetch(`${API}/models`).then(r=>r.json()).catch(()=>null),
+        fetch(`${API}/connectors`).then(r=>r.json()).catch(()=>null),
+      ]);
+      if (mr) { allModels = mr.models; renderChips(mr.models.slice(0,6)); document.getElementById('m-count').textContent = `${mr.total} MODELS`; }
+      if (cr) { allConns = cr.connectors; renderConns(cr.connectors); updateStats(cr.connectors); }
     }
-  } catch {
-    document.getElementById('backend-status').textContent = 'DEMO MODE';
+  } catch { document.getElementById('be-txt').textContent = 'DEMO MODE'; }
+}
+
+function updateStats(conns) {
+  const live = conns.filter(c=>c.status==='connected');
+  const tools = live.reduce((s,c)=>s+(c.tools||0),0);
+  document.getElementById('conn-badge').textContent = `${live.length} Active`;
+  document.getElementById('c-count').textContent = `${live.length} CONNECTORS`;
+  document.getElementById('s-conn').textContent = live.length;
+  document.getElementById('s-tools').textContent = tools.toLocaleString();
+}
+
+// ─── VOICE ───────────────────────────────────────────────────────────────────
+function initWakeWord() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  wakeRecognition = new SR();
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = true;
+  wakeRecognition.lang = 'en-US';
+  wakeRecognition.onresult = (e) => {
+    const t = Array.from(e.results).map(r=>r[0].transcript).join(' ').toLowerCase();
+    if (t.includes('jarvis') && !wakeActive) {
+      wakeActive = true;
+      document.getElementById('wake-status').textContent = '🟢 Jarvis ready';
+      document.getElementById('wake-status').classList.add('active');
+      if (voiceEnabled) startListening();
+      setTimeout(()=>{ wakeActive=false; document.getElementById('wake-status').textContent='🎙 Say "Jarvis"'; document.getElementById('wake-status').classList.remove('active'); }, 8000);
+    }
+  };
+  wakeRecognition.onerror = () => {};
+  wakeRecognition.onend = () => { try { wakeRecognition.start(); } catch{} };
+  try { wakeRecognition.start(); } catch{}
+}
+
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  const btn = document.getElementById('voice-btn');
+  if (voiceEnabled) {
+    btn.textContent = '🎙 Voice ON'; btn.classList.add('active');
+    speak(`JARVIS online. Ready for your commands, Captain.`);
+    showToast('🎙 Voice enabled — say "Jarvis" to activate');
+  } else {
+    btn.textContent = '🎙 Voice OFF'; btn.classList.remove('active','listening','speaking');
+    if (synthesis) synthesis.cancel();
+    stopListening();
+    showToast('Voice disabled');
   }
 }
 
-async function loadModels() {
+function startListening() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('Voice not supported in this browser. Use Chrome/Edge.'); return;
+  }
+  if (recognition) { try { recognition.stop(); } catch{} }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  document.getElementById('voice-btn').classList.add('listening');
+  document.getElementById('voice-btn').textContent = '🔴 Listening…';
+  document.getElementById('voice-wave').classList.add('show');
+  document.getElementById('vw-label').textContent = 'Listening…';
+  recognition.onresult = (e) => {
+    const txt = e.results[0][0].transcript;
+    stopListening();
+    document.getElementById('mi').value = txt;
+    send();
+  };
+  recognition.onerror = () => stopListening();
+  recognition.onend = () => stopListening();
+  recognition.start();
+}
+
+function stopListening() {
+  if (recognition) { try { recognition.stop(); } catch{} recognition = null; }
+  const btn = document.getElementById('voice-btn');
+  btn.classList.remove('listening');
+  btn.textContent = voiceEnabled ? '🎙 Voice ON' : '🎙 Voice OFF';
+  document.getElementById('voice-wave').classList.remove('show');
+}
+
+function speak(text) {
+  if (!synthesis || !voiceEnabled) return;
+  synthesis.cancel();
+  const clean = text.replace(/[#*`]/g,'').substring(0, 500);
+  const utt = new SpeechSynthesisUtterance(clean);
+  const voices = synthesis.getVoices();
+  const pref = voices.find(v=>v.name.includes('Google UK English Male'))
+    || voices.find(v=>v.name.toLowerCase().includes('male'))
+    || voices.find(v=>v.lang==='en-GB')
+    || voices[0];
+  if (pref) utt.voice = pref;
+  utt.rate = 0.95; utt.pitch = 0.85; utt.volume = 1;
+  const btn = document.getElementById('voice-btn');
+  btn.classList.add('speaking'); btn.textContent = '🔊 Speaking…';
+  utt.onend = () => { btn.classList.remove('speaking'); btn.textContent = voiceEnabled ? '🎙 Voice ON' : '🎙 Voice OFF'; };
+  synthesis.speak(utt);
+}
+
+// ─── RENDER TEAMS ────────────────────────────────────────────────────────────
+function renderTeams(teams) {
+  const total = teams.reduce((s,t)=>s+t.agents,0);
+  document.getElementById('teams-badge').textContent = `${teams.length} Teams · ${total}`;
+  document.getElementById('s-agents').textContent = total;
+  document.getElementById('teams-list').innerHTML = teams.map(t=>`
+    <div class="team" onclick="chatTeam('${t.name}')">
+      <div class="ti" style="background:${t.color}22;border:1px solid ${t.color}44">${t.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tn">${t.name}</div>
+        <div class="tr">${t.role}</div>
+      </div>
+      <span style="font-size:10px;color:var(--muted)">${t.agents}</span>
+      <div class="ts ${t.status==='active'?'on':''}"></div>
+      <button class="db" onclick="event.stopPropagation();openDM('${t.id}','${t.name}')">⚡</button>
+    </div>`).join('');
+}
+
+// ─── RENDER CONNECTORS ────────────────────────────────────────────────────────
+function renderConns(conns) {
+  allConns = conns;
+  filterConn();
+}
+function filterConn() {
+  const q = (document.querySelector('.csearch input')?.value||'').toLowerCase();
+  const f = allConns.filter(c=>c.name.toLowerCase().includes(q));
+  document.getElementById('conn-list').innerHTML = f.map(c=>`
+    <div class="ci ${c.status==='disconnected'?'off':''}" onclick="useConn('${c.name}')">
+      <div class="cico" style="background:${c.color}22;border:1px solid ${c.color}33">${c.icon}</div>
+      <span class="cn">${c.name}</span>
+      ${c.tools>0?`<span class="ct">${c.tools}</span>`:'<span class="ct" style="color:var(--red)">—</span>'}
+      <div class="csd"></div>
+    </div>`).join('');
+}
+
+// ─── RENDER WORKFLOWS ─────────────────────────────────────────────────────────
+function renderWorkflows() {
+  document.getElementById('workflows-panel').innerHTML = `<div id="workflows-panel" style="padding:7px;display:flex;flex-direction:column;gap:5px">` +
+  WORKFLOWS.map(w=>{
+    const st = wfState[w.id];
+    return `
+    <div class="wf-card ${st.status}" id="wfc-${w.id}">
+      <div class="wf-top">
+        <span class="wf-icon">${w.icon}</span>
+        <span class="wf-name">${w.name}</span>
+        <span class="wf-status ${st.status}" id="wfs-${w.id}">${st.status==='idle'?'READY':st.status==='running'?'RUNNING':'DONE'}</span>
+      </div>
+      <div class="wf-desc">${w.desc}</div>
+      <button class="run-btn ${st.status==='running'?'running':''}" id="wfb-${w.id}"
+        onclick="${st.status==='running'?'':'runWorkflow(\''+w.id+'\')'}">
+        ${st.status==='running'?'⚡ Running…':'▶ Run Workflow'}
+      </button>
+    </div>`;
+  }).join('') + '</div>';
+  // fix id collision
+  const outer = document.getElementById('workflows-panel');
+  if (outer.firstElementChild?.id === 'workflows-panel') {
+    outer.outerHTML = outer.innerHTML;
+  }
+}
+
+// re-render just one workflow card
+function updateWFCard(id) {
+  const w = WORKFLOWS.find(x=>x.id===id);
+  const st = wfState[id];
+  const card = document.getElementById('wfc-'+id);
+  if (!card) return;
+  card.className = `wf-card ${st.status}`;
+  const badge = document.getElementById('wfs-'+id);
+  if (badge) { badge.className=`wf-status ${st.status}`; badge.textContent=st.status==='idle'?'READY':st.status==='running'?'RUNNING':'DONE'; }
+  const btn = document.getElementById('wfb-'+id);
+  if (btn) { btn.className=`run-btn ${st.status==='running'?'running':''}`; btn.textContent=st.status==='running'?'⚡ Running…':'▶ Run Workflow'; btn.onclick=st.status==='running'?null:()=>runWorkflow(id); }
+}
+
+// ─── RENDER MODEL CHIPS ───────────────────────────────────────────────────────
+function renderChips(models) {
+  document.getElementById('chips-row').innerHTML =
+    `<div class="chip auto ${autoRoute?'sel':''}" onclick="setAR(true)">⚡ Auto</div>` +
+    models.slice(0,5).map(m=>`
+      <div class="chip ${!autoRoute&&selModel===m.key?'sel':''}" onclick="pickModel('${m.key}','${m.name}','${m.icon||'🤖'}')">
+        ${m.icon||'🤖'} ${m.name.split(' ')[0]}
+      </div>`).join('') +
+    `<div class="chip" onclick="openMM()">+${Math.max(0,allModels.length-5)} more</div>`;
+}
+
+// ─── WORKFLOW RUNNER ──────────────────────────────────────────────────────────
+function runWorkflow(id) {
+  const w = WORKFLOWS.find(x=>x.id===id);
+  if (!w) return;
+  if (w.inputLabel) {
+    pendingWF = id;
+    document.getElementById('wm-title').textContent = `${w.icon} ${w.name}`;
+    document.getElementById('wm-desc').textContent = w.inputLabel;
+    document.getElementById('wm-input').value = '';
+    document.getElementById('wm').style.display = 'flex';
+  } else {
+    executeWorkflow(id, '');
+  }
+}
+
+function confirmWorkflow() {
+  const ctx = document.getElementById('wm-input').value.trim();
+  closeWM();
+  if (pendingWF) executeWorkflow(pendingWF, ctx);
+}
+
+async function executeWorkflow(id, context) {
+  const w = WORKFLOWS.find(x=>x.id===id);
+  wfState[id] = { status: 'running', stepsDone: 0 };
+  updateWFCard(id);
+
+  const greetings = {
+    'morning-briefing': `Initiating morning briefing, Captain. Stand by…`,
+    'social-post': `Launching social media workflow, Captain. Generating content…`,
+    'sales-outreach': `Sales outreach sequence initiated, Captain.`,
+    'content-pipeline': `Content pipeline running, Captain. Writing now…`,
+    'finance-report': `Pulling financial data, Captain. Report incoming…`,
+  };
+  addMsg('jarvis', greetings[id] || `Running ${w.name}, Captain…`, {modelName:'JARVIS Commander', modelIcon:'👑'});
+  if (voiceEnabled) speak(greetings[id] || `Running ${w.name}, Captain.`);
+
+  // simulate step progress while AI works
+  let stepIdx = 0;
+  const stepTimer = setInterval(() => {
+    stepIdx++;
+    if (stepIdx >= w.steps.length) clearInterval(stepTimer);
+  }, 2000);
+
   try {
-    const r = await fetch(`${API}/models`);
-    const d = await r.json();
-    allModels = d.models;
-    renderModelChips(d.models.slice(0,8));
-    document.getElementById('model-count').textContent = `${d.total} MODELS`;
-    document.getElementById('stat-models').textContent = d.total;
+    const prompt = buildWorkflowPrompt(id, context);
+    const body = { message: prompt, autoRoute: true, conversationHistory: [] };
+    let result;
+    try {
+      const r = await fetch(`${API}/chat`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body), signal: AbortSignal.timeout(40000),
+      });
+      result = await r.json();
+    } catch {
+      result = { response: demoWorkflowResponse(id, context), demo: true, modelName: 'Demo Mode' };
+    }
+    clearInterval(stepTimer);
+    wfState[id] = { status: 'done', stepsDone: w.steps.length };
+    updateWFCard(id);
+    addMsg('jarvis', result.response, { modelName: result.modelName || 'JARVIS', modelIcon: '⚡' });
+    if (voiceEnabled) speak(`${w.name} complete, Captain.`);
+    showToast(`✅ ${w.name} complete`);
+    // Slack notification attempt
+    notifySlack(`✅ JARVIS: *${w.name}* complete`, result.response.substring(0,300));
+    // reset after 10s
+    setTimeout(()=>{ wfState[id]={status:'idle',stepsDone:0}; updateWFCard(id); }, 10000);
+  } catch(e) {
+    clearInterval(stepTimer);
+    wfState[id] = { status: 'idle', stepsDone: 0 };
+    updateWFCard(id);
+    addMsg('jarvis', `Error running ${w.name}: ${e.message}`, {});
+  }
+}
+
+function buildWorkflowPrompt(id, context) {
+  const date = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const base = `You are JARVIS, the autonomous AI assistant for Captain Syed Abrar. Today is ${date}, ${time}.`;
+  const prompts = {
+    'morning-briefing': `${base} Deliver a concise, energetic morning briefing for the Captain. Include: today's date, motivational opening, 3-5 prioritised tasks for today, suggested schedule blocks, a tip for productivity, and close with "Ready for your commands, Captain." Keep it punchy and useful.`,
+    'social-post': `${base} Generate a complete social media content package for: "${context||'our AI business'}". Create: 1) Twitter/X post (280 chars), 2) LinkedIn post (professional, 150 words), 3) Instagram caption with 15 hashtags, 4) Facebook post. Also suggest a Canva visual concept for each. Format clearly with platform headers.`,
+    'sales-outreach': `${base} Create a complete B2B sales outreach package targeting: "${context||'SaaS startup founders'}". Include: 1) Ideal Customer Profile, 2) Cold email sequence (3 emails: initial, follow-up day 3, final day 7), 3) LinkedIn message template, 4) Objection handling scripts, 5) CRM pipeline stages to set up in HubSpot/Apollo. Make it conversion-focused.`,
+    'content-pipeline': `${base} Create a complete content piece for: "${context||'AI automation for businesses'}". Include: 1) SEO-optimised blog post (600 words), 2) Notion page structure, 3) Meta description for website, 4) Social media teaser, 5) Email newsletter version. Format for direct publishing.`,
+    'finance-report': `${base} Generate a professional financial report template and analysis framework for a growing AI services business. Include: 1) Executive summary dashboard, 2) Revenue metrics to track (MRR, ARR, churn, LTV), 3) Expense breakdown categories, 4) Cash flow analysis, 5) Key financial KPIs with targets, 6) Stripe + Zoho Books integration checklist. Format as an actual report.`,
+  };
+  return prompts[id] || `${base} Run the ${id} workflow with context: ${context}`;
+}
+
+function demoWorkflowResponse(id, context) {
+  const demos = {
+    'morning-briefing': `☀️ MORNING BRIEFING — Captain Syed Abrar\n${new Date().toDateString()}\n\n⚡ Good morning, Captain. Systems are fully operational.\n\n📋 TODAY'S PRIORITIES:\n1. Review JARVIS deployment and test all 5 workflows\n2. Add API keys to .env file to go fully live\n3. Configure Slack webhook for notifications\n4. Test voice activation ("Jarvis" wake word)\n5. Plan first client outreach campaign\n\n⏰ SCHEDULE:\n• 09:00 — System check & API key setup\n• 11:00 — Run sales outreach workflow\n• 14:00 — Content pipeline for social media\n• 16:00 — Finance report review\n\n💡 TIP: Start with one workflow, perfect it, then scale.\n\nReady for your commands, Captain. 🚀`,
+    'social-post': `📱 SOCIAL MEDIA PACKAGE — "${context||'AI Business'}"\n\n🐦 TWITTER/X:\nWe're building the future with AI. 24 models. 35+ integrations. 12 autonomous agent teams. Zero human bottlenecks. The empire is being built, one workflow at a time. 🚀 #AI #Automation #JARVIS\n\n💼 LINKEDIN:\nThe future of business isn't hiring more people — it's building smarter systems. Our AI command center manages sales, marketing, content, finance, and customer support — all autonomously. Here's what we've built...\n[Continue with your story]\n\n📸 INSTAGRAM:\nAI is the new employee. 🤖⚡ 24 AI models working 24/7 for your business.\n#AI #Automation #ArtificialIntelligence #MachineLearning #Tech #Startup #SaaS #Business #Entrepreneur #Innovation\n\n📘 FACEBOOK:\nExcited to share what we've been building! An autonomous AI system that handles your entire business operation — from finding leads to closing deals to creating content. Game changer. 🎯`,
+    'sales-outreach': `💼 SALES OUTREACH PACKAGE\n\n🎯 IDEAL CUSTOMER:\nSaaS founders, agency owners, e-commerce brands doing $10K–$500K/month who want to scale without hiring.\n\n📧 EMAIL 1 (Day 1 — Initial):\nSubject: Cut your team costs by 60% with AI agents\n\nHi [Name],\n\nI noticed [Company] is scaling fast. Most founders at your stage spend 40% of their day on tasks AI can handle.\n\nWe've built JARVIS — an autonomous AI system that runs your sales, marketing, content, and support 24/7.\n\nWorth a 15-min call this week?\n\nBest, Syed\n\n📧 EMAIL 2 (Day 3 — Follow-up):\nSubject: Re: Quick question\n\nHi [Name], just bumping this up. We helped 3 founders this month automate their entire outreach pipeline. Happy to show you the exact setup.\n\n📧 EMAIL 3 (Day 7 — Final):\nSubject: Last one from me\n\nClosing the loop. If now isn't the right time, no worries — I'll check back in 90 days. If you're ready to automate, just reply "yes".\n\n🔗 CRM SETUP (HubSpot):\nPipeline: New Lead → Contacted → Demo Scheduled → Proposal → Closed Won`,
+    'content-pipeline': `✍️ CONTENT PIPELINE — "${context||'AI Automation'}"\n\n📄 BLOG POST:\nTitle: How AI Automation Is Replacing $100K/Year Roles in 2025\n\nThe workforce is changing. Companies that once needed 10 people to run operations are now running leaner with AI agents handling the repetitive, predictable work...\n\n[600-word article ready for Notion — connect Notion API to publish directly]\n\n📋 NOTION PAGE STRUCTURE:\n- Title + Hero\n- Executive Summary (3 bullets)\n- Main Content (4 sections)\n- Call to Action\n- Related Articles\n\n🔍 META DESCRIPTION:\n"Discover how AI automation tools are replacing manual roles and cutting business costs by 60% in 2025. See real examples."\n\n📱 SOCIAL TEASER:\nNew post: AI is replacing $100K roles. Here's what you need to know 👇\n\n📧 EMAIL VERSION:\nSubject: The role AI just replaced at [Company]`,
+    'finance-report': `💰 FINANCE REPORT — AI Services Business\n\n📊 EXECUTIVE DASHBOARD:\n• MRR Target: $10,000\n• ARR Target: $120,000\n• Client LTV Target: $3,600\n• Churn Rate Target: <5%\n• CAC Target: <$200\n\n💳 STRIPE METRICS TO TRACK:\n- Monthly Recurring Revenue (MRR)\n- New MRR vs Churned MRR\n- Average Revenue Per User (ARPU)\n- Failed payment rate\n- Refund rate\n\n📚 ZOHO BOOKS CATEGORIES:\nRevenue: AI Services, Consulting, Retainers\nExpenses: AI API costs ($25/mo), Software, Marketing, Contractor fees\n\n📈 KPIs WITH TARGETS:\n1. MRR Growth: +15%/month\n2. Gross Margin: >70%\n3. Client Retention: >95%\n4. Sales Cycle: <14 days\n\n✅ INTEGRATION CHECKLIST:\n□ Connect Stripe webhook → Zoho Books\n□ Set up automated invoice generation\n□ Configure weekly P&L report\n□ Enable Slack alerts for payments`,
+  };
+  return demos[id] || `[Demo] ${id} workflow complete. Connect API keys to enable live execution.`;
+}
+
+async function notifySlack(title, body) {
+  try {
+    await fetch(`${API}/workflows/notify-slack`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ title, body: body.substring(0,500) }),
+      signal: AbortSignal.timeout(5000),
+    });
   } catch {}
 }
 
-async function loadConnectors() {
-  try {
-    const r = await fetch(`${API}/connectors`);
-    const d = await r.json();
-    allConnectors = d.connectors;
-    renderConnectors(d.connectors);
-    updateStats(d.connectors, d.stats);
-  } catch {}
-}
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+function hideWelcome() { const w=document.getElementById('welcome'); if(w) w.remove(); }
 
-function updateStats(connectors, stats) {
-  const connected = connectors.filter(c => c.status === 'connected');
-  const totalTools = connected.reduce((s,c) => s + (c.tools||0), 0);
-  document.getElementById('connector-badge').textContent = `${connected.length} Active`;
-  document.getElementById('connector-count').textContent = `${connected.length} CONNECTORS`;
-  document.getElementById('stat-connectors').textContent = connected.length;
-  document.getElementById('stat-tools').textContent = totalTools.toLocaleString();
-}
-
-// ── RENDER AGENTS ────────────────────────────────────────────────────────────
-function renderAgentTeams(teams) {
-  const list = document.getElementById('agents-list');
-  const totalAgents = teams.reduce((s,t) => s + t.agents, 0);
-  document.getElementById('agents-badge').textContent = `${teams.length} Teams · ${totalAgents} Agents`;
-  document.getElementById('stat-agents').textContent = totalAgents;
-
-  list.innerHTML = teams.map(t => `
-    <div class="agent-team" onclick="chatWithAgent('${t.id}','${t.name}')">
-      <div class="agent-icon" style="background:${t.color}22;border:1px solid ${t.color}44">${t.icon}</div>
-      <div class="agent-info">
-        <div class="agent-name">${t.name}</div>
-        <div class="agent-role">${t.role}</div>
-      </div>
-      <div class="agent-meta">
-        <span class="agent-count">${t.agents}</span>
-        <div class="status-indicator ${t.status === 'active' ? 'active' : ''}"></div>
-      </div>
-      <button class="dispatch-btn" onclick="event.stopPropagation();openDispatch('${t.id}','${t.name}')">⚡</button>
-    </div>
-  `).join('');
-}
-
-// ── RENDER CONNECTORS ────────────────────────────────────────────────────────
-function renderConnectors(connectors) {
-  allConnectors = connectors;
-  filterConnectors();
-}
-
-function filterConnectors() {
-  const q = (document.getElementById('connector-search').value || '').toLowerCase();
-  const filtered = allConnectors.filter(c =>
-    c.name.toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q)
-  );
-  const list = document.getElementById('connectors-list');
-  list.innerHTML = filtered.map(c => `
-    <div class="connector-item ${c.status}" onclick="useConnector('${c.id}','${c.name}')">
-      <div class="connector-logo" style="background:${c.color}22;border:1px solid ${c.color}33">${c.icon}</div>
-      <span class="connector-name">${c.name}</span>
-      ${c.tools > 0 ? `<span class="connector-tools">${c.tools}</span>` : '<span class="connector-tools" style="color:var(--red)">—</span>'}
-      <div class="connector-status-dot"></div>
-    </div>
-  `).join('');
-}
-
-// ── RENDER MODEL CHIPS ────────────────────────────────────────────────────────
-function renderModelChips(models) {
-  const row = document.getElementById('model-chips');
-  row.innerHTML = `
-    <div class="model-chip auto ${autoRoute?'selected':''}" onclick="setAutoRoute(true)">⚡ Auto</div>
-    ${models.slice(0,6).map(m => `
-      <div class="model-chip ${!autoRoute && selectedModel===m.key?'selected':''}"
-           onclick="selectModel('${m.key}','${m.name}','${m.icon||'🤖'}')">${m.icon||'🤖'} ${m.name.split(' ')[0]}</div>
-    `).join('')}
-    <div class="model-chip" onclick="openModelModal()">+${Math.max(0,allModels.length-6)} more</div>
-  `;
-}
-
-// ── CHAT ─────────────────────────────────────────────────────────────────────
-function hideWelcome() {
-  const w = document.getElementById('welcome-screen');
-  if (w) w.remove();
-}
-
-function addMessage(role, content, meta = {}) {
+function addMsg(role, content, meta={}) {
   hideWelcome();
-  const msgs = document.getElementById('chat-messages');
+  const msgs = document.getElementById('chat-msgs');
   const div = document.createElement('div');
   div.className = `msg ${role}`;
-  const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-  if (role === 'jarvis') {
+  const t = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  if (role==='jarvis') {
     div.innerHTML = `
-      <div class="msg-avatar">⚡</div>
-      <div class="msg-content">
-        <div class="msg-meta">
-          ${meta.routing ? `<span class="routing-info">${meta.routing.taskType||'general'} <span class="routing-arrow">→</span> ${meta.routing.modelName||'AI'}</span>` : ''}
-          JARVIS · ${time}
-        </div>
-        <div class="msg-bubble">${escHtml(content)}</div>
-        ${meta.modelName ? `<span class="model-tag">${meta.modelIcon||'🤖'} ${meta.modelName}</span>` : ''}
-      </div>
-    `;
+      <div class="av">⚡</div>
+      <div class="mc">
+        <div class="mm">JARVIS · ${t}${meta.modelName?` · ${meta.modelIcon||'🤖'} ${meta.modelName}`:''}</div>
+        <div class="mb">${esc(content)}</div>
+      </div>`;
   } else {
     div.innerHTML = `
-      <div class="msg-avatar">👑</div>
-      <div class="msg-content">
-        <div class="msg-meta">You · ${time}</div>
-        <div class="msg-bubble">${escHtml(content)}</div>
-      </div>
-    `;
+      <div class="av">👑</div>
+      <div class="mc">
+        <div class="mm">Captain · ${t}</div>
+        <div class="mb">${esc(content)}</div>
+      </div>`;
   }
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
@@ -793,234 +958,89 @@ function addMessage(role, content, meta = {}) {
 
 function showTyping() {
   hideWelcome();
-  const msgs = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = 'msg jarvis'; div.id = 'typing-indicator';
-  div.innerHTML = `
-    <div class="msg-avatar">⚡</div>
-    <div class="msg-content">
-      <div class="msg-bubble">
-        <div class="typing-indicator">
-          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
-        </div>
-      </div>
-    </div>
-  `;
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+  const msgs=document.getElementById('chat-msgs');
+  const d=document.createElement('div'); d.className='msg jarvis'; d.id='typing';
+  d.innerHTML=`<div class="av">⚡</div><div class="mc"><div class="mb"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div></div>`;
+  msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight;
 }
+function hideTyping(){ const t=document.getElementById('typing'); if(t) t.remove(); }
 
-function hideTyping() {
-  const t = document.getElementById('typing-indicator');
-  if (t) t.remove();
-}
+async function send() {
+  const mi = document.getElementById('mi');
+  const msg = mi.value.trim();
+  if (!msg) return;
+  mi.value=''; mi.style.height='auto';
+  document.getElementById('sb').disabled=true;
+  addMsg('user', msg);
+  history.push({role:'user',content:msg});
 
-async function sendMessage() {
-  const input = document.getElementById('msg-input');
-  const message = input.value.trim();
-  if (!message) return;
+  // workflow keyword detection
+  const ml = msg.toLowerCase();
+  if (ml.includes('morning brief') || ml.includes('brief me')) { document.getElementById('sb').disabled=false; return runWorkflow('morning-briefing'); }
+  if (ml.includes('social media') || ml.includes('social post')) { document.getElementById('sb').disabled=false; return runWorkflow('social-post'); }
+  if (ml.includes('sales outreach') || ml.includes('find leads')) { document.getElementById('sb').disabled=false; return runWorkflow('sales-outreach'); }
+  if (ml.includes('content pipeline') || ml.includes('write.*publish')) { document.getElementById('sb').disabled=false; return runWorkflow('content-pipeline'); }
+  if (ml.includes('finance report') || ml.includes('financial report')) { document.getElementById('sb').disabled=false; return runWorkflow('finance-report'); }
 
-  input.value = '';
-  input.style.height = 'auto';
-  document.getElementById('send-btn').disabled = true;
-
-  addMessage('user', message);
-
-  conversationHistory.push({ role: 'user', content: message });
   showTyping();
-
   try {
-    const body = {
-      message,
-      autoRoute,
-      modelKey: autoRoute ? undefined : selectedModel,
-      conversationHistory: conversationHistory.slice(-10),
-    };
-
     const r = await fetch(`${API}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message:msg, autoRoute, modelKey:autoRoute?undefined:selModel, conversationHistory:history.slice(-10)}),
+      signal: AbortSignal.timeout(35000),
     });
-
     hideTyping();
-
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({error:'Network error'}));
-      addMessage('jarvis', `Error: ${err.error || 'Unknown error'}`, {});
+    if (r.ok) {
+      const d = await r.json();
+      history.push({role:'assistant',content:d.response});
+      addMsg('jarvis', d.response, {modelName:d.modelName, modelIcon:(allModels.find(m=>m.key===d.model)||{}).icon||'🤖'});
+      if (voiceEnabled) speak(d.response);
+      if (d.demo) showToast(`Demo mode — add API key for ${d.modelName} in .env`);
     } else {
-      const data = await r.json();
-      conversationHistory.push({ role: 'assistant', content: data.response });
-      const model = allModels.find(m => m.key === data.model) || {};
-      addMessage('jarvis', data.response, {
-        modelName: data.modelName,
-        modelIcon: model.icon || '🤖',
-        routing: { taskType: data.taskType, modelName: data.modelName },
-      });
-      if (data.demo) showToast(`Demo mode — set ${data.modelName} API key in .env to go live`);
+      hideTyping();
+      addMsg('jarvis', demoChat(msg), {modelName:'Demo',modelIcon:'⚡'});
     }
-  } catch (err) {
-    hideTyping();
-    // Offline demo response
-    const demoResp = generateDemoResponse(message);
-    addMessage('jarvis', demoResp, { modelName: 'Demo Mode', modelIcon: '⚡' });
-  }
-
-  document.getElementById('send-btn').disabled = false;
-  input.focus();
-}
-
-function generateDemoResponse(message) {
-  const m = message.toLowerCase();
-  if (m.includes('code') || m.includes('python') || m.includes('javascript')) {
-    return `[JARVIS Demo — Claude Sonnet]\n\nI'd write that code for you. Set ANTHROPIC_API_KEY in your .env file to enable live responses from Claude Sonnet 4.6 — the best model for coding tasks.\n\nExample: ANTHROPIC_API_KEY=sk-ant-...`;
-  }
-  if (m.includes('market') || m.includes('campaign') || m.includes('email')) {
-    return `[JARVIS Demo — Claude Sonnet + Klaviyo]\n\nI'd create a full marketing strategy and deploy it via your Klaviyo connector (32 tools available). Set your API keys to go live.`;
-  }
-  if (m.includes('sales') || m.includes('pipeline') || m.includes('crm')) {
-    return `[JARVIS Demo — GPT-4o + HubSpot]\n\nI'd pull your sales data from HubSpot and Close CRM, analyze the pipeline, and give you actionable insights. Set OPENAI_API_KEY to enable.`;
-  }
-  if (m.includes('health') || m.includes('status') || m.includes('system')) {
-    const connected = CONNECTORS_FALLBACK.filter(c => c.status === 'connected').length;
-    return `[JARVIS System Report]\n\n✅ SYSTEM: OPERATIONAL\n📡 Connectors: ${connected}/37 active\n🤖 AI Models: 24 configured\n👥 Agent Teams: 12 (8 active)\n⚡ Total Tools: ${CONNECTORS_FALLBACK.filter(c=>c.status==='connected').reduce((s,c)=>s+c.tools,0).toLocaleString()}\n\nAll systems nominal. Ready for commands.`;
-  }
-  return `[JARVIS Demo Mode]\n\nBackend not connected. Start the Docker stack to enable live AI responses from all 24 models.\n\n1. Copy .env.example → .env\n2. Add your API keys\n3. Run: docker-compose up\n\nYour message: "${message}"`;
-}
-
-function quickPrompt(text) {
-  document.getElementById('msg-input').value = text;
-  sendMessage();
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  const ta = document.getElementById('msg-input');
-  ta.style.height = 'auto';
-  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-}
-
-function clearChat() {
-  conversationHistory = [];
-  document.getElementById('chat-messages').innerHTML = `
-    <div class="welcome-msg" id="welcome-screen">
-      <div class="welcome-icon">⚡</div>
-      <div class="welcome-title">JARVIS CANS ONLINE</div>
-      <div class="welcome-sub">24 AI models · 35+ connectors · 12 agent teams<br/>Auto-routing picks the best model for your task.</div>
-      <div class="quick-prompts">
-        <button class="qp-btn" onclick="quickPrompt('Write Python code to parse a CSV file')">Write Python code</button>
-        <button class="qp-btn" onclick="quickPrompt('Create a marketing email campaign plan')">Marketing campaign</button>
-        <button class="qp-btn" onclick="quickPrompt('Analyze our sales pipeline and suggest improvements')">Sales analysis</button>
-        <button class="qp-btn" onclick="quickPrompt('What are the latest AI trends in 2025?')">AI research</button>
-      </div>
-    </div>`;
-}
-
-// ── AGENT ACTIONS ─────────────────────────────────────────────────────────────
-function chatWithAgent(teamId, teamName) {
-  quickPrompt(`Talk to ${teamName}: What is your current status and what tasks are you working on?`);
-}
-
-function openDispatch(teamId, teamName) {
-  currentDispatchTeam = { id: teamId, name: teamName };
-  document.getElementById('dispatch-title').textContent = `⚡ Dispatch → ${teamName}`;
-  document.getElementById('dispatch-task').value = '';
-  document.getElementById('dispatch-modal').style.display = 'flex';
-}
-
-function closeDispatch() {
-  document.getElementById('dispatch-modal').style.display = 'none';
-}
-
-async function dispatchTask() {
-  const task = document.getElementById('dispatch-task').value.trim();
-  if (!task || !currentDispatchTeam) return;
-  closeDispatch();
-  try {
-    await fetch(`${API}/agents/dispatch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ teamId: currentDispatchTeam.id, task, priority: 'high' }),
-    });
-    showToast(`✅ Task dispatched to ${currentDispatchTeam.name}`);
-    addMessage('jarvis', `Task dispatched to ${currentDispatchTeam.name}: "${task}"\n\nMonitoring execution…`, {
-      modelName: 'JARVIS Commander', modelIcon: '👑'
-    });
   } catch {
-    showToast(`Task queued for ${currentDispatchTeam.name} (offline mode)`);
+    hideTyping();
+    addMsg('jarvis', demoChat(msg), {modelName:'Demo',modelIcon:'⚡'});
+    if (voiceEnabled) speak(demoChat(msg).split('\n')[0]);
   }
+  document.getElementById('sb').disabled=false;
+  mi.focus();
 }
 
-// ── CONNECTOR ACTIONS ─────────────────────────────────────────────────────────
-function useConnector(id, name) {
-  quickPrompt(`Use ${name} connector: what actions can you take and what data can you access?`);
+function demoChat(msg) {
+  const m = msg.toLowerCase();
+  if (m.includes('what can you do') || m.includes('capabilities')) return `At your service, Captain. Here's what I can do:\n\n⚡ AI MODELS: Route tasks to 24 AI models automatically\n☀️ MORNING BRIEFING: Daily briefing with calendar, tasks & emails\n📱 SOCIAL MEDIA: Write & post to all platforms via Canva/Klaviyo\n💼 SALES OUTREACH: Find leads → personalise → send via Apollo/HubSpot\n✍️ CONTENT PIPELINE: Write → publish to Notion/Sanity/website\n💰 FINANCE REPORT: Stripe + Zoho → AI analysis → Slack report\n🎙 VOICE: Say "Jarvis" to activate voice commands\n\nAdd your API keys in .env to go fully live, Captain.`;
+  if (m.includes('status') || m.includes('health')) return `JARVIS SYSTEM REPORT, Captain:\n\n✅ Core system: OPERATIONAL\n📡 Connectors: 32/37 active (${CONNS_FB.filter(c=>c.status==='connected').reduce((s,c)=>s+c.tools,0).toLocaleString()} tools)\n🤖 AI Models: 24 configured\n👥 Agent Teams: 12 (8 active, 4 idle)\n⚡ Workflows: 5 ready\n🎙 Voice: ${voiceEnabled?'ENABLED':'DISABLED'}\n\nAll systems nominal. Ready for commands.`;
+  if (m.includes('hello') || m.includes('hi') || m.includes('hey')) return `Good day, Captain. All systems are at your disposal. What shall we build today?`;
+  return `Understood, Captain. To process this with a live AI model, add your API keys to the .env file and restart the Docker stack.\n\nCommand received: "${msg}"\n\nIn production mode, I would auto-route this to the optimal model and execute immediately.`;
 }
 
-// ── MODEL SELECTION ───────────────────────────────────────────────────────────
-function toggleAutoRoute() {
-  setAutoRoute(!autoRoute);
-}
+function qp(t){ document.getElementById('mi').value=t; send(); }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} const ta=document.getElementById('mi'); ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,110)+'px'; }
+function clearChat(){ history=[]; document.getElementById('chat-msgs').innerHTML=`<div class="welcome" id="welcome"><div class="welcome-icon">⚡</div><div class="welcome-title">JARVIS ONLINE</div><div class="welcome-sub">Ready, Captain. Say "Jarvis" or type a command.</div></div>`; }
+function chatTeam(n){ qp(`Jarvis, connect me to ${n} — what is the team's current status and active tasks?`); }
+function useConn(n){ qp(`Jarvis, use the ${n} connector — show me what actions are available`); }
 
-function setAutoRoute(val) {
-  autoRoute = val;
-  document.getElementById('auto-route-toggle').className = 'active' + (val ? ' active' : '');
-  document.getElementById('routing-badge').textContent = val ? '⚡ Auto-routing active' : `🤖 ${document.getElementById('selected-model-name').textContent}`;
-  renderModelChips(allModels.slice(0,8));
-}
+// ─── MODALS ───────────────────────────────────────────────────────────────────
+function openMM(){ document.getElementById('mm-grid').innerHTML=allModels.map(m=>`<div class="mcard ${!autoRoute&&selModel===m.key?'sel':''}" onclick="pickModel('${m.key}','${m.name}','${m.icon||'🤖'}')"><span class="ks ${m.hasKey?'live':'demo'}">${m.hasKey?'●LIVE':'●DEMO'}</span><div class="mcard-name" style="color:${m.color||'#fff'}">${m.icon||'🤖'} ${m.name}</div><div class="mcard-prov">${m.provider}</div><div class="mcard-tags">${(m.strengths||[]).map(s=>`<span class="stag">${s}</span>`).join('')}</div></div>`).join(''); document.getElementById('mm').style.display='flex'; }
+function closeMM(){ document.getElementById('mm').style.display='none'; }
+function openModelModal(){ openMM(); }
+function pickModel(k,n,i){ selModel=k; selModelName=n; selModelIcon=i; autoRoute=false; document.getElementById('sel-model-btn').textContent=`${i} ${n} ▾`; document.getElementById('ar-btn').className='nav-btn'; document.getElementById('route-badge').textContent=`🤖 ${n}`; renderChips(allModels.slice(0,6)); closeMM(); }
+function setAR(v){ autoRoute=v; document.getElementById('ar-btn').className=`nav-btn${v?' active':''}`; document.getElementById('route-badge').textContent=v?'⚡ Auto-routing':`🤖 ${selModelName}`; renderChips(allModels.slice(0,6)); }
+function toggleAR(){ setAR(!autoRoute); }
+function openDM(id,name){ dispTeam={id,name}; document.getElementById('dm-title').textContent=`⚡ Dispatch → ${name}`; document.getElementById('dm-task').value=''; document.getElementById('dm').style.display='flex'; }
+function closeDM(){ document.getElementById('dm').style.display='none'; }
+async function dispatchTask(){ const t=document.getElementById('dm-task').value.trim(); if(!t||!dispTeam) return; closeDM(); try{ await fetch(`${API}/agents/dispatch`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamId:dispTeam.id,task:t,priority:'high'})}); }catch{} addMsg('jarvis',`Task dispatched to ${dispTeam.name}, Captain:\n"${t}"\n\nMonitoring execution…`,{modelName:'JARVIS Commander',modelIcon:'👑'}); if(voiceEnabled) speak(`Task dispatched to ${dispTeam.name}, Captain.`); showToast(`✅ Dispatched to ${dispTeam.name}`); }
+function closeWM(){ document.getElementById('wm').style.display='none'; pendingWF=null; }
 
-function selectModel(key, name, icon) {
-  selectedModel = key; autoRoute = false;
-  document.getElementById('selected-model-name').textContent = name;
-  document.getElementById('selected-model-icon').textContent = icon;
-  document.getElementById('routing-badge').textContent = `🤖 ${name}`;
-  document.getElementById('auto-route-toggle').className = '';
-  renderModelChips(allModels.slice(0,8));
-  closeModelModal();
-}
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(m,d=3500){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),d); }
+function startClock(){ setInterval(()=>{ const s=Math.floor((Date.now()-startTime)/1000); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; document.getElementById('uptime').textContent=h?`${h}h${m}m`:m?`${m}m${sec}s`:`${sec}s`; },1000); }
 
-function openModelModal() {
-  const grid = document.getElementById('model-grid');
-  grid.innerHTML = allModels.map(m => `
-    <div class="model-card ${!autoRoute && selectedModel===m.key?'selected':''}"
-         onclick="selectModel('${m.key}','${m.name}','${m.icon||'🤖'}')">
-      <span class="key-status ${m.hasKey?'live':'demo'}">${m.hasKey?'● LIVE':'● DEMO'}</span>
-      <div class="model-card-name" style="color:${m.color||'#fff'}">${m.icon||'🤖'} ${m.name}</div>
-      <div class="model-card-provider">${m.provider}</div>
-      <div class="model-card-strengths">
-        ${(m.strengths||[]).map(s=>`<span class="strength-tag">${s}</span>`).join('')}
-      </div>
-    </div>
-  `).join('');
-  document.getElementById('model-modal').style.display = 'flex';
-}
-
-function closeModelModal() {
-  document.getElementById('model-modal').style.display = 'none';
-}
-
-// ── UTILS ─────────────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function showToast(msg, duration = 3500) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), duration);
-}
-
-function startUptimeClock() {
-  setInterval(() => {
-    const s = Math.floor((Date.now() - startTime) / 1000);
-    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
-    document.getElementById('uptime-display').textContent =
-      h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-  }, 1000);
-}
-
-// ── START ─────────────────────────────────────────────────────────────────────
+// ─── START ────────────────────────────────────────────────────────────────────
 init();
 </script>
 </body>
