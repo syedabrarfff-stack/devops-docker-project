@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     APP_NAME: str = "JARVIS"
     APP_VERSION: str = "2.0.0"
     COMPANY_NAME: str = "Aliyar Solutions"
+    FOUNDER_NAME: str = "Syed Abrar"
     CAPTAIN_NAME: str = "Captain Abrar"
+    COMPANY_TAGLINE: str = "Global AI-Powered Technology Operations"
+    COMPANY_EXTERNAL_TEAM: str = "Aliyar Solutions Team"
+    TARGET_MARKETS: str = "USA,UK,UAE,Bahrain,Europe,Australia"
     DEBUG: bool = False
     SECRET_KEY: str = "change-this-in-production"
     APP_BASE_URL: str = "http://localhost:8000"

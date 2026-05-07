@@ -138,4 +138,12 @@ export const searchKnowledge = (query, params) => api.get('/api/v1/knowledge/sea
 export const addKnowledgeEntry = (data) => api.post('/api/v1/knowledge/entries', data).then(r => r.data)
 export const getKnowledgeStats = () => api.get('/api/v1/knowledge/stats').then(r => r.data)
 
+// Service Catalog
+export const getCatalogDivisions = (params) => api.get('/api/v1/catalog/divisions', { params }).then(r => r.data)
+export const getCatalogDivision = (code) => api.get(`/api/v1/catalog/divisions/${code}`).then(r => r.data)
+export const getCatalogGroups = () => api.get('/api/v1/catalog/groups').then(r => r.data)
+export const getCatalogStats = () => api.get('/api/v1/catalog/stats').then(r => r.data)
+export const seedCatalog = () => api.post('/api/v1/catalog/seed').then(r => r.data)
+export const updateCatalogDivision = (code, data) => api.patch(`/api/v1/catalog/divisions/${code}`, data).then(r => r.data)
+
 export default api
