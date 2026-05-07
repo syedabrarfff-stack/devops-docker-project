@@ -1,0 +1,17 @@
+from sqlalchemy import Column, String, Text, DateTime, Integer, JSON
+from sqlalchemy.sql import func
+from app.core.database import Base
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(100), index=True)
+    role = Column(String(20))          # "user" | "jarvis"
+    content = Column(Text)
+    model_used = Column(String(100), nullable=True)
+    task_type = Column(String(50), nullable=True)
+    tokens_used = Column(Integer, default=0)
+    metadata_ = Column("metadata", JSON, default={})
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
