@@ -3,3 +3,21 @@ node_modules/
 backend/node_modules/
 *.log
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Dev databases
+*.db
+*.sqlite
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# Docker
+*.pid
