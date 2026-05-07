@@ -7,6 +7,10 @@ import ChatInterface from './components/chat/ChatInterface'
 import MorningBriefing from './components/briefing/MorningBriefing'
 import ApprovalQueue from './components/approvals/ApprovalQueue'
 import AgentHierarchy from './components/agents/AgentHierarchy'
+import CRMDashboard from './components/crm/CRMDashboard'
+import LeadsDashboard from './components/leads/LeadsDashboard'
+import OutreachDashboard from './components/outreach/OutreachDashboard'
+import TaskQueue from './components/tasks/TaskQueue'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -15,6 +19,10 @@ const VIEWS = {
   briefing:  MorningBriefing,
   approvals: ApprovalQueue,
   agents:    AgentHierarchy,
+  crm:       CRMDashboard,
+  leads:     LeadsDashboard,
+  outreach:  OutreachDashboard,
+  tasks:     TaskQueue,
 }
 
 export default function App() {

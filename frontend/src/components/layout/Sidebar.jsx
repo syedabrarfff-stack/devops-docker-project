@@ -2,7 +2,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
-  Newspaper, Zap, Settings, Activity,
+  Newspaper, Zap, Activity, UserCircle, Target,
+  Mail, ListTodo,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -12,6 +13,10 @@ const NAV = [
   { id: 'briefing',   label: 'Briefing',     icon: Newspaper },
   { id: 'approvals',  label: 'Approvals',    icon: CheckSquare },
   { id: 'agents',     label: 'Agents',       icon: Users },
+  { id: 'crm',        label: 'CRM',          icon: UserCircle },
+  { id: 'leads',      label: 'Leads',        icon: Target },
+  { id: 'outreach',   label: 'Outreach',     icon: Mail },
+  { id: 'tasks',      label: 'Task Queue',   icon: ListTodo },
 ]
 
 export default function Sidebar() {

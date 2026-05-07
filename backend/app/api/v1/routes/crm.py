@@ -1,0 +1,156 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+from app.services.crm import service as crm
+
+router = APIRouter(prefix="/crm", tags=["CRM"])
+
+
+class ContactIn(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    title: Optional[str] = None
+    linkedin: Optional[str] = None
+    company_id: Optional[int] = None
+    country: Optional[str] = None
+    source: Optional[str] = "manual"
+    notes: Optional[str] = None
+    tags: Optional[list[str]] = None
+
+
+class ContactUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    title: Optional[str] = None
+    status: Optional[str] = None
+    score: Optional[int] = None
+    notes: Optional[str] = None
+    tags: Optional[list[str]] = None
+
+
+class CompanyIn(BaseModel):
+    name: str
+    domain: Optional[str] = None
+    industry: Optional[str] = None
+    country: Optional[str] = None
+    size: Optional[str] = None
+    revenue_range: Optional[str] = None
+    tech_stack: Optional[list[str]] = None
+    pain_points: Optional[list[str]] = None
+    notes: Optional[str] = None
+
+
+class DealIn(BaseModel):
+    title: str
+    contact_id: Optional[int] = None
+    company_id: Optional[int] = None
+    value: Optional[float] = 0.0
+    currency: Optional[str] = "USD"
+    stage: Optional[str] = "discovery"
+    probability: Optional[int] = 20
+    service_type: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class DealUpdate(BaseModel):
+    stage: Optional[str] = None
+    value: Optional[float] = None
+    probability: Optional[int] = None
+    notes: Optional[str] = None
+
+
+# ── Contacts ────────────────────────────────────────────────────────────────
+
+@router.post("/contacts")
+async def create_contact(body: ContactIn, db: AsyncSession = Depends(get_db)):
+    contact = await crm.create_contact(db, body.model_dump(exclude_none=True))
+    await db.commit()
+    return {"id": contact.id, "name": contact.name, "email": contact.email}
+
+
+@router.get("/contacts")
+async def list_contacts(
+    status: Optional[str] = None,
+    company_id: Optional[int] = None,
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    contacts = await crm.list_contacts(db, status=status, company_id=company_id, limit=limit)
+    return [{"id": c.id, "name": c.name, "email": c.email, "title": c.title,
+             "country": c.country, "status": c.status, "score": c.score,
+             "tags": c.tags or [], "source": c.source} for c in contacts]
+
+
+@router.patch("/contacts/{contact_id}")
+async def update_contact(contact_id: int, body: ContactUpdate, db: AsyncSession = Depends(get_db)):
+    contact = await crm.update_contact(db, contact_id, body.model_dump(exclude_none=True))
+    if not contact:
+        raise HTTPException(404, "Contact not found")
+    await db.commit()
+    return {"id": contact.id, "status": contact.status}
+
+
+@router.get("/contacts/stats")
+async def contact_stats(db: AsyncSession = Depends(get_db)):
+    return await crm.contact_stats(db)
+
+
+# ── Companies ────────────────────────────────────────────────────────────────
+
+@router.post("/companies")
+async def create_company(body: CompanyIn, db: AsyncSession = Depends(get_db)):
+    company = await crm.create_company(db, body.model_dump(exclude_none=True))
+    await db.commit()
+    return {"id": company.id, "name": company.name}
+
+
+@router.get("/companies")
+async def list_companies(
+    industry: Optional[str] = None,
+    country: Optional[str] = None,
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    companies = await crm.list_companies(db, industry=industry, country=country, limit=limit)
+    return [{"id": c.id, "name": c.name, "domain": c.domain, "industry": c.industry,
+             "country": c.country, "size": c.size, "score": c.score} for c in companies]
+
+
+# ── Deals ────────────────────────────────────────────────────────────────────
+
+@router.post("/deals")
+async def create_deal(body: DealIn, db: AsyncSession = Depends(get_db)):
+    deal = await crm.create_deal(db, body.model_dump(exclude_none=True))
+    await db.commit()
+    return {"id": deal.id, "title": deal.title, "stage": deal.stage}
+
+
+@router.get("/deals")
+async def list_deals(
+    stage: Optional[str] = None,
+    min_value: float = 0,
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    deals = await crm.list_deals(db, stage=stage, min_value=min_value, limit=limit)
+    return [{"id": d.id, "title": d.title, "stage": d.stage, "value": d.value,
+             "currency": d.currency, "probability": d.probability,
+             "service_type": d.service_type} for d in deals]
+
+
+@router.patch("/deals/{deal_id}")
+async def update_deal(deal_id: int, body: DealUpdate, db: AsyncSession = Depends(get_db)):
+    deal = await crm.update_deal(db, deal_id, body.model_dump(exclude_none=True))
+    if not deal:
+        raise HTTPException(404, "Deal not found")
+    await db.commit()
+    return {"id": deal.id, "stage": deal.stage, "value": deal.value}
+
+
+@router.get("/deals/pipeline")
+async def pipeline_stats(db: AsyncSession = Depends(get_db)):
+    return await crm.pipeline_stats(db)

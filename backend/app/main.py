@@ -12,13 +12,31 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
     logger.info("⚡ JARVIS booting up — Aliyar Solutions")
     try:
         await init_db()
         logger.info("✅ Database initialized")
     except Exception as e:
         logger.warning(f"DB init skipped: {e}")
+
+    # Requeue any tasks stuck in 'running' state from a previous crash
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.tasks.queue import requeue_pending, worker
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await requeue_pending(db)
+        logger.info("✅ Task queue initialized — starting worker")
+        worker_task = asyncio.create_task(worker())
+    except Exception as e:
+        logger.warning(f"Task worker skipped: {e}")
+        worker_task = None
+
     yield
+
+    if worker_task:
+        worker_task.cancel()
     logger.info("JARVIS shutting down")
 
 
