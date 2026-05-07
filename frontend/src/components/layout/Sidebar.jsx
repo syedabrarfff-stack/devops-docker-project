@@ -3,20 +3,24 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
 const NAV = [
-  { id: 'dashboard',  label: 'Dashboard',   icon: LayoutDashboard },
-  { id: 'chat',       label: 'JARVIS Chat',  icon: MessageSquare },
-  { id: 'briefing',   label: 'Briefing',     icon: Newspaper },
-  { id: 'approvals',  label: 'Approvals',    icon: CheckSquare },
-  { id: 'agents',     label: 'Agents',       icon: Users },
-  { id: 'crm',        label: 'CRM',          icon: UserCircle },
-  { id: 'leads',      label: 'Leads',        icon: Target },
-  { id: 'outreach',   label: 'Outreach',     icon: Mail },
-  { id: 'tasks',      label: 'Task Queue',   icon: ListTodo },
+  { id: 'dashboard',      label: 'Dashboard',       icon: LayoutDashboard },
+  { id: 'chat',           label: 'JARVIS Chat',      icon: MessageSquare },
+  { id: 'briefing',       label: 'Briefing',         icon: Newspaper },
+  { id: 'approvals',      label: 'Approvals',        icon: CheckSquare },
+  { id: 'agents',         label: 'Agents',           icon: Users },
+  { id: 'crm',            label: 'CRM',              icon: UserCircle },
+  { id: 'leads',          label: 'Leads',            icon: Target },
+  { id: 'outreach',       label: 'Outreach',         icon: Mail },
+  { id: 'tasks',          label: 'Task Queue',       icon: ListTodo },
+  { id: 'notifications',  label: 'Notifications',    icon: Bell },
+  { id: 'scheduler',      label: 'Scheduler',        icon: Clock },
+  { id: 'calendar',       label: 'Calendar',         icon: Calendar },
+  { id: 'sync',           label: 'Sync',             icon: RefreshCw },
 ]
 
 export default function Sidebar() {

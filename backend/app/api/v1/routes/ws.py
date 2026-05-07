@@ -1,18 +1,18 @@
 """
 WebSocket endpoint — real-time JARVIS updates to frontend.
+Supports typed events, client subscriptions, and notification persistence.
 """
 import json
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Set
+from typing import Set, Optional
 
 router = APIRouter(tags=["websocket"])
 
-# Connected clients
 _clients: Set[WebSocket] = set()
 
 
-async def broadcast(event_type: str, data: dict):
+async def broadcast(event_type: str, data: dict, persist: bool = False) -> None:
     """Broadcast an event to all connected frontend clients."""
     payload = json.dumps({"type": event_type, "data": data})
     dead = set()
@@ -23,6 +23,42 @@ async def broadcast(event_type: str, data: dict):
             dead.add(ws)
     _clients.difference_update(dead)
 
+    if persist:
+        asyncio.create_task(_persist_notification(event_type, data))
+
+
+async def broadcast_notification(title: str, body: str, level: str = "info",
+                                   category: Optional[str] = None,
+                                   reference: Optional[str] = None) -> None:
+    """Broadcast a notification event and persist it."""
+    data = {"title": title, "body": body, "level": level,
+            "category": category, "reference": reference}
+    await broadcast("notification", data, persist=True)
+
+
+async def _persist_notification(event_type: str, data: dict) -> None:
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.notifications import NotificationLog
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                notif = NotificationLog(
+                    channel="websocket",
+                    title=data.get("title", event_type),
+                    body=str(data.get("body", "")),
+                    level=data.get("level", "info"),
+                    category=data.get("category"),
+                    reference=data.get("reference"),
+                    delivered=len(_clients) > 0,
+                )
+                db.add(notif)
+    except Exception:
+        pass
+
+
+def get_client_count() -> int:
+    return len(_clients)
+
 
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -31,14 +67,23 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         await ws.send_text(json.dumps({
             "type": "connected",
-            "data": {"message": "JARVIS WebSocket connected, Captain."},
+            "data": {
+                "message": "JARVIS WebSocket connected, Captain.",
+                "clients": len(_clients),
+            },
         }))
         while True:
-            # Keep alive + handle incoming pings
             data = await asyncio.wait_for(ws.receive_text(), timeout=30)
             msg = json.loads(data)
-            if msg.get("type") == "ping":
+            t = msg.get("type")
+            if t == "ping":
                 await ws.send_text(json.dumps({"type": "pong"}))
+            elif t == "subscribe":
+                # Client requesting specific event types (future: per-client filters)
+                await ws.send_text(json.dumps({
+                    "type": "subscribed",
+                    "data": {"events": msg.get("events", ["*"])},
+                }))
     except (WebSocketDisconnect, asyncio.TimeoutError):
         pass
     finally:

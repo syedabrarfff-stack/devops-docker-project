@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.routes import chat, briefing, approvals, agents, ws
 from app.api.v1.routes import crm, leads, outreach, memory, tasks
+from app.api.v1.routes import auth, scheduler, calendar, notifications, sync
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -13,3 +14,8 @@ api_router.include_router(leads.router)
 api_router.include_router(outreach.router)
 api_router.include_router(memory.router)
 api_router.include_router(tasks.router)
+api_router.include_router(auth.router)
+api_router.include_router(scheduler.router)
+api_router.include_router(calendar.router)
+api_router.include_router(notifications.router)
+api_router.include_router(sync.router)

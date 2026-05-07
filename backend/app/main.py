@@ -33,10 +33,22 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Task worker skipped: {e}")
         worker_task = None
 
+    # Start APScheduler
+    try:
+        from app.services.scheduler.engine import start_scheduler
+        await start_scheduler()
+    except Exception as e:
+        logger.warning(f"Scheduler skipped: {e}")
+
     yield
 
     if worker_task:
         worker_task.cancel()
+    try:
+        from app.services.scheduler.engine import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
     logger.info("JARVIS shutting down")
 
 
@@ -69,6 +81,6 @@ async def health():
         "status": "operational",
         "system": "JARVIS",
         "company": "Aliyar Solutions",
-        "version": "1.0.0",
+        "version": "3.0.0",
         "ai_providers": {"available": len(available), "total": len(providers), "active": available},
     }

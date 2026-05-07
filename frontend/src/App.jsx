@@ -11,18 +11,26 @@ import CRMDashboard from './components/crm/CRMDashboard'
 import LeadsDashboard from './components/leads/LeadsDashboard'
 import OutreachDashboard from './components/outreach/OutreachDashboard'
 import TaskQueue from './components/tasks/TaskQueue'
+import NotificationCenter from './components/notifications/NotificationCenter'
+import SchedulerView from './components/scheduler/SchedulerView'
+import CalendarView from './components/calendar/CalendarView'
+import SyncView from './components/sync/SyncView'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
-  dashboard: Dashboard,
-  chat:      ChatInterface,
-  briefing:  MorningBriefing,
-  approvals: ApprovalQueue,
-  agents:    AgentHierarchy,
-  crm:       CRMDashboard,
-  leads:     LeadsDashboard,
-  outreach:  OutreachDashboard,
-  tasks:     TaskQueue,
+  dashboard:     Dashboard,
+  chat:          ChatInterface,
+  briefing:      MorningBriefing,
+  approvals:     ApprovalQueue,
+  agents:        AgentHierarchy,
+  crm:           CRMDashboard,
+  leads:         LeadsDashboard,
+  outreach:      OutreachDashboard,
+  tasks:         TaskQueue,
+  notifications: NotificationCenter,
+  scheduler:     SchedulerView,
+  calendar:      CalendarView,
+  sync:          SyncView,
 }
 
 export default function App() {

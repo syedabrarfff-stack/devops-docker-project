@@ -64,4 +64,37 @@ export const sendAgentMessage = (data) => api.post('/api/v1/tasks/messages/send'
 export const storeMemory = (data) => api.post('/api/v1/memory/store', data).then(r => r.data)
 export const recallMemory = (query, params) => api.get('/api/v1/memory/recall', { params: { query, ...params } }).then(r => r.data)
 
+// Phase 3 — Auth / Gmail OAuth
+export const getGmailStatus = () => api.get('/api/v1/auth/gmail/status').then(r => r.data)
+export const initiateGmailOAuth = () => api.get('/api/v1/auth/gmail/initiate').then(r => r.data)
+export const revokeGmailOAuth = () => api.post('/api/v1/auth/gmail/revoke').then(r => r.data)
+
+// Phase 3 — Notifications
+export const getNotifications = (params) => api.get('/api/v1/notifications/', { params }).then(r => r.data)
+export const getUnreadCount = () => api.get('/api/v1/notifications/unread-count').then(r => r.data)
+export const markNotifRead = (id) => api.post(`/api/v1/notifications/${id}/read`).then(r => r.data)
+export const markAllNotifsRead = () => api.post('/api/v1/notifications/read-all').then(r => r.data)
+export const broadcastNotif = (data) => api.post('/api/v1/notifications/broadcast', data).then(r => r.data)
+
+// Phase 3 — Scheduler
+export const getSchedulerJobs = () => api.get('/api/v1/scheduler/jobs').then(r => r.data)
+export const getDbJobs = () => api.get('/api/v1/scheduler/jobs/db').then(r => r.data)
+export const createCronJob = (data) => api.post('/api/v1/scheduler/jobs/cron', data).then(r => r.data)
+export const createIntervalJob = (data) => api.post('/api/v1/scheduler/jobs/interval', data).then(r => r.data)
+export const deleteSchedulerJob = (id) => api.delete(`/api/v1/scheduler/jobs/${id}`).then(r => r.data)
+export const pauseJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/pause`).then(r => r.data)
+export const resumeJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/resume`).then(r => r.data)
+
+// Phase 3 — Calendar
+export const getCalendarEvents = (params) => api.get('/api/v1/calendar/events', { params }).then(r => r.data)
+export const createCalendarEvent = (data) => api.post('/api/v1/calendar/events', data).then(r => r.data)
+export const scheduleMeeting = (data) => api.post('/api/v1/calendar/meetings/schedule', data).then(r => r.data)
+export const getCalendars = () => api.get('/api/v1/calendar/calendars').then(r => r.data)
+
+// Phase 3 — Sync
+export const runApolloSync = (data) => api.post('/api/v1/sync/apollo', data).then(r => r.data)
+export const enrichContact = (id) => api.post(`/api/v1/sync/enrich/${id}`).then(r => r.data)
+export const registerTelegramWebhook = (url) => api.post(`/api/v1/sync/telegram/webhook/register?webhook_url=${encodeURIComponent(url)}`).then(r => r.data)
+export const getTelegramWebhookInfo = () => api.get('/api/v1/sync/telegram/webhook/info').then(r => r.data)
+
 export default api
