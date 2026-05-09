@@ -156,4 +156,13 @@ export const getAIOpsAudit = (limit = 50, provider) => api.get('/api/v1/ai-ops/a
 export const getAIOpsCredentials = () => api.get('/api/v1/ai-ops/credentials').then(r => r.data)
 export const getAIOpsRoutingTable = () => api.get('/api/v1/ai-ops/routing-table').then(r => r.data)
 
+// Phase 9 — Team Registry
+export const getTeamMembers = (params) => api.get('/api/v1/team/members', { params }).then(r => r.data)
+export const getTeamMember = (id) => api.get(`/api/v1/team/members/${id}`).then(r => r.data)
+export const getMemberForService = (category) => api.get(`/api/v1/team/members/for-service/${category}`).then(r => r.data)
+export const updateTeamMember = (id, data) => api.patch(`/api/v1/team/members/${id}`, data).then(r => r.data)
+export const seedTeam = () => api.post('/api/v1/team/seed').then(r => r.data)
+export const getTeamStats = () => api.get('/api/v1/team/stats').then(r => r.data)
+export const getTeamCommunicationGuide = () => api.get('/api/v1/team/communication-guide').then(r => r.data)
+
 export default api

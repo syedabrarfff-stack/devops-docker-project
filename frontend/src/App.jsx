@@ -19,6 +19,7 @@ import IntelligenceDashboard from './components/intelligence/IntelligenceDashboa
 import GovernanceDashboard from './components/governance/GovernanceDashboard'
 import ServiceCatalog from './components/catalog/ServiceCatalog'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
+import TeamRegistry from './components/team/TeamRegistry'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -39,6 +40,7 @@ const VIEWS = {
   governance:    GovernanceDashboard,
   catalog:       ServiceCatalog,
   ai_ops:        AIOpsDashboard,
+  team:          TeamRegistry,
 }
 
 export default function App() {

@@ -1,5 +1,6 @@
 """
 Outreach sequence engine — Gemini-generated multi-step email campaigns.
+All emails are signed by the appropriate Aliyar Solutions team member identity.
 """
 import logging
 from typing import Optional
@@ -10,35 +11,83 @@ from app.models.crm import Contact
 
 logger = logging.getLogger(__name__)
 
-ICP_TEMPLATES = {
-    "saas_usa": {
-        "steps": [
-            {"step": 1, "delay_days": 0,  "subject": "Quick question about {company}'s automation",
-             "body": "Hi {name},\n\nI came across {company} and noticed you're in the {industry} space.\n\nWe help SaaS companies like yours automate their operations with AI — reducing manual work by 60-80% and accelerating revenue.\n\nWould a 15-min call to explore if this fits make sense?\n\nBest,\nAliyar Solutions"},
-            {"step": 2, "delay_days": 3,  "subject": "Re: {company} automation",
-             "body": "Hi {name},\n\nJust following up on my last message. We recently helped a similar SaaS cut their ops overhead by 70% using our AI workflow system.\n\nHappy to share a quick case study if useful.\n\nBest,\nAliyar Solutions"},
-            {"step": 3, "delay_days": 7,  "subject": "Last touch — AI automation for {company}",
-             "body": "Hi {name},\n\nI'll keep this brief. If automating your workflows isn't a priority right now, no worries — I won't follow up again.\n\nBut if you'd like to see what we built for companies like {company}, reply and I'll send over details.\n\nBest,\nAliyar Solutions"},
-        ]
-    },
-    "hotel_uk": {
-        "steps": [
-            {"step": 1, "delay_days": 0,  "subject": "AI for {company} — reduce costs by 40%",
-             "body": "Hi {name},\n\nHotels using our AI platform are cutting operational costs by 40% while improving guest experience.\n\nWe handle: automated check-in, demand forecasting, staff scheduling, and guest communication.\n\nIs this worth a quick chat?\n\nAliyar Solutions"},
-            {"step": 2, "delay_days": 4,  "subject": "Case study: Hotel saved £180k with AI",
-             "body": "Hi {name},\n\nFollowing up — I wanted to share how a UK hotel similar to {company} saved £180k annually using our AI system.\n\nKey results: 38% cost reduction, 4.9★ guest rating, 92% staff satisfaction.\n\nWant the full case study?\n\nAliyar Solutions"},
-        ]
-    },
-}
+
+async def _get_sender(db: AsyncSession, service_category: str = "outreach") -> dict:
+    """Resolve the human team member identity for a given service category."""
+    try:
+        from app.services.team.team_service import get_member_for_service
+        member = await get_member_for_service(db, service_category)
+        if member:
+            return {
+                "name": member.first_name,
+                "full_name": member.name,
+                "email": member.email,
+                "signature": member.email_signature,
+                "role": member.role,
+                "department": member.department,
+            }
+    except Exception as e:
+        logger.warning(f"Team member lookup failed: {e}")
+    # Safe fallback
+    return {
+        "name": "Darren",
+        "full_name": "Darren Mitchell",
+        "email": "darren.mitchell@aliyarsolutions.com",
+        "signature": "Darren Mitchell\nClient Acquisition Specialist\nAliyar Solutions",
+        "role": "Client Acquisition Specialist",
+        "department": "Client Acquisition Division",
+    }
+
+def _build_templates(sender_name: str, signature: str) -> dict:
+    return {
+        "saas_usa": {
+            "steps": [
+                {"step": 1, "delay_days": 0,
+                 "subject": "Quick question about {company}'s automation",
+                 "body": f"Hi {{name}},\n\nI came across {{company}} and noticed you're in the {{industry}} space.\n\nWe help SaaS companies like yours automate their operations — reducing manual work by 60-80% and accelerating revenue.\n\nWould a 15-min call to explore if this fits make sense?\n\n{signature}"},
+                {"step": 2, "delay_days": 3,
+                 "subject": "Re: {company} automation",
+                 "body": f"Hi {{name}},\n\nJust following up on my last message. We recently helped a similar SaaS cut their ops overhead by 70%.\n\nHappy to share a quick case study if useful.\n\n{signature}"},
+                {"step": 3, "delay_days": 7,
+                 "subject": "Last touch — automation for {company}",
+                 "body": f"Hi {{name}},\n\nI'll keep this brief. If streamlining your operations isn't a priority right now, no worries — I won't follow up again.\n\nBut if you'd like to see what we built for companies like {{company}}, reply and I'll send over details.\n\n{signature}"},
+            ]
+        },
+        "hotel_uk": {
+            "steps": [
+                {"step": 1, "delay_days": 0,
+                 "subject": "Reducing costs at {company} — worth a look?",
+                 "body": f"Hi {{name}},\n\nHotels working with our team are cutting operational costs by 40% while improving guest experience.\n\nWe handle: automated check-in, demand forecasting, staff scheduling, and guest communication.\n\nIs this worth a quick chat?\n\n{signature}"},
+                {"step": 2, "delay_days": 4,
+                 "subject": "Case study: Hotel saved £180k",
+                 "body": f"Hi {{name}},\n\nFollowing up — I wanted to share how a UK hotel similar to {{company}} saved £180k annually.\n\nKey results: 38% cost reduction, 4.9★ guest rating, 92% staff satisfaction.\n\nWant the full case study?\n\n{signature}"},
+            ]
+        },
+    }
+
+
+# Fallback static templates (used before team seed runs)
+ICP_TEMPLATES = _build_templates(
+    "Darren",
+    "Darren Mitchell\nClient Acquisition Specialist\nAliyar Solutions\ndarren.mitchell@aliyarsolutions.com"
+)
 
 
 async def create_sequence(db: AsyncSession, data: dict) -> OutreachSequence:
     seq = OutreachSequence(**{k: v for k, v in data.items() if hasattr(OutreachSequence, k)})
     if not seq.steps:
+        service_cat = data.get("service_category", "outreach")
+        sender = await _get_sender(db, service_cat)
+        templates = _build_templates(sender["name"], sender["signature"])
         template_key = f"{data.get('target_industry','saas')}_{data.get('target_country','usa')}".lower()
-        template = ICP_TEMPLATES.get(template_key) or list(ICP_TEMPLATES.values())[0]
+        template = templates.get(template_key) or list(templates.values())[0]
         seq.steps = template["steps"]
         seq.total_steps = len(seq.steps)
+        # Store sender identity in sequence metadata if field exists
+        if hasattr(seq, "sender_name"):
+            seq.sender_name = sender["full_name"]
+        if hasattr(seq, "sender_email"):
+            seq.sender_email = sender["email"]
     db.add(seq)
     await db.flush()
     await db.refresh(seq)

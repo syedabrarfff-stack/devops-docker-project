@@ -58,8 +58,27 @@ async def generate_proposal(
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
 
+    # Resolve the appropriate team member for this service type
+    author_name = "Aliyar Solutions Team"
+    author_title = ""
+    author_signature = "Aliyar Solutions"
+    try:
+        from app.services.team.team_service import get_member_for_service
+        member = await get_member_for_service(db, service_type.lower().replace(" ", "_"))
+        if member:
+            author_name = member.name
+            author_title = member.proposal_title or member.role
+            author_signature = member.email_signature
+    except Exception as e:
+        logger.warning(f"Team member lookup for proposal failed: {e}")
+
     pricing_str = json.dumps(pricing, indent=2)
-    prompt = PROPOSAL_PROMPT.format(
+    proposal_prompt = PROPOSAL_PROMPT + (
+        f"\n\nAUTHOR: This proposal is prepared and signed by {author_name}"
+        + (f", {author_title}" if author_title else "")
+        + f".\nClose the proposal with:\n\nWarm regards,\n{author_signature}"
+    )
+    prompt = proposal_prompt.format(
         client_name=client_name,
         client_company=client_company,
         service_type=service_type,
@@ -78,7 +97,11 @@ async def generate_proposal(
         content = response.content.strip()
     except Exception as e:
         logger.warning(f"Proposal generation failed: {e}")
-        content = f"[Proposal for {client_name} at {client_company} — {service_type}]\n\nAI generation unavailable. Please draft manually."
+        content = (
+            f"[Proposal for {client_name} at {client_company} — {service_type}]\n\n"
+            f"AI generation unavailable. Please draft manually.\n\n"
+            f"Warm regards,\n{author_signature}"
+        )
 
     title = f"{service_type} — {client_company}"
     proposal = Proposal(
@@ -95,7 +118,9 @@ async def generate_proposal(
     )
     db.add(proposal)
     await db.flush()
-    return _serialize_proposal(proposal)
+    result = _serialize_proposal(proposal)
+    result["author"] = {"name": author_name, "title": author_title}
+    return result
 
 
 def _next_invoice_number() -> str:
