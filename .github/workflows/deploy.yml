@@ -110,13 +110,32 @@ jobs:
           wait-for-service-stability: true
           wait-for-minutes:         10
 
+      - name: Post-deploy health validation
+        run: |
+          echo "Waiting 30s for ECS tasks to stabilise…"
+          sleep 30
+          HEALTH_URL="${{ secrets.APP_BASE_URL }}/health"
+          READYZ_URL="${{ secrets.APP_BASE_URL }}/readyz"
+          echo "Checking liveness: $HEALTH_URL"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Liveness check failed — HTTP $STATUS"
+            exit 1
+          fi
+          echo "Checking readiness: $READYZ_URL"
+          RSTAT=$(curl -s -o /dev/null -w "%{http_code}" "$READYZ_URL" || echo "000")
+          if [ "$RSTAT" != "200" ]; then
+            echo "::warning::Readiness degraded — HTTP $RSTAT (deployment continues)"
+          fi
+          echo "✅ Health validation passed"
+
       - name: Notify Captain — deployment success
         if: success()
         run: |
           curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "text": "✅ *JARVIS deployed successfully* — `${{ github.sha }}` → ECS (ap-south-2)\nTriggered by: ${{ github.actor }}"
+              "text": "✅ *JARVIS deployed + health-validated* — `${{ github.sha }}` → ECS (ap-south-2)\nTriggered by: ${{ github.actor }}"
             }' || true
 
       - name: Notify Captain — deployment failure

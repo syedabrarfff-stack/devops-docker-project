@@ -5,7 +5,7 @@ from typing import Optional
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "JARVIS"
-    APP_VERSION: str = "2.0.0"
+    APP_VERSION: str = "9.0.0"
     COMPANY_NAME: str = "Aliyar Solutions"
     FOUNDER_NAME: str = "Syed Abrar"
     CAPTAIN_NAME: str = "Captain Abrar"
