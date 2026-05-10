@@ -1,0 +1,65 @@
+groups:
+  - name: jarvis.infrastructure
+    rules:
+      - alert: BackendDown
+        expr: up{job="jarvis-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JARVIS backend is DOWN"
+          description: "Backend has been unreachable for more than 1 minute."
+
+      - alert: HighCPU
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on JARVIS backend"
+          description: "CPU has been above 85% for 5 minutes."
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is DOWN"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis cache is DOWN"
+
+      - alert: HighMemory
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage above 90% for 5 minutes."
+
+  - name: jarvis.ai
+    rules:
+      - alert: AIProviderAllDown
+        expr: jarvis_ai_providers_available == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "All AI providers are unavailable"
+          description: "No AI providers are responding. JARVIS intelligence is offline."
+
+      - alert: AICostSurge
+        expr: jarvis_ai_daily_cost_usd > 50
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI cost surge detected"
+          description: "Daily AI spending has exceeded $50. Captain review required."

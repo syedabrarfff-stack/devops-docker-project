@@ -1,0 +1,61 @@
+# ─── Secrets & Credentials (NEVER commit) ───────────────────────
+.env
+.env.local
+.env.*.local
+secrets/
+secrets/**
+!secrets/.gitkeep
+
+# ─── Logs & Backups ──────────────────────────────────────────────
+logs/
+logs/**
+!logs/.gitkeep
+backups/
+backups/**
+!backups/.gitkeep
+*.log
+
+# ─── Node ────────────────────────────────────────────────────────
+node_modules/
+backend/node_modules/
+
+# ─── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# ─── Databases ───────────────────────────────────────────────────
+*.db
+*.sqlite
+
+# ─── Build output ────────────────────────────────────────────────
+frontend/dist/
+frontend/.vite/
+frontend/build/
+
+# ─── Docker ──────────────────────────────────────────────────────
+*.pid
+
+# ─── OS ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Terraform state (contains secrets) ─────────────────────────
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# ─── IDE ─────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo

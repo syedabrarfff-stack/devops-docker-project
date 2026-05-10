@@ -1,0 +1,36 @@
+from typing import List
+from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message
+from app.core.config import settings
+
+
+class AnthropicProvider(BaseAIProvider):
+    name = "anthropic"
+    models = {
+        "claude-sonnet": "claude-sonnet-4-6",
+        "claude-opus": "claude-opus-4-7",
+    }
+
+    def is_available(self) -> bool:
+        return bool(settings.ANTHROPIC_API_KEY)
+
+    async def chat(self, messages: List[Message], model_id: str = "claude-sonnet-4-6",
+                   system_prompt: str = "", max_tokens: int = 2048) -> AIResponse:
+        try:
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+            result = await client.messages.create(
+                model=model_id,
+                max_tokens=max_tokens,
+                system=system_prompt,
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+            )
+            return AIResponse(
+                content=result.content[0].text,
+                model=model_id,
+                provider=self.name,
+                task_type="general",
+                tokens_used=result.usage.input_tokens + result.usage.output_tokens,
+            )
+        except Exception as e:
+            return AIResponse(content="", model=model_id, provider=self.name,
+                              task_type="general", error=str(e))

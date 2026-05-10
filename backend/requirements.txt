@@ -1,0 +1,42 @@
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# Database
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+aiosqlite==0.20.0
+alembic==1.14.0
+
+# Settings & validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# HTTP client
+httpx==0.28.1
+
+# AI providers
+anthropic==0.40.0
+openai==1.57.2
+google-generativeai==0.8.3
+groq==0.13.0
+mistralai==1.2.5
+
+# Phase 3 — Scheduling
+apscheduler==3.10.4
+
+# Phase 3 — Secure credential storage + AWS
+cryptography>=41.0.0
+boto3==1.35.0
+
+# Phase 3 — Google OAuth + Calendar
+google-auth==2.51.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.151.0
+
+# Utilities
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.1
+pytz==2024.2

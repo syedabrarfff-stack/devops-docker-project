@@ -1,0 +1,95 @@
+"""
+JARVIS Emergency Control System — incident management, system health, and Captain alerts.
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, List
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+
+router = APIRouter(prefix="/emergency", tags=["emergency"])
+
+
+class IncidentRequest(BaseModel):
+    title: str
+    severity: str = "medium"               # low | medium | high | critical
+    category: str = "infrastructure"       # infrastructure | security | api | automation | billing
+    description: str
+    affected_systems: List[str] = []
+
+
+class ResolveRequest(BaseModel):
+    actions_taken: List[str] = []
+
+
+class ActionRequest(BaseModel):
+    action: str
+
+
+@router.get("/health")
+async def system_health():
+    """Real-time health check across all JARVIS subsystems."""
+    from app.services.monitoring.emergency import check_system_health
+    return await check_system_health()
+
+
+@router.get("/incidents")
+async def list_incidents(
+    status: Optional[str] = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.monitoring.emergency import get_incidents
+    return {"incidents": await get_incidents(db, status=status, limit=limit)}
+
+
+@router.post("/incidents")
+async def declare_incident(req: IncidentRequest, db: AsyncSession = Depends(get_db)):
+    from app.services.monitoring.emergency import declare_emergency
+    async with db.begin():
+        incident = await declare_emergency(
+            db,
+            title=req.title,
+            severity=req.severity,
+            category=req.category,
+            description=req.description,
+            affected_systems=req.affected_systems,
+            auto_detected=False,
+        )
+    return {"incident": incident, "captain_notified": True}
+
+
+@router.post("/incidents/{incident_id}/resolve")
+async def resolve_incident(incident_id: int, req: ResolveRequest, db: AsyncSession = Depends(get_db)):
+    from app.services.monitoring.emergency import resolve_incident as _resolve
+    async with db.begin():
+        ok = await _resolve(db, incident_id, req.actions_taken)
+    if not ok:
+        raise HTTPException(404, "Incident not found")
+    return {"id": incident_id, "status": "resolved"}
+
+
+@router.post("/incidents/{incident_id}/action")
+async def add_action(incident_id: int, req: ActionRequest, db: AsyncSession = Depends(get_db)):
+    from app.services.monitoring.emergency import add_action as _add
+    async with db.begin():
+        ok = await _add(db, incident_id, req.action)
+    if not ok:
+        raise HTTPException(404, "Incident not found")
+    return {"id": incident_id, "action_logged": True}
+
+
+@router.post("/alert")
+async def send_captain_alert(req: IncidentRequest):
+    """Send an immediate alert to Captain without creating a DB incident."""
+    from app.services.notifications.slack import notify_system_event
+    from app.core.config import settings
+    try:
+        await notify_system_event(
+            title=f"⚠️ CAPTAIN ALERT [{req.severity.upper()}]: {req.title}",
+            body=req.description,
+            level=req.severity,
+        )
+    except Exception:
+        pass
+    return {"alerted": True, "channels": ["slack", "telegram", "dashboard"]}

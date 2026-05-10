@@ -1,0 +1,6 @@
+version: "3.9"
+# Quick-start: docker compose up -d
+# Delegates to infrastructure/docker-compose.yml
+
+include:
+  - path: infrastructure/docker-compose.yml
