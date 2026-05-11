@@ -20,6 +20,7 @@ import GovernanceDashboard from './components/governance/GovernanceDashboard'
 import ServiceCatalog from './components/catalog/ServiceCatalog'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
 import TeamRegistry from './components/team/TeamRegistry'
+import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -28,6 +29,7 @@ const VIEWS = {
   briefing:      MorningBriefing,
   approvals:     ApprovalQueue,
   agents:        AgentHierarchy,
+  agent_ops:     AgentOpsCenter,
   crm:           CRMDashboard,
   leads:         LeadsDashboard,
   outreach:      OutreachDashboard,

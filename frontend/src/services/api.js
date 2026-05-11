@@ -165,4 +165,22 @@ export const seedTeam = () => api.post('/api/v1/team/seed').then(r => r.data)
 export const getTeamStats = () => api.get('/api/v1/team/stats').then(r => r.data)
 export const getTeamCommunicationGuide = () => api.get('/api/v1/team/communication-guide').then(r => r.data)
 
+// JARVIS Self-Awareness
+export const getJarvisStatus = () => api.get('/api/v1/jarvis/status').then(r => r.data)
+export const getJarvisBriefing = () => api.get('/api/v1/jarvis/briefing').then(r => r.data)
+export const getJarvisSelfImprovement = () => api.get('/api/v1/jarvis/self-improvement').then(r => r.data)
+export const enhanceIdea = (idea) => api.post('/api/v1/jarvis/enhance-idea', { idea }).then(r => r.data)
+export const spawnAgentTeam = (task) => api.post('/api/v1/jarvis/spawn-team', { task }).then(r => r.data)
+export const jarvisChat = (message, task_type = 'FAST', history = []) => api.post('/api/v1/jarvis/chat', { message, task_type, history }).then(r => r.data)
+
+// Agent Operations Center
+export const getAgentOpsStatus = () => api.get('/api/v1/agent-ops/status').then(r => r.data)
+export const getAllAgentTeams = () => api.get('/api/v1/agent-ops/teams').then(r => r.data)
+export const getAgentTeam = (teamId) => api.get(`/api/v1/agent-ops/teams/${teamId}`).then(r => r.data)
+export const getAllAgents = () => api.get('/api/v1/agent-ops/agents').then(r => r.data)
+export const getAgentDetail = (agentId) => api.get(`/api/v1/agent-ops/agents/${agentId}`).then(r => r.data)
+export const chatWithAgent = (agentId, message, context = null, task_type = 'FAST') => api.post(`/api/v1/agent-ops/agents/${agentId}/chat`, { message, context, task_type }).then(r => r.data)
+export const chatWithTeam = (teamId, message, context = null, task_type = 'FAST') => api.post(`/api/v1/agent-ops/teams/${teamId}/chat`, { message, context, task_type }).then(r => r.data)
+export const getTeamActivity = (teamId) => api.get(`/api/v1/agent-ops/teams/${teamId}/activity`).then(r => r.data)
+
 export default api
