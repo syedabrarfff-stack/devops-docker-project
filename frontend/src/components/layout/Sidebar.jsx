@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2, Cpu,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2, Cpu, Sparkles,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -14,6 +14,7 @@ const NAV = [
   { id: 'approvals',      label: 'Approvals',        icon: CheckSquare },
   { id: 'agents',         label: 'Agents',           icon: Users },
   { id: 'agent_ops',      label: 'Agent Ops Center', icon: Cpu },
+  { id: 'evolution',      label: 'Self-Evolution',   icon: Sparkles },
   { id: 'crm',            label: 'CRM',              icon: UserCircle },
   { id: 'leads',          label: 'Leads',            icon: Target },
   { id: 'outreach',       label: 'Outreach',         icon: Mail },

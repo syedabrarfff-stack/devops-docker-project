@@ -171,7 +171,16 @@ export const getJarvisBriefing = () => api.get('/api/v1/jarvis/briefing').then(r
 export const getJarvisSelfImprovement = () => api.get('/api/v1/jarvis/self-improvement').then(r => r.data)
 export const enhanceIdea = (idea) => api.post('/api/v1/jarvis/enhance-idea', { idea }).then(r => r.data)
 export const spawnAgentTeam = (task) => api.post('/api/v1/jarvis/spawn-team', { task }).then(r => r.data)
-export const jarvisChat = (message, task_type = 'FAST', history = []) => api.post('/api/v1/jarvis/chat', { message, task_type, history }).then(r => r.data)
+export const jarvisChat = (message, task_type = 'FAST', history = [], session_id = null) => api.post('/api/v1/jarvis/chat', { message, task_type, history, session_id }).then(r => r.data)
+
+// JARVIS Memory & Evolution
+export const getJarvisMemory = (query = '', memory_type = null, limit = 20) => api.get('/api/v1/jarvis/memory', { params: { query, memory_type, limit } }).then(r => r.data)
+export const getJarvisMemoryStats = () => api.get('/api/v1/jarvis/memory/stats').then(r => r.data)
+export const storeJarvisMemory = (content, memory_type = 'instruction', importance = 0.9, tags = []) => api.post('/api/v1/jarvis/memory/store', { content, memory_type, importance, tags }).then(r => r.data)
+export const triggerEvolution = () => api.post('/api/v1/jarvis/evolve').then(r => r.data)
+export const getEvolutionLog = (limit = 10) => api.get('/api/v1/jarvis/evolution-log', { params: { limit } }).then(r => r.data)
+export const logOutcome = (action_type, action_detail, action_ref = null, importance = 0.6) => api.post('/api/v1/jarvis/outcomes', { action_type, action_detail, action_ref, importance }).then(r => r.data)
+export const resolveOutcome = (id, outcome, note = null) => api.post(`/api/v1/jarvis/outcomes/${id}/resolve`, { outcome, note }).then(r => r.data)
 
 // Agent Operations Center
 export const getAgentOpsStatus = () => api.get('/api/v1/agent-ops/status').then(r => r.data)

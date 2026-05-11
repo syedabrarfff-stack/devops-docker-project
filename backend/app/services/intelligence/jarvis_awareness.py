@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.ai.router import ai_router
+from app.services.memory import manager as mem
 
 logger = logging.getLogger(__name__)
 
@@ -162,19 +163,43 @@ async def self_improvement_report(db: AsyncSession) -> dict:
 
 async def enhance_idea(db: AsyncSession, idea: str) -> dict:
     try:
+        # Recall past ideas and outcomes to inform this analysis
+        past_context = await mem.build_context(db, query=idea, limit=4)
         prompt = IDEA_ENHANCER_PROMPT.replace("{idea}", idea)
+
+        system = JARVIS_AWARENESS_PROMPT
+        if past_context:
+            system = f"{JARVIS_AWARENESS_PROMPT}\n\nPAST CONTEXT (use to inform analysis):\n{past_context}"
+
         response = await ai_router.chat(
             messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": prompt}
             ],
             task_type="STRATEGY",
             max_tokens=2500
         )
+        analysis = response.get("content", "")
+
+        # Save this idea enhancement as a memory for future reference
+        try:
+            await mem.store_memory(
+                db,
+                content=f"Captain proposed idea: {idea[:200]}\nJARVIS analysis summary: {analysis[:300]}",
+                memory_type="semantic",
+                importance=0.8,
+                tags=["idea_enhancement", "captain_idea"],
+                key=f"idea:{idea[:100]}"
+            )
+            await db.commit()
+        except Exception:
+            pass
+
         return {
             "original_idea": idea,
-            "jarvis_analysis": response.get("content", ""),
-            "generated_at": datetime.now().isoformat()
+            "jarvis_analysis": analysis,
+            "generated_at": datetime.now().isoformat(),
+            "memory_context_used": bool(past_context),
         }
     except Exception as e:
         logger.error(f"Idea enhancement failed: {e}")
@@ -206,10 +231,18 @@ async def jarvis_chat(
     db: AsyncSession,
     message: str,
     task_type: str = "FAST",
-    history: Optional[list] = None
+    history: Optional[list] = None,
+    session_id: Optional[str] = None,
 ) -> dict:
     try:
-        messages = [{"role": "system", "content": JARVIS_AWARENESS_PROMPT}]
+        # Recall relevant memories for this conversation
+        memory_context = await mem.build_context(db, session_id=session_id, query=message)
+
+        system_prompt = JARVIS_AWARENESS_PROMPT
+        if memory_context:
+            system_prompt = f"{JARVIS_AWARENESS_PROMPT}\n\n--- JARVIS MEMORY ---\n{memory_context}\n---"
+
+        messages = [{"role": "system", "content": system_prompt}]
 
         if history:
             messages.extend(history[-10:])
@@ -222,11 +255,26 @@ async def jarvis_chat(
             max_tokens=1500
         )
 
+        jarvis_response = response.get("content", "")
+
+        # Auto-save this exchange to memory (background — don't block response)
+        try:
+            await mem.auto_save_exchange(
+                db,
+                captain_message=message,
+                jarvis_response=jarvis_response,
+                session_id=session_id,
+                tags=["jarvis_chat", task_type.lower()],
+            )
+        except Exception as save_err:
+            logger.warning(f"Memory save failed (non-critical): {save_err}")
+
         return {
-            "response": response.get("content", ""),
+            "response": jarvis_response,
             "model": response.get("model", ""),
             "provider": response.get("provider", ""),
-            "task_type": task_type
+            "task_type": task_type,
+            "memory_active": bool(memory_context),
         }
     except Exception as e:
         logger.error(f"JARVIS chat failed: {e}")

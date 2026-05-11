@@ -152,6 +152,9 @@ async def _register_default_jobs() -> None:
     # Bi-weekly research report (Sunday 07:00 UTC)
     add_cron_job("biweekly_research_report", _job_research_report, hour=7, minute=0)
 
+    # Daily self-learning cycle (midnight UTC — JARVIS evolves every day)
+    add_cron_job("daily_self_learning", _job_self_learning, hour=0, minute=5)
+
     logger.info("✅ Default JARVIS jobs registered")
 
 
@@ -262,3 +265,15 @@ async def _job_research_report() -> None:
         logger.info(f"Research reports: {count} generated")
     except Exception as e:
         logger.warning(f"Research report generation failed: {e}")
+
+
+async def _job_self_learning() -> None:
+    logger.info("Scheduler: JARVIS daily self-learning cycle starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.jarvis_self_learning import run_daily_learning_cycle
+        async with AsyncSessionLocal() as db:
+            result = await run_daily_learning_cycle(db)
+        logger.info(f"Self-learning complete: {result.get('learnings_stored', 0)} learnings stored")
+    except Exception as e:
+        logger.warning(f"Self-learning job failed: {e}")

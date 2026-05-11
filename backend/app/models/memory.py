@@ -1,6 +1,22 @@
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean
 from sqlalchemy.sql import func
 from app.core.database import Base
+
+
+class OutcomeRecord(Base):
+    """Tracks what happened after JARVIS actions — makes JARVIS learn from results."""
+    __tablename__ = "outcome_records"
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    action_type   = Column(String(50), index=True)   # proposal_sent, lead_contacted, recommendation_made, idea_enhanced
+    action_ref    = Column(String(200), nullable=True)  # reference ID or description
+    action_detail = Column(Text, nullable=True)       # what was done
+    outcome       = Column(String(50), nullable=True, index=True)  # won, lost, replied, ignored, accepted, rejected, pending
+    outcome_note  = Column(Text, nullable=True)       # Captain's note on the outcome
+    learning      = Column(Text, nullable=True)       # AI-extracted lesson
+    importance    = Column(Float, default=0.5)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at   = Column(DateTime(timezone=True), nullable=True)
 
 
 class Memory(Base):

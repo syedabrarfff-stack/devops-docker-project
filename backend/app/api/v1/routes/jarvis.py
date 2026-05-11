@@ -1,9 +1,10 @@
 """
 JARVIS Self-Awareness API
-Morning briefing, idea enhancer, agent teams, self-improvement
+Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolution
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.intelligence.jarvis_awareness import (
@@ -12,6 +13,13 @@ from app.services.intelligence.jarvis_awareness import (
     enhance_idea,
     spawn_agent_team,
     jarvis_chat,
+)
+from app.services.memory import manager as mem
+from app.services.intelligence.jarvis_self_learning import (
+    run_daily_learning_cycle,
+    record_outcome,
+    resolve_outcome,
+    get_evolution_history,
 )
 
 router = APIRouter(prefix="/jarvis", tags=["jarvis"])
@@ -29,6 +37,26 @@ class ChatRequest(BaseModel):
     message: str
     task_type: str = "FAST"
     history: list = []
+    session_id: Optional[str] = None
+
+
+class OutcomeRequest(BaseModel):
+    action_type: str
+    action_detail: str
+    action_ref: Optional[str] = None
+    importance: float = 0.6
+
+
+class ResolveOutcomeRequest(BaseModel):
+    outcome: str   # won, lost, replied, ignored, accepted, rejected
+    note: Optional[str] = None
+
+
+class MemoryStoreRequest(BaseModel):
+    content: str
+    memory_type: str = "instruction"
+    importance: float = 0.9
+    tags: list = []
 
 
 @router.get("/briefing")
@@ -57,8 +85,108 @@ async def spawn_team(body: AgentTeamRequest, db: AsyncSession = Depends(get_db))
 
 @router.post("/chat")
 async def jarvis_chat_endpoint(body: ChatRequest, db: AsyncSession = Depends(get_db)):
-    """Talk to JARVIS — responds as senior operational manager."""
-    return await jarvis_chat(db, body.message, body.task_type, body.history)
+    """Talk to JARVIS — responds as senior operational manager. Memory active."""
+    return await jarvis_chat(db, body.message, body.task_type, body.history, body.session_id)
+
+
+# ── Memory Endpoints ──────────────────────────────────────────────────────────
+
+@router.get("/memory")
+async def get_memory(
+    query: str = Query("", description="Search query"),
+    memory_type: Optional[str] = Query(None),
+    limit: int = Query(20, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """What does JARVIS remember? Search or browse all memories."""
+    memories = await mem.recall(db, query=query, limit=limit, memory_type=memory_type)
+    stats = await mem.get_memory_stats(db)
+    return {
+        "memories": [{
+            "id": m.id,
+            "type": m.memory_type,
+            "content": m.value,
+            "importance": m.importance,
+            "tags": m.tags or [],
+            "access_count": m.access_count,
+            "created_at": str(m.created_at),
+        } for m in memories],
+        "stats": stats,
+        "query": query,
+    }
+
+
+@router.post("/memory/store")
+async def store_captain_memory(body: MemoryStoreRequest, db: AsyncSession = Depends(get_db)):
+    """Captain teaches JARVIS something — stored as permanent instruction."""
+    memory = await mem.store_memory(
+        db,
+        content=body.content,
+        memory_type=body.memory_type,
+        importance=body.importance,
+        tags=body.tags,
+    )
+    await db.commit()
+    return {"id": memory.id, "stored": True, "type": memory.memory_type}
+
+
+@router.get("/memory/stats")
+async def memory_stats(db: AsyncSession = Depends(get_db)):
+    """How much does JARVIS know?"""
+    stats = await mem.get_memory_stats(db)
+    return stats
+
+
+# ── Self-Evolution Endpoints ──────────────────────────────────────────────────
+
+@router.post("/evolve")
+async def trigger_learning_cycle(db: AsyncSession = Depends(get_db)):
+    """Trigger JARVIS daily self-learning cycle manually."""
+    result = await run_daily_learning_cycle(db)
+    return result
+
+
+@router.get("/evolution-log")
+async def evolution_log(limit: int = Query(10, le=30), db: AsyncSession = Depends(get_db)):
+    """JARVIS evolution history — what it has learned over time."""
+    history = await get_evolution_history(db, limit=limit)
+    return {"history": history, "total": len(history)}
+
+
+# ── Outcome Tracking ──────────────────────────────────────────────────────────
+
+@router.post("/outcomes")
+async def create_outcome(body: OutcomeRequest, db: AsyncSession = Depends(get_db)):
+    """Log a JARVIS action for outcome tracking."""
+    record = await record_outcome(
+        db,
+        action_type=body.action_type,
+        action_detail=body.action_detail,
+        action_ref=body.action_ref,
+        importance=body.importance,
+    )
+    await db.commit()
+    return {"id": record.id, "action_type": record.action_type, "status": "tracking"}
+
+
+@router.post("/outcomes/{outcome_id}/resolve")
+async def resolve_outcome_endpoint(
+    outcome_id: int,
+    body: ResolveOutcomeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Captain marks what happened — JARVIS learns from it immediately."""
+    record = await resolve_outcome(db, outcome_id, body.outcome, body.note)
+    await db.commit()
+    if not record:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Outcome record not found")
+    return {
+        "id": record.id,
+        "outcome": record.outcome,
+        "learning": record.learning,
+        "resolved_at": str(record.resolved_at),
+    }
 
 
 @router.get("/status")

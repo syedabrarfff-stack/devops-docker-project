@@ -21,6 +21,7 @@ import ServiceCatalog from './components/catalog/ServiceCatalog'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
 import TeamRegistry from './components/team/TeamRegistry'
 import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
+import EvolutionDashboard from './components/evolution/EvolutionDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -30,6 +31,7 @@ const VIEWS = {
   approvals:     ApprovalQueue,
   agents:        AgentHierarchy,
   agent_ops:     AgentOpsCenter,
+  evolution:     EvolutionDashboard,
   crm:           CRMDashboard,
   leads:         LeadsDashboard,
   outreach:      OutreachDashboard,
