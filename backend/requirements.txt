@@ -14,7 +14,7 @@ pydantic==2.10.3
 pydantic-settings==2.6.1
 
 # HTTP client
-httpx==0.28.1
+httpx==0.27.2
 
 # AI providers
 anthropic==0.40.0
@@ -25,6 +25,7 @@ mistralai==1.2.5
 
 # Phase 3 — Scheduling
 apscheduler==3.10.4
+psycopg2-binary==2.9.9
 
 # Phase 3 — Secure credential storage + AWS
 cryptography>=41.0.0

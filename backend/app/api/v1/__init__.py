@@ -5,6 +5,7 @@ from app.api.v1.routes import auth, scheduler, calendar, notifications, sync
 from app.api.v1.routes import intelligence
 from app.api.v1.routes import governance, emergency, knowledge, catalog, ai_ops
 from app.api.v1.routes import team
+from app.api.v1.routes import jarvis
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -29,3 +30,4 @@ api_router.include_router(knowledge.router)
 api_router.include_router(catalog.router)
 api_router.include_router(ai_ops.router)
 api_router.include_router(team.router)
+api_router.include_router(jarvis.router)
