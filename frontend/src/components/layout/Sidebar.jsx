@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2, Cpu, Sparkles,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2, Cpu, Sparkles, Inbox,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -18,6 +18,7 @@ const NAV = [
   { id: 'crm',            label: 'CRM',              icon: UserCircle },
   { id: 'leads',          label: 'Leads',            icon: Target },
   { id: 'outreach',       label: 'Outreach',         icon: Mail },
+  { id: 'gmail',          label: 'Gmail Center',     icon: Inbox },
   { id: 'tasks',          label: 'Task Queue',       icon: ListTodo },
   { id: 'notifications',  label: 'Notifications',    icon: Bell },
   { id: 'scheduler',      label: 'Scheduler',        icon: Clock },

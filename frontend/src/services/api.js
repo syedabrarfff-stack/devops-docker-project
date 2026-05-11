@@ -182,6 +182,14 @@ export const getEvolutionLog = (limit = 10) => api.get('/api/v1/jarvis/evolution
 export const logOutcome = (action_type, action_detail, action_ref = null, importance = 0.6) => api.post('/api/v1/jarvis/outcomes', { action_type, action_detail, action_ref, importance }).then(r => r.data)
 export const resolveOutcome = (id, outcome, note = null) => api.post(`/api/v1/jarvis/outcomes/${id}/resolve`, { outcome, note }).then(r => r.data)
 
+// Gmail Operations Center
+export const getGmailStatus = () => api.get('/api/v1/gmail/status').then(r => r.data)
+export const getGmailInbox = (category = null, needs_action = null, limit = 50) => api.get('/api/v1/gmail/inbox', { params: { category, needs_action, limit } }).then(r => r.data)
+export const getGmailStats = () => api.get('/api/v1/gmail/stats').then(r => r.data)
+export const fetchGmailInbox = () => api.post('/api/v1/gmail/fetch').then(r => r.data)
+export const markEmailRead = (id) => api.post(`/api/v1/gmail/messages/${id}/read`).then(r => r.data)
+export const sendEmail = (to, subject, body, to_name = null) => api.post('/api/v1/gmail/send', { to, subject, body, to_name }).then(r => r.data)
+
 // Agent Operations Center
 export const getAgentOpsStatus = () => api.get('/api/v1/agent-ops/status').then(r => r.data)
 export const getAllAgentTeams = () => api.get('/api/v1/agent-ops/teams').then(r => r.data)

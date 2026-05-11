@@ -22,6 +22,7 @@ import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
 import TeamRegistry from './components/team/TeamRegistry'
 import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
 import EvolutionDashboard from './components/evolution/EvolutionDashboard'
+import GmailCenter from './components/gmail/GmailCenter'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -32,6 +33,7 @@ const VIEWS = {
   agents:        AgentHierarchy,
   agent_ops:     AgentOpsCenter,
   evolution:     EvolutionDashboard,
+  gmail:         GmailCenter,
   crm:           CRMDashboard,
   leads:         LeadsDashboard,
   outreach:      OutreachDashboard,

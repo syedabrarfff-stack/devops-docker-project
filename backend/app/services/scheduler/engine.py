@@ -155,6 +155,9 @@ async def _register_default_jobs() -> None:
     # Daily self-learning cycle (midnight UTC — JARVIS evolves every day)
     add_cron_job("daily_self_learning", _job_self_learning, hour=0, minute=5)
 
+    # Gmail inbox fetch every 15 minutes
+    add_interval_job("gmail_inbox_fetch", _job_gmail_inbox, minutes=15)
+
     logger.info("✅ Default JARVIS jobs registered")
 
 
@@ -277,3 +280,15 @@ async def _job_self_learning() -> None:
         logger.info(f"Self-learning complete: {result.get('learnings_stored', 0)} learnings stored")
     except Exception as e:
         logger.warning(f"Self-learning job failed: {e}")
+
+
+async def _job_gmail_inbox() -> None:
+    logger.info("Scheduler: fetching Gmail inbox")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.outreach.gmail_inbox import fetch_new_emails
+        async with AsyncSessionLocal() as db:
+            count = await fetch_new_emails(db)
+        logger.info(f"Gmail inbox: {count} new emails processed")
+    except Exception as e:
+        logger.warning(f"Gmail inbox fetch failed: {e}")
