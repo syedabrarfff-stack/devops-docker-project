@@ -2,18 +2,23 @@
 JARVIS Self-Awareness API
 Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolution
 """
+import logging
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.intelligence.jarvis_awareness import (
+    JARVIS_AWARENESS_PROMPT,
     generate_morning_briefing,
     self_improvement_report,
     enhance_idea,
     spawn_agent_team,
     jarvis_chat,
 )
+from app.services.ai.router import ai_router
+
+logger = logging.getLogger(__name__)
 from app.services.memory import manager as mem
 from app.services.intelligence.jarvis_self_learning import (
     run_daily_learning_cycle,
@@ -203,6 +208,123 @@ async def jarvis_authority():
         "requires_captain_approval": CAPTAIN_APPROVAL_REQUIRED,
         "alerts_captain": JARVIS_ALERTS_CAPTAIN,
         "philosophy": "JARVIS runs the company. Captain approves money, contracts, and go-live.",
+    }
+
+
+@router.get("/greeting")
+async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
+    """Context-aware greeting — called when Captain opens the app."""
+    from datetime import datetime
+    from app.services.memory.manager import build_context
+
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        time_of_day = "morning"
+    elif 12 <= hour < 17:
+        time_of_day = "afternoon"
+    elif 17 <= hour < 21:
+        time_of_day = "evening"
+    else:
+        time_of_day = "night"
+
+    try:
+        memory_context = await build_context(db, query="recent client activity leads proposals", limit=5)
+
+        response = await ai_router.chat(
+            messages=[
+                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                {"role": "user", "content": (
+                    f"Captain just opened the JARVIS dashboard. It's {time_of_day}. "
+                    f"Give a natural, warm greeting in 2-3 sentences. Mention what's happening if there's context below. "
+                    f"End by asking if they want the full brief or to jump straight to clients. "
+                    f"Context: {memory_context or 'No recent activity to report.'}"
+                )}
+            ],
+            task_type="FAST",
+            max_tokens=120,
+        )
+        greeting_text = response.get("content", f"Good {time_of_day}, Captain. JARVIS operational.")
+    except Exception:
+        greeting_text = f"Good {time_of_day}, Captain. All systems running."
+
+    return {
+        "greeting": greeting_text,
+        "time_of_day": time_of_day,
+        "speak": True,
+    }
+
+
+@router.get("/voice-brief")
+async def jarvis_voice_brief(db: AsyncSession = Depends(get_db)):
+    """Short spoken brief — 4-5 topics, voice-optimised, no markdown."""
+    try:
+        briefing = await generate_morning_briefing(db)
+        return {
+            "brief": briefing.get("briefing", ""),
+            "date": briefing.get("date", ""),
+            "speak": True,
+        }
+    except Exception as e:
+        logger.error(f"Voice brief failed: {e}")
+        return {"brief": "Brief unavailable right now, Captain.", "speak": True}
+
+
+@router.get("/ai-health")
+async def jarvis_ai_health():
+    """Test all AI providers and return real-time status."""
+    import asyncio
+    from app.services.ai.router import ai_router as _router
+
+    results = {}
+    providers_to_test = [
+        ("anthropic", "claude-3-haiku-20240307"),
+        ("openai", "gpt-4o-mini"),
+        ("google", "gemini-1.5-flash"),
+        ("deepseek", "deepseek-chat"),
+        ("groq", "llama-3.3-70b-versatile"),
+        ("mistral", "mistral-small"),
+    ]
+
+    async def test_provider(name, model):
+        import time
+        t0 = time.monotonic()
+        try:
+            resp = await _router.chat(
+                messages=[{"role": "user", "content": "Reply with one word: operational"}],
+                task_type="FAST",
+                max_tokens=5,
+                force_provider=name,
+            )
+            latency = int((time.monotonic() - t0) * 1000)
+            return name, {
+                "status": "online",
+                "latency_ms": latency,
+                "model": model,
+                "response": resp.get("content", "")[:20],
+            }
+        except Exception as ex:
+            return name, {
+                "status": "offline",
+                "error": str(ex)[:100],
+                "model": model,
+            }
+
+    tasks = [test_provider(name, model) for name, model in providers_to_test]
+    try:
+        test_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in test_results:
+            if isinstance(r, tuple):
+                name, data = r
+                results[name] = data
+    except Exception as e:
+        logger.error(f"AI health check failed: {e}")
+
+    online = sum(1 for v in results.values() if v.get("status") == "online")
+    return {
+        "providers": results,
+        "online": online,
+        "total": len(results),
+        "overall": "operational" if online > 0 else "degraded",
     }
 
 

@@ -29,8 +29,10 @@ const useJarvisStore = create((set, get) => ({
   // Voice state
   voiceActive: false,
   voiceListening: false,
+  voiceSpeaking: false,
   setVoiceActive: (v) => set({ voiceActive: v }),
   setVoiceListening: (v) => set({ voiceListening: v }),
+  setVoiceSpeaking: (v) => set({ voiceSpeaking: v }),
 
   // Chat session
   sessionId: `session_${Date.now()}`,

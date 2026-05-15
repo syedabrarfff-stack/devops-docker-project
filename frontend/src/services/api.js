@@ -209,4 +209,9 @@ export const createApprovalRequest = (title, action_type, summary, payload = {},
 export const triggerLeadDiscovery = () => api.post('/api/v1/leads/bulk-score').then(r => r.data)
 export const triggerProposalEngine = () => api.post('/api/v1/jarvis/spawn-team', { task: 'overnight_proposal_engine' }).then(r => r.data)
 
+// JARVIS Voice & Greeting
+export const getJarvisGreeting = () => api.get('/api/v1/jarvis/greeting').then(r => r.data)
+export const getJarvisVoiceBrief = () => api.get('/api/v1/jarvis/voice-brief').then(r => r.data)
+export const getJarvisAIHealth = () => api.get('/api/v1/jarvis/ai-health').then(r => r.data)
+
 export default api
