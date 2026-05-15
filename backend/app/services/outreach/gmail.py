@@ -22,11 +22,21 @@ def _is_gmail_configured() -> bool:
     return bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
 
 
+def _gmail_app_password() -> str:
+    """Gmail app passwords are often copied with spaces; SMTP expects plain text."""
+    return (settings.GMAIL_APP_PASSWORD or "").replace(" ", "").strip()
+
+
 def send_email_smtp(to: str, subject: str, body: str,
                     to_name: str = "") -> tuple[bool, str]:
     """Send via Gmail SMTP using app password. Returns (success, error)."""
-    if not _is_gmail_configured():
+    password = _gmail_app_password()
+    if not (settings.GMAIL_ADDRESS and password):
         return False, "Gmail not configured — add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env"
+    try:
+        password.encode("ascii")
+    except UnicodeEncodeError:
+        return False, "GMAIL_APP_PASSWORD contains non-ASCII characters. Replace it with the 16-character Gmail app password."
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
@@ -41,7 +51,7 @@ def send_email_smtp(to: str, subject: str, body: str,
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.ehlo()
             server.starttls()
-            server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
+            server.login(settings.GMAIL_ADDRESS, password)
             server.sendmail(settings.GMAIL_ADDRESS, to, msg.as_string())
 
         logger.info(f"Email sent to {to}: {subject}")

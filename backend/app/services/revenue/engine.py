@@ -81,7 +81,10 @@ async def run_revenue_engine(
         result.blockers.append("APOLLO_API_KEY missing, so live lead discovery is paused.")
 
     sequence = await _get_or_create_sequence(db)
+    lead_contacts = await _promote_qualified_leads_to_contacts(db, limit=limit)
     candidates = await _load_candidate_contacts(db, limit=limit)
+    if lead_contacts:
+        result.synced_contacts += lead_contacts
 
     email_ids: list[int] = []
     proposal_ids: list[int] = []
@@ -94,12 +97,15 @@ async def run_revenue_engine(
         contact.next_action = "Review generated outreach draft for Captain approval"
         contact.tags = _merge_tags(contact.tags, ["revenue-engine", f"score-{score}"])
 
-        if score < 60:
+        if score < 45:
             contact.status = contact.status or "lead"
             continue
 
         result.qualified_contacts += 1
-        contact.status = "qualified"
+        if score >= 60 or contact.status == "qualified":
+            contact.status = "qualified"
+        else:
+            contact.status = "prospect"
 
         deal = await _ensure_deal(db, contact, service_type, score, reasons)
         if deal:
@@ -221,6 +227,72 @@ async def _load_candidate_contacts(db: AsyncSession, limit: int) -> list[Contact
     return list(rows)
 
 
+async def _promote_qualified_leads_to_contacts(db: AsyncSession, limit: int) -> int:
+    """Turn existing lead records into CRM contacts so the revenue loop can act."""
+    from app.models.lead import Lead
+
+    leads = (
+        await db.execute(
+            select(Lead)
+            .where(Lead.email.is_not(None))
+            .where(Lead.status.in_(["new", "qualified"]))
+            .order_by(Lead.score.desc(), Lead.created_at.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+
+    promoted = 0
+    for lead in leads:
+        email = (lead.email or lead.contact_email or "").strip().lower()
+        if not email:
+            continue
+        existing = (
+            await db.execute(select(Contact).where(Contact.email == email))
+        ).scalar_one_or_none()
+        if existing:
+            continue
+
+        company_name = lead.company or lead.company_name
+        company_id = None
+        if company_name:
+            company = (
+                await db.execute(select(Company).where(Company.name == company_name))
+            ).scalar_one_or_none()
+            if not company:
+                company = Company(
+                    name=company_name,
+                    domain=lead.website or lead.company_website,
+                    industry=lead.industry,
+                    country=lead.country,
+                    status="prospect",
+                    score=lead.score or 0,
+                    pain_points=lead.pain_points or [],
+                    notes="Promoted from JARVIS lead record for revenue execution.",
+                )
+                db.add(company)
+                await db.flush()
+            company_id = company.id
+
+        contact = Contact(
+            name=lead.contact_name or company_name or "Unknown",
+            email=email,
+            company_id=company_id,
+            country=lead.country,
+            source=lead.source or "lead",
+            status="qualified" if (lead.score or 0) >= 60 or lead.status == "qualified" else "lead",
+            score=lead.score or 0,
+            tags=_merge_tags(["promoted-from-lead"], [lead.source or "manual"]),
+            notes=lead.notes,
+            next_action="Review generated outreach draft for Captain approval",
+        )
+        db.add(contact)
+        lead.status = "qualified" if contact.status == "qualified" else lead.status
+        promoted += 1
+    if promoted:
+        await db.flush()
+    return promoted
+
+
 def _score_contact(contact: Contact) -> tuple[int, list[str], str]:
     company = contact.company
     title = (contact.title or "").lower()
@@ -228,7 +300,7 @@ def _score_contact(contact: Contact) -> tuple[int, list[str], str]:
     size = ((company.size if company else "") or "").lower()
     country = (contact.country or (company.country if company else "") or "").lower()
 
-    score = 45
+    score = max(45, int(contact.score or 0))
     reasons: list[str] = []
     service_type = "AI automation and cloud operations"
 
@@ -244,6 +316,9 @@ def _score_contact(contact: Contact) -> tuple[int, list[str], str]:
     if size in ("10-50", "50-200", "51-200", "200-1000"):
         score += 7
         reasons.append("Budget-friendly company size")
+    if contact.status == "qualified":
+        score += 20
+        reasons.append("Already qualified by JARVIS")
 
     if "hotel" in industry or "hospitality" in industry:
         service_type = "Hotel operations automation"
