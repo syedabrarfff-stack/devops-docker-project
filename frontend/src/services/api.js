@@ -200,4 +200,13 @@ export const chatWithAgent = (agentId, message, context = null, task_type = 'FAS
 export const chatWithTeam = (teamId, message, context = null, task_type = 'FAST') => api.post(`/api/v1/agent-ops/teams/${teamId}/chat`, { message, context, task_type }).then(r => r.data)
 export const getTeamActivity = (teamId) => api.get(`/api/v1/agent-ops/teams/${teamId}/activity`).then(r => r.data)
 
+// JARVIS Authority Matrix
+export const getJarvisAuthority = () => api.get('/api/v1/jarvis/authority').then(r => r.data)
+export const createApprovalRequest = (title, action_type, summary, payload = {}, risk_level = 'medium', estimated_cost = null) =>
+  api.post('/api/v1/approvals', { title, action_type, summary, payload, risk_level, estimated_cost }).then(r => r.data)
+
+// Overnight Engine — manual trigger endpoints
+export const triggerLeadDiscovery = () => api.post('/api/v1/leads/bulk-score').then(r => r.data)
+export const triggerProposalEngine = () => api.post('/api/v1/jarvis/spawn-team', { task: 'overnight_proposal_engine' }).then(r => r.data)
+
 export default api

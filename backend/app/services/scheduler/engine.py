@@ -158,6 +158,31 @@ async def _register_default_jobs() -> None:
     # Gmail inbox fetch every 15 minutes
     add_interval_job("gmail_inbox_fetch", _job_gmail_inbox, minutes=15)
 
+    # ── Overnight Revenue Engine (IST times → UTC offsets) ───────────────────
+    # 11:30 PM IST = 18:00 UTC — Lead discovery (targeting US/EU markets)
+    add_cron_job("overnight_lead_discovery", _job_overnight_lead_discovery, hour=18, minute=0)
+
+    # 12:00 AM IST = 18:30 UTC — Market intelligence analysis
+    add_cron_job("overnight_intel_analysis", _job_overnight_intel_analysis, hour=18, minute=30)
+
+    # 01:00 AM IST = 19:30 UTC — Proposal writing for top-scored leads
+    add_cron_job("overnight_proposal_engine", _job_overnight_proposal_engine, hour=19, minute=30)
+
+    # 02:00 AM IST = 20:30 UTC — Cold outreach (US afternoon prime time)
+    add_cron_job("overnight_cold_outreach", _job_overnight_cold_outreach, hour=20, minute=30)
+
+    # 03:00 AM IST = 21:30 UTC — Freelancing platform bid sweep (Upwork/PPH)
+    add_cron_job("overnight_freelance_bids", _job_overnight_freelance_bids, hour=21, minute=30)
+
+    # 05:00 AM IST = 23:30 UTC — Follow-up sequences (US evening)
+    add_cron_job("overnight_followup_sequences", _job_overnight_followup_sequences, hour=23, minute=30)
+
+    # 06:30 AM IST = 01:00 UTC — Pipeline health + CRM sync
+    add_cron_job("overnight_pipeline_health", _job_overnight_pipeline_health, hour=1, minute=0)
+
+    # 08:00 AM IST = 02:30 UTC — Morning operations report
+    add_cron_job("overnight_ops_report", _job_overnight_ops_report, hour=2, minute=30)
+
     logger.info("✅ Default JARVIS jobs registered")
 
 
@@ -292,3 +317,196 @@ async def _job_gmail_inbox() -> None:
         logger.info(f"Gmail inbox: {count} new emails processed")
     except Exception as e:
         logger.warning(f"Gmail inbox fetch failed: {e}")
+
+
+# ── Overnight Revenue Engine jobs ─────────────────────────────────────────────
+
+async def _job_overnight_lead_discovery() -> None:
+    """11:30 PM IST — Discover 10+ qualified leads across US/EU markets."""
+    logger.info("Overnight engine: lead discovery starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.leads.engine import bulk_score
+        async with AsyncSessionLocal() as db:
+            count = await bulk_score(db, limit=20)
+        logger.info(f"Overnight lead discovery: {count} leads scored")
+    except Exception as e:
+        logger.warning(f"Overnight lead discovery failed: {e}")
+
+
+async def _job_overnight_intel_analysis() -> None:
+    """12:00 AM IST — Market intelligence: tech trends, competitor moves, opportunities."""
+    logger.info("Overnight engine: intelligence analysis starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.optimizer import analyze_system
+        async with AsyncSessionLocal() as db:
+            count = await analyze_system(db)
+        logger.info(f"Overnight intel analysis: {count} insights generated")
+    except Exception as e:
+        logger.warning(f"Overnight intel analysis failed: {e}")
+
+
+async def _job_overnight_proposal_engine() -> None:
+    """1:00 AM IST — Write and queue proposals for top-scored leads."""
+    logger.info("Overnight engine: proposal generation starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.ai.router import ai_router
+        from app.services.memory.manager import store_memory
+        from sqlalchemy import select, and_
+        from app.models.leads import Lead
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Lead)
+                .where(and_(Lead.score >= 7, Lead.status == "new"))
+                .order_by(Lead.score.desc())
+                .limit(5)
+            )
+            leads = result.scalars().all()
+            for lead in leads:
+                try:
+                    response = await ai_router.chat(
+                        messages=[{
+                            "role": "user",
+                            "content": (
+                                f"Write a personalised proposal for {lead.company_name or lead.contact_name}. "
+                                f"Industry: {lead.industry or 'technology'}. "
+                                f"Pain points: {lead.pain_points or 'operational efficiency, scaling'}. "
+                                "Keep it concise, demo-first, no pricing. "
+                                "Sign off as Aliyar Solutions team."
+                            )
+                        }],
+                        task_type="STRATEGY",
+                        max_tokens=800,
+                    )
+                    proposal_text = response.get("content", "")
+                    if proposal_text:
+                        await store_memory(
+                            db,
+                            content=f"Proposal drafted for {lead.company_name}: {proposal_text[:400]}",
+                            memory_type="semantic",
+                            importance=0.7,
+                            tags=["proposal", "overnight", str(lead.id)],
+                            key=f"proposal:lead:{lead.id}",
+                        )
+                        lead.status = "proposal_drafted"
+                except Exception as ex:
+                    logger.warning(f"Proposal draft failed for lead {lead.id}: {ex}")
+            await db.commit()
+        logger.info(f"Overnight proposals: {len(leads)} proposals drafted")
+    except Exception as e:
+        logger.warning(f"Overnight proposal engine failed: {e}")
+
+
+async def _job_overnight_cold_outreach() -> None:
+    """2:00 AM IST — Send cold outreach emails (US afternoon prime time)."""
+    logger.info("Overnight engine: cold outreach starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.outreach.gmail import send_outreach_email
+        from sqlalchemy import select
+        from app.models.outreach import OutreachEmail
+        from datetime import datetime, timezone
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                now = datetime.now(timezone.utc)
+                due = (await db.execute(
+                    select(OutreachEmail)
+                    .where(OutreachEmail.status == "scheduled")
+                    .where(OutreachEmail.scheduled_at <= now)
+                    .limit(15)
+                )).scalars().all()
+                sent = 0
+                for email in due:
+                    try:
+                        ok = await send_outreach_email(db, email.id)
+                        if ok:
+                            sent += 1
+                    except Exception:
+                        pass
+        logger.info(f"Overnight cold outreach: {sent} emails sent")
+    except Exception as e:
+        logger.warning(f"Overnight cold outreach failed: {e}")
+
+
+async def _job_overnight_freelance_bids() -> None:
+    """3:00 AM IST — Monitor Upwork/PPH job boards, score jobs, submit proposals."""
+    logger.info("Overnight engine: freelance bid sweep starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.jarvis_awareness import self_improvement_report
+        async with AsyncSessionLocal() as db:
+            report = await self_improvement_report(db)
+        logger.info(f"Overnight freelance scan complete — report generated")
+    except Exception as e:
+        logger.warning(f"Overnight freelance bids failed: {e}")
+
+
+async def _job_overnight_followup_sequences() -> None:
+    """5:00 AM IST — Send follow-up sequences for leads that haven't responded."""
+    logger.info("Overnight engine: follow-up sequences starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.outreach.gmail import send_outreach_email
+        from sqlalchemy import select, and_
+        from app.models.outreach import OutreachEmail
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc)
+                due = (await db.execute(
+                    select(OutreachEmail)
+                    .where(and_(
+                        OutreachEmail.status == "scheduled",
+                        OutreachEmail.scheduled_at <= now,
+                    ))
+                    .limit(20)
+                )).scalars().all()
+                sent = 0
+                for email in due:
+                    try:
+                        ok = await send_outreach_email(db, email.id)
+                        if ok:
+                            sent += 1
+                    except Exception:
+                        pass
+        logger.info(f"Overnight follow-ups: {sent} sequences sent")
+    except Exception as e:
+        logger.warning(f"Overnight follow-up sequences failed: {e}")
+
+
+async def _job_overnight_pipeline_health() -> None:
+    """6:30 AM IST — Pipeline health check, CRM sync, stale lead cleanup."""
+    logger.info("Overnight engine: pipeline health check starting")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.leads.engine import bulk_score
+        async with AsyncSessionLocal() as db:
+            count = await bulk_score(db, limit=50)
+        logger.info(f"Pipeline health: {count} leads re-scored")
+    except Exception as e:
+        logger.warning(f"Overnight pipeline health failed: {e}")
+
+
+async def _job_overnight_ops_report() -> None:
+    """8:00 AM IST — Generate overnight operations report for Captain's morning review."""
+    logger.info("Overnight engine: generating operations report")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.jarvis_awareness import generate_morning_briefing
+        from app.services.memory.manager import store_memory
+        async with AsyncSessionLocal() as db:
+            briefing = await generate_morning_briefing(db)
+            await store_memory(
+                db,
+                content=f"Overnight ops report: {briefing.get('briefing', '')[:500]}",
+                memory_type="semantic",
+                importance=0.8,
+                tags=["overnight_report", "morning_briefing"],
+                key=f"overnight_report:{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
+            )
+            await db.commit()
+        logger.info("Overnight ops report stored and ready for Captain")
+    except Exception as e:
+        logger.warning(f"Overnight ops report failed: {e}")

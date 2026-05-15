@@ -189,6 +189,23 @@ async def resolve_outcome_endpoint(
     }
 
 
+@router.get("/authority")
+async def jarvis_authority():
+    """JARVIS authority matrix — what JARVIS can do vs what needs Captain approval."""
+    from app.services.intelligence.jarvis_authority import (
+        get_authority_summary, JARVIS_FULL_AUTHORITY,
+        CAPTAIN_APPROVAL_REQUIRED, JARVIS_ALERTS_CAPTAIN,
+    )
+    summary = get_authority_summary()
+    return {
+        "summary": summary,
+        "autonomous_actions": JARVIS_FULL_AUTHORITY,
+        "requires_captain_approval": CAPTAIN_APPROVAL_REQUIRED,
+        "alerts_captain": JARVIS_ALERTS_CAPTAIN,
+        "philosophy": "JARVIS runs the company. Captain approves money, contracts, and go-live.",
+    }
+
+
 @router.get("/status")
 async def jarvis_status():
     """JARVIS operational status."""

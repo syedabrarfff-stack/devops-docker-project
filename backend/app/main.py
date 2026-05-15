@@ -62,6 +62,64 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Team seed skipped: {e}")
 
+    # ── Seed JARVIS authority instructions into permanent memory ──────────────
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.memory.manager import store_instruction
+        from app.services.intelligence.jarvis_authority import (
+            JARVIS_FULL_AUTHORITY, CAPTAIN_APPROVAL_REQUIRED, JARVIS_ALERTS_CAPTAIN
+        )
+        async with AsyncSessionLocal() as db:
+            await store_instruction(
+                db,
+                content=(
+                    "JARVIS FULL AUTHORITY — execute immediately without asking Captain: "
+                    + ", ".join(JARVIS_FULL_AUTHORITY)
+                ),
+                category="authority",
+                priority=10,
+                key="authority:jarvis_full_authority",
+            )
+            await store_instruction(
+                db,
+                content=(
+                    "CAPTAIN APPROVAL REQUIRED — prepare fully, never execute without Captain sign-off: "
+                    + ", ".join(CAPTAIN_APPROVAL_REQUIRED)
+                ),
+                category="authority",
+                priority=10,
+                key="authority:captain_approval_required",
+            )
+            await store_instruction(
+                db,
+                content=(
+                    "ALERT CAPTAIN (execute + notify, do not stop): "
+                    + ", ".join(JARVIS_ALERTS_CAPTAIN)
+                ),
+                category="authority",
+                priority=9,
+                key="authority:jarvis_alerts_captain",
+            )
+            await store_instruction(
+                db,
+                content=(
+                    "COMPANY: Aliyar Solutions — global technology company. "
+                    "CEO: Syed Abrar (Captain). "
+                    "JARVIS: Supreme Operational Manager. "
+                    "Never say 'I' in client-facing output — always say 'our team' or 'Aliyar Solutions'. "
+                    "Never mention AI, bots, or automation to clients. "
+                    "Never discuss pricing until Captain approves it. "
+                    "Always offer a demo first. Never push for a sale."
+                ),
+                category="company",
+                priority=10,
+                key="authority:company_standing_orders",
+            )
+            await db.commit()
+        logger.info("✅ JARVIS authority instructions seeded into memory")
+    except Exception as e:
+        logger.warning(f"Authority seeding skipped: {e}")
+
     # ── Task queue ────────────────────────────────────────────────────────────
     try:
         from app.core.database import AsyncSessionLocal
