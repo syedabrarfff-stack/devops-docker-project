@@ -16,7 +16,10 @@ COPY --chown=jarvis:jarvis . .
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=20s --timeout=10s --start-period=40s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Use gunicorn with uvicorn workers — production-grade process manager.
+# Auto-restarts crashed workers; --preload reduces per-worker memory.
+CMD ["gunicorn", "app.main:app", \
+     "-c", "gunicorn.conf.py"]

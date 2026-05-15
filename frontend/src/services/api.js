@@ -214,4 +214,19 @@ export const getJarvisGreeting = () => api.get('/api/v1/jarvis/greeting').then(r
 export const getJarvisVoiceBrief = () => api.get('/api/v1/jarvis/voice-brief').then(r => r.data)
 export const getJarvisAIHealth = () => api.get('/api/v1/jarvis/ai-health').then(r => r.data)
 
+// Backend TTS
+export const requestTTS = (text, provider = 'auto') =>
+  api.post('/api/v1/voice/tts', { text, provider }, { timeout: 30000 }).then(r => r.data)
+export const getVoiceProviders = () => api.get('/api/v1/voice/providers').then(r => r.data)
+
+// Local Market Discovery
+export const discoverLocalMarket = (payload) =>
+  api.post('/api/v1/discovery/local-market', payload, { timeout: 30000 }).then(r => r.data)
+export const getTargetIndustries = () => api.get('/api/v1/discovery/industries').then(r => r.data)
+
+// Pricing Engine
+export const getPricingEstimate = (payload) =>
+  api.post('/api/v1/pricing/estimate', payload).then(r => r.data)
+export const getPricingMatrix = () => api.get('/api/v1/pricing/matrix').then(r => r.data)
+
 export default api

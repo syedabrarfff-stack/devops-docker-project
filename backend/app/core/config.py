@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     MINIMAX_API_KEY: Optional[str] = None
     NVIDIA_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
+    ELEVENLABS_VOICE_ID: str = "onwK4e9ZLuTAKqWW03F9"  # Daniel — British male
+
+    # Lead discovery
+    GOOGLE_MAPS_API_KEY: Optional[str] = None
 
     # Notifications
     SLACK_WEBHOOK_URL: Optional[str] = None

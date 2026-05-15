@@ -1,13 +1,15 @@
 /**
  * JARVIS Voice Engine
  * - Always-listening mode with barge-in (interrupt JARVIS mid-speech)
- * - ElevenLabs TTS ready (uses browser TTS until subscription active)
+ * - Backend TTS (OpenAI onyx → ElevenLabs → Edge TTS) with browser fallback
  * - Contextual greeting on app open
  * - Mobile-optimised continuous recognition
  */
 
 const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY || null
-const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'onwK4e9ZLuTAKqWW03F9' // Daniel - British male
+const ELEVENLABS_VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || 'onwK4e9ZLuTAKqWW03F9'
+
+const BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : ''
 
 class VoiceEngine {
   constructor() {
@@ -49,10 +51,14 @@ class VoiceEngine {
     this._notify()
     if (onStart) onStart()
 
-    if (ELEVENLABS_API_KEY) {
-      await this._speakElevenLabs(clean)
-    } else {
-      await this._speakBrowser(clean)
+    // Try backend TTS first (OpenAI onyx → ElevenLabs), then browser fallback
+    const backendOk = await this._speakBackend(clean)
+    if (!backendOk) {
+      if (ELEVENLABS_API_KEY) {
+        await this._speakElevenLabs(clean)
+      } else {
+        await this._speakBrowser(clean)
+      }
     }
 
     this._speaking = false
@@ -71,6 +77,25 @@ class VoiceEngine {
     // Stop browser TTS
     this.synthesis?.cancel()
     this._notify()
+  }
+
+  async _speakBackend(text) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/voice/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, provider: 'auto' }),
+        signal: AbortSignal.timeout(25000),
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      if (!data.audio_base64) return false
+      const url = `data:${data.mime_type};base64,${data.audio_base64}`
+      await this._playAudio(url)
+      return true
+    } catch {
+      return false
+    }
   }
 
   async _speakElevenLabs(text) {

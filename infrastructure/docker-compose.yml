@@ -1,12 +1,20 @@
 version: "3.9"
 
+x-logging: &logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "20m"
+      max-file: "3"
+
 services:
   # ─── Redis ───────────────────────────────────────────────────
   redis:
+    <<: *logging
     image: redis:7-alpine
     container_name: jarvis_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1
     volumes:
       - redis_data:/data
     ports:
@@ -16,11 +24,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
 
   # ─── PostgreSQL ───────────────────────────────────────────────
   postgres:
+    <<: *logging
     image: postgres:16-alpine
     container_name: jarvis_postgres
     restart: unless-stopped
@@ -28,6 +45,8 @@ services:
       POSTGRES_DB:       ${POSTGRES_DB:-jarvis}
       POSTGRES_USER:     ${POSTGRES_USER:-jarvis}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis_secret}
+      POSTGRES_SHARED_BUFFERS: 128MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 256MB
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -38,14 +57,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
     networks:
       - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
 
   # ─── JARVIS Backend ───────────────────────────────────────────
   backend:
+    <<: *logging
     build:
       context: ../backend
       dockerfile: Dockerfile
+    image: jarvis_backend:latest
     container_name: jarvis_backend
     restart: unless-stopped
     env_file:
@@ -53,6 +82,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${POSTGRES_DB:-jarvis}
       REDIS_URL: redis://redis:6379/0
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
     ports:
       - "8000:8000"
     depends_on:
@@ -62,30 +93,52 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 20s
       timeout: 10s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      start_period: 40s
     networks:
       - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "2.0"
+        reservations:
+          memory: 256M
 
   # ─── JARVIS Frontend ──────────────────────────────────────────
   frontend:
+    <<: *logging
     build:
       context: ../frontend
       dockerfile: Dockerfile
+    image: jarvis_frontend:latest
     container_name: jarvis_frontend
     restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
 
   # ─── Nginx Reverse Proxy ──────────────────────────────────────
   nginx:
+    <<: *logging
     image: nginx:1.27-alpine
     container_name: jarvis_nginx
     restart: unless-stopped
@@ -100,8 +153,21 @@ services:
         condition: service_started
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
 volumes:
   postgres_data:

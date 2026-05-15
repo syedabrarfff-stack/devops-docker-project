@@ -8,6 +8,9 @@ from app.api.v1.routes import team
 from app.api.v1.routes import jarvis
 from app.api.v1.routes import agent_ops
 from app.api.v1.routes import gmail
+from app.api.v1.routes import discovery
+from app.api.v1.routes import voice
+from app.api.v1.routes import pricing
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -35,3 +38,6 @@ api_router.include_router(team.router)
 api_router.include_router(jarvis.router)
 api_router.include_router(agent_ops.router)
 api_router.include_router(gmail.router)
+api_router.include_router(discovery.router)
+api_router.include_router(voice.router)
+api_router.include_router(pricing.router)
