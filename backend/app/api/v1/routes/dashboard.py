@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.models.approval import ApprovalRequest
 from app.models.crm import Contact, Deal
@@ -14,6 +13,7 @@ from app.models.governance import Proposal
 from app.models.lead import Lead
 from app.models.notifications import NotificationLog
 from app.models.outreach import OutreachEmail
+from app.services.storage.secure import get_credential
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -81,10 +81,15 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
         .limit(1)
     )).scalar_one_or_none()
 
+    apollo_key = await get_credential(db, "APOLLO_API_KEY")
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
+    gmail_ready = bool(gmail_address and gmail_password)
+
     blockers = []
-    if not settings.APOLLO_API_KEY:
+    if not apollo_key:
         blockers.append("APOLLO_API_KEY missing: live lead discovery is paused.")
-    if not (settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD):
+    if not gmail_ready:
         blockers.append("Gmail app password/OAuth missing: approved outreach cannot send yet.")
 
     reply_rate = round((replies / sent_emails) * 100, 1) if sent_emails else 0.0
@@ -123,14 +128,14 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
             "latest_revenue_packet": _approval_summary(latest_approval),
         },
         "gmail": {
-            "address_configured": bool(settings.GMAIL_ADDRESS),
-            "send_ready": bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD),
+            "address_configured": bool(gmail_address),
+            "send_ready": gmail_ready,
             "drafts_waiting": drafted,
-            "last_send_status": "ready" if settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD else "blocked",
+            "last_send_status": "ready" if gmail_ready else "blocked",
         },
         "engine": {
-            "apollo_ready": bool(settings.APOLLO_API_KEY),
-            "gmail_ready": bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD),
+            "apollo_ready": bool(apollo_key),
+            "gmail_ready": gmail_ready,
             "blockers": blockers,
             "overnight_activity": [_notification_summary(n) for n in overnight_rows],
             "activity_log": [_notification_summary(n) for n in recent_activity_rows],

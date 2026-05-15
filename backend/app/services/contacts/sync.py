@@ -5,22 +5,28 @@ Pulls people matching ICP, creates/updates contacts and companies.
 import logging
 from typing import Optional
 import httpx
-from app.core.config import settings
+from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
 
 APOLLO_BASE = "https://api.apollo.io/v1"
 
 
-async def _apollo_search(payload: dict) -> dict:
-    if not settings.APOLLO_API_KEY:
+async def _apollo_key(db) -> Optional[str]:
+    key = await get_credential(db, "APOLLO_API_KEY")
+    return key.strip() if key else None
+
+
+async def _apollo_search(db, payload: dict) -> dict:
+    api_key = await _apollo_key(db)
+    if not api_key:
         return {}
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
                 f"{APOLLO_BASE}/mixed_people/search",
                 headers={"Content-Type": "application/json", "Cache-Control": "no-cache"},
-                json={**payload, "api_key": settings.APOLLO_API_KEY},
+                json={**payload, "api_key": api_key},
             )
             return r.json() if r.status_code == 200 else {}
     except Exception as e:
@@ -41,7 +47,7 @@ async def sync_from_apollo(db, limit: int = 50,
     count = 0
 
     for page in range(1, pages + 1):
-        data = await _apollo_search({
+        data = await _apollo_search(db, {
         "person_titles":      ["CEO", "CTO", "Founder", "VP Engineering", "Head of Operations"],
         "organization_num_employees_ranges": ["1,50", "51,200"],
         "person_locations":   countries,
@@ -181,14 +187,15 @@ async def enrich_contact(db, contact_id: int) -> Optional[dict]:
     if not contact or not contact.email:
         return None
 
-    if not settings.APOLLO_API_KEY:
+    api_key = await _apollo_key(db)
+    if not api_key:
         return None
 
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
                 f"{APOLLO_BASE}/people/match",
-                json={"email": contact.email, "api_key": settings.APOLLO_API_KEY},
+                json={"email": contact.email, "api_key": api_key},
             )
             if r.status_code != 200:
                 return None

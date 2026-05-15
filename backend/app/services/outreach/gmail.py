@@ -11,6 +11,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.outreach import OutreachEmail
+from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +19,19 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
 
-def _is_gmail_configured() -> bool:
-    return bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
-
-
-def _gmail_app_password() -> str:
+def _gmail_app_password(password: Optional[str] = None) -> str:
     """Gmail app passwords are often copied with spaces; SMTP expects plain text."""
-    return (settings.GMAIL_APP_PASSWORD or "").replace(" ", "").strip()
+    return (password or settings.GMAIL_APP_PASSWORD or "").replace(" ", "").strip()
 
 
 def send_email_smtp(to: str, subject: str, body: str,
-                    to_name: str = "") -> tuple[bool, str]:
+                    to_name: str = "",
+                    gmail_address: Optional[str] = None,
+                    gmail_password: Optional[str] = None) -> tuple[bool, str]:
     """Send via Gmail SMTP using app password. Returns (success, error)."""
-    password = _gmail_app_password()
-    if not (settings.GMAIL_ADDRESS and password):
+    sender = (gmail_address or settings.GMAIL_ADDRESS or "").strip()
+    password = _gmail_app_password(gmail_password)
+    if not (sender and password):
         return False, "Gmail not configured — add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env"
     try:
         password.encode("ascii")
@@ -40,7 +40,7 @@ def send_email_smtp(to: str, subject: str, body: str,
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"]    = f"Aliyar Solutions <{settings.GMAIL_ADDRESS}>"
+        msg["From"]    = f"Aliyar Solutions <{sender}>"
         msg["To"]      = f"{to_name} <{to}>" if to_name else to
 
         text_part = MIMEText(body, "plain")
@@ -51,8 +51,8 @@ def send_email_smtp(to: str, subject: str, body: str,
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
             server.ehlo()
             server.starttls()
-            server.login(settings.GMAIL_ADDRESS, password)
-            server.sendmail(settings.GMAIL_ADDRESS, to, msg.as_string())
+            server.login(sender, password)
+            server.sendmail(sender, to, msg.as_string())
 
         logger.info(f"Email sent to {to}: {subject}")
         return True, ""
@@ -115,7 +115,16 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             })
             row.personalized = True
 
-    success, error = send_email_smtp(row.to_email, row.subject or "", body, row.to_name or "")
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
+    success, error = send_email_smtp(
+        row.to_email,
+        row.subject or "",
+        body,
+        row.to_name or "",
+        gmail_address=gmail_address,
+        gmail_password=gmail_password,
+    )
     if success:
         row.status = "sent"
         row.sent_at = datetime.now(timezone.utc)

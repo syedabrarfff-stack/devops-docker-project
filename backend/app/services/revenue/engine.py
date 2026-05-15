@@ -16,12 +16,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
 from app.models.approval import ApprovalRequest, AuditLog
 from app.models.crm import Company, Contact, Deal
 from app.models.governance import Proposal
 from app.models.notifications import NotificationLog
 from app.models.outreach import OutreachEmail, OutreachSequence
+from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ async def run_revenue_engine(
     """
     result = RevenueRunResult(blockers=[])
 
-    if settings.APOLLO_API_KEY:
+    if await get_credential(db, "APOLLO_API_KEY"):
         try:
             from app.services.contacts.sync import sync_from_apollo
 
