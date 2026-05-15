@@ -17,6 +17,7 @@ export const getProviders = () => api.get('/api/v1/providers').then((r) => r.dat
 export const getMorningBriefing = () => api.get('/api/v1/briefing/morning').then((r) => r.data)
 export const getActivityBriefing = () => api.get('/api/v1/briefing/activity').then((r) => r.data)
 export const getSystemStatus = () => api.get('/api/v1/briefing/status').then((r) => r.data)
+export const getRevenueDashboard = () => api.get('/api/v1/dashboard/revenue').then((r) => r.data)
 
 // Approvals
 export const getApprovals = (status = 'pending') =>
@@ -28,6 +29,24 @@ export const decideApproval = (id, decision) =>
 // Agents
 export const getAgentHierarchy = () => api.get('/api/v1/agents/hierarchy').then((r) => r.data)
 export const dispatchAgent = (payload) => api.post('/api/v1/agents/dispatch', payload).then((r) => r.data)
+export const getAllAgentTeams = () => api.get('/api/v1/team/members').then((r) => ({
+  teams: [{ team_id: 'aliyar-core', name: 'Aliyar Core Team', agents: r.data.members || r.data || [] }],
+}))
+export const getTeamActivity = (teamId) => api.get('/api/v1/tasks/', { params: { limit: 20 } }).then((r) => ({
+  team_id: teamId,
+  tasks: r.data.tasks || r.data || [],
+}))
+export const chatWithAgent = (agentId, message) =>
+  api.post('/api/v1/chat', { message, metadata: { agent_id: agentId } }).then((r) => ({
+    agent_name: agentId,
+    agent_response: r.data.response || r.data.content || r.data.message || '',
+  }))
+export const chatWithTeam = (teamId, message) =>
+  api.post('/api/v1/chat', { message, metadata: { team_id: teamId } }).then((r) => ({
+    team_name: teamId,
+    team_response: r.data.response || r.data.content || r.data.message || '',
+  }))
+export const buildRevenueEnginePackage = () => runRevenueEngine({ limit: 25, create_proposals: true })
 
 // Health
 export const getHealth = () => api.get('/health').then((r) => r.data)
@@ -178,6 +197,7 @@ export const getAutomationRuns = (limit = 25) => api.get('/api/v1/automation/run
 export const getN8nStatus = () => api.get('/api/v1/automation/n8n/status').then(r => r.data)
 export const runAutomationWorkflow = (workflowKey, input = {}) =>
   api.post(`/api/v1/automation/workflows/${workflowKey}/run`, { input }).then(r => r.data)
+export const runRevenueEngine = (data = {}) => api.post('/api/v1/automation/revenue/run', data).then(r => r.data)
 
 export { api }
 export default api

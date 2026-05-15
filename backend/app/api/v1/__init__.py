@@ -6,6 +6,7 @@ from app.api.v1.routes import intelligence
 from app.api.v1.routes import governance, emergency, knowledge, catalog, ai_ops
 from app.api.v1.routes import team, voice
 from app.api.v1.routes import credentials, capabilities, discovery, automation
+from app.api.v1.routes import dashboard
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -35,3 +36,4 @@ api_router.include_router(credentials.router)
 api_router.include_router(capabilities.router)
 api_router.include_router(discovery.router)
 api_router.include_router(automation.router)
+api_router.include_router(dashboard.router)

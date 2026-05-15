@@ -36,26 +36,35 @@ async def sync_from_apollo(db, limit: int = 50,
                                  "Healthcare", "Staffing"]
     countries  = countries  or ["US", "CA", "GB", "AU", "NZ", "DE", "IE", "SG"]
 
-    data = await _apollo_search({
+    per_page = min(limit, 25)
+    pages = max(1, min(4, (limit + per_page - 1) // per_page))
+    count = 0
+
+    for page in range(1, pages + 1):
+        data = await _apollo_search({
         "person_titles":      ["CEO", "CTO", "Founder", "VP Engineering", "Head of Operations"],
         "organization_num_employees_ranges": ["1,50", "51,200"],
         "person_locations":   countries,
         "organization_industries": industries,
-        "per_page": min(limit, 25),
-        "page": 1,
-    })
+            "per_page": per_page,
+            "page": page,
+        })
 
-    people = data.get("people", [])
-    count = 0
-    for person in people:
-        try:
-            synced = await _upsert_contact(db, person)
-            if synced:
-                count += 1
-        except Exception as e:
-            logger.warning(f"Contact sync error for {person.get('name')}: {e}")
+        people = data.get("people", [])
+        if not people:
+            break
+        for person in people:
+            if count >= limit:
+                break
+            try:
+                synced = await _upsert_contact(db, person)
+                await _upsert_lead(db, person)
+                if synced:
+                    count += 1
+            except Exception as e:
+                logger.warning(f"Contact sync error for {person.get('name')}: {e}")
 
-    logger.info(f"Apollo sync: {count}/{len(people)} contacts upserted")
+    logger.info(f"Apollo sync: {count} contacts upserted")
     return count
 
 
@@ -111,6 +120,55 @@ async def _upsert_contact(db, person: dict) -> bool:
         tags=["apollo-sync"],
     )
     db.add(contact)
+    await db.flush()
+    return True
+
+
+async def _upsert_lead(db, person: dict) -> bool:
+    """Create a Lead row as well as the CRM contact so dashboards and scoring work."""
+    from sqlalchemy import select
+    from app.models.lead import Lead
+
+    email = (person.get("email") or "").strip().lower()
+    org = person.get("organization") or {}
+    company = org.get("name") or person.get("organization_name") or "Unknown company"
+    website = org.get("website_url") or org.get("primary_domain")
+    industry = _first(org.get("industries"))
+
+    existing = None
+    if email:
+        existing = (await db.execute(
+            select(Lead).where(Lead.email == email)
+        )).scalar_one_or_none()
+    if existing:
+        return False
+
+    lead = Lead(
+        company=company,
+        company_name=company,
+        contact_name=person.get("name"),
+        email=email or None,
+        contact_email=email or None,
+        website=website,
+        company_website=website,
+        industry=industry,
+        country=person.get("country"),
+        status="new",
+        source="apollo",
+        pain_points=[],
+        opportunity_type="AI automation and cloud operations",
+        notes=f"Imported from Apollo. Title: {person.get('title') or 'unknown'}",
+        metadata_={
+            "apollo_person_id": person.get("id"),
+            "linkedin_url": person.get("linkedin_url"),
+            "organization": {
+                "name": company,
+                "size": _size_range(org.get("num_employees")),
+                "domain": org.get("primary_domain"),
+            },
+        },
+    )
+    db.add(lead)
     await db.flush()
     return True
 
