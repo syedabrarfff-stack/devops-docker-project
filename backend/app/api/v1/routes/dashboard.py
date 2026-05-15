@@ -84,13 +84,15 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
     apollo_key = await get_credential(db, "APOLLO_API_KEY")
     gmail_address = await get_credential(db, "GMAIL_ADDRESS")
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
-    gmail_ready = bool(gmail_address and gmail_password)
+    clean_gmail_password = (gmail_password or "").replace(" ", "").strip()
+    gmail_password_valid = clean_gmail_password.isascii() and len(clean_gmail_password) == 16
+    gmail_ready = bool(gmail_address and gmail_password_valid)
 
     blockers = []
     if not apollo_key:
         blockers.append("APOLLO_API_KEY missing: live lead discovery is paused.")
     if not gmail_ready:
-        blockers.append("Gmail app password/OAuth missing: approved outreach cannot send yet.")
+        blockers.append("Gmail app password/OAuth invalid or missing: approved outreach cannot send yet.")
 
     reply_rate = round((replies / sent_emails) * 100, 1) if sent_emails else 0.0
     conversion_signal = round((qualified / total_leads) * 100, 1) if total_leads else 0.0
