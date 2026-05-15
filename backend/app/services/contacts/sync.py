@@ -25,8 +25,12 @@ async def _apollo_search(db, payload: dict) -> dict:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
                 f"{APOLLO_BASE}/mixed_people/search",
-                headers={"Content-Type": "application/json", "Cache-Control": "no-cache"},
-                json={**payload, "api_key": api_key},
+                headers={
+                    "Content-Type": "application/json",
+                    "Cache-Control": "no-cache",
+                    "X-Api-Key": api_key,
+                },
+                json=payload,
             )
             return r.json() if r.status_code == 200 else {}
     except Exception as e:
@@ -195,7 +199,8 @@ async def enrich_contact(db, contact_id: int) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.post(
                 f"{APOLLO_BASE}/people/match",
-                json={"email": contact.email, "api_key": api_key},
+                headers={"Content-Type": "application/json", "X-Api-Key": api_key},
+                json={"email": contact.email},
             )
             if r.status_code != 200:
                 return None
