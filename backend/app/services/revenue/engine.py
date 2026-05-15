@@ -71,9 +71,13 @@ async def run_revenue_engine(
 
     if await get_credential(db, "APOLLO_API_KEY"):
         try:
-            from app.services.contacts.sync import sync_from_apollo
+            from app.services.contacts.sync import sync_from_apollo, validate_apollo_access
 
-            result.synced_contacts = await sync_from_apollo(db, limit=limit)
+            apollo_ok, apollo_message = await validate_apollo_access(db)
+            if apollo_ok:
+                result.synced_contacts = await sync_from_apollo(db, limit=limit)
+            else:
+                result.blockers.append(apollo_message)
         except Exception as exc:
             logger.warning("Apollo revenue sync failed: %s", exc)
             result.blockers.append("Apollo sync failed; check APOLLO_API_KEY or Apollo quota.")

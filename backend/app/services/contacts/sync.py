@@ -38,6 +38,27 @@ async def _apollo_search(db, payload: dict) -> dict:
         return {}
 
 
+async def validate_apollo_access(db) -> tuple[bool, str]:
+    """Confirm Apollo accepts the configured key and plan for lead search."""
+    api_key = await _apollo_key(db)
+    if not api_key:
+        return False, "APOLLO_API_KEY missing."
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                f"{APOLLO_BASE}/mixed_people/search",
+                headers={"Content-Type": "application/json", "X-Api-Key": api_key},
+                json={"person_titles": ["CEO"], "per_page": 1},
+            )
+        if r.status_code == 200:
+            return True, ""
+        message = r.json().get("error") if r.headers.get("content-type", "").startswith("application/json") else r.text
+        return False, f"Apollo search blocked ({r.status_code}): {message}"
+    except Exception as e:
+        logger.warning("Apollo access validation failed: %s", e)
+        return False, f"Apollo access validation failed: {e}"
+
+
 async def sync_from_apollo(db, limit: int = 50,
                             industries: Optional[list] = None,
                             countries: Optional[list] = None) -> int:
