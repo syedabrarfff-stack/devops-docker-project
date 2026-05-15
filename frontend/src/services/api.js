@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE = import.meta.env.DEV ? 'http://localhost:8000' : ''
+const BASE = import.meta.env.DEV ? `http://${window.location.hostname}:8000` : ''
 
 const api = axios.create({
   baseURL: BASE,
@@ -10,11 +10,12 @@ const api = axios.create({
 
 // Chat
 export const sendChat = (payload) => api.post('/api/v1/chat', payload).then((r) => r.data)
-export const getChatHistory = (sessionId) => api.get(`/api/v1/history/${sessionId}`).then((r) => r.data)
+export const getChatHistory = (sessionId) => api.get(`/api/v1/chat/history/${sessionId}`).then((r) => r.data)
 export const getProviders = () => api.get('/api/v1/providers').then((r) => r.data)
 
 // Briefing
 export const getMorningBriefing = () => api.get('/api/v1/briefing/morning').then((r) => r.data)
+export const getActivityBriefing = () => api.get('/api/v1/briefing/activity').then((r) => r.data)
 export const getSystemStatus = () => api.get('/api/v1/briefing/status').then((r) => r.data)
 
 // Approvals
@@ -165,4 +166,18 @@ export const seedTeam = () => api.post('/api/v1/team/seed').then(r => r.data)
 export const getTeamStats = () => api.get('/api/v1/team/stats').then(r => r.data)
 export const getTeamCommunicationGuide = () => api.get('/api/v1/team/communication-guide').then(r => r.data)
 
+// Phase 10 - Private Company Operating System
+export const getCapabilityStatus = () => api.get('/api/v1/capabilities/status').then(r => r.data)
+export const getCredentialStatus = () => api.get('/api/v1/credentials/status').then(r => r.data)
+export const saveCredential = (data) => api.post('/api/v1/credentials', data).then(r => r.data)
+export const revokeCredential = (key) => api.delete(`/api/v1/credentials/${key}`).then(r => r.data)
+export const bootstrapCredentials = () => api.post('/api/v1/credentials/bootstrap-env').then(r => r.data)
+export const runLocalMarketDiscovery = (data) => api.post('/api/v1/discovery/local-market', data).then(r => r.data)
+export const getAutomationWorkflows = () => api.get('/api/v1/automation/workflows').then(r => r.data)
+export const getAutomationRuns = (limit = 25) => api.get('/api/v1/automation/runs', { params: { limit } }).then(r => r.data)
+export const getN8nStatus = () => api.get('/api/v1/automation/n8n/status').then(r => r.data)
+export const runAutomationWorkflow = (workflowKey, input = {}) =>
+  api.post(`/api/v1/automation/workflows/${workflowKey}/run`, { input }).then(r => r.data)
+
+export { api }
 export default api

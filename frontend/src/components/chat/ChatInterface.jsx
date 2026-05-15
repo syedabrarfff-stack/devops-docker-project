@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Mic, MicOff, Bot, User, Loader, Zap, ChevronDown } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
-import { sendChat } from '../../services/api'
+import { getChatHistory, sendChat } from '../../services/api'
 import voiceService from '../../services/voice'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -21,7 +21,7 @@ const Message = ({ msg }) => {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 ${isJarvis ? '' : 'flex-row-reverse'}`}
+      className={`flex gap-2 sm:gap-3 ${isJarvis ? '' : 'flex-row-reverse'}`}
     >
       {/* Avatar */}
       <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center
@@ -32,7 +32,7 @@ const Message = ({ msg }) => {
       </div>
 
       {/* Bubble */}
-      <div className={`max-w-[75%] rounded-xl px-4 py-3 text-sm leading-relaxed
+      <div className={`max-w-[calc(100%-2.5rem)] sm:max-w-[75%] min-w-0 break-words rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm leading-relaxed
                         ${isJarvis
                           ? 'bg-white/[0.04] border border-white/[0.07] text-white/85'
                           : 'bg-jarvis-purple/10 border border-jarvis-purple/20 text-white/85'}`}>
@@ -92,6 +92,42 @@ export default function ChatInterface() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    const handleVoiceCommand = (event) => {
+      const command = event.detail?.command
+      if (command) send(command)
+    }
+
+    window.addEventListener('jarvis-voice-command', handleVoiceCommand)
+    return () => window.removeEventListener('jarvis-voice-command', handleVoiceCommand)
+  }, [messages, loading, provider, sessionId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadHistory = async () => {
+      try {
+        const rows = await getChatHistory(sessionId)
+        if (cancelled || !rows.length) return
+
+        setMessages(rows.map((row, index) => ({
+          id: `${row.created_at}-${index}`,
+          role: row.role === 'jarvis' ? 'assistant' : row.role,
+          content: row.content,
+          model: row.model,
+          timestamp: row.created_at,
+        })))
+      } catch (err) {
+        // Keep the welcome message if history is unavailable.
+      }
+    }
+
+    loadHistory()
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
+
   const send = async (text = input) => {
     const msg = text.trim()
     if (!msg || loading) return
@@ -118,7 +154,7 @@ export default function ChatInterface() {
         id: Date.now() + 1,
         role: 'assistant',
         content: data.response,
-        model: data.model_used,
+        model: data.model || data.model_used,
         task_type: data.task_type,
         timestamp: new Date().toISOString(),
       }
@@ -158,15 +194,15 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col h-full p-6 gap-4">
+    <div className="flex min-h-0 flex-col h-full p-3 sm:p-4 md:p-6 gap-3 md:gap-4">
       {/* Provider selector */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <span className="text-xs text-white/40">AI Provider:</span>
-        <div className="relative">
+        <div className="relative min-w-0">
           <select
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
-            className="appearance-none bg-white/[0.04] border border-white/[0.10] rounded-lg
+            className="max-w-[58vw] sm:max-w-none appearance-none bg-white/[0.04] border border-white/[0.10] rounded-lg
                        pl-3 pr-8 py-1.5 text-xs text-white/70 cursor-pointer outline-none
                        hover:border-white/20 focus:border-jarvis-blue/50"
           >
@@ -176,11 +212,11 @@ export default function ChatInterface() {
           </select>
           <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
         </div>
-        <span className="text-[10px] text-white/25 font-mono ml-auto">session: {sessionId.slice(-12)}</span>
+        <span className="hidden sm:inline text-[10px] text-white/25 font-mono ml-auto">session: {sessionId.slice(-12)}</span>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 glass p-4 rounded-xl border border-white/[0.06]">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-3 sm:space-y-4 glass p-3 sm:p-4 rounded-xl border border-white/[0.06]">
         {messages.map((m) => <Message key={m.id} msg={m} />)}
         {loading && (
           <motion.div
@@ -211,7 +247,7 @@ export default function ChatInterface() {
       </div>
 
       {/* Input area */}
-      <div className="flex gap-3">
+      <div className="flex gap-2 sm:gap-3">
         <div className="flex-1 glass flex items-center gap-2 px-4 py-3 rounded-xl border border-white/[0.10]
                         focus-within:border-jarvis-blue/40 transition-colors">
           <input
@@ -220,7 +256,7 @@ export default function ChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
             placeholder="Ask JARVIS anything…"
-            className="flex-1 bg-transparent text-sm text-white/80 placeholder:text-white/25 outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white/80 placeholder:text-white/25 outline-none"
           />
           {input && (
             <button onClick={() => setInput('')} className="text-white/25 hover:text-white/50 text-xs">✕</button>
@@ -229,7 +265,7 @@ export default function ChatInterface() {
 
         <button
           onClick={toggleVoiceInput}
-          className={`p-3 rounded-xl border transition-all ${
+          className={`shrink-0 p-3 rounded-xl border transition-all ${
             listening
               ? 'bg-jarvis-blue/20 border-jarvis-blue/50 text-jarvis-blue'
               : 'glass border-white/[0.10] text-white/40 hover:text-white/70'
@@ -246,7 +282,7 @@ export default function ChatInterface() {
           whileTap={{ scale: 0.95 }}
           onClick={() => send()}
           disabled={!input.trim() || loading}
-          className="px-5 py-3 rounded-xl bg-jarvis-blue/15 border border-jarvis-blue/30
+          className="shrink-0 px-4 sm:px-5 py-3 rounded-xl bg-jarvis-blue/15 border border-jarvis-blue/30
                      text-jarvis-blue transition-all hover:bg-jarvis-blue/25 hover:border-jarvis-blue/50
                      disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
         >

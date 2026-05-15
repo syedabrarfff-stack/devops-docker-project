@@ -32,7 +32,7 @@ async def store_memory(db: AsyncSession, key: str, value: str,
     return m
 
 
-async def recall(db: AsyncSession, query: str, limit: int = 5,
+async def recall(db: AsyncSession, query: str = "", limit: int = 5,
                  session_id: Optional[str] = None,
                  memory_type: Optional[str] = None) -> list[Memory]:
     """Keyword + importance-ranked recall."""
@@ -46,7 +46,10 @@ async def recall(db: AsyncSession, query: str, limit: int = 5,
     query_lower = query.lower()
     scored = []
     for m in rows:
-        hits = sum(1 for w in query_lower.split() if w in m.key.lower() or w in m.value.lower())
+        hits = sum(
+            1 for w in query_lower.split()
+            if w in (m.key or "").lower() or w in (m.value or "").lower()
+        )
         scored.append((hits, m))
     scored.sort(key=lambda x: (-x[0], -x[1].importance))
 
@@ -60,36 +63,52 @@ async def recall(db: AsyncSession, query: str, limit: int = 5,
     return results
 
 
-async def store_instruction(db: AsyncSession, key: str, instruction: str) -> Memory:
+async def store_instruction(
+    db: AsyncSession,
+    key: str,
+    instruction: str,
+    category: str = "general",
+    priority: float = 1.0,
+) -> Memory:
     """Store a standing order from Captain (persists globally)."""
     existing = (await db.execute(
         select(Memory).where(Memory.memory_type == "instruction").where(Memory.key == key)
     )).scalar_one_or_none()
     if existing:
         existing.value = instruction
-        existing.importance = 1.0
+        existing.importance = priority
+        existing.tags = [category]
         await db.flush()
         return existing
-    return await store_memory(db, key, instruction, "instruction", importance=1.0)
+    return await store_memory(db, key, instruction, "instruction", importance=priority, tags=[category])
 
 
-async def get_instructions(db: AsyncSession) -> list[Memory]:
-    r = await db.execute(
-        select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance))
-    )
+async def get_instructions(db: AsyncSession, category: Optional[str] = None) -> list[Memory]:
+    q = select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance))
+    if category:
+        q = q.where(Memory.tags.contains([category]))
+    r = await db.execute(q)
     return list(r.scalars().all())
 
 
-async def build_context(db: AsyncSession, session_id: str, limit: int = 6) -> str:
+async def build_context(
+    db: AsyncSession,
+    session_id: Optional[str],
+    query: str = "",
+    limit: int = 6,
+) -> str:
     """Build a concise memory context string to prepend to AI prompts."""
     instructions = await get_instructions(db)
-    recent = await recall(db, "", limit=limit, session_id=session_id, memory_type="semantic")
-    summary_row = (await db.execute(
-        select(ConversationSummary)
-        .where(ConversationSummary.session_id == session_id)
-        .order_by(desc(ConversationSummary.created_at))
-        .limit(1)
-    )).scalar_one_or_none()
+    facts = await recall(db, query, limit=limit, session_id=session_id, memory_type="semantic")
+    episodes = await recall(db, query, limit=limit, session_id=session_id, memory_type="episodic")
+    summary_row = None
+    if session_id:
+        summary_row = (await db.execute(
+            select(ConversationSummary)
+            .where(ConversationSummary.session_id == session_id)
+            .order_by(desc(ConversationSummary.created_at))
+            .limit(1)
+        )).scalar_one_or_none()
 
     parts = []
     if instructions:
@@ -97,14 +116,21 @@ async def build_context(db: AsyncSession, session_id: str, limit: int = 6) -> st
         parts.append(f"CAPTAIN'S STANDING ORDERS:\n{inst_text}")
     if summary_row:
         parts.append(f"SESSION SUMMARY:\n{summary_row.summary}")
-    if recent:
-        facts = "\n".join(f"- [{m.key}] {m.value}" for m in recent)
-        parts.append(f"RELEVANT MEMORY:\n{facts}")
+    if facts:
+        fact_text = "\n".join(f"- [{m.key}] {m.value}" for m in facts)
+        parts.append(f"RELEVANT FACTS:\n{fact_text}")
+    if episodes:
+        episode_text = "\n".join(f"- {m.value[:1200]}" for m in episodes)
+        parts.append(f"RECENT / RELEVANT CONVERSATION MEMORY:\n{episode_text}")
 
     return "\n\n".join(parts) if parts else ""
 
 
-async def maybe_summarise(db: AsyncSession, session_id: str) -> Optional[ConversationSummary]:
+async def maybe_summarise(
+    db: AsyncSession,
+    session_id: str,
+    force: bool = False,
+) -> Optional[ConversationSummary]:
     """If session has > SUMMARY_THRESHOLD turns, ask Gemini to summarise."""
     count = await db.scalar(
         select(ConversationSummary.turn_count)
@@ -117,7 +143,7 @@ async def maybe_summarise(db: AsyncSession, session_id: str) -> Optional[Convers
         select(sqlfunc.count()).select_from(Conversation)
         .where(Conversation.session_id == session_id)
     ) or 0
-    if total - count < SUMMARY_THRESHOLD:
+    if not force and total - count < SUMMARY_THRESHOLD:
         return None
 
     rows = (await db.execute(

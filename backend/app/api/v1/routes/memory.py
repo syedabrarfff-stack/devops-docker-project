@@ -10,21 +10,31 @@ router = APIRouter(prefix="/memory", tags=["Memory"])
 
 class MemoryIn(BaseModel):
     content: str
+    key: Optional[str] = None
     memory_type: Optional[str] = "episodic"
     session_id: Optional[str] = None
-    importance: Optional[int] = 5
+    importance: Optional[float] = 0.5
     tags: Optional[list[str]] = None
 
 
 class InstructionIn(BaseModel):
     content: str
+    key: Optional[str] = None
     category: Optional[str] = "general"
-    priority: Optional[int] = 5
+    priority: Optional[float] = 1.0
 
 
 @router.post("/store")
 async def store_memory(body: MemoryIn, db: AsyncSession = Depends(get_db)):
-    memory = await mem.store_memory(db, **body.model_dump(exclude_none=True))
+    memory = await mem.store_memory(
+        db,
+        key=body.key or body.content[:120],
+        value=body.content,
+        memory_type=body.memory_type or "episodic",
+        session_id=body.session_id,
+        importance=body.importance or 0.5,
+        tags=body.tags or [],
+    )
     await db.commit()
     return {"id": memory.id, "memory_type": memory.memory_type}
 
@@ -40,7 +50,7 @@ async def recall_memory(
     memories = await mem.recall(db, query=query, session_id=session_id,
                                 memory_type=memory_type, limit=limit)
     return [{
-        "id": m.id, "content": m.content, "memory_type": m.memory_type,
+        "id": m.id, "key": m.key, "content": m.value, "memory_type": m.memory_type,
         "importance": m.importance, "tags": m.tags or [],
         "created_at": str(m.created_at),
     } for m in memories]
@@ -48,7 +58,13 @@ async def recall_memory(
 
 @router.post("/instructions")
 async def store_instruction(body: InstructionIn, db: AsyncSession = Depends(get_db)):
-    memory = await mem.store_instruction(db, **body.model_dump(exclude_none=True))
+    memory = await mem.store_instruction(
+        db,
+        key=body.key or body.category or "general",
+        instruction=body.content,
+        category=body.category or "general",
+        priority=body.priority or 1.0,
+    )
     await db.commit()
     return {"id": memory.id, "category": memory.tags}
 

@@ -73,24 +73,24 @@ export default function Dashboard() {
   const aiTotal     = health?.ai_providers?.total ?? 0
 
   return (
-    <div className="p-6 space-y-6 overflow-y-auto h-full no-scrollbar">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 overflow-y-auto h-full no-scrollbar">
       {/* Hero greeting */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass p-6 border border-jarvis-blue/15 glow-blue"
+        className="glass p-4 md:p-6 border border-jarvis-blue/15 glow-blue"
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold text-white leading-tight">
               Good day, <span className="text-jarvis-blue text-glow">Captain.</span>
             </h1>
             <p className="text-white/50 text-sm mt-1">
               JARVIS is online — all systems operational. Aliyar Solutions AI OS v1.0
             </p>
           </div>
-          <div className="text-right">
-            <div className="flex items-center gap-2 justify-end">
+          <div className="text-left sm:text-right">
+            <div className="flex items-center gap-2 sm:justify-end">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               <span className="text-xs text-green-400 font-medium">OPERATIONAL</span>
             </div>
@@ -102,7 +102,7 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         <StatCard icon={Brain}       label="AI Providers Active"  value={`${aiAvailable}/${aiTotal}`} sub="providers" color="blue"   delay={0.05} />
         <StatCard icon={CheckSquare} label="Pending Approvals"    value={status?.pending_approvals ?? '—'} sub="queue"    color="amber"  delay={0.10} />
         <StatCard icon={Users}       label="AI Agents Available"  value="22"  sub="agents"    color="purple" delay={0.15} />
@@ -110,19 +110,19 @@ export default function Dashboard() {
       </div>
 
       {/* Providers + World clock */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {/* AI Providers */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.25 }}
-          className="glass p-5"
+          className="glass p-4 md:p-5"
         >
           <div className="flex items-center gap-2 mb-4">
             <Brain size={15} className="text-jarvis-blue" />
             <span className="text-sm font-semibold text-white/70">AI Intelligence Network</span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {(health?.ai_providers?.active || [
               'Claude Sonnet', 'GPT-4o', 'Gemini Pro', 'DeepSeek', 'Llama 3.3', 'Groq',
             ]).map((name) => (
@@ -139,7 +139,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.30 }}
-          className="glass p-5"
+          className="glass p-4 md:p-5"
         >
           <div className="flex items-center gap-2 mb-4">
             <Globe size={15} className="text-jarvis-blue" />
@@ -165,13 +165,13 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="glass p-5"
+        className="glass p-4 md:p-5"
       >
         <div className="flex items-center gap-2 mb-4">
           <Zap size={15} className="text-jarvis-blue" />
           <span className="text-sm font-semibold text-white/70">Phase 2 Preview — Coming Soon</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {[
             { label: 'Lead Generation Engine',     sub: 'Phase 2' },
             { label: 'CRM Integration Hub',        sub: 'Phase 2' },

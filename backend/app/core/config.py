@@ -47,11 +47,17 @@ class Settings(BaseSettings):
     # Connectors
     HUBSPOT_API_KEY: Optional[str] = None
     APOLLO_API_KEY: Optional[str] = None
+    GOOGLE_MAPS_API_KEY: Optional[str] = None
     NOTION_API_KEY: Optional[str] = None
     STRIPE_SECRET_KEY: Optional[str] = None
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
+
+    # n8n automation backbone
+    N8N_BASE_URL: str = "https://automation.aliyarsolutions.com"
+    N8N_API_KEY: Optional[str] = None
+    N8N_WEBHOOK_BASE_URL: Optional[str] = None
 
     # AWS (Phase 3 — SSM + S3 | Phase 6 — ECS production)
     USE_AWS: bool = False

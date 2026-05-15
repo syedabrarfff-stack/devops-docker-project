@@ -14,3 +14,4 @@ from app.models.knowledge import *     # noqa
 from app.models.service_catalog import * # noqa
 from app.models.ai_audit import *      # noqa
 from app.models.team_member import *   # noqa
+from app.models.credentials import *   # noqa

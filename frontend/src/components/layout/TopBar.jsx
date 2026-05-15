@@ -1,30 +1,207 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, MicOff, Volume2, VolumeX, Bell, X } from 'lucide-react'
 import { format } from 'date-fns'
 import useJarvisStore from '../../store/useJarvisStore'
 import voiceService from '../../services/voice'
+import { getActivityBriefing } from '../../services/api'
+
+const LABELS = {
+  dashboard: 'Command Center',
+  automation: 'Automation Center',
+  access: 'Access Vault',
+  chat: 'JARVIS Chat',
+  briefing: 'Briefing',
+  approvals: 'Approval Queue',
+  agents: 'Agent Hierarchy',
+  crm: 'CRM',
+  leads: 'Leads',
+  outreach: 'Outreach',
+  tasks: 'Task Queue',
+  notifications: 'Notifications',
+  scheduler: 'Scheduler',
+  calendar: 'Calendar',
+  sync: 'Sync',
+  intelligence: 'Intelligence',
+  governance: 'Governance',
+  catalog: 'Services',
+  ai_ops: 'AI Operations',
+  team: 'Team Registry',
+}
+
+const MOBILE_VIEWS = [
+  ['dashboard', 'Dashboard'],
+  ['automation', 'Automation'],
+  ['access', 'Access'],
+  ['chat', 'JARVIS Chat'],
+  ['briefing', 'Briefing'],
+  ['approvals', 'Approvals'],
+  ['agents', 'Agents'],
+  ['crm', 'CRM'],
+  ['leads', 'Leads'],
+  ['outreach', 'Outreach'],
+  ['tasks', 'Tasks'],
+  ['notifications', 'Notifications'],
+  ['team', 'Team'],
+  ['scheduler', 'Scheduler'],
+  ['calendar', 'Calendar'],
+  ['sync', 'Sync'],
+  ['intelligence', 'Intelligence'],
+  ['governance', 'Governance'],
+  ['catalog', 'Services'],
+  ['ai_ops', 'AI Ops'],
+]
 
 export default function TopBar() {
-  const { wsConnected, voiceActive, setVoiceActive, voiceListening,
-          setVoiceListening, notifications, clearNotification, activeView } = useJarvisStore()
+  const {
+    wsConnected,
+    voiceActive,
+    setVoiceActive,
+    voiceListening,
+    setVoiceListening,
+    notifications,
+    clearNotification,
+    activeView,
+    setActiveView,
+  } = useJarvisStore()
+
   const [time, setTime] = useState(new Date())
-  const [muted, setMuted] = useState(false)
+  const [speakerOn, setSpeakerOn] = useState(() => localStorage.getItem('jarvis_speaker_on') !== 'false')
   const [showNotifs, setShowNotifs] = useState(false)
+  const speakerOnRef = useRef(speakerOn)
+  const awaitingBriefingRef = useRef(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => {
+    speakerOnRef.current = speakerOn
+  }, [speakerOn])
+
+  const speakDashboardWelcome = () => {
+    if (!speakerOnRef.current || sessionStorage.getItem('jarvis_dashboard_welcome_spoken') === 'true') return
+    sessionStorage.setItem('jarvis_dashboard_welcome_spoken', 'true')
+    const liveStatus = wsConnected ? 'The live dashboard link is connected.' : 'The live dashboard link is still reconnecting.'
+    voiceService.speak(
+      `Captain, Jarvis is online. ${liveStatus} I am watching approvals, leads, outreach, scheduled work, and the specialist teams. When you want it, say Jarvis, briefing, and I will ask before giving the full activity report.`,
+      { rate: 0.9, pitch: 0.88, maxChars: 520, pause: 300, mood: 'friendly' }
+    )
+  }
+
+  const speakActivityBriefing = async () => {
+    if (!speakerOnRef.current) return
+    voiceService.speak('Understood, Captain. Preparing the current activity briefing.', { mood: 'briefing', maxChars: 180 })
+    try {
+      const data = await getActivityBriefing()
+      voiceService.speak(data.spoken, { mood: 'briefing', maxChars: 1600 })
+    } catch {
+      voiceService.speak('Captain, I could not reach the activity briefing service. The backend may need attention.', { mood: 'urgent' })
+    }
+  }
+
+  const sendVoiceCommandToChat = (command) => {
+    if (!command) return
+    setActiveView('chat')
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('jarvis-voice-command', { detail: { command } }))
+    }, 250)
+  }
+
+  const cleanWakeCommand = (transcript = '') => transcript
+    .toLowerCase()
+    .replace(/\bhey\s+jarvis\b/g, '')
+    .replace(/\bokay\s+jarvis\b/g, '')
+    .replace(/\bjarvis\b/g, '')
+    .replace(/[.,!?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const isBriefingIntent = (command) =>
+    /(brief|report|activity|what.*team|team.*working|what.*made|new leads|email|outreach|status)/i.test(command)
+
+  const isListenIntent = (command) =>
+    /^(listen|start listening|are you there|hello|hi|wake up|can you hear me)?$/i.test(command)
+
+  const handleVoiceCommand = async (rawTranscript = '') => {
+    const command = cleanWakeCommand(rawTranscript)
+    setVoiceListening(true)
+
+    if (awaitingBriefingRef.current) {
+      if (/\b(yes|yeah|yep|sure|go ahead|brief me|continue)\b/i.test(command)) {
+        awaitingBriefingRef.current = false
+        await speakActivityBriefing()
+        return
+      }
+      if (/\b(no|not now|cancel|later|stop)\b/i.test(command)) {
+        awaitingBriefingRef.current = false
+        if (speakerOnRef.current) voiceService.speak('Of course, Captain. I will stay on standby.', { mood: 'calm', maxChars: 160 })
+        return
+      }
+    }
+
+    if (isBriefingIntent(command)) {
+      awaitingBriefingRef.current = true
+      if (speakerOnRef.current) {
+        voiceService.speak(
+          'Captain, I can brief you on current activity: team work, prepared emails, lead status, tasks, and approvals. Shall I continue?',
+          { mood: 'friendly', maxChars: 260 }
+        )
+      }
+      return
+    }
+
+    if (isListenIntent(command)) {
+      if (speakerOnRef.current) {
+        voiceService.speak(
+          'Yes, Captain. I am listening. You can ask for a briefing, current activity, leads, outreach, approvals, or give me a command.',
+          { mood: 'friendly', maxChars: 260 }
+        )
+      }
+      return
+    }
+
+    if (speakerOnRef.current) voiceService.speak('Understood, Captain. I will handle that in command chat.', { mood: 'calm', maxChars: 160 })
+    sendVoiceCommandToChat(command)
+  }
+
+  const enableVoice = () => {
+    setVoiceActive(true)
+    voiceService.onWakeWord = handleVoiceCommand
+    voiceService.startListening({
+      continuous: true,
+      onResult: (transcript) => {
+        if (awaitingBriefingRef.current) handleVoiceCommand(transcript)
+      },
+      onEnd: () => setVoiceListening(false),
+      onInterrupt: () => {
+        awaitingBriefingRef.current = false
+        setVoiceListening(false)
+      },
+    })
+  }
+
+  useEffect(() => {
+    if (!voiceActive) enableVoice()
+  }, [])
+
+  useEffect(() => {
+    if (activeView !== 'dashboard') return
+    const timer = window.setTimeout(speakDashboardWelcome, 1200)
+    return () => window.clearTimeout(timer)
+  }, [activeView, wsConnected])
+
+  const toggleSpeaker = () => {
+    const next = !speakerOn
+    setSpeakerOn(next)
+    localStorage.setItem('jarvis_speaker_on', String(next))
+    if (!next) voiceService.stopSpeaking()
+  }
+
   const toggleVoice = () => {
     if (!voiceActive) {
-      setVoiceActive(true)
-      voiceService.onWakeWord = () => {
-        setVoiceListening(true)
-        if (!muted) voiceService.speak('Yes, Captain. How can I help?')
-      }
-      voiceService.startListening({ continuous: true })
+      enableVoice()
     } else {
       voiceService.stopListening()
       setVoiceActive(false)
@@ -32,57 +209,59 @@ export default function TopBar() {
     }
   }
 
-  const labels = {
-    dashboard: 'Command Center',
-    chat: 'JARVIS Chat Interface',
-    briefing: 'Morning Briefing',
-    approvals: 'Approval Queue',
-    agents: 'Agent Hierarchy',
-  }
-
   const unread = notifications.length
 
   return (
-    <header className="h-14 flex items-center justify-between px-6
-                       border-b border-white/[0.06] bg-jarvis-dark/80 backdrop-blur-sm">
-      {/* Page title */}
-      <div>
-        <p className="text-sm font-semibold text-white/80">{labels[activeView] || 'JARVIS'}</p>
+    <header className="shrink-0 min-h-14 flex flex-wrap items-center justify-between gap-2 px-3 py-2 md:gap-3 md:px-6 md:py-0 border-b border-white/[0.06] bg-jarvis-dark/80 backdrop-blur-sm">
+      <div className="min-w-0 flex-1 md:flex-none">
+        <p className="text-sm font-semibold text-white/80">{LABELS[activeView] || 'JARVIS'}</p>
         <p className="text-[11px] text-white/30 font-mono">{format(time, 'EEE, dd MMM yyyy  HH:mm:ss')}</p>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-3">
-        {/* Mute */}
+      <select
+        value={activeView}
+        onChange={(event) => setActiveView(event.target.value)}
+        className="md:hidden min-w-0 max-w-[48vw] rounded-lg border border-jarvis-blue/30 bg-jarvis-blue/10 px-2 py-1.5 text-xs font-medium text-jarvis-blue outline-none"
+        aria-label="Open dashboard section"
+      >
+        {MOBILE_VIEWS.map(([id, label]) => (
+          <option key={id} value={id} className="bg-gray-950 text-white">{label}</option>
+        ))}
+      </select>
+
+      <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
         <button
-          onClick={() => { setMuted(!muted); if (!muted) voiceService.stopSpeaking() }}
-          className={`p-2 rounded-lg transition-all ${muted ? 'text-red-400 bg-red-400/10' : 'text-white/40 hover:text-white/70'}`}
-          title={muted ? 'Unmute' : 'Mute JARVIS voice'}
+          onClick={toggleSpeaker}
+          className={`flex min-h-9 items-center justify-center gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs font-medium border transition-all ${
+            speakerOn
+              ? 'bg-jarvis-blue/15 border-jarvis-blue/40 text-jarvis-blue'
+              : 'bg-red-400/10 border-red-400/20 text-red-400'
+          }`}
+          title={speakerOn ? 'Turn speaker off' : 'Turn speaker on'}
         >
-          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          {speakerOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          <span className="hidden sm:inline">{speakerOn ? 'Speaker On' : 'Speaker Off'}</span>
         </button>
 
-        {/* Wake word toggle */}
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={toggleVoice}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
-                      border transition-all duration-200
-                      ${voiceActive
-                        ? 'bg-jarvis-blue/15 border-jarvis-blue/40 text-jarvis-blue'
-                        : 'bg-white/[0.04] border-white/[0.10] text-white/40 hover:text-white/70'}`}
+          className={`flex min-h-9 items-center justify-center gap-2 px-2 py-1.5 md:px-3 rounded-lg text-xs font-medium border transition-all duration-200 ${
+            voiceActive
+              ? 'bg-jarvis-blue/15 border-jarvis-blue/40 text-jarvis-blue'
+              : 'bg-white/[0.04] border-white/[0.10] text-white/40 hover:text-white/70'
+          }`}
         >
           {voiceListening
-            ? <motion.span animate={{ scale: [1,1.3,1] }} transition={{ repeat: Infinity, duration: 0.8 }}>
+            ? <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 0.8 }}>
                 <Mic size={13} className="text-jarvis-blue" />
               </motion.span>
             : voiceActive
               ? <Mic size={13} />
               : <MicOff size={13} />}
-          {voiceActive ? (voiceListening ? 'Listening…' : 'Wake: "Jarvis"') : 'Voice Off'}
+          <span className="hidden sm:inline">{voiceActive ? (voiceListening ? 'Listening...' : 'Wake: "Jarvis"') : 'Voice Off'}</span>
         </motion.button>
 
-        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => setShowNotifs(!showNotifs)}
@@ -100,8 +279,7 @@ export default function TopBar() {
                 initial={{ opacity: 0, y: -8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                className="absolute right-0 top-10 w-80 glass border border-white/10
-                           rounded-xl shadow-2xl z-50 overflow-hidden"
+                className="absolute right-0 top-10 w-[min(20rem,calc(100vw-1rem))] glass border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
               >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
                   <span className="text-xs font-semibold text-white/70">Notifications</span>
@@ -114,11 +292,11 @@ export default function TopBar() {
                     <p className="text-center text-white/30 text-xs py-8">All clear, Captain.</p>
                   )}
                   {notifications.map((n) => (
-                    <div key={n.id}
-                         className="flex items-start gap-3 px-4 py-3 border-b border-white/[0.04]
-                                    hover:bg-white/[0.03] group">
-                      <div className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0
-                                       ${n.level === 'warning' ? 'bg-amber-400' : 'bg-jarvis-blue'}`} />
+                    <div
+                      key={n.id}
+                      className="flex items-start gap-3 px-4 py-3 border-b border-white/[0.04] hover:bg-white/[0.03] group"
+                    >
+                      <div className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${n.level === 'warning' ? 'bg-amber-400' : 'bg-jarvis-blue'}`} />
                       <p className="text-xs text-white/60 flex-1">{n.message}</p>
                       <button
                         onClick={() => clearNotification(n.id)}
@@ -134,12 +312,11 @@ export default function TopBar() {
           </AnimatePresence>
         </div>
 
-        {/* Status pill */}
-        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium
-                         border transition-all
-                         ${wsConnected
-                           ? 'bg-green-400/10 border-green-400/20 text-green-400'
-                           : 'bg-red-400/10 border-red-400/20 text-red-400'}`}>
+        <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all ${
+          wsConnected
+            ? 'bg-green-400/10 border-green-400/20 text-green-400'
+            : 'bg-red-400/10 border-red-400/20 text-red-400'
+        }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
           {wsConnected ? 'OPERATIONAL' : 'OFFLINE'}
         </div>

@@ -1,5 +1,14 @@
 import { create } from 'zustand'
 
+const getSavedSessionId = () => {
+  const saved = window.localStorage.getItem('jarvis_session_id')
+  if (saved) return saved
+
+  const created = `session_${Date.now()}`
+  window.localStorage.setItem('jarvis_session_id', created)
+  return created
+}
+
 const useJarvisStore = create((set, get) => ({
   // Active view
   activeView: 'dashboard',
@@ -33,7 +42,12 @@ const useJarvisStore = create((set, get) => ({
   setVoiceListening: (v) => set({ voiceListening: v }),
 
   // Chat session
-  sessionId: `session_${Date.now()}`,
+  sessionId: getSavedSessionId(),
+  resetSession: () => {
+    const created = `session_${Date.now()}`
+    window.localStorage.setItem('jarvis_session_id', created)
+    set({ sessionId: created })
+  },
 
   // Connect WebSocket
   connectWS: () => {

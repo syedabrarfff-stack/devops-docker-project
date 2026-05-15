@@ -5,12 +5,26 @@
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
 
+  html,
+  #root {
+    min-height: 100%;
+  }
+
   body {
     @apply bg-jarvis-dark text-white font-sans;
     background-image:
       radial-gradient(ellipse at 20% 20%, rgba(124,58,237,0.08) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 80%, rgba(0,212,255,0.06) 0%, transparent 50%);
     min-height: 100vh;
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 
   ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -22,8 +36,22 @@
 }
 
 @layer components {
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+    width: 100%;
+  }
+
+  .app-main {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .glass {
     @apply bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-xl;
+    min-width: 0;
   }
 
   .glass-hover {
@@ -87,4 +115,47 @@
   );
   pointer-events: none;
   z-index: 9999;
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    min-height: 100svh;
+  }
+
+  .app-view,
+  .app-view > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .jarvis-mobile-safe input,
+  .jarvis-mobile-safe select,
+  .jarvis-mobile-safe textarea {
+    font-size: 16px;
+  }
+
+  .jarvis-mobile-safe .fixed.inset-0 {
+    padding: 0.75rem;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .jarvis-mobile-safe .fixed.inset-0 > .glass {
+    max-height: calc(100svh - 1.5rem);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .jarvis-mobile-safe .grid[class*="grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .jarvis-mobile-safe [class*="p-6"] {
+    padding: 0.75rem;
+  }
+
+  .jarvis-mobile-safe [class*="space-y-6"] > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+  }
 }

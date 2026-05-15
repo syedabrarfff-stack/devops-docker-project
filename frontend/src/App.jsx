@@ -20,6 +20,8 @@ import GovernanceDashboard from './components/governance/GovernanceDashboard'
 import ServiceCatalog from './components/catalog/ServiceCatalog'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
 import TeamRegistry from './components/team/TeamRegistry'
+import AutomationCenter from './components/automation/AutomationCenter'
+import AccessVault from './components/access/AccessVault'
 import useJarvisStore from './store/useJarvisStore'
 
 const VIEWS = {
@@ -41,6 +43,8 @@ const VIEWS = {
   catalog:       ServiceCatalog,
   ai_ops:        AIOpsDashboard,
   team:          TeamRegistry,
+  automation:    AutomationCenter,
+  access:        AccessVault,
 }
 
 export default function App() {
@@ -53,11 +57,11 @@ export default function App() {
   const View = VIEWS[activeView] || Dashboard
 
   return (
-    <div className="flex h-screen overflow-hidden scanline">
+    <div className="app-shell jarvis-mobile-safe flex overflow-hidden scanline">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
-        <main className="flex-1 overflow-hidden">
+        <main className="app-main flex-1 min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -65,7 +69,7 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15 }}
-              className="h-full"
+              className="app-view h-full min-w-0"
             >
               <View />
             </motion.div>

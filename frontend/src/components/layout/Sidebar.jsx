@@ -3,12 +3,14 @@ import { motion } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, CheckSquare, Users,
   Newspaper, Zap, Activity, UserCircle, Target,
-  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2,
+  Mail, ListTodo, Bell, Calendar, Clock, RefreshCw, Brain, Shield, Layers, Server, Contact2, Workflow, KeyRound,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
 const NAV = [
   { id: 'dashboard',      label: 'Dashboard',       icon: LayoutDashboard },
+  { id: 'automation',     label: 'Automation Center', icon: Workflow },
+  { id: 'access',         label: 'Access Vault',     icon: KeyRound },
   { id: 'chat',           label: 'JARVIS Chat',      icon: MessageSquare },
   { id: 'briefing',       label: 'Briefing',         icon: Newspaper },
   { id: 'approvals',      label: 'Approvals',        icon: CheckSquare },
@@ -32,7 +34,7 @@ export default function Sidebar() {
   const { activeView, setActiveView, wsConnected, pendingApprovals } = useJarvisStore()
 
   return (
-    <aside className="w-64 h-screen flex flex-col glass border-r border-white/[0.06] rounded-none">
+    <aside className="hidden md:flex w-64 h-screen flex-col glass border-r border-white/[0.06] rounded-none flex-shrink-0">
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
