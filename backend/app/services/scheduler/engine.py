@@ -142,6 +142,10 @@ async def _register_default_jobs() -> None:
     # Contact sync every 12 hours
     add_interval_job("contact_sync", _job_sync_contacts, hours=12)
 
+    # Revenue engine: discover, score, draft, and prepare approval packets.
+    # Client-facing sends are never automatic.
+    add_cron_job("overnight_revenue_engine", _job_revenue_engine, hour=18, minute=0)
+
     # Phase 5 — Intelligence jobs
     # Weekly tech radar scan (Monday 06:00 UTC)
     add_cron_job("weekly_tech_radar_scan", _job_tech_radar_scan, hour=6, minute=0)
@@ -181,11 +185,11 @@ async def _job_score_leads() -> None:
 
 
 async def _job_process_outreach() -> None:
-    logger.info("Scheduler: processing due outreach emails")
+    logger.info("Scheduler: checking due outreach emails for approval safety")
     try:
         from app.core.database import AsyncSessionLocal
-        from app.services.outreach.gmail import send_outreach_email
         from sqlalchemy import select
+        from app.models.approval import ApprovalRequest
         from app.models.outreach import OutreachEmail
         from datetime import datetime, timezone
         async with AsyncSessionLocal() as db:
@@ -197,15 +201,20 @@ async def _job_process_outreach() -> None:
                     .where(OutreachEmail.scheduled_at <= now)
                     .limit(10)
                 )).scalars().all()
-                sent = 0
                 for email in due:
-                    try:
-                        ok = await send_outreach_email(db, email.id)
-                        if ok:
-                            sent += 1
-                    except Exception:
-                        pass
-        logger.info(f"Outreach: {sent}/{len(due)} emails sent")
+                    email.status = "draft"
+                if due:
+                    db.add(ApprovalRequest(
+                        title="Review scheduled outreach before sending",
+                        action_type="revenue_outreach_batch",
+                        summary=f"{len(due)} scheduled outreach emails are due. JARVIS moved them to drafts for Captain review.",
+                        risk_level="medium",
+                        benefits="Keeps outreach moving without sending unreviewed client messages.",
+                        risks="Emails will not send until Captain approves and executes the batch.",
+                        rollback_plan="Reject the approval or delete the draft emails.",
+                        payload={"email_ids": [e.id for e in due], "source": "outreach_processor"},
+                    ))
+        logger.info(f"Outreach: {len(due)} due emails moved to approval drafts")
     except Exception as e:
         logger.warning(f"Outreach job failed: {e}")
 
@@ -221,6 +230,19 @@ async def _job_sync_contacts() -> None:
         logger.info(f"Contact sync: {count} synced")
     except Exception as e:
         logger.warning(f"Contact sync job failed: {e}")
+
+
+async def _job_revenue_engine() -> None:
+    logger.info("Scheduler: running overnight revenue engine")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.revenue.engine import run_revenue_engine
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                result = await run_revenue_engine(db, limit=25)
+        logger.info(f"Revenue engine result: {result}")
+    except Exception as e:
+        logger.warning(f"Revenue engine job failed: {e}")
 
 
 # ── Phase 5 — Intelligence jobs ───────────────────────────────────────────────

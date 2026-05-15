@@ -74,6 +74,15 @@ async def sequence_stats(db: AsyncSession = Depends(get_db)):
 
 @router.post("/emails/{email_id}/send")
 async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    from app.models.approval import ApprovalRequest
+    approved = (await db.execute(
+        select(ApprovalRequest)
+        .where(ApprovalRequest.status == "approved")
+        .where(ApprovalRequest.action_type == "revenue_outreach_batch")
+    )).scalars().all()
+    if not any(email_id in ((a.payload or {}).get("email_ids") or []) for a in approved):
+        raise HTTPException(403, "Captain approval is required before sending outreach email.")
     success = await gmail_service.send_outreach_email(db, email_id)
     await db.commit()
     return {"sent": success, "email_id": email_id}
@@ -82,12 +91,7 @@ async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/emails/send-direct")
 async def send_direct_email(body: SendEmailIn):
     """Send a one-off email directly via SMTP (no DB record)."""
-    success, error = gmail_service.send_email_smtp(
-        body.to_email, body.subject, body.body, body.to_name
-    )
-    if not success:
-        raise HTTPException(503, f"Email failed: {error}")
-    return {"sent": True, "to": body.to_email}
+    raise HTTPException(403, "Direct sending is disabled. Create an approval request and execute an approved outreach batch.")
 
 
 @router.get("/emails/pending")
@@ -115,7 +119,7 @@ async def process_due_emails(
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Find and send all emails that are due now."""
+    """Find due emails and move them back to drafts for Captain approval."""
     from datetime import datetime, timezone
     from sqlalchemy import select
     from app.models.outreach import OutreachEmail
@@ -127,13 +131,7 @@ async def process_due_emails(
         .limit(limit)
     )).scalars().all()
 
-    sent = 0
     for email in due:
-        try:
-            ok = await gmail_service.send_outreach_email(db, email.id)
-            if ok:
-                sent += 1
-        except Exception:
-            pass
+        email.status = "draft"
     await db.commit()
-    return {"processed": len(due), "sent": sent}
+    return {"processed": len(due), "sent": 0, "requires_approval": True}

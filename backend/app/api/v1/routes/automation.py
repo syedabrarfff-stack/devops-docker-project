@@ -19,6 +19,12 @@ router = APIRouter(prefix="/automation", tags=["Automation"])
 
 
 WORKFLOWS = {
+    "revenue_engine": {
+        "name": "Revenue Engine",
+        "description": "Discover leads, qualify contacts, draft outreach/proposals, and create Captain approval packets.",
+        "risk": "low",
+        "approval_rule": "Discovery and drafting auto-run; external sends require approval execution.",
+    },
     "local_market_discovery": {
         "name": "Local Market Hunter",
         "description": "Find local businesses with Google Places, analyze pain, create CRM leads, and prepare outreach.",
@@ -42,6 +48,11 @@ WORKFLOWS = {
 
 class WorkflowRunRequest(BaseModel):
     input: dict = Field(default_factory=dict)
+
+
+class RevenueRunRequest(BaseModel):
+    limit: int = Field(default=25, ge=1, le=100)
+    create_proposals: bool = True
 
 
 @router.get("/n8n/status")
@@ -98,6 +109,24 @@ async def run_workflow(workflow_key: str, req: WorkflowRunRequest, db: AsyncSess
     await db.commit()
     await db.refresh(run)
     return _serialize_run(run)
+
+
+@router.post("/revenue/run")
+async def run_revenue(req: RevenueRunRequest = RevenueRunRequest(), db: AsyncSession = Depends(get_db)):
+    from app.services.revenue.engine import run_revenue_engine
+
+    result = await run_revenue_engine(db, limit=req.limit, create_proposals=req.create_proposals)
+    await db.commit()
+    return {"status": "completed", "result": result}
+
+
+@router.post("/revenue/approvals/{approval_id}/execute")
+async def execute_revenue_approval(approval_id: int, db: AsyncSession = Depends(get_db)):
+    from app.services.revenue.engine import execute_approved_outreach_batch
+
+    result = await execute_approved_outreach_batch(db, approval_id)
+    await db.commit()
+    return result
 
 
 @router.get("/runs")

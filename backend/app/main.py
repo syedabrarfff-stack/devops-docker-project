@@ -38,12 +38,13 @@ async def lifespan(app: FastAPI):
         from app.services.catalog.catalog_service import seed_catalog, get_catalog_stats
         async with AsyncSessionLocal() as db:
             stats = await get_catalog_stats(db)
-            if stats.get("total_divisions", 0) == 0:
-                result = await seed_catalog(db)
+            total_divisions = stats.get("total_divisions", stats.get("total", 0))
+            if total_divisions == 0:
+                seeded = await seed_catalog(db)
                 await db.commit()
-                logger.info(f"✅ Service catalog seeded — {result.get('seeded', 0)} divisions")
+                logger.info(f"✅ Service catalog seeded — {seeded} divisions")
             else:
-                logger.info(f"✅ Service catalog ready — {stats['total_divisions']} divisions")
+                logger.info(f"✅ Service catalog ready — {total_divisions} divisions")
     except Exception as e:
         logger.warning(f"Catalog seed skipped: {e}")
 
