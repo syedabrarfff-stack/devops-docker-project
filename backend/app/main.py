@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
         from app.services.tasks.queue import requeue_pending, worker
         async with AsyncSessionLocal() as db:
             async with db.begin():
-                await requeue_pending(db)
+                await requeue_pending()
         logger.info("✅ Task queue initialized — starting worker")
         worker_task = asyncio.create_task(worker())
     except Exception as e:
