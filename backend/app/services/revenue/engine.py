@@ -494,6 +494,8 @@ async def _create_approval_packet(
                 .where(ApprovalRequest.title == APPROVAL_TITLE)
                 .where(ApprovalRequest.action_type == "revenue_outreach_batch")
                 .where(ApprovalRequest.status == "pending")
+                .order_by(ApprovalRequest.created_at.desc())
+                .limit(1)
             )
         ).scalar_one_or_none()
         if existing:
