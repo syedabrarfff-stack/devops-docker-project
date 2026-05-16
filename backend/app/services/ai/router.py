@@ -162,6 +162,7 @@ ROUTING_TABLE: dict = {
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
         ("openai", "gpt-4o-mini"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.LONG_CONTEXT: [
         ("google", "gemini-pro"),
@@ -181,6 +182,7 @@ ROUTING_TABLE: dict = {
     TaskType.GENERAL: [
         ("bedrock", "bedrock-nova-pro"),
         ("openai", "gpt-4o"),
+        ("nvidia", "nvidia-nim"),
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
@@ -189,6 +191,7 @@ ROUTING_TABLE: dict = {
         ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
+        ("nvidia", "nvidia-nim"),
         ("google", "gemini-pro"),
     ],
     TaskType.STRATEGY: [
