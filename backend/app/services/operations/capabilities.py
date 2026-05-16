@@ -149,7 +149,13 @@ async def capability_status(db) -> dict:
         apollo_ok, apollo_message = await validate_apollo_access(db)
     except Exception as exc:
         apollo_ok, apollo_message = False, str(exc)
-    gmail_oauth_ready = by_key["GMAIL_CLIENT_ID"]["configured"] and by_key["GMAIL_CLIENT_SECRET"]["configured"]
+    try:
+        from app.services.auth.gmail_oauth import is_oauth_connected
+        from app.services.storage.secure import get_oauth_token
+
+        gmail_oauth_ready = is_oauth_connected(await get_oauth_token(db, "gmail", "primary"))
+    except Exception:
+        gmail_oauth_ready = False
     gmail_user_ready = by_key["GMAIL_ADDRESS"]["configured"] or by_key["GMAIL_USER"]["configured"] or by_key["EMAIL_USER"]["configured"]
     gmail_pass_ready = by_key["GMAIL_APP_PASSWORD"]["configured"] or by_key["EMAIL_PASS"]["configured"]
     gmail_smtp_ready = gmail_user_ready and gmail_pass_ready
@@ -230,10 +236,15 @@ async def capability_status(db) -> dict:
             "id": "gmail_outreach",
             "name": "Gmail Approved Outreach",
             "state": "ready" if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else "blocked",
-            "summary": "Sends approved outreach only after Captain approval. Gmail can run directly through Jarvis OAuth or through the connected n8n Gmail credential.",
-            "missing": [] if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else ["real Gmail OAuth credentials or GMAIL_APP_PASSWORD"],
+            "summary": "Sends approved outreach only after Captain approval. Gmail can run through connected OAuth, verified SMTP, or the connected n8n Gmail credential.",
+            "missing": [] if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else ["Connect Gmail OAuth or replace GMAIL_APP_PASSWORD with a Google-accepted app password"],
             "note": None if gmail_smtp_ready or gmail_oauth_ready or gmail_via_n8n_ready else gmail_smtp_message,
-            "via": "smtp" if gmail_smtp_ready else "n8n" if gmail_via_n8n_ready and not gmail_oauth_ready else "jarvis_oauth",
+            "via": (
+                "smtp" if gmail_smtp_ready
+                else "n8n" if gmail_via_n8n_ready and not gmail_oauth_ready
+                else "gmail_oauth" if gmail_oauth_ready
+                else None
+            ),
         },
     ]
 

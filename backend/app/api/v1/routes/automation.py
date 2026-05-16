@@ -290,7 +290,7 @@ async def _run_sales_war_room(db: AsyncSession) -> dict:
     except Exception as exc:
         gmail_ready, gmail_message = False, str(exc)
     if not gmail_ready:
-        blockers.append(f"Gmail SMTP authentication failed: {gmail_message}")
+        blockers.append(f"Gmail delivery blocked: {gmail_message}")
 
     message = (
         f"Sales War Room ready: {total_leads} total leads, {qualified_leads} qualified, "

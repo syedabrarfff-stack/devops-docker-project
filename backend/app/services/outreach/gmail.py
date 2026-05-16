@@ -172,6 +172,28 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             })
             row.personalized = True
 
+    try:
+        from app.services.auth.gmail_oauth import send_via_gmail_api
+
+        success, error = await send_via_gmail_api(
+            db,
+            row.to_email,
+            subject,
+            body,
+            row.to_name or "",
+        )
+        if success:
+            row.status = "sent"
+            row.sent_at = datetime.now(timezone.utc)
+            row.subject = subject
+            row.body = body
+            await db.flush()
+            return True
+        if "No valid Gmail OAuth token" not in error:
+            logger.warning("Gmail API send failed; falling back to SMTP: %s", error)
+    except Exception as exc:
+        logger.warning("Gmail API send path unavailable; falling back to SMTP: %s", exc)
+
     gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
     success, error = send_email_smtp(

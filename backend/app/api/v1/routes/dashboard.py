@@ -14,6 +14,8 @@ from app.models.lead import Lead
 from app.models.notifications import NotificationLog
 from app.models.outreach import OutreachEmail
 from app.services.storage.secure import get_credential
+from app.services.auth.gmail_oauth import is_oauth_connected
+from app.services.storage.secure import get_oauth_token
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -84,11 +86,13 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
     apollo_key = await get_credential(db, "APOLLO_API_KEY")
     gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
+    gmail_oauth_connected = is_oauth_connected(await get_oauth_token(db, "gmail", "primary"))
     clean_gmail_password = (gmail_password or "").replace(" ", "").strip()
     gmail_password_valid = clean_gmail_password.isascii() and len(clean_gmail_password) == 16
-    gmail_ready = bool(gmail_address and gmail_password_valid)
+    gmail_ready = bool(gmail_oauth_connected or (gmail_address and gmail_password_valid))
     gmail_error = ""
-    if gmail_ready:
+    gmail_method = "oauth" if gmail_oauth_connected else "smtp"
+    if gmail_ready and not gmail_oauth_connected:
         try:
             from app.services.outreach.gmail import validate_smtp_credentials
 
@@ -96,12 +100,14 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
         except Exception as exc:
             gmail_ready = False
             gmail_error = str(exc)
+    elif not gmail_ready:
+        gmail_error = "Gmail OAuth is not connected and SMTP credentials are missing or invalid."
 
     blockers = []
     if not apollo_key:
         blockers.append("APOLLO_API_KEY missing: live lead discovery is paused.")
     if not gmail_ready:
-        blockers.append("Gmail SMTP authentication failed: approved outreach cannot send yet.")
+        blockers.append(f"Gmail delivery blocked: {gmail_error}")
 
     reply_rate = round((replies / sent_emails) * 100, 1) if sent_emails else 0.0
     conversion_signal = round((qualified / total_leads) * 100, 1) if total_leads else 0.0
@@ -144,6 +150,7 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
             "drafts_waiting": drafted,
             "last_send_status": "ready" if gmail_ready else "blocked",
             "last_error": gmail_error if not gmail_ready else "",
+            "method": gmail_method if gmail_ready else None,
         },
         "engine": {
             "apollo_ready": bool(apollo_key),
