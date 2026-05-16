@@ -198,6 +198,8 @@ export const getN8nStatus = () => api.get('/api/v1/automation/n8n/status').then(
 export const runAutomationWorkflow = (workflowKey, input = {}) =>
   api.post(`/api/v1/automation/workflows/${workflowKey}/run`, { input }).then(r => r.data)
 export const runRevenueEngine = (data = {}) => api.post('/api/v1/automation/revenue/run', data).then(r => r.data)
+export const executeRevenueApproval = (approvalId) =>
+  api.post(`/api/v1/automation/revenue/approvals/${approvalId}/execute`).then(r => r.data)
 
 export { api }
 export default api

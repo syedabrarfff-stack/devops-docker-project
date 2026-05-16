@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckSquare, AlertTriangle, CheckCircle, XCircle,
          Clock, DollarSign, Shield, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
-import { getApprovals, decideApproval } from '../../services/api'
+import { getApprovals, decideApproval, executeRevenueApproval } from '../../services/api'
 import useJarvisStore from '../../store/useJarvisStore'
 
 const RISK_COLORS = {
@@ -12,20 +12,35 @@ const RISK_COLORS = {
   critical: { border: 'border-red-400/20',    bg: 'bg-red-400/10',    text: 'text-red-400' },
 }
 
-const ApprovalCard = ({ approval, onDecide }) => {
+const ApprovalCard = ({ approval, onDecide, onExecute }) => {
   const [expanded, setExpanded] = useState(false)
   const [note, setNote] = useState('')
   const [deciding, setDeciding] = useState(false)
+  const [executing, setExecuting] = useState(false)
+  const [result, setResult] = useState(null)
   const risk = RISK_COLORS[approval.risk_level] || RISK_COLORS.medium
 
   const decide = async (status) => {
     setDeciding(true)
     try {
-      await onDecide(approval.id, { status, captain_note: note })
+      const data = await onDecide(approval.id, { status, captain_note: note })
+      setResult(data?.execution || data)
     } finally {
       setDeciding(false)
     }
   }
+
+  const execute = async () => {
+    setExecuting(true)
+    try {
+      const data = await onExecute(approval.id)
+      setResult(data)
+    } finally {
+      setExecuting(false)
+    }
+  }
+
+  const canExecute = approval.status === 'approved' && approval.action_type === 'revenue_outreach_batch'
 
   return (
     <motion.div
@@ -130,31 +145,59 @@ const ApprovalCard = ({ approval, onDecide }) => {
 
               {/* Decision buttons */}
               <div className="flex gap-3">
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => decide('approved')}
-                  disabled={deciding}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
-                             bg-green-400/10 border border-green-400/30 text-green-400
-                             text-sm font-medium hover:bg-green-400/20 transition-all
-                             disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle size={15} />
-                  Approve
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => decide('rejected')}
-                  disabled={deciding}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
-                             bg-red-400/10 border border-red-400/30 text-red-400
-                             text-sm font-medium hover:bg-red-400/20 transition-all
-                             disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <XCircle size={15} />
-                  Reject
-                </motion.button>
+                {approval.status === 'pending' && (
+                  <>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => decide('approved')}
+                      disabled={deciding}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
+                                 bg-green-400/10 border border-green-400/30 text-green-400
+                                 text-sm font-medium hover:bg-green-400/20 transition-all
+                                 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <CheckCircle size={15} />
+                      Approve & Execute
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => decide('rejected')}
+                      disabled={deciding}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
+                                 bg-red-400/10 border border-red-400/30 text-red-400
+                                 text-sm font-medium hover:bg-red-400/20 transition-all
+                                 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <XCircle size={15} />
+                      Reject
+                    </motion.button>
+                  </>
+                )}
+                {canExecute && (
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={execute}
+                    disabled={executing}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg
+                               bg-jarvis-blue/10 border border-jarvis-blue/30 text-jarvis-blue
+                               text-sm font-medium hover:bg-jarvis-blue/20 transition-all
+                               disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw size={15} className={executing ? 'animate-spin' : ''} />
+                    {executing ? 'Executing' : 'Execute Approved Batch'}
+                  </motion.button>
+                )}
               </div>
+
+              {result && (
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-white/30">Execution Result</p>
+                  <p className="mt-1 text-xs text-white/55">
+                    Sent {result.sent ?? 0}, failed {result.failed ?? 0}
+                    {result.error ? ` — ${result.error}` : ''}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -185,8 +228,15 @@ export default function ApprovalQueue() {
   useEffect(() => { load() }, [filter])
 
   const handleDecide = async (id, decision) => {
-    await decideApproval(id, decision)
-    load()
+    const result = await decideApproval(id, decision)
+    await load()
+    return result
+  }
+
+  const handleExecute = async (id) => {
+    const result = await executeRevenueApproval(id)
+    await load()
+    return result
   }
 
   const FILTERS = ['pending', 'approved', 'rejected']
@@ -247,7 +297,7 @@ export default function ApprovalQueue() {
 
       <AnimatePresence mode="popLayout">
         {approvals.map((a) => (
-          <ApprovalCard key={a.id} approval={a} onDecide={handleDecide} />
+          <ApprovalCard key={a.id} approval={a} onDecide={handleDecide} onExecute={handleExecute} />
         ))}
       </AnimatePresence>
     </div>

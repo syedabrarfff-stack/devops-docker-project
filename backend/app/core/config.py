@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     SMTP_SECURE: bool = False
     EMAIL_USER: Optional[str] = None
     EMAIL_PASS: Optional[str] = None
+    OUTREACH_PERSONALIZE_ON_SEND: bool = False
 
     # Connectors
     HUBSPOT_API_KEY: Optional[str] = None

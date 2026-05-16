@@ -60,9 +60,21 @@ async def decide_approval(
     approval.captain_note = decision.captain_note
     approval.approved_at = datetime.utcnow()
 
+    execution_result = None
+    if decision.status == "approved" and approval.action_type == "revenue_outreach_batch":
+        from app.services.revenue.engine import execute_approved_outreach_batch
+
+        await db.flush()
+        execution_result = await execute_approved_outreach_batch(db, approval_id)
+
     db.add(AuditLog(
         action=f"Approval {decision.status}: {approval.title}",
-        details={"approval_id": approval_id, "decision": decision.status, "note": decision.captain_note},
+        details={
+            "approval_id": approval_id,
+            "decision": decision.status,
+            "note": decision.captain_note,
+            "execution_result": execution_result,
+        },
     ))
     await db.flush()
 
@@ -71,7 +83,7 @@ async def decide_approval(
     await notify_slack(msg)
     await notify_telegram(msg)
 
-    return {"status": decision.status, "approval_id": approval_id}
+    return {"status": decision.status, "approval_id": approval_id, "execution": execution_result}
 
 
 @router.get("/count")

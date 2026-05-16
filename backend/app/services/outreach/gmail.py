@@ -161,9 +161,17 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
         return False
 
     subject, body = sanitize_subject_body(row.subject or "", row.body or "")
-    if row.contact_id and not row.personalized:
+    if settings.OUTREACH_PERSONALIZE_ON_SEND and row.contact_id and not row.personalized:
         from app.models.crm import Contact
-        contact = (await db.execute(select(Contact).where(Contact.id == row.contact_id))).scalar_one_or_none()
+        from sqlalchemy.orm import selectinload
+
+        contact = (
+            await db.execute(
+                select(Contact)
+                .options(selectinload(Contact.company))
+                .where(Contact.id == row.contact_id)
+            )
+        ).scalar_one_or_none()
         if contact:
             body = await personalise_email(body, {
                 "name": contact.name, "title": contact.title,
