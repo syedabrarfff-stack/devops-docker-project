@@ -52,11 +52,20 @@ async def validate_apollo_access(db) -> tuple[bool, str]:
             )
         if r.status_code == 200:
             return True, ""
-        message = r.json().get("error") if r.headers.get("content-type", "").startswith("application/json") else r.text
+        if r.headers.get("content-type", "").startswith("application/json"):
+            try:
+                body = r.json()
+            except ValueError:
+                body = {}
+            message = body.get("error") or body.get("message") or body.get("error_message") or "Apollo account/API access is not allowing people search."
+        else:
+            message = (r.text or "Apollo rejected the request.").strip()
+        if not message:
+            message = "Apollo rejected the request."
         return False, f"Apollo search blocked ({r.status_code}): {message}"
     except Exception as e:
         logger.warning("Apollo access validation failed: %s", e)
-        return False, f"Apollo access validation failed: {e}"
+        return False, "Apollo access validation failed; public discovery fallback remains active."
 
 
 async def sync_from_apollo(db, limit: int = 50,

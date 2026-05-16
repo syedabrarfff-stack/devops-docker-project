@@ -277,9 +277,20 @@ async def _run_sales_war_room(db: AsyncSession) -> dict:
     google_key = await get_credential(db, "GOOGLE_MAPS_API_KEY")
     if not google_key:
         blockers.append("GOOGLE_MAPS_API_KEY missing: local market discovery cannot pull live Google Places candidates.")
-    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
-    if not gmail_password:
-        blockers.append("GMAIL_APP_PASSWORD missing: approved SMTP outreach cannot send.")
+    gmail_address = (
+        await get_credential(db, "GMAIL_ADDRESS")
+        or await get_credential(db, "GMAIL_USER")
+        or await get_credential(db, "EMAIL_USER")
+    )
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
+    try:
+        from app.services.outreach.gmail import validate_smtp_credentials
+
+        gmail_ready, gmail_message = validate_smtp_credentials(gmail_address, gmail_password)
+    except Exception as exc:
+        gmail_ready, gmail_message = False, str(exc)
+    if not gmail_ready:
+        blockers.append(f"Gmail SMTP authentication failed: {gmail_message}")
 
     message = (
         f"Sales War Room ready: {total_leads} total leads, {qualified_leads} qualified, "

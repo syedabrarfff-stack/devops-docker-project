@@ -53,7 +53,8 @@ def run_credential_audit() -> dict:
         CredentialCheck("SLACK_WEBHOOK_URL", "Notifications", bool(settings.SLACK_WEBHOOK_URL), SEVERITY_HIGH, "Slack — Captain alerts and emergency notifications", _mask(settings.SLACK_WEBHOOK_URL)),
         CredentialCheck("TELEGRAM_BOT_TOKEN", "Notifications", bool(settings.TELEGRAM_BOT_TOKEN), SEVERITY_MEDIUM, "Telegram — mobile approval push notifications", _mask(settings.TELEGRAM_BOT_TOKEN)),
         # ── Email ───────────────────────────────────────────────────────────────
-        CredentialCheck("GMAIL_ADDRESS", "Email", bool(settings.GMAIL_ADDRESS), SEVERITY_MEDIUM, "Gmail address for outreach system"),
+        CredentialCheck("GMAIL_ADDRESS", "Email", bool(settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER), SEVERITY_MEDIUM, "Gmail sender address for outreach system"),
+        CredentialCheck("GMAIL_APP_PASSWORD", "Email", bool(settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS), SEVERITY_MEDIUM, "Gmail app password or SMTP password alias for approved outreach"),
         CredentialCheck("GMAIL_CLIENT_ID", "Email — OAuth", bool(settings.GMAIL_CLIENT_ID), SEVERITY_MEDIUM, "Gmail OAuth 2.0 — required for outreach automation"),
         # ── Connectors ──────────────────────────────────────────────────────────
         CredentialCheck("APOLLO_API_KEY", "CRM Connectors", bool(settings.APOLLO_API_KEY), SEVERITY_MEDIUM, "Apollo.io — lead enrichment and contact sync", _mask(settings.APOLLO_API_KEY)),

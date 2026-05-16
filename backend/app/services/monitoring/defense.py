@@ -140,7 +140,12 @@ async def _check_credentials(db: AsyncSession, findings: list[dict[str, Any]]) -
 
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
     clean_password = (gmail_password or "").replace(" ", "").strip()
-    if by_key.get("GMAIL_ADDRESS", {}).get("configured") and not (clean_password.isascii() and len(clean_password) == 16):
+    gmail_sender_ready = (
+        by_key.get("GMAIL_ADDRESS", {}).get("configured")
+        or by_key.get("GMAIL_USER", {}).get("configured")
+        or by_key.get("EMAIL_USER", {}).get("configured")
+    )
+    if gmail_sender_ready and not (clean_password.isascii() and len(clean_password) == 16):
         findings.append(_finding(
             "gmail_smtp",
             "medium",

@@ -4,6 +4,8 @@ For full OAuth: set GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET (Phase 3).
 """
 import smtplib
 import logging
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
@@ -20,12 +22,25 @@ def _gmail_app_password(password: Optional[str] = None) -> str:
     return (password or settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS or "").replace(" ", "").strip()
 
 
+def _smtp_error_message(exc: Exception) -> str:
+    text = str(exc)
+    lowered = text.lower()
+    if "5.7.8" in text or "badcredentials" in lowered or "username and password not accepted" in lowered:
+        return "Google rejected the Gmail SMTP credentials (535 BadCredentials). Generate a fresh app password for the sender account or connect Gmail OAuth."
+    if "timed out" in lowered or "timeout" in lowered:
+        return "Gmail SMTP connection timed out."
+    if "authentication" in lowered or "auth" in lowered:
+        return "Gmail SMTP authentication failed."
+    return text.splitlines()[0][:240]
+
+
 def send_email_smtp(to: str, subject: str, body: str,
                     to_name: str = "",
                     gmail_address: Optional[str] = None,
-                    gmail_password: Optional[str] = None) -> tuple[bool, str]:
+                    gmail_password: Optional[str] = None,
+                    attachments: Optional[list[dict]] = None) -> tuple[bool, str]:
     """Send via Gmail SMTP using app password. Returns (success, error)."""
-    sender = (gmail_address or settings.GMAIL_ADDRESS or settings.EMAIL_USER or "").strip()
+    sender = (gmail_address or settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER or "").strip()
     password = _gmail_app_password(gmail_password)
     if not (sender and password):
         return False, "Gmail not configured — add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env"
@@ -46,6 +61,17 @@ def send_email_smtp(to: str, subject: str, body: str,
         msg.attach(text_part)
         msg.attach(html_part)
 
+        for attachment in attachments or []:
+            filename = (attachment.get("filename") or "attachment").strip()
+            payload = attachment.get("content") or b""
+            if isinstance(payload, str):
+                payload = payload.encode("utf-8")
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(payload)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
             server.ehlo()
             if not settings.SMTP_SECURE:
@@ -56,8 +82,36 @@ def send_email_smtp(to: str, subject: str, body: str,
         logger.info(f"Email sent to {to}: {subject}")
         return True, ""
     except Exception as e:
-        logger.error(f"SMTP error sending to {to}: {e}")
-        return False, str(e)
+        error = _smtp_error_message(e)
+        logger.error("SMTP error sending to %s: %s", to, error)
+        return False, error
+
+
+def validate_smtp_credentials(
+    gmail_address: Optional[str] = None,
+    gmail_password: Optional[str] = None,
+) -> tuple[bool, str]:
+    """Verify SMTP handshake + auth without sending a message."""
+    sender = (gmail_address or settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER or "").strip()
+    password = _gmail_app_password(gmail_password)
+    if not (sender and password):
+        return False, "Gmail sender or app password is missing."
+    try:
+        password.encode("ascii")
+    except UnicodeEncodeError:
+        return False, "Gmail app password contains non-ASCII characters."
+    if len(password) != 16:
+        return False, "Gmail app password must be 16 characters."
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12) as server:
+            server.ehlo()
+            if not settings.SMTP_SECURE:
+                server.starttls()
+                server.ehlo()
+            server.login(sender, password)
+        return True, ""
+    except Exception as exc:
+        return False, _smtp_error_message(exc)
 
 
 def _wrap_html(body: str, name: str) -> str:
@@ -114,7 +168,7 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             })
             row.personalized = True
 
-    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "EMAIL_USER")
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
     success, error = send_email_smtp(
         row.to_email,

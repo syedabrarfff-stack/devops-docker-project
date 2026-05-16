@@ -55,6 +55,7 @@ CREDENTIAL_SPECS: tuple[CredentialSpec, ...] = (
     CredentialSpec("GMAIL_CLIENT_ID", "Gmail OAuth Client ID", "Communication", "OAuth connection for reading/sending approved Gmail outreach.", ("Gmail OAuth", "Approved outreach send"), False),
     CredentialSpec("GMAIL_CLIENT_SECRET", "Gmail OAuth Client Secret", "Communication", "OAuth secret for Gmail API access.", ("Gmail OAuth", "Approved outreach send")),
     CredentialSpec("GMAIL_ADDRESS", "Gmail Address", "Communication", "Sender address for Aliyar Solutions outreach.", ("Gmail OAuth", "Approved outreach send"), False),
+    CredentialSpec("GMAIL_USER", "Gmail SMTP User", "Communication", "SMTP sender alias for Gmail app-password outreach.", ("Approved outreach send",), False),
     CredentialSpec("GMAIL_APP_PASSWORD", "Gmail App Password", "Communication", "16-character Google app password for approved SMTP outreach.", ("Approved outreach send",)),
     CredentialSpec("EMAIL_USER", "SMTP Email User", "Communication", "SMTP sender alias used by deployment platforms.", ("Approved outreach send",), False),
     CredentialSpec("EMAIL_PASS", "SMTP Email Password", "Communication", "SMTP password alias used by deployment platforms.", ("Approved outreach send",)),
@@ -149,10 +150,25 @@ async def capability_status(db) -> dict:
     except Exception as exc:
         apollo_ok, apollo_message = False, str(exc)
     gmail_oauth_ready = by_key["GMAIL_CLIENT_ID"]["configured"] and by_key["GMAIL_CLIENT_SECRET"]["configured"]
-    gmail_user_ready = by_key["GMAIL_ADDRESS"]["configured"] or by_key["EMAIL_USER"]["configured"]
+    gmail_user_ready = by_key["GMAIL_ADDRESS"]["configured"] or by_key["GMAIL_USER"]["configured"] or by_key["EMAIL_USER"]["configured"]
     gmail_pass_ready = by_key["GMAIL_APP_PASSWORD"]["configured"] or by_key["EMAIL_PASS"]["configured"]
     gmail_smtp_ready = gmail_user_ready and gmail_pass_ready
-    gmail_via_n8n_ready = n8n["reachable"] and n8n.get("api_key_configured") and by_key["GMAIL_ADDRESS"]["configured"]
+    gmail_smtp_message = ""
+    if gmail_smtp_ready:
+        try:
+            from app.services.outreach.gmail import validate_smtp_credentials
+
+            gmail_address = (
+                await get_credential(db, "GMAIL_ADDRESS")
+                or await get_credential(db, "GMAIL_USER")
+                or await get_credential(db, "EMAIL_USER")
+            )
+            gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
+            gmail_smtp_ready, gmail_smtp_message = validate_smtp_credentials(gmail_address, gmail_password)
+        except Exception as exc:
+            gmail_smtp_ready = False
+            gmail_smtp_message = str(exc)
+    gmail_via_n8n_ready = n8n["reachable"] and n8n.get("api_key_configured") and (by_key["GMAIL_ADDRESS"]["configured"] or by_key["GMAIL_USER"]["configured"])
     bedrock_enabled_value = await get_credential(db, "AWS_BEDROCK_ENABLED")
     bedrock_enabled = str(bedrock_enabled_value or settings.AWS_BEDROCK_ENABLED).lower() in {"1", "true", "yes", "on"}
     bedrock_model_configured = by_key["AWS_BEDROCK_MODEL_ID"]["configured"] or bool(settings.AWS_BEDROCK_MODEL_ID)
@@ -216,6 +232,7 @@ async def capability_status(db) -> dict:
             "state": "ready" if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else "blocked",
             "summary": "Sends approved outreach only after Captain approval. Gmail can run directly through Jarvis OAuth or through the connected n8n Gmail credential.",
             "missing": [] if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else ["real Gmail OAuth credentials or GMAIL_APP_PASSWORD"],
+            "note": None if gmail_smtp_ready or gmail_oauth_ready or gmail_via_n8n_ready else gmail_smtp_message,
             "via": "smtp" if gmail_smtp_ready else "n8n" if gmail_via_n8n_ready and not gmail_oauth_ready else "jarvis_oauth",
         },
     ]

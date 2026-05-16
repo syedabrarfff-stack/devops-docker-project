@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     # Gmail (Phase 2 SMTP / Phase 3 OAuth)
     GMAIL_ADDRESS: Optional[str] = None
+    GMAIL_USER: Optional[str] = None
     GMAIL_APP_PASSWORD: Optional[str] = None    # Phase 2 SMTP
     GMAIL_CLIENT_ID: Optional[str] = None       # Phase 3 OAuth
     GMAIL_CLIENT_SECRET: Optional[str] = None   # Phase 3 OAuth

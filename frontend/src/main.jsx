@@ -1,495 +1,623 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import DashboardApp from './App.jsx';
-import AOS from 'aos';
-import 'aos/dist/aos.css';
 import {
+  Activity,
   ArrowRight,
   BarChart3,
+  Bot,
+  BrainCircuit,
   CheckCircle2,
   ChevronDown,
-  Clock3,
+  CircleDollarSign,
   CloudCog,
-  Film,
-  Globe2,
+  DatabaseZap,
+  Headphones,
   Layers3,
   LockKeyhole,
+  MailCheck,
   Menu,
+  Network,
+  Phone,
+  Radar,
   Rocket,
+  ServerCog,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
+  Target,
   UsersRound,
   Workflow,
   X,
+  Zap,
 } from 'lucide-react';
 import './index.css';
 import './styles.css';
 
-const categories = [
+const serviceGroups = [
   {
-    id: 'cloud',
+    icon: Target,
+    title: 'Revenue Systems',
+    summary: 'Lead discovery, CRM automation, proposal drafting, approval packets, and outreach execution.',
+    items: ['AI lead generation', 'Apollo and public discovery', 'CRM deal creation', 'Sales approval flows'],
+    accent: 'cyan',
+  },
+  {
+    icon: Bot,
+    title: 'AI Automation',
+    summary: 'Executive assistants, workflow logic, voice experiences, scheduling, and internal operating systems.',
+    items: ['AI agents', 'Voice AI', 'Workflow orchestration', 'Internal assistants'],
+    accent: 'violet',
+  },
+  {
     icon: CloudCog,
-    title: 'Cloud & DevOps Infrastructure',
-    description: 'Production cloud foundations, delivery pipelines, and reliability systems engineered for serious operations.',
-    services: ['AWS Architecture', 'Docker & Containers', 'CI/CD Pipelines', 'Terraform', 'Kubernetes', 'Monitoring'],
-    full: 'Our engineers design, build, and stabilize cloud environments that are secure, observable, and ready for real customer demand.',
-    deliverables: ['Architecture blueprint and deployment plan', 'Infrastructure setup with monitoring', 'Runbooks and handover documentation'],
-    timeline: 'Typical timeline: 3-8 weeks',
+    title: 'Cloud & DevOps',
+    summary: 'AWS infrastructure, Docker production runtime, CI/CD, Terraform, monitoring, and release discipline.',
+    items: ['AWS architecture', 'Docker deployments', 'Kubernetes planning', 'Jenkins and CI/CD'],
+    accent: 'blue',
   },
   {
-    id: 'intelligent',
-    icon: Workflow,
-    title: 'Intelligent Systems',
-    description: 'Smart operating systems that reduce manual friction and help teams execute with consistency.',
-    services: ['Workflow Systems', 'Smart Business Systems', 'Process Integration', 'Executive Operations'],
-    full: 'Our specialists map your operations, remove weak handoffs, and implement intelligent systems that streamline daily work.',
-    deliverables: ['Workflow audit and implementation map', 'Integrated tools and handoff logic', 'Training notes for your team'],
-    timeline: 'Typical timeline: 2-6 weeks',
+    icon: ShieldCheck,
+    title: 'Security & Reliability',
+    summary: 'Defensive scans, credential hygiene, uptime checks, incident detection, and safe production controls.',
+    items: ['Defense monitoring', 'Approval safety', 'Secret protection', 'Health checks'],
+    accent: 'emerald',
   },
   {
-    id: 'revenue',
-    icon: TrendingUp,
-    title: 'Sales & Revenue Systems',
-    description: 'Revenue infrastructure for prospecting, outreach, CRM visibility, and reliable follow-up discipline.',
-    services: ['Lead Generation Systems', 'Outreach Systems', 'CRM Architecture', 'Sales Operations'],
-    full: 'Our experts build the systems behind predictable growth, from clean pipelines to executive reporting and response workflows.',
-    deliverables: ['CRM structure and pipeline stages', 'Qualified opportunity workflow', 'Revenue dashboard and reporting'],
-    timeline: 'Typical timeline: 2-5 weeks',
-  },
-  {
-    id: 'security',
-    icon: LockKeyhole,
-    title: 'Cybersecurity & Compliance',
-    description: 'Security hardening, vulnerability reviews, and operational controls for cloud and application environments.',
-    services: ['Security Operations', 'Vulnerability Assessment', 'Compliance Hardening', 'Infrastructure Hardening'],
-    full: 'Our security consultants review your risk surface, strengthen controls, and give leadership a clear remediation plan.',
-    deliverables: ['Risk-ranked findings report', 'Access and infrastructure hardening', 'Executive remediation roadmap'],
-    timeline: 'Typical timeline: 1-4 weeks',
-  },
-  {
-    id: 'products',
-    icon: Layers3,
-    title: 'Digital Products & Platforms',
-    description: 'Premium websites, portals, dashboards, and SaaS platforms built for real business use.',
-    services: ['Web Applications', 'Client Portals', 'Operational Dashboards', 'SaaS Platforms'],
-    full: 'Our engineers ship polished digital products with performance, responsive design, clean data flows, and launch readiness.',
-    deliverables: ['Product design and frontend build', 'Backend integration and deployment', 'Launch checklist and support notes'],
-    timeline: 'Typical timeline: 3-8 weeks',
-  },
-  {
-    id: 'media',
-    icon: Film,
-    title: 'Content & Media Operations',
-    description: 'Content systems, design production, video workflows, and social operations for consistent brand output.',
-    services: ['Content Systems', 'Social Media Operations', 'Video Production', 'Graphic Design'],
-    full: 'Our team builds repeatable media operations so your brand can publish with quality, speed, and professional consistency.',
-    deliverables: ['Content calendar and production workflow', 'Creative templates and brand assets', 'Publishing and reporting process'],
-    timeline: 'Typical timeline: 1-4 weeks',
-  },
-  {
-    id: 'intelligence',
     icon: BarChart3,
     title: 'Business Intelligence',
-    description: 'Analytics systems, KPI dashboards, research, and decision support for leadership teams.',
-    services: ['Analytics Systems', 'KPI Dashboards', 'Market Research', 'Competitive Analysis'],
-    full: 'Our analysts and engineers turn scattered business data into dashboards, reports, and insights leaders can trust.',
-    deliverables: ['KPI model and data structure', 'Executive dashboards and reports', 'Research summary with recommendations'],
-    timeline: 'Typical timeline: 2-6 weeks',
+    summary: 'Dashboards, forecasting, live metrics, weekly optimization reports, and technology radar reviews.',
+    items: ['Live dashboards', 'Revenue forecast', 'Tech radar', 'Executive briefings'],
+    accent: 'amber',
+  },
+  {
+    icon: Layers3,
+    title: 'Digital Platforms',
+    summary: 'Client portals, operational dashboards, SaaS interfaces, API integrations, and premium web systems.',
+    items: ['Client portals', 'Operational dashboards', 'SaaS builds', 'API integrations'],
+    accent: 'rose',
   },
 ];
 
-const stats = ['30+ Services', 'Global Clients', '24/7 Operations', 'Enterprise Grade'];
-
-const steps = [
-  ['Submit Your Request', 'Fill our project form'],
-  ['Strategy Call', 'Our team reviews and proposes solution'],
-  ['We Build & Deliver', 'Full execution by our specialists'],
-  ['You Scale', 'Ongoing support and optimization'],
+const stack = [
+  'AWS',
+  'Bedrock',
+  'Docker',
+  'Kubernetes',
+  'Terraform',
+  'Jenkins',
+  'n8n',
+  'FastAPI',
+  'React',
+  'PostgreSQL',
+  'Redis',
+  'NVIDIA APIs',
+  'OpenAI',
+  'Claude',
+  'Gemini',
+  'Groq',
+  'Vector Search',
+  'WebSockets',
+  'OAuth',
+  'CI/CD',
+  'Monitoring',
+  'SMTP',
+  'Apollo',
+  'Google APIs',
 ];
 
-const team = [
-  ['Darren Mitchell', 'Client Acquisition Specialist', 'Growth strategy and qualified project intake'],
-  ['David Carter', 'Solutions Architect', 'Cloud architecture and technical planning'],
-  ['Sophia Reynolds', 'Workflow Consultant', 'Operational design and process improvement'],
-  ['Nathan Scott', 'Deployment Engineer', 'Production launches and infrastructure delivery'],
-  ['Emma Collins', 'Business Optimisation Specialist', 'Efficiency reviews and execution planning'],
-  ['Daniel Brooks', 'Security Consultant', 'Risk assessment and infrastructure hardening'],
-  ['Michael Hayes', 'Infrastructure Strategist', 'Scale planning and reliability systems'],
-  ['Lucas Reed', 'Process Integration Specialist', 'Tooling, data flows, and handoff systems'],
-  ['Olivia Bennett', 'Account Coordinator', 'Client communication and delivery coordination'],
+const architecture = [
+  {
+    title: 'Command Layer',
+    icon: BrainCircuit,
+    text: 'Multi-model routing, Bedrock-first cloud intelligence, provider health checks, memory, and task classification.',
+  },
+  {
+    title: 'Execution Layer',
+    icon: Workflow,
+    text: 'Revenue engine, scheduler, CRM sync, lead scoring, outreach drafts, proposal packets, and workflow runners.',
+  },
+  {
+    title: 'Approval Layer',
+    icon: CheckCircle2,
+    text: 'External sends, contracts, payments, and high-risk changes stay behind Captain approval before execution.',
+  },
+  {
+    title: 'Reliability Layer',
+    icon: ShieldCheck,
+    text: 'Defensive scans, container health, credential diagnostics, incident reporting, and production-safe recovery paths.',
+  },
 ];
 
-const hearOptions = ['Google', 'LinkedIn', 'Referral', 'Social Media', 'Other'];
+const departments = [
+  ['Client Acquisition', 'Pipeline design, ICP targeting, outreach strategy, and revenue operations.'],
+  ['AI Automation', 'Workflow systems, assistant design, voice AI, and operational intelligence.'],
+  ['Cloud Infrastructure', 'AWS architecture, Docker runtime, deployment safety, and observability.'],
+  ['DevOps Engineering', 'CI/CD, Terraform, Kubernetes, Jenkins, monitoring, and release operations.'],
+  ['Cybersecurity Unit', 'Risk reviews, vulnerability assessment, access control, and defensive posture.'],
+  ['Client Success', 'Onboarding, project coordination, feedback loops, retainers, and account health.'],
+];
+
+const proof = [
+  ['30', 'Service divisions'],
+  ['26', 'Backend API route files'],
+  ['17', 'Scheduled operating jobs'],
+  ['11+', 'AI provider routes'],
+  ['24/7', 'Cloud-first runtime'],
+  ['100%', 'Approval-gated outreach'],
+];
+
+const journey = [
+  ['Discover', 'Find high-fit buyers and operational pain across target markets.'],
+  ['Qualify', 'Score leads, enrich company context, and create clean CRM records.'],
+  ['Draft', 'Generate outreach, proposal drafts, pricing logic, and approval packets.'],
+  ['Approve', 'Review every external client action before it leaves the system.'],
+  ['Deliver', 'Run cloud, automation, dashboard, and AI infrastructure workstreams.'],
+  ['Improve', 'Feed wins, replies, costs, and failures back into the operating model.'],
+];
+
+const navLinks = [
+  ['Platform', '#platform'],
+  ['Services', '#services'],
+  ['Architecture', '#architecture'],
+  ['Team', '#team'],
+  ['Contact', '#contact'],
+];
 
 function PublicWebsite() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [expanded, setExpanded] = useState(categories[0].id);
+  const [expanded, setExpanded] = useState(serviceGroups[0].title);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [form, setForm] = useState({
-    fullName: '',
-    company: '',
-    email: '',
+    name: '',
+    companyService: '',
+    requirement: '',
     phone: '',
-    service: '',
-    consultation: 'Yes',
-    heard: 'Google',
-    description: '',
+    email: '',
+    budget: '',
+    consultationTime: '',
   });
 
   useEffect(() => {
-    AOS.init({ once: true, duration: 720, easing: 'ease-out-cubic', offset: 90 });
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => setScrolled(window.scrollY > 10);
     onScroll();
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const activeCategory = useMemo(
-    () => categories.find((category) => category.id === expanded) || categories[0],
+  const activeService = useMemo(
+    () => serviceGroups.find((item) => item.title === expanded) || serviceGroups[0],
     [expanded],
   );
 
-  const updateForm = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
+  const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const scrollToBooking = () => {
-    setMenuOpen(false);
-    document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const closeMenu = () => setMenuOpen(false);
 
   async function submitRequest(event) {
     event.preventDefault();
-    setStatus({ type: 'loading', message: 'Submitting your request...' });
+    setStatus({ type: 'loading', message: 'Sending request to Aliyar Solutions...' });
 
     try {
       const response = await fetch('/api/v1/crm/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          company: form.company || form.fullName,
-          contact_name: form.fullName,
-          full_name: form.fullName,
-          company_name: form.company,
-          email: form.email,
+          company: form.companyService,
+          company_name: form.companyService,
+          contact_name: form.name,
+          full_name: form.name,
           phone: form.phone,
-          service_required: form.service,
-          opportunity_type: form.service,
-          consultation_call: form.consultation === 'Yes',
-          referral_source: form.heard,
-          notes: `Consultation: ${form.consultation}. Heard about us: ${form.heard}. Project: ${form.description}`,
-          project_description: form.description,
+          email: form.email,
+          service_required: form.companyService,
+          opportunity_type: form.companyService,
+          notes: [
+            `Requirement: ${form.requirement}`,
+            form.budget ? `Budget: ${form.budget}` : '',
+            form.consultationTime ? `Preferred time: ${form.consultationTime}` : '',
+          ].filter(Boolean).join('\n'),
+          project_description: form.requirement,
           source: 'aliyarsolutions.com',
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Request failed');
-      }
+      if (!response.ok) throw new Error('Lead submission failed');
 
       setStatus({
         type: 'success',
-        message: 'Request received. Our team contacts you within 24 hours.',
+        message: 'Request received. Our team will review it and respond within 24 hours.',
       });
-      setForm((current) => ({ ...current, fullName: '', company: '', email: '', phone: '', description: '' }));
+      setForm({
+        name: '',
+        companyService: '',
+        requirement: '',
+        phone: '',
+        email: '',
+        budget: '',
+        consultationTime: '',
+      });
     } catch (error) {
       setStatus({
         type: 'error',
-        message: 'We could not submit the request yet. Please email hello@aliyarsolutions.com.',
+        message: 'The form could not submit yet. Please email hello@aliyarsolutions.com.',
       });
     }
   }
 
   return (
-    <div className="site-shell public-mobile-safe">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-
-      <div className="announcement">
-        🔥 Limited Time — 30% OFF all services until 21st May 2026 — Book now to lock in your rate
-      </div>
-
-      <header className={`nav-wrap ${scrolled ? 'is-scrolled' : ''}`}>
-        <nav className="nav">
-          <a className="brand" href="#top" aria-label="Aliyar Solutions home">
-            <span className="brand-mark">AS</span>
-            <span>Aliyar Solutions</span>
+    <div className="as-site public-mobile-safe">
+      <header className={`as-nav-wrap ${scrolled ? 'is-scrolled' : ''}`}>
+        <nav className="as-nav">
+          <a className="as-brand" href="#top" aria-label="Aliyar Solutions">
+            <span className="as-brand-mark"><Zap size={22} /></span>
+            <span>
+              <strong>Aliyar Solutions</strong>
+              <small>JARVIS AI Infrastructure</small>
+            </span>
           </a>
 
-          <div className="nav-links">
-            <a href="#services">Services</a>
-            <a href="#process">How It Works</a>
-            <a href="#team">Our Team</a>
-            <a href="#booking">Contact</a>
+          <div className="as-nav-links">
+            {navLinks.map(([label, href]) => <a key={label} href={href}>{label}</a>)}
           </div>
 
-          <button className="nav-cta" onClick={scrollToBooking}>Book a Consultation</button>
-          <button className="menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu">
-            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          <a className="as-nav-cta" href="#contact">Book Strategy Call</a>
+          <button className="as-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle menu">
+            {menuOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </nav>
-
         {menuOpen && (
-          <div className="mobile-menu">
-            <a onClick={() => setMenuOpen(false)} href="#services">Services</a>
-            <a onClick={() => setMenuOpen(false)} href="#process">How It Works</a>
-            <a onClick={() => setMenuOpen(false)} href="#team">Our Team</a>
-            <a onClick={() => setMenuOpen(false)} href="#booking">Contact</a>
-            <button onClick={scrollToBooking}>Book a Consultation</button>
+          <div className="as-mobile-menu">
+            {navLinks.map(([label, href]) => <a key={label} href={href} onClick={closeMenu}>{label}</a>)}
+            <a href="#contact" onClick={closeMenu}>Book Strategy Call</a>
           </div>
         )}
       </header>
 
       <main id="top">
-        <section className="hero section-pad">
-          <div className="hero-grid" data-aos="fade-up">
-            <div className="hero-kicker">
-              <Sparkles size={16} />
-              Premium delivery partner for modern companies
-            </div>
-            <h1>Enterprise Technology<br />Delivered by Experts</h1>
+        <section className="as-hero">
+          <HeroSystem />
+          <div className="as-hero-content" data-aos="fade-up">
+            <span className="as-kicker"><Sparkles size={16} /> AI-operated technology infrastructure</span>
+            <h1>Aliyar Solutions builds intelligent systems that run business operations at scale.</h1>
             <p>
-              Aliyar Solutions partners with businesses worldwide to build cloud infrastructure,
-              intelligent systems, and operational technology that scales.
+              JARVIS is the command layer behind our automation, cloud, revenue, dashboard,
+              and delivery systems - built to help modern companies move faster with safer execution.
             </p>
-            <div className="hero-actions">
-              <a className="button primary" href="#services">Explore Our Services <ArrowRight size={18} /></a>
-              <button className="button secondary" onClick={scrollToBooking}>Talk to Our Team</button>
+            <div className="as-hero-actions">
+              <a className="as-button as-primary" href="#platform">Explore Platform <ArrowRight size={18} /></a>
+              <a className="as-button as-secondary" href="#contact">Start a Project</a>
             </div>
           </div>
-
-          <div className="stat-grid" data-aos="fade-up" data-aos-delay="140">
-            {stats.map((stat) => (
-              <div className="stat-card" key={stat}>{stat}</div>
-            ))}
-          </div>
-        </section>
-
-        <section id="services" className="section section-pad">
-          <div className="section-head" data-aos="fade-up">
-            <span>Services</span>
-            <h2>What We Deliver</h2>
-            <p>End-to-end technology solutions for every operational need</p>
-          </div>
-
-          <div className="service-grid">
-            {categories.map((category, index) => {
-              const Icon = category.icon;
-              const isOpen = expanded === category.id;
-              return (
-                <article
-                  className={`service-card ${isOpen ? 'active' : ''}`}
-                  key={category.id}
-                  onClick={() => setExpanded(isOpen ? '' : category.id)}
-                  data-aos="fade-up"
-                  data-aos-delay={index * 45}
-                >
-                  <div className="service-top">
-                    <div className="icon-box"><Icon size={23} /></div>
-                    <ChevronDown className={isOpen ? 'rotate' : ''} size={19} />
-                  </div>
-                  <h3>{category.title}</h3>
-                  <p>{category.description}</p>
-                  <ul>
-                    {category.services.slice(0, 4).map((service) => (
-                      <li key={service}><CheckCircle2 size={14} />{service}</li>
-                    ))}
-                  </ul>
-                  <div className="service-actions">
-                    <span className="learn">Learn More <ArrowRight size={15} /></span>
-                    <button type="button" onClick={(event) => { event.stopPropagation(); scrollToBooking(); }}>Book</button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-
-          <div className="service-detail" data-aos="fade-up">
-            <div>
-              <span className="detail-label">Expanded service</span>
-              <h3>{activeCategory.title}</h3>
-              <p>{activeCategory.full}</p>
-            </div>
-            <div className="detail-list">
-              <strong>Key deliverables</strong>
-              {activeCategory.deliverables.map((item) => (
-                <span key={item}><CheckCircle2 size={15} />{item}</span>
-              ))}
-            </div>
-            <div className="detail-side">
-              <span>{activeCategory.timeline}</span>
-              <button className="button primary compact" onClick={scrollToBooking}>Book This Service</button>
-            </div>
-          </div>
-        </section>
-
-        <section id="process" className="section section-pad">
-          <div className="section-head" data-aos="fade-up">
-            <span>Process</span>
-            <h2>How It Works</h2>
-            <p>Clear steps, senior ownership, and professional execution from day one.</p>
-          </div>
-          <div className="timeline">
-            {steps.map(([title, copy], index) => (
-              <div className="step-card" key={title} data-aos="fade-up" data-aos-delay={index * 80}>
-                <span className="step-number">0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{copy}</p>
+          <div className="as-hero-footer" data-aos="fade-up" data-aos-delay="160">
+            {proof.slice(0, 4).map(([value, label]) => (
+              <div key={label}>
+                <strong>{value}</strong>
+                <span>{label}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section id="team" className="section section-pad">
-          <div className="section-head" data-aos="fade-up">
-            <span>Our Team</span>
-            <h2>The Team Behind Your Success</h2>
-            <p>Dedicated professionals across strategy, engineering, security, and client delivery.</p>
+        <section id="platform" className="as-section">
+          <SectionHead
+            eyebrow="Platform"
+            title="A live operating system for revenue, cloud, AI, and execution."
+            copy="The public face is simple. Underneath it is a coordinated business engine with approvals, CRM, intelligence, automation, and production safety built into the same workflow."
+          />
+          <div className="as-platform-grid">
+            <PlatformPanel
+              icon={Activity}
+              label="Operational command"
+              title="JARVIS watches the business loop."
+              text="Leads, proposals, approvals, provider health, scheduler jobs, dashboard metrics, and production warnings move through one command center."
+            />
+            <PlatformPanel
+              icon={CircleDollarSign}
+              label="Revenue execution"
+              title="Discovery to deal flow."
+              text="The engine can discover leads, promote contacts, draft outreach, generate proposals, estimate deal value, and queue review packets."
+            />
+            <PlatformPanel
+              icon={LockKeyhole}
+              label="Controlled autonomy"
+              title="Fast internally, careful externally."
+              text="Research, scoring, drafting, diagnostics, and CRM updates can run automatically. Client messages and high-risk actions require approval."
+            />
           </div>
-          <div className="team-grid">
-            {team.map(([name, role, specialty], index) => (
-              <article className="team-card" key={name} data-aos="fade-up" data-aos-delay={index * 40}>
-                <div className="avatar">{name.split(' ').map((part) => part[0]).join('')}</div>
-                <h3>{name}</h3>
-                <span>{role}</span>
-                <p>{specialty}</p>
+        </section>
+
+        <section id="services" className="as-section as-section-tight">
+          <SectionHead
+            eyebrow="Services"
+            title="Enterprise automation services, presented as one intelligent delivery system."
+            copy="Aliyar Solutions combines strategy, engineering, AI systems, cloud infrastructure, and business operations into practical client outcomes."
+          />
+          <div className="as-service-layout">
+            <div className="as-service-list">
+              {serviceGroups.map((service, index) => {
+                const Icon = service.icon;
+                const isOpen = activeService.title === service.title;
+                return (
+                  <button
+                    type="button"
+                    className={`as-service-row ${isOpen ? 'active' : ''}`}
+                    key={service.title}
+                    onClick={() => setExpanded(service.title)}
+                    data-aos="fade-up"
+                    data-aos-delay={index * 45}
+                  >
+                    <span className={`as-service-icon ${service.accent}`}><Icon size={20} /></span>
+                    <span>
+                      <strong>{service.title}</strong>
+                      <small>{service.summary}</small>
+                    </span>
+                    <ChevronDown size={18} className={isOpen ? 'rotate' : ''} />
+                  </button>
+                );
+              })}
+            </div>
+            <div className={`as-service-detail ${activeService.accent}`} data-aos="fade-up">
+              <div className="as-detail-top">
+                <span>{activeService.title}</span>
+                <activeService.icon size={34} />
+              </div>
+              <h3>{activeService.summary}</h3>
+              <div className="as-chip-grid">
+                {activeService.items.map((item) => <span key={item}>{item}</span>)}
+              </div>
+              <a className="as-inline-link" href="#contact">Discuss this capability <ArrowRight size={16} /></a>
+            </div>
+          </div>
+        </section>
+
+        <section className="as-section">
+          <SectionHead
+            eyebrow="Technology Stack"
+            title="Built on the same stack serious automation companies use to ship production systems."
+            copy="The platform is designed around cloud reliability, multi-model intelligence, orchestration, secure integrations, and observable runtime behavior."
+          />
+          <div className="as-stack-cloud" data-aos="fade-up">
+            {stack.map((item, index) => <span key={item} style={{ '--delay': `${index * 36}ms` }}>{item}</span>)}
+          </div>
+        </section>
+
+        <section id="architecture" className="as-section as-architecture-section">
+          <SectionHead
+            eyebrow="Architecture"
+            title="The system is not a chatbot. It is a layered execution architecture."
+            copy="JARVIS connects intelligence, revenue, CRM, dashboards, approvals, scheduler jobs, and reliability scanning so the company can operate with discipline."
+          />
+          <div className="as-architecture">
+            <div className="as-architecture-map" data-aos="fade-right">
+              <div className="as-core-node">
+                <BrainCircuit size={38} />
+                <strong>JARVIS Core</strong>
+                <span>Command intelligence</span>
+              </div>
+              {architecture.map((layer, index) => {
+                const Icon = layer.icon;
+                return (
+                  <div className={`as-orbit-node node-${index + 1}`} key={layer.title}>
+                    <Icon size={20} />
+                    <span>{layer.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="as-architecture-copy" data-aos="fade-left">
+              {architecture.map((layer, index) => {
+                const Icon = layer.icon;
+                return (
+                  <article key={layer.title}>
+                    <span><Icon size={18} /> 0{index + 1}</span>
+                    <h3>{layer.title}</h3>
+                    <p>{layer.text}</p>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="as-section">
+          <SectionHead
+            eyebrow="Client Journey"
+            title="A disciplined loop from market discovery to delivery improvement."
+            copy="The goal is not noise. It is a controlled operating rhythm that creates opportunities, protects trust, and learns from results."
+          />
+          <div className="as-journey">
+            {journey.map(([title, text], index) => (
+              <article key={title} data-aos="fade-up" data-aos-delay={index * 55}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="section section-pad">
-          <div className="section-head" data-aos="fade-up">
-            <span>Value</span>
-            <h2>Technology That Pays For Itself</h2>
-          </div>
-          <div className="value-cta" data-aos="fade-up">
-            <strong>Technology That Pays For Itself</strong>
-            <p>
-              Poor technology costs more than good technology. Every system failure, every security breach,
-              every missed workflow is money leaving your business. Aliyar Solutions delivers enterprise-grade
-              technology at a price that protects both your reputation and your bottom line — because we believe
-              no business should lose to a problem that has a solution.
-            </p>
-            <button className="button primary" onClick={scrollToBooking}>
-              Get a Free Consultation — No Commitment Required <ArrowRight size={18} />
-            </button>
+        <section id="team" className="as-section">
+          <SectionHead
+            eyebrow="Operating Team"
+            title="Structured like a larger company from day one."
+            copy="The website presents a professional delivery organization while JARVIS coordinates the internal intelligence, routing, and reporting behind the scenes."
+          />
+          <div className="as-team-grid">
+            {departments.map(([name, text], index) => (
+              <article key={name} data-aos="fade-up" data-aos-delay={index * 50}>
+                <UsersRound size={22} />
+                <h3>{name}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
           </div>
         </section>
 
-        <section id="booking" className="section section-pad">
-          <div className="section-head" data-aos="fade-up">
-            <span>Contact</span>
-            <h2>Start Your Project</h2>
-            <p>Fill in your details and our team will reach out within 24 hours</p>
-          </div>
-
-          <form className="booking-card" onSubmit={submitRequest} data-aos="fade-up">
-            <div className="form-grid">
-              <Field label="Full Name *">
-                <input required value={form.fullName} onChange={(event) => updateForm('fullName', event.target.value)} />
-              </Field>
-              <Field label="Company Name">
-                <input value={form.company} onChange={(event) => updateForm('company', event.target.value)} />
-              </Field>
-              <Field label="Email Address *">
-                <input required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} />
-              </Field>
-              <Field label="Phone Number (optional)">
-                <input value={form.phone} onChange={(event) => updateForm('phone', event.target.value)} />
-              </Field>
-              <Field label="Service Required *">
-                <select required value={form.service} onChange={(event) => updateForm('service', event.target.value)}>
-                  <option value="" disabled>Select a service category</option>
-                  {categories.map((category) => <option key={category.id}>{category.title}</option>)}
-                </select>
-              </Field>
+        <section className="as-section as-trust-section">
+          <div className="as-trust" data-aos="fade-up">
+            <div>
+              <span className="as-eyebrow">Proof of depth</span>
+              <h2>Not a small website. A production command system with a premium front door.</h2>
             </div>
-
-            <div className="toggle-row">
-              <div>
-                <span>Do you need a consultation call first?</span>
-                <div className="toggle-group">
-                  {['Yes', 'No'].map((option) => (
-                    <button
-                      type="button"
-                      className={form.consultation === option ? 'selected' : ''}
-                      onClick={() => updateForm('consultation', option)}
-                      key={option}
-                    >
-                      {option}
-                    </button>
-                  ))}
+            <div className="as-proof-grid">
+              {proof.map(([value, label]) => (
+                <div key={label}>
+                  <strong>{value}</strong>
+                  <span>{label}</span>
                 </div>
-              </div>
-              <Field label="How did you hear about us?">
-                <select value={form.heard} onChange={(event) => updateForm('heard', event.target.value)}>
-                  {hearOptions.map((option) => <option key={option}>{option}</option>)}
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="contact" className="as-section">
+          <SectionHead
+            eyebrow="Contact"
+            title="Start with a short requirement. We will route it to the right capability."
+            copy="No long intake form. Send the essentials and Aliyar Solutions will respond with a clear next step."
+          />
+          <form className="as-contact" onSubmit={submitRequest} data-aos="fade-up">
+            <div className="as-form-grid">
+              <Field label="Name">
+                <input required value={form.name} onChange={(event) => updateForm('name', event.target.value)} />
+              </Field>
+              <Field label="Company or service needed">
+                <input required value={form.companyService} onChange={(event) => updateForm('companyService', event.target.value)} />
+              </Field>
+              <Field label="Phone number">
+                <input required value={form.phone} onChange={(event) => updateForm('phone', event.target.value)} />
+              </Field>
+              <Field label="Email optional">
+                <input type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} />
+              </Field>
+              <Field label="Budget range optional">
+                <select value={form.budget} onChange={(event) => updateForm('budget', event.target.value)}>
+                  <option value="">Select if known</option>
+                  <option>$500 - $1,500</option>
+                  <option>$1,500 - $5,000</option>
+                  <option>$5,000 - $15,000</option>
+                  <option>$15,000+</option>
                 </select>
               </Field>
+              <Field label="Preferred consultation time optional">
+                <input value={form.consultationTime} onChange={(event) => updateForm('consultationTime', event.target.value)} />
+              </Field>
             </div>
-
-            <Field label="Project Description *">
+            <Field label="Short requirement description">
               <textarea
                 required
-                rows={4}
-                placeholder="Tell us about your project, goals, and timeline..."
-                value={form.description}
-                onChange={(event) => updateForm('description', event.target.value)}
+                rows={5}
+                value={form.requirement}
+                onChange={(event) => updateForm('requirement', event.target.value)}
+                placeholder="Tell us what you want automated, built, deployed, fixed, or improved."
               />
             </Field>
-
-            <button className="submit-button" type="submit">
-              Submit Request — We'll Reach Out Within 24 Hours <ArrowRight size={18} />
+            <button className="as-submit" type="submit">
+              Send Requirement <ArrowRight size={18} />
             </button>
-            {status.message && <p className={`form-status ${status.type}`}>{status.message}</p>}
+            {status.message && <p className={`as-form-status ${status.type}`}>{status.message}</p>}
           </form>
         </section>
       </main>
 
-      <footer className="footer">
-        <div className="footer-grid">
-          <div>
-            <h3>Aliyar Solutions</h3>
-            <p>Enterprise technology delivered by experts.</p>
-            <a href="mailto:hello@aliyarsolutions.com">hello@aliyarsolutions.com</a>
-          </div>
-          <div>
-            <h4>Services</h4>
-            {categories.map((category) => <a href="#services" key={category.id}>{category.title}</a>)}
-          </div>
-          <div>
-            <h4>Company</h4>
-            <a href="#team">About</a>
-            <a href="#booking">Contact</a>
-            <a href="#booking">Book Consultation</a>
-          </div>
+      <footer className="as-footer">
+        <div>
+          <a className="as-brand" href="#top" aria-label="Aliyar Solutions footer">
+            <span className="as-brand-mark"><Zap size={22} /></span>
+            <span>
+              <strong>Aliyar Solutions</strong>
+              <small>AI infrastructure and automation company</small>
+            </span>
+          </a>
+          <p>Cloud, automation, AI systems, revenue operations, dashboards, and delivery infrastructure for serious businesses.</p>
         </div>
-        <div className="footer-bottom">
-          © 2026 Aliyar Solutions. All rights reserved. Enterprise Technology Company.
+        <div>
+          <strong>Platform</strong>
+          {navLinks.map(([label, href]) => <a key={label} href={href}>{label}</a>)}
+        </div>
+        <div>
+          <strong>Contact</strong>
+          <a href="mailto:hello@aliyarsolutions.com">hello@aliyarsolutions.com</a>
+          <a href="#contact">Book a strategy call</a>
         </div>
       </footer>
     </div>
   );
 }
 
+function HeroSystem() {
+  const nodes = [
+    { label: 'Revenue', icon: CircleDollarSign },
+    { label: 'Cloud', icon: ServerCog },
+    { label: 'CRM', icon: DatabaseZap },
+    { label: 'Voice', icon: Headphones },
+    { label: 'Security', icon: ShieldCheck },
+    { label: 'Outreach', icon: MailCheck },
+    { label: 'Signals', icon: Radar },
+    { label: 'Delivery', icon: Rocket },
+  ];
+
+  return (
+    <div className="as-hero-system" aria-hidden="true">
+      <div className="as-system-grid" />
+      <div className="as-system-ring ring-one" />
+      <div className="as-system-ring ring-two" />
+      <div className="as-system-core">
+        <Network size={30} />
+        <span>JARVIS</span>
+      </div>
+      {nodes.map((node, index) => {
+        const Icon = node.icon;
+        return (
+          <div className={`as-system-node system-node-${index + 1}`} key={node.label}>
+            <Icon size={16} />
+            <span>{node.label}</span>
+          </div>
+        );
+      })}
+      <div className="as-signal-line line-a" />
+      <div className="as-signal-line line-b" />
+      <div className="as-signal-line line-c" />
+    </div>
+  );
+}
+
+function PlatformPanel({ icon: Icon, label, title, text }) {
+  return (
+    <article className="as-platform-panel" data-aos="fade-up">
+      <span><Icon size={22} /></span>
+      <small>{label}</small>
+      <h3>{title}</h3>
+      <p>{text}</p>
+    </article>
+  );
+}
+
+function SectionHead({ eyebrow, title, copy }) {
+  return (
+    <div className="as-section-head" data-aos="fade-up">
+      <span className="as-eyebrow">{eyebrow}</span>
+      <h2>{title}</h2>
+      {copy && <p>{copy}</p>}
+    </div>
+  );
+}
+
 function Field({ label, children }) {
   return (
-    <label className="field">
+    <label className="as-field">
       <span>{label}</span>
       {children}
     </label>
   );
 }
 
+const shouldRenderDashboard =
+  window.location.pathname.startsWith('/dashboard')
+  || window.location.port === '3000';
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {window.location.port === '3000' || window.location.pathname.startsWith('/dashboard') ? (
-      <DashboardApp />
-    ) : (
-      <PublicWebsite />
-    )}
+    {shouldRenderDashboard ? <DashboardApp /> : <PublicWebsite />}
   </React.StrictMode>,
 );

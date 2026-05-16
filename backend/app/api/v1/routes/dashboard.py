@@ -82,17 +82,26 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
     )).scalar_one_or_none()
 
     apollo_key = await get_credential(db, "APOLLO_API_KEY")
-    gmail_address = await get_credential(db, "GMAIL_ADDRESS")
-    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
     clean_gmail_password = (gmail_password or "").replace(" ", "").strip()
     gmail_password_valid = clean_gmail_password.isascii() and len(clean_gmail_password) == 16
     gmail_ready = bool(gmail_address and gmail_password_valid)
+    gmail_error = ""
+    if gmail_ready:
+        try:
+            from app.services.outreach.gmail import validate_smtp_credentials
+
+            gmail_ready, gmail_error = validate_smtp_credentials(gmail_address, gmail_password)
+        except Exception as exc:
+            gmail_ready = False
+            gmail_error = str(exc)
 
     blockers = []
     if not apollo_key:
         blockers.append("APOLLO_API_KEY missing: live lead discovery is paused.")
     if not gmail_ready:
-        blockers.append("Gmail app password/OAuth invalid or missing: approved outreach cannot send yet.")
+        blockers.append("Gmail SMTP authentication failed: approved outreach cannot send yet.")
 
     reply_rate = round((replies / sent_emails) * 100, 1) if sent_emails else 0.0
     conversion_signal = round((qualified / total_leads) * 100, 1) if total_leads else 0.0
@@ -134,6 +143,7 @@ async def revenue_dashboard(db: AsyncSession = Depends(get_db)):
             "send_ready": gmail_ready,
             "drafts_waiting": drafted,
             "last_send_status": "ready" if gmail_ready else "blocked",
+            "last_error": gmail_error if not gmail_ready else "",
         },
         "engine": {
             "apollo_ready": bool(apollo_key),
