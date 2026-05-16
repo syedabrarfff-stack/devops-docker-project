@@ -488,16 +488,20 @@ async def _create_approval_packet(
         summary += " Blockers: " + "; ".join(blockers)
 
     if not email_ids and not proposal_ids and not deal_ids:
-        existing = (
+        existing_packets = (
             await db.execute(
                 select(ApprovalRequest)
                 .where(ApprovalRequest.title == APPROVAL_TITLE)
                 .where(ApprovalRequest.action_type == "revenue_outreach_batch")
                 .where(ApprovalRequest.status == "pending")
                 .order_by(ApprovalRequest.created_at.desc())
-                .limit(1)
             )
-        ).scalar_one_or_none()
+        ).scalars().all()
+        existing = existing_packets[0] if existing_packets else None
+        for stale in existing_packets[1:]:
+            stale.status = "rejected"
+            stale.captain_note = "Superseded by a newer JARVIS revenue approval packet."
+            stale.approved_at = datetime.now(timezone.utc)
         if existing:
             existing.summary = summary
             existing.payload = {
