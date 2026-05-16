@@ -11,7 +11,7 @@ const api = axios.create({
 // Chat
 export const sendChat = (payload) => api.post('/api/v1/chat', payload).then((r) => r.data)
 export const getChatHistory = (sessionId) => api.get(`/api/v1/chat/history/${sessionId}`).then((r) => r.data)
-export const getProviders = () => api.get('/api/v1/providers').then((r) => r.data)
+export const getProviders = () => api.get('/api/v1/chat/providers').then((r) => r.data)
 
 // Briefing
 export const getMorningBriefing = () => api.get('/api/v1/briefing/morning').then((r) => r.data)

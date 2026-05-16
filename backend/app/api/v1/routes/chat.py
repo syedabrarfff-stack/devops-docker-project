@@ -6,6 +6,7 @@ from app.services.ai.router import ai_router, JARVIS_SYSTEM_PROMPT
 from app.services.ai.base_provider import Message
 from app.models.conversation import Conversation
 from app.services.operations.capabilities import build_operating_context
+from app.services.operations.runtime_config import hydrate_runtime_settings
 from app.services.memory import manager as memory_manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+    await hydrate_runtime_settings(db)
     messages = [Message(role=m.role, content=m.content) for m in req.history]
     messages.append(Message(role="user", content=req.message))
     operating_context = await build_operating_context(db)
@@ -69,7 +71,8 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/providers")
-async def get_providers():
+async def get_providers(db: AsyncSession = Depends(get_db)):
+    await hydrate_runtime_settings(db)
     return ai_router.get_provider_status()
 
 

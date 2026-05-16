@@ -82,6 +82,18 @@ async def run_workflow(workflow_key: str, req: WorkflowRunRequest, db: AsyncSess
     db.add(run)
     await db.flush()
 
+    if workflow_key == "local_market_discovery":
+        result = await _run_local_market_discovery(db, req.input)
+        run.status = "completed" if result.get("ok") else "blocked"
+        run.steps_done = 1 if result.get("ok") else 0
+        run.result = result.get("message")
+        run.error = result.get("error")
+        run.metadata_ = {**(run.metadata_ or {}), "internal_runner": True, "result": result}
+        run.completed_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(run)
+        return _serialize_run(run)
+
     webhook_base = await get_credential(db, "N8N_WEBHOOK_BASE_URL")
     n8n_api_key = await get_credential(db, "N8N_API_KEY")
 
@@ -169,3 +181,27 @@ def _serialize_run(run: WorkflowRun) -> dict:
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
     }
+
+
+async def _run_local_market_discovery(db: AsyncSession, payload: dict) -> dict:
+    from app.api.v1.routes.discovery import LocalMarketRequest, local_market_discovery
+
+    try:
+        request = LocalMarketRequest(
+            industry=payload.get("industry") or payload.get("market") or "clinics",
+            location=payload.get("location") or "New York",
+            service_angle=payload.get("service_angle") or "AI receptionist and appointment booking",
+            limit=int(payload.get("limit") or 20),
+        )
+        result = await local_market_discovery(request, db)
+        return {
+            "ok": True,
+            "message": f"Local Market Hunter completed: {result['created']} created, {result['updated']} updated from {result['total_candidates']} candidates.",
+            "created": result["created"],
+            "updated": result["updated"],
+            "total_candidates": result["total_candidates"],
+        }
+    except HTTPException as exc:
+        return {"ok": False, "error": str(exc.detail)}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
