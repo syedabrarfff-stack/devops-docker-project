@@ -64,6 +64,8 @@ def run_credential_audit() -> dict:
         # ── AWS ─────────────────────────────────────────────────────────────────
         CredentialCheck("AWS_ACCESS_KEY_ID", "AWS", bool(settings.AWS_ACCESS_KEY_ID), SEVERITY_HIGH if settings.USE_AWS else SEVERITY_LOW, "AWS credentials — required when USE_AWS=true", _mask(settings.AWS_ACCESS_KEY_ID)),
         CredentialCheck("AWS_SECRET_ACCESS_KEY", "AWS", bool(settings.AWS_SECRET_ACCESS_KEY), SEVERITY_HIGH if settings.USE_AWS else SEVERITY_LOW, "AWS secret key", _mask(settings.AWS_SECRET_ACCESS_KEY)),
+        CredentialCheck("AWS_BEDROCK_ENABLED", "AI - AWS Bedrock", bool(settings.AWS_BEDROCK_ENABLED), SEVERITY_LOW, "AWS Bedrock provider enabled for cloud-native model routing"),
+        CredentialCheck("AWS_BEDROCK_MODEL_ID", "AI - AWS Bedrock", bool(settings.AWS_BEDROCK_MODEL_ID), SEVERITY_LOW, "Primary AWS Bedrock model ID", settings.AWS_BEDROCK_MODEL_ID),
     ]
 
     configured = [c for c in checks if c.configured]

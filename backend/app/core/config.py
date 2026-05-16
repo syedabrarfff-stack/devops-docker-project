@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     AWS_SSM_PREFIX: str = "/jarvis"
     AWS_ECS_CLUSTER: Optional[str] = None
     AWS_ECS_SERVICE: Optional[str] = None
+    AWS_BEDROCK_ENABLED: bool = False
+    AWS_BEDROCK_MODEL_ID: str = "amazon.nova-pro-v1:0"
+    AWS_BEDROCK_FAST_MODEL_ID: str = "amazon.nova-lite-v1:0"
 
     # Redis (Phase 6 — production cache + task queue)
     REDIS_URL: Optional[str] = None

@@ -40,6 +40,10 @@ CREDENTIAL_SPECS: tuple[CredentialSpec, ...] = (
     CredentialSpec("N8N_WEBHOOK_BASE_URL", "n8n Webhook Base URL", "Automation", "Webhook base for Jarvis-controlled workflow triggers.", ("n8n Tool Army", "Workflow execution"), False),
     CredentialSpec("OPENAI_API_KEY", "OpenAI API Key", "AI", "General intelligence, file search, future realtime voice, and analysis.", ("Command Brain", "Realtime Voice")),
     CredentialSpec("ANTHROPIC_API_KEY", "Anthropic API Key", "AI", "Strategy and reasoning provider.", ("Command Brain", "Digital Twin")),
+    CredentialSpec("AWS_ACCESS_KEY_ID", "AWS Access Key ID", "AWS", "AWS access key for optional Bedrock, SSM, S3, and ECS operations.", ("AWS Bedrock", "Cloud operations"), False),
+    CredentialSpec("AWS_SECRET_ACCESS_KEY", "AWS Secret Access Key", "AWS", "AWS secret key for optional Bedrock, SSM, S3, and ECS operations.", ("AWS Bedrock", "Cloud operations")),
+    CredentialSpec("AWS_BEDROCK_ENABLED", "AWS Bedrock Enabled", "AI", "Set true to enable AWS-native Bedrock model routing.", ("AWS Bedrock",), False),
+    CredentialSpec("AWS_BEDROCK_MODEL_ID", "AWS Bedrock Model", "AI", "Primary Bedrock model ID for JARVIS cloud intelligence.", ("AWS Bedrock",), False),
 )
 
 
@@ -101,6 +105,13 @@ async def capability_status(db) -> dict:
             "name": "Jarvis Command Brain",
             "state": "ready",
             "summary": "Live operating dashboard, chat, approvals, CRM, leads, and task context.",
+        },
+        {
+            "id": "aws_bedrock",
+            "name": "AWS Bedrock Intelligence",
+            "state": "ready" if by_key["AWS_ACCESS_KEY_ID"]["configured"] and by_key["AWS_SECRET_ACCESS_KEY"]["configured"] else "blocked",
+            "summary": "Adds AWS-native model routing for cloud operations and resilient AI fallback.",
+            "missing": [] if by_key["AWS_ACCESS_KEY_ID"]["configured"] and by_key["AWS_SECRET_ACCESS_KEY"]["configured"] else ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
         },
         {
             "id": "local_market_hunter",

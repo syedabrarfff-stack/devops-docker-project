@@ -12,6 +12,7 @@ from app.services.ai.providers.openai_provider import OpenAIProvider
 from app.services.ai.providers.deepseek_provider import DeepSeekProvider
 from app.services.ai.providers.google_provider import GoogleProvider
 from app.services.ai.providers.groq_provider import GroqProvider, MistralProvider
+from app.services.ai.providers.bedrock_provider import BedrockProvider
 from app.services.ai.providers.extra_providers import (
     ZhipuAIProvider, QwenProvider, MoonshotProvider, MinimaxProvider, NvidiaProvider
 )
@@ -140,6 +141,7 @@ OPERATIONAL CAPABILITIES
 # Routing table: task_type -> [(provider_key, model_key), ...] (primary first, then fallbacks)
 ROUTING_TABLE: dict = {
     TaskType.CODE: [
+        ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
@@ -150,11 +152,13 @@ ROUTING_TABLE: dict = {
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.REASONING: [
+        ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
     ],
     TaskType.FAST: [
+        ("bedrock", "bedrock-nova-lite"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
         ("openai", "gpt-4o-mini"),
@@ -175,17 +179,20 @@ ROUTING_TABLE: dict = {
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.GENERAL: [
+        ("bedrock", "bedrock-nova-pro"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
     ],
     TaskType.ANALYSIS: [
+        ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
     ],
     TaskType.STRATEGY: [
+        ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
@@ -236,6 +243,7 @@ class AIRouter:
         self._providers: dict[str, BaseAIProvider] = {
             "anthropic": AnthropicProvider(),
             "openai": OpenAIProvider(),
+            "bedrock": BedrockProvider(),
             "deepseek": DeepSeekProvider(),
             "google": GoogleProvider(),
             "groq": GroqProvider(),

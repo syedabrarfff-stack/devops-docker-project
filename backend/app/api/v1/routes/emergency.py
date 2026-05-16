@@ -33,6 +33,20 @@ async def system_health():
     return await check_system_health()
 
 
+@router.post("/defense/scan")
+async def defensive_scan(
+    create_notification: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    """Read-only defensive scan for production safety and runtime blockers."""
+    from app.services.monitoring.defense import run_defense_scan
+
+    result = await run_defense_scan(db, create_notification=create_notification)
+    if create_notification:
+        await db.commit()
+    return result
+
+
 @router.get("/incidents")
 async def list_incidents(
     status: Optional[str] = None,

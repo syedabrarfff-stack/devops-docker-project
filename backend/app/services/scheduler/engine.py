@@ -146,6 +146,9 @@ async def _register_default_jobs() -> None:
     # Client-facing sends are never automatic.
     add_cron_job("overnight_revenue_engine", _job_revenue_engine, hour=18, minute=0)
 
+    # Defensive read-only production scan every 30 minutes.
+    add_interval_job("defensive_production_scan", _job_defensive_scan, minutes=30)
+
     # Phase 5 — Intelligence jobs
     # Weekly tech radar scan (Monday 06:00 UTC)
     add_cron_job("weekly_tech_radar_scan", _job_tech_radar_scan, hour=6, minute=0)
@@ -243,6 +246,20 @@ async def _job_revenue_engine() -> None:
         logger.info(f"Revenue engine result: {result}")
     except Exception as e:
         logger.warning(f"Revenue engine job failed: {e}")
+
+
+async def _job_defensive_scan() -> None:
+    logger.info("Scheduler: running defensive production scan")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.monitoring.defense import run_defense_scan
+
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                result = await run_defense_scan(db, create_notification=True)
+        logger.info(f"Defensive scan threat level: {result.get('threat_level')}")
+    except Exception as e:
+        logger.warning(f"Defensive scan failed: {e}")
 
 
 # ── Phase 5 — Intelligence jobs ───────────────────────────────────────────────

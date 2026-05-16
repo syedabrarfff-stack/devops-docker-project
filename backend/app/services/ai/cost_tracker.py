@@ -43,6 +43,10 @@ COST_TABLE: list[tuple[str, str, float]] = [
     ("minimax",   "",               0.002),
     # NVIDIA NIM
     ("nvidia",    "",               0.001),
+    # AWS Bedrock Nova
+    ("bedrock",   "nova-pro",       0.004),
+    ("bedrock",   "nova-lite",      0.0006),
+    ("bedrock",   "",               0.002),
     # Mistral
     ("mistral",   "large",          0.003),
     ("mistral",   "",               0.001),
