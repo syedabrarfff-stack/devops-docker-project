@@ -14,7 +14,7 @@ const input = 'w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-
 
 function StatePill({ state }) {
   const ok = ['ready', 'completed', 'dashboard_only'].includes(state)
-  const warn = ['degraded', 'blocked', 'running'].includes(state)
+  const warn = ['degraded', 'blocked', 'running', 'optional'].includes(state)
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${
       ok ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300'
@@ -99,8 +99,8 @@ export default function AutomationCenter() {
         </div>
         <div className={`${card} p-4`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-white"><Workflow size={16} className="text-jarvis-blue" /> n8n Tool Army</div>
-          <p className="mt-3 text-sm text-white/70">{n8n?.reachable ? 'Reachable' : 'Needs setup'}</p>
-          <p className="truncate text-xs text-white/35">{n8n?.base_url || 'No n8n URL'}</p>
+          <p className="mt-3 text-sm text-white/70">{n8n?.reachable ? 'Reachable' : 'Internal fallback active'}</p>
+          <p className="truncate text-xs text-white/35">{n8n?.api_key_configured ? 'API control enabled' : 'Core flows run inside Jarvis'}</p>
         </div>
         <div className={`${card} p-4`}>
           <div className="flex items-center gap-2 text-sm font-semibold text-white"><ShieldCheck size={16} className="text-jarvis-blue" /> Permission Mode</div>
@@ -145,7 +145,7 @@ export default function AutomationCenter() {
                 <Play size={15} /> Run Discovery
               </button>
               <button onClick={() => triggerWorkflow('local_market_discovery')} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/70 disabled:opacity-50">
-                <Workflow size={15} /> Trigger n8n
+                <Workflow size={15} /> Run Workflow
               </button>
             </div>
           </div>

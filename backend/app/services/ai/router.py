@@ -144,17 +144,20 @@ ROUTING_TABLE: dict = {
     TaskType.CODE: [
         ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-sonnet"),
+        ("nvidia", "deepseek-v4-pro"),
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
     ],
     TaskType.RESEARCH: [
         ("google", "gemini-pro"),
+        ("nvidia", "deepseek-v4-flash"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.REASONING: [
         ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
+        ("nvidia", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
     ],
@@ -162,8 +165,8 @@ ROUTING_TABLE: dict = {
         ("bedrock", "bedrock-nova-lite"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
+        ("nvidia", "deepseek-v4-flash"),
         ("openai", "gpt-4o-mini"),
-        ("nvidia", "nvidia-nim"),
     ],
     TaskType.LONG_CONTEXT: [
         ("google", "gemini-pro"),
@@ -182,8 +185,8 @@ ROUTING_TABLE: dict = {
     ],
     TaskType.GENERAL: [
         ("bedrock", "bedrock-nova-pro"),
+        ("nvidia", "deepseek-v4-flash"),
         ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
@@ -191,13 +194,14 @@ ROUTING_TABLE: dict = {
     TaskType.ANALYSIS: [
         ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
+        ("nvidia", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
         ("google", "gemini-pro"),
     ],
     TaskType.STRATEGY: [
         ("bedrock", "bedrock-nova-pro"),
         ("anthropic", "claude-opus"),
+        ("nvidia", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
     ],
@@ -318,6 +322,7 @@ class AIRouter:
 
         # Route through table with health-aware fallback
         route = ROUTING_TABLE.get(task_type, ROUTING_TABLE[TaskType.GENERAL])
+        failures: list[Tuple[str, str, str]] = []
         for provider_key, model_key in route:
             # Skip providers with open circuit breakers
             if not health_monitor.is_available(provider_key):
@@ -345,16 +350,47 @@ class AIRouter:
                     health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
                 health_monitor.record_failure(provider_key, latency)
+                failures.append((provider_key, model_id, response.error))
                 logger.warning(f"Provider {provider_key} failed: {response.error}")
 
         # No provider available — return demo response
-        demo_response = self._demo_response(last_user_msg, task_type)
+        demo_response = self._demo_response(last_user_msg, task_type, failures)
         return demo_response, task_type.value
 
-    def _demo_response(self, prompt: str, task_type: TaskType) -> AIResponse:
+    def _demo_response(
+        self,
+        prompt: str,
+        task_type: TaskType,
+        failures: Optional[List[Tuple[str, str, str]]] = None,
+    ) -> AIResponse:
         p = prompt.lower()
+        available = self.available_providers()
+        failures = failures or []
+        if available and failures:
+            failure_lines = []
+            for provider, model, error in failures[:4]:
+                clean_error = str(error).replace("\n", " ").strip()
+                if len(clean_error) > 180:
+                    clean_error = clean_error[:177] + "..."
+                failure_lines.append(f"- {provider}/{model}: {clean_error}")
+            content = (
+                "Captain, the AI router is configured, but every routed provider failed this request.\n\n"
+                f"Active providers detected: {', '.join(available)}\n"
+                f"Task type detected: {task_type.value}\n\n"
+                "Latest provider failures:\n"
+                + "\n".join(failure_lines)
+                + "\n\n"
+                "I kept the request inside the safety layer and did not take any external action. "
+                "Fix the provider account or enable Bedrock, then I will answer through the live model route."
+            )
+            return AIResponse(
+                content=content,
+                model="router-diagnostic",
+                provider="router",
+                task_type=task_type.value,
+                demo=False,
+            )
         if "status" in p or "health" in p:
-            available = self.available_providers()
             content = (
                 f"JARVIS SYSTEM STATUS\n\n"
                 f"Available AI Providers: {len(available)}/{len(self._providers)}\n"

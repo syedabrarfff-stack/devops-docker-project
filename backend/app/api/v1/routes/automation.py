@@ -6,7 +6,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -88,6 +88,29 @@ async def run_workflow(workflow_key: str, req: WorkflowRunRequest, db: AsyncSess
         run.steps_done = 1 if result.get("ok") else 0
         run.result = result.get("message")
         run.error = result.get("error")
+        run.metadata_ = {**(run.metadata_ or {}), "internal_runner": True, "result": result}
+        run.completed_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(run)
+        return _serialize_run(run)
+
+    if workflow_key == "revenue_engine":
+        result = await _run_internal_revenue_engine(db, req.input)
+        run.status = "completed" if result.get("ok") else "blocked"
+        run.steps_done = 1 if result.get("ok") else 0
+        run.result = result.get("message")
+        run.error = result.get("error")
+        run.metadata_ = {**(run.metadata_ or {}), "internal_runner": True, "result": result}
+        run.completed_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(run)
+        return _serialize_run(run)
+
+    if workflow_key == "sales_war_room":
+        result = await _run_sales_war_room(db)
+        run.status = "completed"
+        run.steps_done = 1
+        run.result = result.get("message")
         run.metadata_ = {**(run.metadata_ or {}), "internal_runner": True, "result": result}
         run.completed_at = datetime.now(timezone.utc)
         await db.commit()
@@ -205,3 +228,73 @@ async def _run_local_market_discovery(db: AsyncSession, payload: dict) -> dict:
         return {"ok": False, "error": str(exc.detail)}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+
+
+async def _run_internal_revenue_engine(db: AsyncSession, payload: dict) -> dict:
+    from app.services.revenue.engine import run_revenue_engine
+
+    limit = int(payload.get("limit") or 25)
+    create_proposals = bool(payload.get("create_proposals", True))
+    try:
+        result = await run_revenue_engine(db, limit=limit, create_proposals=create_proposals)
+        blockers = result.get("blockers") or []
+        return {
+            "ok": True,
+            "message": (
+                f"Revenue Engine completed: {result.get('synced_contacts', 0)} synced, "
+                f"{result.get('drafts_created', 0)} drafts, {result.get('proposals_created', 0)} proposals, "
+                f"{result.get('deals_created', 0)} deals."
+                + (f" Blockers: {'; '.join(blockers)}" if blockers else "")
+            ),
+            **result,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+async def _run_sales_war_room(db: AsyncSession) -> dict:
+    from app.models.approval import ApprovalRequest
+    from app.models.crm import Deal
+    from app.models.lead import Lead, WorkflowRun
+    from app.services.contacts.sync import validate_apollo_access
+    from app.services.storage.secure import get_credential
+
+    async def scalar(stmt):
+        return (await db.execute(stmt)).scalar() or 0
+
+    total_leads = await scalar(select(func.count(Lead.id)))
+    qualified_leads = await scalar(select(func.count(Lead.id)).where(Lead.status.in_(["qualified", "interested", "proposal"])))
+    pending_approvals = await scalar(select(func.count(ApprovalRequest.id)).where(ApprovalRequest.status == "pending"))
+    pipeline_value = await scalar(select(func.coalesce(func.sum(Deal.value), 0.0)).where(Deal.stage.notin_(["closed_lost"])))
+    latest_runs_result = await db.execute(select(WorkflowRun).order_by(desc(WorkflowRun.started_at)).limit(5))
+    latest_runs = [_serialize_run(run) for run in latest_runs_result.scalars().all()]
+
+    blockers = []
+    apollo_ok, apollo_message = await validate_apollo_access(db)
+    if not apollo_ok:
+        blockers.append(apollo_message)
+    google_key = await get_credential(db, "GOOGLE_MAPS_API_KEY")
+    if not google_key:
+        blockers.append("GOOGLE_MAPS_API_KEY missing: local market discovery cannot pull live Google Places candidates.")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
+    if not gmail_password:
+        blockers.append("GMAIL_APP_PASSWORD missing: approved SMTP outreach cannot send.")
+
+    message = (
+        f"Sales War Room ready: {total_leads} total leads, {qualified_leads} qualified, "
+        f"{pending_approvals} pending approvals, ${float(pipeline_value):,.0f} pipeline."
+    )
+    if blockers:
+        message += " Current blockers: " + "; ".join(blockers)
+
+    return {
+        "ok": True,
+        "message": message,
+        "total_leads": total_leads,
+        "qualified_leads": qualified_leads,
+        "pending_approvals": pending_approvals,
+        "pipeline_value": float(pipeline_value),
+        "latest_runs": latest_runs,
+        "blockers": blockers,
+        "next_action": "Fix listed credential/account blockers, then run Revenue Engine and approve only reviewed outreach packets.",
+    }

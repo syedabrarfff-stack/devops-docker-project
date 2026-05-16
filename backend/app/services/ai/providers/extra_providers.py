@@ -131,12 +131,57 @@ class MinimaxProvider(BaseAIProvider):
 class NvidiaProvider(BaseAIProvider):
     name = "nvidia"
     base_url = "https://integrate.api.nvidia.com/v1"
-    models = {"nvidia-nim": "nvidia/llama-3.1-nemotron-70b-instruct"}
+    models = {
+        "deepseek-v4-flash": "deepseek-ai/deepseek-v4-flash",
+        "deepseek-v4-pro": "deepseek-ai/deepseek-v4-pro",
+        "nvidia-nim": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "kimi-k2-6": "moonshotai/kimi-k2.6",
+        "glm-5-1": "z-ai/glm-5.1",
+        "ising-calibration": "nvidia/ising-calibration-1-35b-a3b",
+        "minimax-m2-7": "minimaxai/minimax-m2.7",
+        "qwen-3-5-122b": "qwen/qwen3.5-122b-a10b",
+        "mistral-small-4": "mistralai/mistral-small-4-119b-2603",
+    }
 
     def is_available(self) -> bool:
-        return bool(settings.NVIDIA_API_KEY)
+        return bool(
+            settings.NVIDIA_API_KEY
+            or settings.NVIDIA_DEEPSEEK_PRO_API_KEY
+            or settings.NVIDIA_DEEPSEEK_FLASH_API_KEY
+            or settings.NVIDIA_KIMI_API_KEY
+            or settings.NVIDIA_GLM_API_KEY
+            or settings.NVIDIA_MINIMAX_API_KEY
+            or settings.NVIDIA_QWEN_API_KEY
+            or settings.NVIDIA_MISTRAL_API_KEY
+        )
 
-    async def chat(self, messages: List[Message], model_id: str = "nvidia/llama-3.1-nemotron-70b-instruct",
+    def _api_key_for_model(self, model_id: str) -> str:
+        if model_id == "deepseek-ai/deepseek-v4-pro" and settings.NVIDIA_DEEPSEEK_PRO_API_KEY:
+            return settings.NVIDIA_DEEPSEEK_PRO_API_KEY
+        if model_id == "deepseek-ai/deepseek-v4-flash" and settings.NVIDIA_DEEPSEEK_FLASH_API_KEY:
+            return settings.NVIDIA_DEEPSEEK_FLASH_API_KEY
+        if model_id == "moonshotai/kimi-k2.6" and settings.NVIDIA_KIMI_API_KEY:
+            return settings.NVIDIA_KIMI_API_KEY
+        if model_id == "z-ai/glm-5.1" and settings.NVIDIA_GLM_API_KEY:
+            return settings.NVIDIA_GLM_API_KEY
+        if model_id == "minimaxai/minimax-m2.7" and settings.NVIDIA_MINIMAX_API_KEY:
+            return settings.NVIDIA_MINIMAX_API_KEY
+        if model_id == "qwen/qwen3.5-122b-a10b" and settings.NVIDIA_QWEN_API_KEY:
+            return settings.NVIDIA_QWEN_API_KEY
+        if model_id == "mistralai/mistral-small-4-119b-2603" and settings.NVIDIA_MISTRAL_API_KEY:
+            return settings.NVIDIA_MISTRAL_API_KEY
+        return (
+            settings.NVIDIA_API_KEY
+            or settings.NVIDIA_DEEPSEEK_FLASH_API_KEY
+            or settings.NVIDIA_DEEPSEEK_PRO_API_KEY
+            or settings.NVIDIA_KIMI_API_KEY
+            or settings.NVIDIA_GLM_API_KEY
+            or settings.NVIDIA_MINIMAX_API_KEY
+            or settings.NVIDIA_QWEN_API_KEY
+            or settings.NVIDIA_MISTRAL_API_KEY
+        )
+
+    async def chat(self, messages: List[Message], model_id: str = "deepseek-ai/deepseek-v4-pro",
                    system_prompt: str = "", max_tokens: int = 2048) -> AIResponse:
         try:
             msgs = []
@@ -146,10 +191,21 @@ class NvidiaProvider(BaseAIProvider):
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.post(
                     f"{self.base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {settings.NVIDIA_API_KEY}"},
-                    json={"model": model_id, "messages": msgs, "max_tokens": max_tokens},
+                    headers={"Authorization": f"Bearer {self._api_key_for_model(model_id)}"},
+                    json={
+                        "model": model_id,
+                        "messages": msgs,
+                        "temperature": 1,
+                        "top_p": 0.95,
+                        "max_tokens": max_tokens,
+                        "extra_body": self._extra_body_for_model(model_id),
+                    },
                 )
                 data = r.json()
+            if "error" in data:
+                message = data["error"].get("message", str(data["error"]))
+                return AIResponse(content="", model=model_id, provider=self.name,
+                                  task_type="general", error=message)
             return AIResponse(
                 content=data["choices"][0]["message"]["content"],
                 model=model_id, provider=self.name, task_type="general",
@@ -157,3 +213,18 @@ class NvidiaProvider(BaseAIProvider):
         except Exception as e:
             return AIResponse(content="", model=model_id, provider=self.name,
                               task_type="general", error=str(e))
+
+    def _extra_body_for_model(self, model_id: str) -> dict:
+        if model_id == "deepseek-ai/deepseek-v4-flash":
+            return {"chat_template_kwargs": {"thinking": True, "reasoning_effort": "high"}}
+        if model_id == "deepseek-ai/deepseek-v4-pro":
+            return {"chat_template_kwargs": {"thinking": False}}
+        if model_id == "moonshotai/kimi-k2.6":
+            return {"chat_template_kwargs": {"thinking": True}}
+        if model_id == "z-ai/glm-5.1":
+            return {"chat_template_kwargs": {"enable_thinking": True, "clear_thinking": False}}
+        if model_id == "nvidia/ising-calibration-1-35b-a3b":
+            return {"chat_template_kwargs": {"enable_thinking": True}}
+        if model_id == "mistralai/mistral-small-4-119b-2603":
+            return {"reasoning_effort": "high"}
+        return {}

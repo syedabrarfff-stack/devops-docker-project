@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     DASHSCOPE_API_KEY: Optional[str] = None
     MINIMAX_API_KEY: Optional[str] = None
     NVIDIA_API_KEY: Optional[str] = None
+    NVIDIA_DEEPSEEK_PRO_API_KEY: Optional[str] = None
+    NVIDIA_DEEPSEEK_FLASH_API_KEY: Optional[str] = None
+    NVIDIA_KIMI_API_KEY: Optional[str] = None
+    NVIDIA_GLM_API_KEY: Optional[str] = None
+    NVIDIA_MINIMAX_API_KEY: Optional[str] = None
+    NVIDIA_QWEN_API_KEY: Optional[str] = None
+    NVIDIA_MISTRAL_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
 
     # Notifications

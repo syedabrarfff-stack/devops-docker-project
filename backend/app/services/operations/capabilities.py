@@ -17,6 +17,28 @@ def mask_secret(value: Optional[str]) -> Optional[str]:
     return f"{value[:4]}****{value[-4:]}"
 
 
+def _looks_real(value: Optional[str]) -> bool:
+    if not value:
+        return False
+    cleaned = str(value).strip()
+    if not cleaned:
+        return False
+    lowered = cleaned.lower()
+    return not (
+        lowered.startswith("#")
+        or "replace_with" in lowered
+        or "your-" in lowered
+        or lowered in {"sk-...", "nvapi-...", "..."}
+    )
+
+
+def _valid_gmail_app_password(value: Optional[str]) -> bool:
+    if not _looks_real(value):
+        return False
+    compact = str(value).replace(" ", "").strip()
+    return len(compact) == 16 and compact.isascii()
+
+
 @dataclass(frozen=True)
 class CredentialSpec:
     key: str
@@ -33,6 +55,7 @@ CREDENTIAL_SPECS: tuple[CredentialSpec, ...] = (
     CredentialSpec("GMAIL_CLIENT_ID", "Gmail OAuth Client ID", "Communication", "OAuth connection for reading/sending approved Gmail outreach.", ("Gmail OAuth", "Approved outreach send"), False),
     CredentialSpec("GMAIL_CLIENT_SECRET", "Gmail OAuth Client Secret", "Communication", "OAuth secret for Gmail API access.", ("Gmail OAuth", "Approved outreach send")),
     CredentialSpec("GMAIL_ADDRESS", "Gmail Address", "Communication", "Sender address for Aliyar Solutions outreach.", ("Gmail OAuth", "Approved outreach send"), False),
+    CredentialSpec("GMAIL_APP_PASSWORD", "Gmail App Password", "Communication", "16-character Google app password for approved SMTP outreach.", ("Approved outreach send",)),
     CredentialSpec("TELEGRAM_BOT_TOKEN", "Telegram Bot Token", "Approvals", "Telegram approval cards and urgent alerts.", ("Captain approvals", "Mobile command")),
     CredentialSpec("TELEGRAM_CHAT_ID", "Telegram Chat ID", "Approvals", "Captain destination chat for approval notifications.", ("Captain approvals", "Mobile command"), False),
     CredentialSpec("N8N_BASE_URL", "n8n Base URL", "Automation", "Self-hosted n8n workspace URL.", ("n8n Tool Army", "Automation Center"), False),
@@ -51,11 +74,14 @@ async def credential_status(db) -> list[dict]:
     rows = []
     for spec in CREDENTIAL_SPECS:
         value = await get_credential(db, spec.key)
+        configured = _looks_real(value)
+        if spec.key == "GMAIL_APP_PASSWORD":
+            configured = _valid_gmail_app_password(value)
         rows.append({
             "key": spec.key,
             "label": spec.label,
             "category": spec.category,
-            "configured": bool(value),
+            "configured": configured,
             "masked_value": mask_secret(value) if spec.secret else value,
             "description": spec.description,
             "required_for": list(spec.required_for),
@@ -92,12 +118,41 @@ async def n8n_status(db) -> dict:
         }
 
 
+async def _google_places_status(db) -> tuple[bool, str]:
+    key = await get_credential(db, "GOOGLE_MAPS_API_KEY")
+    if not _looks_real(key):
+        return False, "GOOGLE_MAPS_API_KEY missing"
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response = await client.get(
+                "https://maps.googleapis.com/maps/api/place/textsearch/json",
+                params={"key": key, "query": "clinics in New York"},
+            )
+        data = response.json()
+        if data.get("status") in {"OK", "ZERO_RESULTS"}:
+            return True, ""
+        return False, data.get("error_message") or data.get("status") or "Google Places API rejected the key."
+    except Exception as exc:
+        return False, str(exc)
+
+
 async def capability_status(db) -> dict:
     creds = await credential_status(db)
     by_key = {row["key"]: row for row in creds}
     n8n = await n8n_status(db)
+    google_places_ok, google_places_message = await _google_places_status(db)
+    try:
+        from app.services.contacts.sync import validate_apollo_access
+        apollo_ok, apollo_message = await validate_apollo_access(db)
+    except Exception as exc:
+        apollo_ok, apollo_message = False, str(exc)
     gmail_oauth_ready = by_key["GMAIL_CLIENT_ID"]["configured"] and by_key["GMAIL_CLIENT_SECRET"]["configured"]
-    gmail_via_n8n_ready = n8n["reachable"] and by_key["GMAIL_ADDRESS"]["configured"]
+    gmail_smtp_ready = by_key["GMAIL_ADDRESS"]["configured"] and by_key["GMAIL_APP_PASSWORD"]["configured"]
+    gmail_via_n8n_ready = n8n["reachable"] and n8n.get("api_key_configured") and by_key["GMAIL_ADDRESS"]["configured"]
+    bedrock_enabled_value = await get_credential(db, "AWS_BEDROCK_ENABLED")
+    bedrock_enabled = str(bedrock_enabled_value or settings.AWS_BEDROCK_ENABLED).lower() in {"1", "true", "yes", "on"}
+    bedrock_model_configured = by_key["AWS_BEDROCK_MODEL_ID"]["configured"] or bool(settings.AWS_BEDROCK_MODEL_ID)
+    n8n_workflow_ready = n8n["reachable"] and n8n.get("api_key_configured")
 
     capabilities = [
         {
@@ -109,30 +164,30 @@ async def capability_status(db) -> dict:
         {
             "id": "aws_bedrock",
             "name": "AWS Bedrock Intelligence",
-            "state": "ready" if by_key["AWS_ACCESS_KEY_ID"]["configured"] and by_key["AWS_SECRET_ACCESS_KEY"]["configured"] else "blocked",
-            "summary": "Adds AWS-native model routing for cloud operations and resilient AI fallback.",
-            "missing": [] if by_key["AWS_ACCESS_KEY_ID"]["configured"] and by_key["AWS_SECRET_ACCESS_KEY"]["configured"] else ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
+            "state": "ready" if bedrock_enabled and bedrock_model_configured else "optional",
+            "summary": "AWS-native model routing for cloud operations. It can use the EC2 IAM role, so static AWS keys are optional.",
+            "missing": [] if bedrock_enabled else ["AWS_BEDROCK_ENABLED=true and Bedrock model access/IAM permission"],
         },
         {
             "id": "local_market_hunter",
             "name": "Local Market Hunter",
-            "state": "ready" if by_key["GOOGLE_MAPS_API_KEY"]["configured"] else "blocked",
+            "state": "ready" if google_places_ok else "blocked",
             "summary": "Finds clinics, hotels, restaurants, startups, and local buyers through Google Places.",
-            "missing": [] if by_key["GOOGLE_MAPS_API_KEY"]["configured"] else ["GOOGLE_MAPS_API_KEY"],
+            "missing": [] if google_places_ok else [google_places_message],
         },
         {
             "id": "apollo_enrichment",
             "name": "Apollo Enrichment",
-            "state": "ready" if by_key["APOLLO_API_KEY"]["configured"] else "blocked",
+            "state": "ready" if apollo_ok else "blocked",
             "summary": "Enriches contacts and buyer roles with Apollo.",
-            "missing": [] if by_key["APOLLO_API_KEY"]["configured"] else ["APOLLO_API_KEY"],
+            "missing": [] if apollo_ok else [apollo_message],
         },
         {
             "id": "n8n_tool_army",
             "name": "n8n Tool Army",
-            "state": "ready" if n8n["reachable"] and n8n.get("api_key_configured") else "degraded",
-            "summary": "Runs workflow tools for discovery, enrichment, drafts, approvals, and reporting.",
-            "missing": [] if n8n.get("api_key_configured") else ["N8N_API_KEY"],
+            "state": "ready" if n8n_workflow_ready else "optional",
+            "summary": "External workflow runner. Core revenue, discovery, approvals, and reporting now run internally when n8n is not fully configured.",
+            "missing": [] if n8n_workflow_ready else ["N8N_API_KEY only if you want direct n8n workflow control"],
         },
         {
             "id": "approval_gate",
@@ -143,10 +198,10 @@ async def capability_status(db) -> dict:
         {
             "id": "gmail_outreach",
             "name": "Gmail Approved Outreach",
-            "state": "ready" if gmail_oauth_ready or gmail_via_n8n_ready else "blocked",
+            "state": "ready" if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else "blocked",
             "summary": "Sends approved outreach only after Captain approval. Gmail can run directly through Jarvis OAuth or through the connected n8n Gmail credential.",
-            "missing": [] if gmail_oauth_ready or gmail_via_n8n_ready else ["GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET or connected n8n Gmail workflow"],
-            "via": "n8n" if gmail_via_n8n_ready and not gmail_oauth_ready else "jarvis_oauth",
+            "missing": [] if gmail_oauth_ready or gmail_smtp_ready or gmail_via_n8n_ready else ["real Gmail OAuth credentials or GMAIL_APP_PASSWORD"],
+            "via": "smtp" if gmail_smtp_ready else "n8n" if gmail_via_n8n_ready and not gmail_oauth_ready else "jarvis_oauth",
         },
     ]
 
@@ -157,6 +212,7 @@ async def capability_status(db) -> dict:
         "n8n": n8n,
         "capabilities": capabilities,
         "blockers": [cap for cap in capabilities if cap["state"] in ("blocked", "degraded")],
+        "optional": [cap for cap in capabilities if cap["state"] == "optional"],
     }
 
 
