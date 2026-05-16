@@ -34,10 +34,9 @@ async def hydrate_runtime_settings(db) -> dict[str, bool]:
             hydrated[key] = False
             continue
         current = getattr(settings, key, None)
-        if not current:
-            if isinstance(current, bool):
-                setattr(settings, key, str(value).lower() in {"1", "true", "yes", "on"})
-            else:
-                setattr(settings, key, value)
+        if isinstance(current, bool):
+            setattr(settings, key, str(value).lower() in {"1", "true", "yes", "on"})
+        else:
+            setattr(settings, key, value)
         hydrated[key] = bool(getattr(settings, key, None))
     return hydrated
