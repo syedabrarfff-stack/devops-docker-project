@@ -5,6 +5,7 @@ per-call cost estimation, and automatic latency-aware failover.
 """
 import time
 import logging
+import asyncio
 from typing import List, Optional, Tuple
 from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message, TaskType
 from app.services.ai.providers.anthropic_provider import AnthropicProvider
@@ -297,7 +298,15 @@ class AIRouter:
             if provider.is_available():
                 model_id = force_model or list(provider.models.values())[0]
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=30,
+                    )
+                except asyncio.TimeoutError:
+                    response = AIResponse(content="", model=model_id, provider=force_provider, task_type=task_type.value, error="Provider call timed out after 30 seconds.")
+                except Exception as exc:
+                    response = AIResponse(content="", model=model_id, provider=force_provider, task_type=task_type.value, error=str(exc))
                 latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
                 response.latency_ms = latency
@@ -319,7 +328,15 @@ class AIRouter:
                 model_id = self._resolve_model(provider, model_key)
                 logger.info(f"Routing {task_type.value} → {provider_key}/{model_id}")
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=30,
+                    )
+                except asyncio.TimeoutError:
+                    response = AIResponse(content="", model=model_id, provider=provider_key, task_type=task_type.value, error="Provider call timed out after 30 seconds.")
+                except Exception as exc:
+                    response = AIResponse(content="", model=model_id, provider=provider_key, task_type=task_type.value, error=str(exc))
                 latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
                 response.latency_ms = latency
