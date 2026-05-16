@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 import httpx
 from app.core.config import settings
+from app.services.communication.client_language import sanitize_subject_body
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ async def send_via_gmail_api(db, to: str, subject: str, body: str,
     if not token:
         return False, "No valid Gmail OAuth token — use /api/v1/auth/gmail/initiate to connect"
 
+    subject, body = sanitize_subject_body(subject, body)
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = settings.GMAIL_ADDRESS or "me"

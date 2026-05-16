@@ -37,15 +37,15 @@ const serviceGroups = [
   {
     icon: Target,
     title: 'Revenue Systems',
-    summary: 'Lead discovery, CRM automation, proposal drafting, approval packets, and outreach execution.',
-    items: ['AI lead generation', 'Apollo and public discovery', 'CRM deal creation', 'Sales approval flows'],
+    summary: 'Lead discovery, CRM workflows, proposal drafting, approval packets, and outreach execution.',
+    items: ['Lead generation', 'Market discovery', 'CRM deal creation', 'Sales approval flows'],
     accent: 'cyan',
   },
   {
     icon: Bot,
-    title: 'AI Automation',
-    summary: 'Executive assistants, workflow logic, voice experiences, scheduling, and internal operating systems.',
-    items: ['AI agents', 'Voice AI', 'Workflow orchestration', 'Internal assistants'],
+    title: 'Workflow Automation',
+    summary: 'Executive workflows, operational logic, voice experiences, scheduling, and internal operating systems.',
+    items: ['Workflow assistants', 'Voice systems', 'Process coordination', 'Internal support tools'],
     accent: 'violet',
   },
   {
@@ -80,21 +80,17 @@ const serviceGroups = [
 
 const stack = [
   'AWS',
-  'Bedrock',
   'Docker',
   'Kubernetes',
   'Terraform',
   'Jenkins',
-  'n8n',
   'FastAPI',
   'React',
   'PostgreSQL',
   'Redis',
-  'NVIDIA APIs',
-  'OpenAI',
-  'Claude',
-  'Gemini',
-  'Groq',
+  'Workflow Automation',
+  'Cloud Model Services',
+  'Operational Intelligence',
   'Vector Search',
   'WebSockets',
   'OAuth',
@@ -109,7 +105,7 @@ const architecture = [
   {
     title: 'Command Layer',
     icon: BrainCircuit,
-    text: 'Multi-model routing, Bedrock-first cloud intelligence, provider health checks, memory, and task classification.',
+    text: 'Cloud intelligence, service health checks, operational memory, and task classification.',
   },
   {
     title: 'Execution Layer',
@@ -130,7 +126,7 @@ const architecture = [
 
 const departments = [
   ['Client Acquisition', 'Pipeline design, ICP targeting, outreach strategy, and revenue operations.'],
-  ['AI Automation', 'Workflow systems, assistant design, voice AI, and operational intelligence.'],
+  ['Workflow Automation', 'Workflow systems, voice-enabled interfaces, and operational intelligence.'],
   ['Cloud Infrastructure', 'AWS architecture, Docker runtime, deployment safety, and observability.'],
   ['DevOps Engineering', 'CI/CD, Terraform, Kubernetes, Jenkins, monitoring, and release operations.'],
   ['Cybersecurity Unit', 'Risk reviews, vulnerability assessment, access control, and defensive posture.'],
@@ -141,7 +137,7 @@ const proof = [
   ['30', 'Service divisions'],
   ['26', 'Backend API route files'],
   ['17', 'Scheduled operating jobs'],
-  ['11+', 'AI provider routes'],
+  ['11+', 'Intelligence routes'],
   ['24/7', 'Cloud-first runtime'],
   ['100%', 'Approval-gated outreach'],
 ];
@@ -151,7 +147,7 @@ const journey = [
   ['Qualify', 'Score leads, enrich company context, and create clean CRM records.'],
   ['Draft', 'Generate outreach, proposal drafts, pricing logic, and approval packets.'],
   ['Approve', 'Review every external client action before it leaves the system.'],
-  ['Deliver', 'Run cloud, automation, dashboard, and AI infrastructure workstreams.'],
+  ['Deliver', 'Run cloud, workflow, dashboard, and delivery infrastructure workstreams.'],
   ['Improve', 'Feed wins, replies, costs, and failures back into the operating model.'],
 ];
 
@@ -252,7 +248,7 @@ function PublicWebsite() {
             <span className="as-brand-mark"><Zap size={22} /></span>
             <span>
               <strong>Aliyar Solutions</strong>
-              <small>JARVIS AI Infrastructure</small>
+              <small>Enterprise Automation Infrastructure</small>
             </span>
           </a>
 
@@ -277,11 +273,11 @@ function PublicWebsite() {
         <section className="as-hero">
           <HeroSystem />
           <div className="as-hero-content" data-aos="fade-up">
-            <span className="as-kicker"><Sparkles size={16} /> AI-operated technology infrastructure</span>
+            <span className="as-kicker"><Sparkles size={16} /> Enterprise technology operations</span>
             <h1>Aliyar Solutions builds intelligent systems that run business operations at scale.</h1>
             <p>
-              JARVIS is the command layer behind our automation, cloud, revenue, dashboard,
-              and delivery systems - built to help modern companies move faster with safer execution.
+              Our consulting platform combines workflow modernization, cloud operations, revenue systems,
+              and delivery controls to help modern companies move faster with safer execution.
             </p>
             <div className="as-hero-actions">
               <a className="as-button as-primary" href="#platform">Explore Platform <ArrowRight size={18} /></a>
@@ -308,8 +304,8 @@ function PublicWebsite() {
             <PlatformPanel
               icon={Activity}
               label="Operational command"
-              title="JARVIS watches the business loop."
-              text="Leads, proposals, approvals, provider health, scheduler jobs, dashboard metrics, and production warnings move through one command center."
+              title="The operating model watches the business loop."
+              text="Leads, proposals, approvals, service health, scheduler jobs, dashboard metrics, and production warnings move through one command center."
             />
             <PlatformPanel
               icon={CircleDollarSign}
@@ -330,7 +326,7 @@ function PublicWebsite() {
           <SectionHead
             eyebrow="Services"
             title="Enterprise automation services, presented as one intelligent delivery system."
-            copy="Aliyar Solutions combines strategy, engineering, AI systems, cloud infrastructure, and business operations into practical client outcomes."
+            copy="Aliyar Solutions combines strategy, engineering, workflow systems, cloud infrastructure, and business operations into practical client outcomes."
           />
           <div className="as-service-layout">
             <div className="as-service-list">
@@ -374,7 +370,7 @@ function PublicWebsite() {
           <SectionHead
             eyebrow="Technology Stack"
             title="Built on the same stack serious automation companies use to ship production systems."
-            copy="The platform is designed around cloud reliability, multi-model intelligence, orchestration, secure integrations, and observable runtime behavior."
+            copy="The platform is designed around cloud reliability, operational intelligence, secure integrations, and observable runtime behavior."
           />
           <div className="as-stack-cloud" data-aos="fade-up">
             {stack.map((item, index) => <span key={item} style={{ '--delay': `${index * 36}ms` }}>{item}</span>)}
@@ -384,14 +380,14 @@ function PublicWebsite() {
         <section id="architecture" className="as-section as-architecture-section">
           <SectionHead
             eyebrow="Architecture"
-            title="The system is not a chatbot. It is a layered execution architecture."
-            copy="JARVIS connects intelligence, revenue, CRM, dashboards, approvals, scheduler jobs, and reliability scanning so the company can operate with discipline."
+            title="A layered execution architecture for modern operations."
+            copy="Aliyar Solutions connects intelligence, revenue, CRM, dashboards, approvals, scheduler jobs, and reliability scanning so companies can operate with discipline."
           />
           <div className="as-architecture">
             <div className="as-architecture-map" data-aos="fade-right">
               <div className="as-core-node">
                 <BrainCircuit size={38} />
-                <strong>JARVIS Core</strong>
+                <strong>Operations Core</strong>
                 <span>Command intelligence</span>
               </div>
               {architecture.map((layer, index) => {
@@ -440,7 +436,7 @@ function PublicWebsite() {
           <SectionHead
             eyebrow="Operating Team"
             title="Structured like a larger company from day one."
-            copy="The website presents a professional delivery organization while JARVIS coordinates the internal intelligence, routing, and reporting behind the scenes."
+            copy="The website presents a professional delivery organization supported by structured internal intelligence, service routing, and reporting."
           />
           <div className="as-team-grid">
             {departments.map(([name, text], index) => (
@@ -526,10 +522,10 @@ function PublicWebsite() {
             <span className="as-brand-mark"><Zap size={22} /></span>
             <span>
               <strong>Aliyar Solutions</strong>
-              <small>AI infrastructure and automation company</small>
+              <small>Enterprise automation and cloud operations company</small>
             </span>
           </a>
-          <p>Cloud, automation, AI systems, revenue operations, dashboards, and delivery infrastructure for serious businesses.</p>
+          <p>Cloud operations, workflow modernization, revenue operations, dashboards, and delivery infrastructure for serious businesses.</p>
         </div>
         <div>
           <strong>Platform</strong>
@@ -564,7 +560,7 @@ function HeroSystem() {
       <div className="as-system-ring ring-two" />
       <div className="as-system-core">
         <Network size={30} />
-        <span>JARVIS</span>
+        <span>OPS</span>
       </div>
       {nodes.map((node, index) => {
         const Icon = node.icon;

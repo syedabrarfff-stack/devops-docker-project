@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from app.models.outreach import OutreachSequence, OutreachEmail
 from app.models.crm import Contact
+from app.services.communication.client_language import sanitize_subject_body
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,14 @@ def _build_templates(sender_name: str, signature: str) -> dict:
         "saas_usa": {
             "steps": [
                 {"step": 1, "delay_days": 0,
-                 "subject": "Quick question about {company}'s automation",
-                 "body": f"Hi {{name}},\n\nI came across {{company}} and noticed you're in the {{industry}} space.\n\nWe help SaaS companies like yours automate their operations — reducing manual work by 60-80% and accelerating revenue.\n\nWould a 15-min call to explore if this fits make sense?\n\n{signature}"},
+                 "subject": "Quick question about {company}'s workflow",
+                 "body": f"Hi {{name}},\n\nI came across {{company}} and noticed you're in the {{industry}} space.\n\nWe help growing companies reduce repetitive work, improve response speed, and create clearer operational visibility.\n\nWould a 15-minute call to see whether this is relevant make sense?\n\n{signature}"},
                 {"step": 2, "delay_days": 3,
-                 "subject": "Re: {company} automation",
-                 "body": f"Hi {{name}},\n\nJust following up on my last message. We recently helped a similar SaaS cut their ops overhead by 70%.\n\nHappy to share a quick case study if useful.\n\n{signature}"},
+                 "subject": "Re: {company} workflow",
+                 "body": f"Hi {{name}},\n\nJust following up on my last message. We recently helped a similar team reduce operational overhead and improve execution visibility.\n\nHappy to share a quick case study if useful.\n\n{signature}"},
                 {"step": 3, "delay_days": 7,
-                 "subject": "Last touch — automation for {company}",
-                 "body": f"Hi {{name}},\n\nI'll keep this brief. If streamlining your operations isn't a priority right now, no worries — I won't follow up again.\n\nBut if you'd like to see what we built for companies like {{company}}, reply and I'll send over details.\n\n{signature}"},
+                 "subject": "Last touch - workflow improvements for {company}",
+                 "body": f"Hi {{name}},\n\nI'll keep this brief. If improving operational workflows is not a priority right now, no worries - I will not follow up again.\n\nIf you would like to see how similar companies reduce manual work and improve coordination, reply and I will send over details.\n\n{signature}"},
             ]
         },
         "hotel_uk": {
@@ -88,6 +89,9 @@ async def create_sequence(db: AsyncSession, data: dict) -> OutreachSequence:
             seq.sender_name = sender["full_name"]
         if hasattr(seq, "sender_email"):
             seq.sender_email = sender["email"]
+    if seq.steps:
+        for step in seq.steps:
+            step["subject"], step["body"] = sanitize_subject_body(step.get("subject", ""), step.get("body", ""))
     db.add(seq)
     await db.flush()
     await db.refresh(seq)
@@ -105,11 +109,13 @@ async def generate_sequence_with_ai(db: AsyncSession,
     import json
 
     prompt = (
-        f"Create a 3-step cold email outreach sequence for Aliyar Solutions.\n\n"
+        f"Create a 3-step consulting outreach sequence for Aliyar Solutions.\n\n"
         f"Target: {target_industry} companies in {target_country}\n"
         f"Service: {service_offered}\n\n"
         f"Rules:\n"
         f"- Professional but human, not corporate-speak\n"
+        f"- Never mention JARVIS, AI tools, agents, providers, prompts, routing, or internal infrastructure\n"
+        f"- Position Aliyar Solutions as an operations consulting and workflow modernization team\n"
         f"- Step 1: day 0, introduce value proposition\n"
         f"- Step 2: day 3, social proof / case study\n"
         f"- Step 3: day 7, soft close / break-up\n"
@@ -128,6 +134,8 @@ async def generate_sequence_with_ai(db: AsyncSession,
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
         steps = json.loads(text)
+        for step in steps:
+            step["subject"], step["body"] = sanitize_subject_body(step.get("subject", ""), step.get("body", ""))
         from sqlalchemy import update
         await db.execute(update(OutreachSequence).where(OutreachSequence.id == sequence_id).values(
             steps=steps, total_steps=len(steps)
@@ -157,6 +165,7 @@ async def enroll_contacts(db: AsyncSession, sequence_id: int,
             delay = step.get("delay_days", 0)
             subject = step.get("subject", "").replace("{name}", contact.name or "")
             body    = step.get("body", "")
+            subject, body = sanitize_subject_body(subject, body)
             email = OutreachEmail(
                 sequence_id=sequence_id,
                 contact_id=contact.id,

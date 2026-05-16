@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.governance import Invoice, Proposal, ContractTemplate
 from app.services.ai.base_provider import Message
+from app.services.communication.client_language import sanitize_client_text
 
 logger = logging.getLogger(__name__)
 
-PROPOSAL_PROMPT = """You are JARVIS — the strategic AI of Aliyar Solutions, a premium AI automation and cloud consulting company.
+PROPOSAL_PROMPT = """You are writing on behalf of Aliyar Solutions, a premium operational transformation, workflow modernization, and cloud operations consulting company.
 
 Generate a high-converting, professional business proposal for the following client and context.
 
@@ -32,15 +33,23 @@ Style guide:
 - social_proof: testimonials/results first, heavy proof, then pitch
 
 Write a complete proposal that:
-1. Opens with the client's specific pain point (not a generic intro)
-2. Presents Aliyar Solutions' approach and unique value
-3. Outlines the scope of work clearly
-4. Shows the investment (pricing) with ROI framing
-5. Closes with a clear next step
+1. Professional greeting
+2. Company acknowledgement
+3. Industry/context understanding
+4. Observed workflow inefficiencies
+5. Operational risks or bottlenecks
+6. Recommended transformation scope
+7. Expected operational outcomes
+8. Optional implementation phases
+9. Pricing / investment section
+10. ROI / operational value explanation
+11. Strategic positioning summary
+12. Premium professional closing
 
-Tone: Premium, confident, business-focused. Never desperate or generic.
+Tone: Premium, confident, business-focused, and appropriate to the client's maturity level. Never desperate, robotic, generic, or hype-driven.
 Write in first-person plural ("we", "our team").
-Do NOT mention AI or automation tools by brand name.
+Do NOT mention AI tools, internal systems, provider names, model names, agents, prompts, routing, orchestration, or internal infrastructure.
+Never use the word JARVIS in external communication.
 
 Return the complete proposal as plain text (no markdown headers, just clean professional prose)."""
 
@@ -94,14 +103,15 @@ async def generate_proposal(
             task_type=TaskType.STRATEGY,
             max_tokens=2500,
         )
-        content = response.content.strip()
+        content = sanitize_client_text(response.content.strip())
     except Exception as e:
         logger.warning(f"Proposal generation failed: {e}")
         content = (
-            f"[Proposal for {client_name} at {client_company} — {service_type}]\n\n"
-            f"AI generation unavailable. Please draft manually.\n\n"
+            f"Proposal for {client_name} at {client_company} - {service_type}\n\n"
+            f"Our consulting team will prepare a tailored operational transformation proposal for review.\n\n"
             f"Warm regards,\n{author_signature}"
         )
+    content = sanitize_client_text(content)
 
     title = f"{service_type} — {client_company}"
     proposal = Proposal(
@@ -113,7 +123,7 @@ async def generate_proposal(
         proposal_style=style,
         pricing=pricing,
         content=content,
-        ai_generated=True,
+        ai_generated=False,
         status="draft",
     )
     db.add(proposal)

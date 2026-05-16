@@ -13,6 +13,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.outreach import OutreachEmail
+from app.services.communication.client_language import sanitize_client_text, sanitize_subject_body
 from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ def send_email_smtp(to: str, subject: str, body: str,
     if len(password) != 16:
         return False, "GMAIL_APP_PASSWORD must be the real 16-character Google app password."
     try:
+        subject, body = sanitize_subject_body(subject, body)
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"]    = f"Aliyar Solutions <{sender}>"
@@ -115,6 +117,7 @@ def validate_smtp_credentials(
 
 
 def _wrap_html(body: str, name: str) -> str:
+    body = sanitize_client_text(body)
     body_html = body.replace("\n", "<br>")
     return f"""
 <html><body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
@@ -122,7 +125,7 @@ def _wrap_html(body: str, name: str) -> str:
     <p>{body_html}</p>
     <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
     <p style="color:#888;font-size:12px">
-      Aliyar Solutions — AI Automation &amp; Cloud Consulting<br>
+      Aliyar Solutions - Operations Consulting &amp; Cloud Services<br>
       <a href="https://aliyarsolutions.com" style="color:#0066cc">aliyarsolutions.com</a>
     </p>
   </div>
@@ -138,7 +141,8 @@ async def personalise_email(template: str, contact_data: dict) -> str:
     prompt = (
         f"Personalise this outreach email for the contact below. "
         f"Keep it professional, concise, and human. Don't change the core message. "
-        f"Max 200 words. Return only the email body text.\n\n"
+        f"Max 200 words. Never mention JARVIS, AI tools, agents, prompts, providers, routing, or internal infrastructure. "
+        f"Return only the email body text.\n\n"
         f"TEMPLATE:\n{template}\n\nCONTACT:\n{context}"
     )
     resp, _ = await ai_router.chat(
@@ -146,7 +150,7 @@ async def personalise_email(template: str, contact_data: dict) -> str:
         task_type=TaskType.FAST,
         force_provider="google",
     )
-    return resp.content if not resp.error else template
+    return sanitize_client_text(resp.content if not resp.error else template)
 
 
 async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
@@ -156,7 +160,7 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     if not row or row.status not in ("scheduled", "queued"):
         return False
 
-    body = row.body or ""
+    subject, body = sanitize_subject_body(row.subject or "", row.body or "")
     if row.contact_id and not row.personalized:
         from app.models.crm import Contact
         contact = (await db.execute(select(Contact).where(Contact.id == row.contact_id))).scalar_one_or_none()
@@ -172,7 +176,7 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
     success, error = send_email_smtp(
         row.to_email,
-        row.subject or "",
+        subject,
         body,
         row.to_name or "",
         gmail_address=gmail_address,
@@ -181,6 +185,7 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     if success:
         row.status = "sent"
         row.sent_at = datetime.now(timezone.utc)
+        row.subject = subject
         row.body = body  # save personalised version
     else:
         row.status = "failed"

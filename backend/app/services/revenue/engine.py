@@ -21,13 +21,20 @@ from app.models.crm import Company, Contact, Deal
 from app.models.governance import Proposal
 from app.models.notifications import NotificationLog
 from app.models.outreach import OutreachEmail, OutreachSequence
+from app.services.communication.client_language import (
+    build_client_profile,
+    build_outreach_draft,
+    build_proposal_draft,
+    consulting_reasons,
+    sanitize_client_text,
+)
 from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
 
 
-REVENUE_SEQUENCE_NAME = "JARVIS Revenue Engine - AI Automation"
-APPROVAL_TITLE = "Review JARVIS revenue outreach batch"
+REVENUE_SEQUENCE_NAME = "Aliyar Solutions Revenue Workflow"
+APPROVAL_TITLE = "Review Aliyar Solutions outreach batch"
 
 
 @dataclass(slots=True)
@@ -103,7 +110,7 @@ async def run_revenue_engine(
         score, reasons, service_type = _score_contact(contact)
         result.scored_contacts += 1
         contact.score = max(contact.score or 0, score)
-        contact.next_action = "Review generated outreach draft for Captain approval"
+        contact.next_action = "Review consulting outreach draft for approval"
         contact.tags = _merge_tags(contact.tags, ["revenue-engine", f"score-{score}"])
 
         if score < 45:
@@ -205,7 +212,7 @@ async def _get_or_create_sequence(db: AsyncSession) -> OutreachSequence:
         target_industry="saas",
         target_country="global",
         target_company_size="1-200",
-        service_offered="AI automation and cloud operations",
+        service_offered="workflow automation and cloud operations",
         status="active",
         total_steps=1,
         steps=[
@@ -213,7 +220,7 @@ async def _get_or_create_sequence(db: AsyncSession) -> OutreachSequence:
                 "step": 1,
                 "delay_days": 0,
                 "subject": "Quick idea for {company}",
-                "body": "Hi {name},\n\nI noticed {company} may be a fit for a lean automation and cloud operations review. Aliyar Solutions helps teams reduce manual work, improve response time, and make their operations easier to scale without adding headcount.\n\nIf useful, we can send a short audit with the highest-impact automation opportunities for your team.\n\nWarm regards,\nDarren Mitchell\nClient Acquisition Specialist\nAliyar Solutions",
+                "body": "Hi {name},\n\nI noticed {company} may be a fit for a focused workflow and cloud operations review. Aliyar Solutions helps teams reduce manual work, improve response time, and make operations easier to scale without adding headcount.\n\nIf useful, we can send a short assessment with the highest-impact operational improvements for your team.\n\nWarm regards,\nAliyar Solutions Operations Consulting Team",
             }
         ],
     )
@@ -294,7 +301,7 @@ async def _promote_qualified_leads_to_contacts(db: AsyncSession, limit: int) -> 
                     status="prospect",
                     score=lead.score or 0,
                     pain_points=lead.pain_points or [],
-                    notes="Promoted from JARVIS lead record for revenue execution.",
+                    notes="Promoted from lead record for revenue execution.",
                 )
                 db.add(company)
                 await db.flush()
@@ -310,7 +317,7 @@ async def _promote_qualified_leads_to_contacts(db: AsyncSession, limit: int) -> 
             score=lead.score or 0,
             tags=_merge_tags(["promoted-from-lead"], [lead.source or "manual"]),
             notes=lead.notes,
-            next_action="Review generated outreach draft for Captain approval",
+            next_action="Review consulting outreach draft for approval",
         )
         db.add(contact)
         lead.status = "qualified" if contact.status == "qualified" else lead.status
@@ -329,7 +336,7 @@ def _score_contact(contact: Contact) -> tuple[int, list[str], str]:
 
     score = max(45, int(contact.score or 0))
     reasons: list[str] = []
-    service_type = "AI automation and cloud operations"
+    service_type = "workflow automation and cloud operations"
 
     if any(role in title for role in ("ceo", "founder", "cto", "owner", "operations")):
         score += 20
@@ -345,7 +352,7 @@ def _score_contact(contact: Contact) -> tuple[int, list[str], str]:
         reasons.append("Budget-friendly company size")
     if contact.status == "qualified":
         score += 20
-        reasons.append("Already qualified by JARVIS")
+        reasons.append("Strong fit based on current operating profile")
 
     if "hotel" in industry or "hospitality" in industry:
         service_type = "Hotel operations automation"
@@ -385,7 +392,7 @@ async def _ensure_deal(
         stage="discovery",
         probability=min(20 + int(score / 3), 60),
         service_type=service_type,
-        notes="Auto-created by JARVIS revenue engine. Fit signals: " + ", ".join(reasons),
+        notes="Created by Aliyar Solutions revenue workflow. Fit signals: " + ", ".join(consulting_reasons(reasons)),
     )
     db.add(deal)
     await db.flush()
@@ -412,29 +419,15 @@ async def _ensure_outreach_draft(
 
     company = contact.company
     company_name = company.name if company else "your team"
-    industry = company.industry if company else "your industry"
-    first_name = (contact.name or "there").split()[0]
-    reason_text = ", ".join(reasons)
-
-    subject = f"Quick idea for {company_name}"
-    body = (
-        f"Hi {first_name},\n\n"
-        f"I noticed {company_name} looks like a strong fit for {service_type}. "
-        f"The main signals were: {reason_text}.\n\n"
-        "Aliyar Solutions helps teams remove manual work, tighten follow-up, and run leaner cloud/AI operations without adding headcount. "
-        "If useful, I can send a short audit with the 3 highest-impact automation opportunities for your team.\n\n"
-        "Warm regards,\n"
-        "Darren Mitchell\n"
-        "Client Acquisition Specialist\n"
-        "Aliyar Solutions"
-    )
+    profile = build_client_profile(contact=contact, company=company, service_type=service_type)
+    subject, body = build_outreach_draft(profile, service_type, reasons)
     draft = OutreachEmail(
         sequence_id=sequence.id,
         contact_id=contact.id,
         to_email=contact.email or "",
         to_name=contact.name or "",
         subject=subject,
-        body=body.replace("{industry}", industry or ""),
+        body=body,
         step_number=1,
         status="draft",
         scheduled_at=None,
@@ -463,19 +456,8 @@ async def _ensure_proposal_draft(
         return None
 
     pricing = _pricing_for(contact, score)
-    content = (
-        f"{contact.name or 'Hello'},\n\n"
-        f"Based on our review of {company_name}, we see a strong opportunity to improve operations through {service_type}. "
-        f"The strongest fit signals are: {', '.join(reasons)}.\n\n"
-        "Recommended scope:\n"
-        "1. Map the current workflow and identify manual bottlenecks.\n"
-        "2. Build a focused automation layer for lead handling, reporting, and follow-up.\n"
-        "3. Deploy a monitored cloud workflow with clear handover and support.\n\n"
-        f"Investment: setup ${pricing['setup_fee']} with optional monthly support from ${pricing['monthly_retainer']}.\n"
-        "The goal is to recover the investment through saved hours, faster response time, and better sales follow-up.\n\n"
-        "Warm regards,\n"
-        "Aliyar Solutions Team"
-    )
+    profile = build_client_profile(contact=contact, company=contact.company, service_type=service_type)
+    content = build_proposal_draft(profile, service_type, score, reasons, pricing)
     proposal = Proposal(
         title=f"{service_type} - {company_name}",
         client_name=contact.name,
@@ -503,7 +485,7 @@ async def _create_approval_packet(
 ) -> ApprovalRequest:
     blockers = result.blockers or []
     summary = (
-        f"JARVIS prepared {result.drafts_created} outreach drafts, "
+        f"Aliyar Solutions prepared {result.drafts_created} outreach drafts, "
         f"{result.proposals_created} proposal drafts, and {result.deals_created} pipeline deals. "
         "Approve this packet only after reviewing the drafts."
     )
@@ -523,7 +505,7 @@ async def _create_approval_packet(
         existing = existing_packets[0] if existing_packets else None
         for stale in existing_packets[1:]:
             stale.status = "rejected"
-            stale.captain_note = "Superseded by a newer JARVIS revenue approval packet."
+            stale.captain_note = "Superseded by a newer Aliyar Solutions revenue approval packet."
             stale.approved_at = datetime.now(timezone.utc)
         if existing:
             existing.summary = summary
@@ -568,7 +550,7 @@ async def _notify_run(db: AsyncSession, result: RevenueRunResult, approval_id: i
     db.add(
         NotificationLog(
             channel="dashboard",
-            title="JARVIS revenue engine completed a safe run",
+            title="Aliyar Solutions revenue workflow completed a safe run",
             body=body,
             level="success" if result.drafts_created else "warning",
             category="outreach",
@@ -605,5 +587,5 @@ def _pricing_for(contact: Contact, score: int) -> dict:
         "setup_fee": int(value),
         "monthly_retainer": int(max(750, value * 0.2)),
         "currency": "USD",
-        "notes": "Draft pricing generated by JARVIS. Captain must approve final quote before sending.",
+        "notes": "Draft pricing prepared for review. Captain must approve final quote before sending.",
     }
