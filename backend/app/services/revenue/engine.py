@@ -33,6 +33,7 @@ APPROVAL_TITLE = "Review JARVIS revenue outreach batch"
 @dataclass(slots=True)
 class RevenueRunResult:
     synced_contacts: int = 0
+    fallback_leads: int = 0
     scored_contacts: int = 0
     qualified_contacts: int = 0
     drafts_created: int = 0
@@ -44,6 +45,7 @@ class RevenueRunResult:
     def as_dict(self) -> dict:
         return {
             "synced_contacts": self.synced_contacts,
+            "fallback_leads": self.fallback_leads,
             "scored_contacts": self.scored_contacts,
             "qualified_contacts": self.qualified_contacts,
             "drafts_created": self.drafts_created,
@@ -77,12 +79,15 @@ async def run_revenue_engine(
             if apollo_ok:
                 result.synced_contacts = await sync_from_apollo(db, limit=limit)
             else:
-                result.blockers.append(apollo_message)
+                result.blockers.append(f"{apollo_message} Public local discovery fallback was used.")
+                result.fallback_leads = await _run_public_discovery_fallback(db, limit=limit)
         except Exception as exc:
             logger.warning("Apollo revenue sync failed: %s", exc)
-            result.blockers.append("Apollo sync failed; check APOLLO_API_KEY or Apollo quota.")
+            result.blockers.append("Apollo sync failed; public local discovery fallback was used.")
+            result.fallback_leads = await _run_public_discovery_fallback(db, limit=limit)
     else:
-        result.blockers.append("APOLLO_API_KEY missing, so live lead discovery is paused.")
+        result.blockers.append("APOLLO_API_KEY missing; public local discovery fallback was used.")
+        result.fallback_leads = await _run_public_discovery_fallback(db, limit=limit)
 
     sequence = await _get_or_create_sequence(db)
     lead_contacts = await _promote_qualified_leads_to_contacts(db, limit=limit)
@@ -215,6 +220,24 @@ async def _get_or_create_sequence(db: AsyncSession) -> OutreachSequence:
     db.add(sequence)
     await db.flush()
     return sequence
+
+
+async def _run_public_discovery_fallback(db: AsyncSession, limit: int) -> int:
+    """Keep revenue discovery alive when Apollo search is blocked by plan/API access."""
+    try:
+        from app.api.v1.routes.discovery import LocalMarketRequest, local_market_discovery
+
+        request = LocalMarketRequest(
+            industry="clinics",
+            location="New York",
+            service_angle="AI receptionist and appointment booking",
+            limit=min(max(limit, 5), 20),
+        )
+        result = await local_market_discovery(request, db)
+        return int(result.get("created", 0) or 0) + int(result.get("updated", 0) or 0)
+    except Exception as exc:
+        logger.warning("Public discovery fallback failed: %s", exc)
+        return 0
 
 
 async def _load_candidate_contacts(db: AsyncSession, limit: int) -> list[Contact]:

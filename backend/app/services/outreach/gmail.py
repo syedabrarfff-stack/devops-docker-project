@@ -15,13 +15,9 @@ from app.services.storage.secure import get_credential
 
 logger = logging.getLogger(__name__)
 
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 587
-
-
 def _gmail_app_password(password: Optional[str] = None) -> str:
     """Gmail app passwords are often copied with spaces; SMTP expects plain text."""
-    return (password or settings.GMAIL_APP_PASSWORD or "").replace(" ", "").strip()
+    return (password or settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS or "").replace(" ", "").strip()
 
 
 def send_email_smtp(to: str, subject: str, body: str,
@@ -29,7 +25,7 @@ def send_email_smtp(to: str, subject: str, body: str,
                     gmail_address: Optional[str] = None,
                     gmail_password: Optional[str] = None) -> tuple[bool, str]:
     """Send via Gmail SMTP using app password. Returns (success, error)."""
-    sender = (gmail_address or settings.GMAIL_ADDRESS or "").strip()
+    sender = (gmail_address or settings.GMAIL_ADDRESS or settings.EMAIL_USER or "").strip()
     password = _gmail_app_password(gmail_password)
     if not (sender and password):
         return False, "Gmail not configured — add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env"
@@ -37,6 +33,8 @@ def send_email_smtp(to: str, subject: str, body: str,
         password.encode("ascii")
     except UnicodeEncodeError:
         return False, "GMAIL_APP_PASSWORD contains non-ASCII characters. Replace it with the 16-character Gmail app password."
+    if len(password) != 16:
+        return False, "GMAIL_APP_PASSWORD must be the real 16-character Google app password."
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
@@ -48,9 +46,10 @@ def send_email_smtp(to: str, subject: str, body: str,
         msg.attach(text_part)
         msg.attach(html_part)
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
             server.ehlo()
-            server.starttls()
+            if not settings.SMTP_SECURE:
+                server.starttls()
             server.login(sender, password)
             server.sendmail(sender, to, msg.as_string())
 
@@ -115,8 +114,8 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             })
             row.personalized = True
 
-    gmail_address = await get_credential(db, "GMAIL_ADDRESS")
-    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD")
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "EMAIL_USER")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
     success, error = send_email_smtp(
         row.to_email,
         row.subject or "",

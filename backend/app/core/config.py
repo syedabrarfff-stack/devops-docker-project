@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     GMAIL_APP_PASSWORD: Optional[str] = None    # Phase 2 SMTP
     GMAIL_CLIENT_ID: Optional[str] = None       # Phase 3 OAuth
     GMAIL_CLIENT_SECRET: Optional[str] = None   # Phase 3 OAuth
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_SECURE: bool = False
+    EMAIL_USER: Optional[str] = None
+    EMAIL_PASS: Optional[str] = None
 
     # Connectors
     HUBSPOT_API_KEY: Optional[str] = None

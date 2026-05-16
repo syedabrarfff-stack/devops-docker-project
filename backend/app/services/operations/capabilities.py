@@ -56,6 +56,8 @@ CREDENTIAL_SPECS: tuple[CredentialSpec, ...] = (
     CredentialSpec("GMAIL_CLIENT_SECRET", "Gmail OAuth Client Secret", "Communication", "OAuth secret for Gmail API access.", ("Gmail OAuth", "Approved outreach send")),
     CredentialSpec("GMAIL_ADDRESS", "Gmail Address", "Communication", "Sender address for Aliyar Solutions outreach.", ("Gmail OAuth", "Approved outreach send"), False),
     CredentialSpec("GMAIL_APP_PASSWORD", "Gmail App Password", "Communication", "16-character Google app password for approved SMTP outreach.", ("Approved outreach send",)),
+    CredentialSpec("EMAIL_USER", "SMTP Email User", "Communication", "SMTP sender alias used by deployment platforms.", ("Approved outreach send",), False),
+    CredentialSpec("EMAIL_PASS", "SMTP Email Password", "Communication", "SMTP password alias used by deployment platforms.", ("Approved outreach send",)),
     CredentialSpec("TELEGRAM_BOT_TOKEN", "Telegram Bot Token", "Approvals", "Telegram approval cards and urgent alerts.", ("Captain approvals", "Mobile command")),
     CredentialSpec("TELEGRAM_CHAT_ID", "Telegram Chat ID", "Approvals", "Captain destination chat for approval notifications.", ("Captain approvals", "Mobile command"), False),
     CredentialSpec("N8N_BASE_URL", "n8n Base URL", "Automation", "Self-hosted n8n workspace URL.", ("n8n Tool Army", "Automation Center"), False),
@@ -75,7 +77,7 @@ async def credential_status(db) -> list[dict]:
     for spec in CREDENTIAL_SPECS:
         value = await get_credential(db, spec.key)
         configured = _looks_real(value)
-        if spec.key == "GMAIL_APP_PASSWORD":
+        if spec.key in {"GMAIL_APP_PASSWORD", "EMAIL_PASS"}:
             configured = _valid_gmail_app_password(value)
         rows.append({
             "key": spec.key,
@@ -147,7 +149,9 @@ async def capability_status(db) -> dict:
     except Exception as exc:
         apollo_ok, apollo_message = False, str(exc)
     gmail_oauth_ready = by_key["GMAIL_CLIENT_ID"]["configured"] and by_key["GMAIL_CLIENT_SECRET"]["configured"]
-    gmail_smtp_ready = by_key["GMAIL_ADDRESS"]["configured"] and by_key["GMAIL_APP_PASSWORD"]["configured"]
+    gmail_user_ready = by_key["GMAIL_ADDRESS"]["configured"] or by_key["EMAIL_USER"]["configured"]
+    gmail_pass_ready = by_key["GMAIL_APP_PASSWORD"]["configured"] or by_key["EMAIL_PASS"]["configured"]
+    gmail_smtp_ready = gmail_user_ready and gmail_pass_ready
     gmail_via_n8n_ready = n8n["reachable"] and n8n.get("api_key_configured") and by_key["GMAIL_ADDRESS"]["configured"]
     bedrock_enabled_value = await get_credential(db, "AWS_BEDROCK_ENABLED")
     bedrock_enabled = str(bedrock_enabled_value or settings.AWS_BEDROCK_ENABLED).lower() in {"1", "true", "yes", "on"}
@@ -171,16 +175,27 @@ async def capability_status(db) -> dict:
         {
             "id": "local_market_hunter",
             "name": "Local Market Hunter",
-            "state": "ready" if google_places_ok else "blocked",
-            "summary": "Finds clinics, hotels, restaurants, startups, and local buyers through Google Places.",
-            "missing": [] if google_places_ok else [google_places_message],
+            "state": "ready",
+            "summary": (
+                "Finds local buyers through Google Places when available; public directory fallback is active when Google rejects the key."
+                if not google_places_ok
+                else "Finds clinics, hotels, restaurants, startups, and local buyers through Google Places."
+            ),
+            "missing": [],
+            "via": "google_places" if google_places_ok else "open_public_directory",
+            "note": None if google_places_ok else google_places_message,
         },
         {
             "id": "apollo_enrichment",
             "name": "Apollo Enrichment",
-            "state": "ready" if apollo_ok else "blocked",
-            "summary": "Enriches contacts and buyer roles with Apollo.",
-            "missing": [] if apollo_ok else [apollo_message],
+            "state": "ready" if apollo_ok else "optional",
+            "summary": (
+                "Enriches contacts and buyer roles with Apollo."
+                if apollo_ok
+                else "Apollo search is not available on the current account, so JARVIS uses public discovery fallback for lead generation."
+            ),
+            "missing": [] if apollo_ok else ["Apollo paid/API search access only if you want Apollo enrichment"],
+            "note": None if apollo_ok else apollo_message,
         },
         {
             "id": "n8n_tool_army",

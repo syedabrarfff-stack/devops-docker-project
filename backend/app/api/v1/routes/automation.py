@@ -242,6 +242,7 @@ async def _run_internal_revenue_engine(db: AsyncSession, payload: dict) -> dict:
             "ok": True,
             "message": (
                 f"Revenue Engine completed: {result.get('synced_contacts', 0)} synced, "
+                f"{result.get('fallback_leads', 0)} fallback leads, "
                 f"{result.get('drafts_created', 0)} drafts, {result.get('proposals_created', 0)} proposals, "
                 f"{result.get('deals_created', 0)} deals."
                 + (f" Blockers: {'; '.join(blockers)}" if blockers else "")
