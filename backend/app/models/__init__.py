@@ -4,6 +4,7 @@ from importlib import import_module
 
 from app.models.base import JarvisBase
 from app.models.outreach import ReplyClassification, ReplyLog
+from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
 
 
 MODEL_MODULES = (
@@ -35,4 +36,13 @@ def register_models() -> None:
         import_module(f"app.models.{module_name}")
 
 
-__all__ = ["JarvisBase", "ReplyClassification", "ReplyLog", "register_models"]
+__all__ = [
+    "JarvisBase",
+    "ReplyClassification",
+    "ReplyLog",
+    "Client",
+    "Invoice",
+    "InvoiceStatus",
+    "RevenueSnapshot",
+    "register_models",
+]

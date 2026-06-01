@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,7 +54,9 @@ class Invoice(JarvisBase):
         index=True,
     )
     invoice_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     amount_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    paid_amount_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     status: Mapped[InvoiceStatus] = mapped_column(
         Enum(InvoiceStatus, name="invoice_status"),
         nullable=False,
@@ -64,6 +66,9 @@ class Invoice(JarvisBase):
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reminder_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_reminder_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    overdue_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Compatibility fields used by the existing document generation service.
     client_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -78,3 +83,19 @@ class Invoice(JarvisBase):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     payment_link: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RevenueSnapshot(JarvisBase):
+    __tablename__ = "revenue_snapshots"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "snapshot_date", name="uq_revenue_snapshots_tenant_date"),
+    )
+
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    mrr_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    invoiced_revenue_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    paid_revenue_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    outstanding_revenue_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    active_clients: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    paid_invoices: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    overdue_invoices: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
