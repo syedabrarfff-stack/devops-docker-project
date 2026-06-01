@@ -40,9 +40,10 @@ const useJarvisStore = create((set, get) => ({
   // Connect WebSocket
   connectWS: () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.hostname
-    const port = import.meta.env.DEV ? '8000' : window.location.port
-    const url = `${protocol}//${host}:${port}/ws`
+    const host = import.meta.env.DEV
+      ? `${window.location.hostname}:8000`
+      : window.location.host
+    const url = `${protocol}//${host}/api/v1/ws/captain`
 
     const ws = new WebSocket(url)
 
@@ -53,11 +54,15 @@ const useJarvisStore = create((set, get) => ({
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
+        if (msg.type === 'captain_connected' && typeof msg.data?.pending_approvals === 'number') {
+          get().setPendingApprovals(msg.data.pending_approvals)
+        }
         if (msg.type === 'approval_created') {
           get().setPendingApprovals(get().pendingApprovals + 1)
           get().addNotification({ type: 'approval', message: `New approval: ${msg.data.title}`, level: 'warning' })
         }
         if (msg.type === 'approval_decided') {
+          get().setPendingApprovals(Math.max(0, get().pendingApprovals - 1))
           get().addNotification({ type: 'info', message: `Approval ${msg.data.status}: ${msg.data.title}`, level: 'info' })
         }
       } catch {}

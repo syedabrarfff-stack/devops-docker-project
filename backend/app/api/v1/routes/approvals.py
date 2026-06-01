@@ -1,82 +1,167 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from __future__ import annotations
+
+from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Body, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import select
-from datetime import datetime
-from app.core.database import get_db
-from app.models.approval import ApprovalRequest, AuditLog
-from app.schemas.approval import ApprovalCreate, ApprovalDecision, ApprovalOut
-from app.services.notifications.slack import notify_slack
-from app.services.notifications.telegram import notify_telegram
+
+from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.models.approval import ApprovalRequest, ApprovalStatus
+from app.services.governance.captain_queue import captain_queue
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 
 
-@router.get("", response_model=list[ApprovalOut])
-async def list_approvals(status: str = "pending", db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(ApprovalRequest)
-        .where(ApprovalRequest.status == status)
-        .order_by(ApprovalRequest.created_at.desc())
-        .limit(50)
+class ApprovalCreate(BaseModel):
+    title: str
+    action_type: str
+    summary: str
+    risk_level: str = "medium"
+    estimated_cost: Optional[str] = None
+    benefits: Optional[str] = None
+    risks: Optional[str] = None
+    rollback_plan: Optional[str] = None
+    payload: dict = {}
+    tenant_id: Optional[UUID] = None
+
+
+class ApprovalDecision(BaseModel):
+    status: str
+    captain_note: Optional[str] = None
+    tenant_id: Optional[UUID] = None
+
+
+@router.get("")
+async def list_approvals(request: Request, status: str = "pending", tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    status_enum = _status_enum(status)
+
+    if status_enum == ApprovalStatus.PENDING:
+        rows = await captain_queue.get_pending(resolved_tenant_id)
+        return [_serialize(row) for row in rows]
+
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await set_tenant_context(session, str(resolved_tenant_id))
+            rows = (
+                await session.execute(
+                    select(ApprovalRequest)
+                    .where(ApprovalRequest.tenant_id == resolved_tenant_id, ApprovalRequest.status == status_enum)
+                    .order_by(ApprovalRequest.created_at.desc())
+                    .limit(50)
+                )
+            ).scalars().all()
+            return [_serialize(row) for row in rows]
+
+
+@router.post("")
+async def create_approval(request: Request, data: ApprovalCreate):
+    resolved_tenant_id = _resolve_tenant_id(request, data.tenant_id)
+    payload = {
+        **(data.payload or {}),
+        "tenant_id": str(resolved_tenant_id),
+        "estimated_cost": data.estimated_cost,
+        "benefits": data.benefits,
+        "risks": data.risks,
+        "rollback_plan": data.rollback_plan,
+    }
+    approval = await captain_queue.add_item(
+        action_type=data.action_type,
+        title=data.title,
+        summary=data.summary,
+        payload=payload,
+        risk_level=data.risk_level,
+        tenant_id=resolved_tenant_id,
     )
-    return result.scalars().all()
 
+    if data.estimated_cost or data.benefits or data.risks or data.rollback_plan:
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                await set_tenant_context(session, str(resolved_tenant_id))
+                live = await session.scalar(
+                    select(ApprovalRequest).where(
+                        ApprovalRequest.tenant_id == resolved_tenant_id,
+                        ApprovalRequest.id == approval.id,
+                    )
+                )
+                if live:
+                    live.estimated_cost = data.estimated_cost
+                    live.benefits = data.benefits
+                    live.risks = data.risks
+                    live.rollback_plan = data.rollback_plan
+                    approval = live
 
-@router.post("", response_model=ApprovalOut)
-async def create_approval(data: ApprovalCreate, db: AsyncSession = Depends(get_db)):
-    approval = ApprovalRequest(**data.model_dump())
-    db.add(approval)
-    await db.flush()
-    await db.refresh(approval)
-
-    # Notify Captain immediately
-    msg = (
-        f"🟡 *JARVIS APPROVAL REQUIRED*\n\n"
-        f"*Action:* {data.title}\n"
-        f"*Risk:* {data.risk_level.upper()}\n"
-        f"*Summary:* {data.summary[:200]}\n\n"
-        f"Open JARVIS dashboard to approve or reject."
-    )
-    await notify_slack(msg)
-    await notify_telegram(msg)
-
-    return approval
+    return _serialize(approval)
 
 
 @router.post("/{approval_id}/decide")
 async def decide_approval(
-    approval_id: int,
-    decision: ApprovalDecision,
-    db: AsyncSession = Depends(get_db),
+    approval_id: str,
+    request: Request,
+    decision: ApprovalDecision = Body(...),
 ):
-    result = await db.execute(
-        select(ApprovalRequest).where(ApprovalRequest.id == approval_id)
-    )
-    approval = result.scalar_one_or_none()
-    if not approval:
-        raise HTTPException(status_code=404, detail="Approval not found")
+    resolved_tenant_id = _resolve_tenant_id(request, decision.tenant_id)
+    status = decision.status.lower().strip()
+    try:
+        if status == "approved":
+            return await captain_queue.approve(approval_id, decision.captain_note, resolved_tenant_id)
+        if status == "rejected":
+            return await captain_queue.reject(approval_id, decision.captain_note, resolved_tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    approval.status = decision.status
-    approval.captain_note = decision.captain_note
-    approval.approved_at = datetime.utcnow()
-
-    db.add(AuditLog(
-        action=f"Approval {decision.status}: {approval.title}",
-        details={"approval_id": approval_id, "decision": decision.status, "note": decision.captain_note},
-    ))
-    await db.flush()
-
-    status_emoji = "✅" if decision.status == "approved" else "❌"
-    msg = f"{status_emoji} *Captain {decision.status.upper()}*: {approval.title}"
-    await notify_slack(msg)
-    await notify_telegram(msg)
-
-    return {"status": decision.status, "approval_id": approval_id}
+    raise HTTPException(status_code=400, detail="status must be approved or rejected")
 
 
 @router.get("/count")
-async def approval_count(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(ApprovalRequest).where(ApprovalRequest.status == "pending")
+async def approval_count(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return {"pending": await captain_queue.pending_count(resolved_tenant_id)}
+
+
+def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    from app.core.config import settings
+
+    tenant_id = (
+        explicit_tenant_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
     )
-    return {"pending": len(result.scalars().all())}
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
+
+
+def _status_enum(status: str) -> ApprovalStatus:
+    normalized = status.upper().strip()
+    try:
+        return ApprovalStatus(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="status must be pending, approved, or rejected") from exc
+
+
+def _serialize(approval: ApprovalRequest) -> dict:
+    status = approval.status.value if hasattr(approval.status, "value") else str(approval.status)
+    return {
+        "id": str(approval.id),
+        "title": approval.title,
+        "action_type": approval.action_type,
+        "summary": approval.summary,
+        "risk_level": (approval.risk_level or "medium").lower(),
+        "priority": approval.priority,
+        "estimated_cost": approval.estimated_cost,
+        "benefits": approval.benefits,
+        "risks": approval.risks,
+        "rollback_plan": approval.rollback_plan,
+        "payload": approval.payload or {},
+        "status": status.lower(),
+        "captain_note": approval.captain_note,
+        "created_at": approval.created_at.isoformat() if approval.created_at else None,
+        "decided_at": approval.decided_at.isoformat() if approval.decided_at else None,
+    }

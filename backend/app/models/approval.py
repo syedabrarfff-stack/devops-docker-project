@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, JSON, String, Text
+from sqlalchemy import DateTime, Enum, Integer, JSON, String, Text
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,6 +23,7 @@ class ApprovalRequest(JarvisBase):
     action_type: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=10, index=True)
     risk_level: Mapped[str | None] = mapped_column(String(30), nullable=True, default="MEDIUM", index=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[ApprovalStatus] = mapped_column(

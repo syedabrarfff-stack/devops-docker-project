@@ -10,6 +10,7 @@ from typing import Set, Optional
 router = APIRouter(tags=["websocket"])
 
 _clients: Set[WebSocket] = set()
+_captain_clients: Set[WebSocket] = set()
 
 
 async def broadcast(event_type: str, data: dict, persist: bool = False) -> None:
@@ -25,6 +26,17 @@ async def broadcast(event_type: str, data: dict, persist: bool = False) -> None:
 
     if persist:
         asyncio.create_task(_persist_notification(event_type, data))
+
+
+async def captain_broadcast(event_type: str, data: dict) -> None:
+    payload = json.dumps({"type": event_type, "data": data})
+    dead = set()
+    for ws in _captain_clients:
+        try:
+            await ws.send_text(payload)
+        except Exception:
+            dead.add(ws)
+    _captain_clients.difference_update(dead)
 
 
 async def broadcast_notification(title: str, body: str, level: str = "info",
@@ -60,6 +72,10 @@ def get_client_count() -> int:
     return len(_clients)
 
 
+def get_captain_client_count() -> int:
+    return len(_captain_clients)
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
@@ -88,3 +104,47 @@ async def websocket_endpoint(ws: WebSocket):
         pass
     finally:
         _clients.discard(ws)
+
+
+@router.websocket("/ws/captain")
+async def captain_websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    _captain_clients.add(ws)
+    try:
+        await ws.send_text(json.dumps({
+            "type": "captain_connected",
+            "data": await _captain_snapshot(),
+        }))
+        while True:
+            data = await asyncio.wait_for(ws.receive_text(), timeout=30)
+            msg = json.loads(data)
+            if msg.get("type") == "ping":
+                await ws.send_text(json.dumps({"type": "pong", "data": await _captain_snapshot()}))
+            elif msg.get("type") == "subscribe":
+                await ws.send_text(json.dumps({
+                    "type": "captain_subscribed",
+                    "data": {"events": msg.get("events", ["approval_created", "approval_decided"])},
+                }))
+    except (WebSocketDisconnect, asyncio.TimeoutError):
+        pass
+    finally:
+        _captain_clients.discard(ws)
+
+
+async def _captain_snapshot() -> dict:
+    from app.core.config import settings
+
+    pending = 0
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            from app.services.governance.captain_queue import captain_queue
+
+            pending = await captain_queue.pending_count(settings.JARVIS_DEFAULT_TENANT_ID)
+        except Exception:
+            pending = 0
+    return {
+        "pending_approvals": pending,
+        "system_health": "online",
+        "captain_sessions": len(_captain_clients),
+        "general_sessions": len(_clients),
+    }

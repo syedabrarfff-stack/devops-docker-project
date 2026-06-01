@@ -184,7 +184,7 @@ async def request_captain_approval(
     Returns the approval record dict.
     """
     from app.core.config import settings
-    from app.models.approval import ApprovalRequest, AuditLog
+    from app.models.approval import ApprovalRequest, ApprovalStatus, AuditLog
     from app.services.notifications.slack import notify_slack
     from app.services.notifications.telegram import notify_telegram
 
@@ -202,12 +202,13 @@ async def request_captain_approval(
         title=title,
         action_type=action,
         summary=summary,
+        priority=_approval_priority(action, risk_level),
         risk_level=risk_level.upper(),
         estimated_cost=estimated_cost,
         benefits=benefits,
         risks=risks,
         payload=payload,
-        status="PENDING",
+        status=ApprovalStatus.PENDING,
     )
     db.add(approval)
     await db.flush()
@@ -236,6 +237,27 @@ async def request_captain_approval(
         await notify_telegram(msg)
     except Exception:
         pass
+    try:
+        from app.api.v1.routes.ws import broadcast, captain_broadcast
+
+        data = {
+            "id": str(approval.id),
+            "title": approval.title,
+            "action_type": approval.action_type,
+            "summary": approval.summary,
+            "risk_level": (approval.risk_level or "medium").lower(),
+            "priority": approval.priority,
+            "estimated_cost": approval.estimated_cost,
+            "benefits": approval.benefits,
+            "risks": approval.risks,
+            "payload": approval.payload or {},
+            "status": "pending",
+            "created_at": approval.created_at.isoformat() if approval.created_at else None,
+        }
+        await broadcast("approval_created", data, persist=True)
+        await captain_broadcast("approval_created", data)
+    except Exception:
+        pass
 
     return {
         "status": "pending_approval",
@@ -244,6 +266,20 @@ async def request_captain_approval(
         "title": title,
         "message": f"Captain approval requested — JARVIS is waiting. Approval #{approval.id}",
     }
+
+
+def _approval_priority(action: str, risk_level: str) -> int:
+    action_key = (action or "").lower()
+    risk = (risk_level or "").lower()
+    if risk == "critical" or action_key in {"pricing_decision", "contract_signing", "production_deployment"}:
+        return 100
+    if risk == "high":
+        return 80
+    if "proposal" in action_key or action_key in {"outreach_emails", "client_communication"}:
+        return 50
+    if risk == "medium":
+        return 40
+    return 10
 
 
 async def alert_captain(
