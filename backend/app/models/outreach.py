@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,15 @@ class FollowUpStatus(str, enum.Enum):
     EXECUTED = "EXECUTED"
     SKIPPED = "SKIPPED"
     FAILED = "FAILED"
+
+
+class ReplyClassification(str, enum.Enum):
+    INTERESTED = "INTERESTED"
+    QUESTION = "QUESTION"
+    NOT_NOW = "NOT_NOW"
+    NO = "NO"
+    OUT_OF_OFFICE = "OUT_OF_OFFICE"
+    UNKNOWN = "UNKNOWN"
 
 
 class OutreachLog(JarvisBase):
@@ -73,6 +82,36 @@ class EmailTracking(JarvisBase):
     clicked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     replied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     bounce_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ReplyLog(JarvisBase):
+    __tablename__ = "reply_log"
+
+    lead_id: Mapped[uuid.UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    outreach_id: Mapped[uuid.UUID | None] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey("outreach_log.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    from_email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    body_text: Mapped[str] = mapped_column(Text, nullable=False)
+    classification: Mapped[ReplyClassification] = mapped_column(
+        Enum(ReplyClassification, name="reply_classification"),
+        nullable=False,
+        default=ReplyClassification.UNKNOWN,
+        index=True,
+    )
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    action_taken: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    response_draft: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
 
 class FollowUpQueue(JarvisBase):

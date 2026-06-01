@@ -14,6 +14,7 @@ class LeadStatus(str, enum.Enum):
     CONTACTED = "CONTACTED"
     REPLIED = "REPLIED"
     DEMO = "DEMO"
+    NURTURE = "NURTURE"
     PROPOSAL = "PROPOSAL"
     WON = "WON"
     LOST = "LOST"

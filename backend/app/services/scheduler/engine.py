@@ -158,8 +158,8 @@ async def _register_default_jobs() -> None:
     # Daily self-learning cycle (midnight UTC — JARVIS evolves every day)
     add_cron_job("daily_self_learning", _job_self_learning, hour=0, minute=5)
 
-    # Gmail inbox fetch every 15 minutes
-    add_interval_job("gmail_inbox_fetch", _job_gmail_inbox, minutes=15)
+    # Reply handling every 2 hours: classify prospect replies and advance lead state
+    add_interval_job("reply_handler_scan", _job_reply_handler_scan, hours=2)
 
     # ── Overnight Revenue Engine (IST times → UTC offsets) ───────────────────
     # 11:30 PM IST = 18:00 UTC — Lead discovery (targeting US/EU markets)
@@ -344,6 +344,32 @@ async def _job_gmail_inbox() -> None:
         logger.info(f"Gmail inbox: {count} new emails processed")
     except Exception as e:
         logger.warning(f"Gmail inbox fetch failed: {e}")
+
+
+async def _job_reply_handler_scan() -> None:
+    logger.info("Scheduler: scanning Gmail for prospect replies")
+    if not settings.JARVIS_DEFAULT_TENANT_ID:
+        logger.info("Reply scan skipped: JARVIS_DEFAULT_TENANT_ID not configured")
+        return
+    try:
+        from app.services.notifications.gmail_sender import gmail_sender
+        from app.services.outreach.reply_handler import reply_handler
+
+        replies = await gmail_sender.check_replies(settings.JARVIS_DEFAULT_TENANT_ID)
+        processed = 0
+        for reply in replies:
+            try:
+                await reply_handler.process_reply(
+                    reply["lead_id"],
+                    reply.get("body_preview", ""),
+                    settings.JARVIS_DEFAULT_TENANT_ID,
+                )
+                processed += 1
+            except Exception as exc:
+                logger.warning("Reply handler failed for lead %s: %s", reply.get("lead_id"), exc)
+        logger.info(f"Reply handler: {processed}/{len(replies)} replies processed")
+    except Exception as e:
+        logger.warning(f"Reply handler scan failed: {e}")
 
 
 # ── Overnight Revenue Engine jobs ─────────────────────────────────────────────

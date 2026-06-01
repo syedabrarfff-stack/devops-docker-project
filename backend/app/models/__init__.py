@@ -3,6 +3,7 @@ from __future__ import annotations
 from importlib import import_module
 
 from app.models.base import JarvisBase
+from app.models.outreach import ReplyClassification, ReplyLog
 
 
 MODEL_MODULES = (
@@ -32,3 +33,6 @@ def register_models() -> None:
 
     for module_name in MODEL_MODULES:
         import_module(f"app.models.{module_name}")
+
+
+__all__ = ["JarvisBase", "ReplyClassification", "ReplyLog", "register_models"]
