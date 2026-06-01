@@ -59,6 +59,28 @@ def stop_scheduler() -> None:
         logger.info("Scheduler stopped")
 
 
+async def _target_tenant_ids() -> list[str]:
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        return [settings.JARVIS_DEFAULT_TENANT_ID]
+
+    try:
+        from sqlalchemy import select
+
+        from app.core.database import AsyncSessionLocal
+        from app.models.tenant import Tenant
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Tenant.id)
+                .where(Tenant.is_active.is_(True))
+                .order_by(Tenant.created_at)
+            )
+            return [str(row[0]) for row in result.all()]
+    except Exception as exc:
+        logger.warning("Tenant discovery for scheduler failed: %s", exc)
+        return []
+
+
 # ── Job registration helpers ──────────────────────────────────────────────────
 
 def add_cron_job(job_id: str, func, hour: int = 8, minute: int = 0,
@@ -151,7 +173,10 @@ async def _register_default_jobs() -> None:
 
     # Phase 5 — Intelligence jobs
     # Weekly tech radar scan (Monday 06:00 UTC)
-    add_cron_job("weekly_tech_radar_scan", _job_tech_radar_scan, hour=6, minute=0)
+    add_cron_job("tech_radar_scan", _job_tech_radar_scan, hour=6, minute=0, day_of_week="mon")
+    add_cron_job("market_intelligence_report", _job_market_intelligence_report, hour=7, minute=0, day_of_week="sun")
+    add_cron_job("competitor_monitoring", _job_competitor_monitoring, hour=9, minute=0, day_of_week="mon")
+    add_cron_job("morning_briefing", _job_intelligence_morning_briefing, hour=7, minute=0)
 
     # Daily self-optimization review (23:00 UTC)
     add_cron_job("daily_optimization_review", _job_optimization_review, hour=23, minute=0)
@@ -296,14 +321,64 @@ async def _job_sync_contacts() -> None:
 async def _job_tech_radar_scan() -> None:
     logger.info("Scheduler: running weekly tech radar scan")
     try:
-        from app.core.database import AsyncSessionLocal
-        from app.services.intelligence.tech_radar import scan_technologies
-        async with AsyncSessionLocal() as db:
-            async with db.begin():
-                count = await scan_technologies(db)
+        from app.services.intelligence.tech_radar import TechRadarEngine
+
+        count = 0
+        engine = TechRadarEngine()
+        for tenant_id in await _target_tenant_ids():
+            count += len(await engine.scan_week(tenant_id))
         logger.info(f"Tech radar: {count} entries updated")
     except Exception as e:
         logger.warning(f"Tech radar scan failed: {e}")
+
+
+async def _job_market_intelligence_report() -> None:
+    logger.info("Scheduler: generating market intelligence report")
+    if datetime.now(timezone.utc).isocalendar().week % 2:
+        logger.info("Market intelligence report skipped: alternate Sunday guard")
+        return
+    try:
+        from app.services.intelligence.market_intel import DEFAULT_MARKET_TOPICS, MarketIntelligenceEngine
+
+        generated = 0
+        engine = MarketIntelligenceEngine()
+        for tenant_id in await _target_tenant_ids():
+            report = await engine.generate_report(DEFAULT_MARKET_TOPICS, tenant_id)
+            if report:
+                generated += 1
+        logger.info(f"Market intelligence: {generated} tenant reports generated")
+    except Exception as e:
+        logger.warning(f"Market intelligence report failed: {e}")
+
+
+async def _job_competitor_monitoring() -> None:
+    logger.info("Scheduler: running competitor monitoring")
+    try:
+        from app.services.intelligence.market_intel import MarketIntelligenceEngine
+
+        changes = 0
+        engine = MarketIntelligenceEngine()
+        for tenant_id in await _target_tenant_ids():
+            changes += len(await engine.monitor_competitors(tenant_id))
+        logger.info(f"Competitor monitoring: {changes} changes detected")
+    except Exception as e:
+        logger.warning(f"Competitor monitoring failed: {e}")
+
+
+async def _job_intelligence_morning_briefing() -> None:
+    logger.info("Scheduler: generating intelligence morning briefing")
+    try:
+        from app.services.intelligence.morning_briefing import MorningBriefingEngine
+
+        generated = 0
+        engine = MorningBriefingEngine()
+        for tenant_id in await _target_tenant_ids():
+            content = await engine.generate_and_send(tenant_id)
+            if content:
+                generated += 1
+        logger.info(f"Morning briefing: {generated} tenant briefings generated")
+    except Exception as e:
+        logger.warning(f"Morning briefing failed: {e}")
 
 
 async def _job_optimization_review() -> None:

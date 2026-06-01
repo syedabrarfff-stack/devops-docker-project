@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
+from sqlalchemy import Boolean, Column, Float, Integer, String, Text, JSON, DateTime
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class TechRadarEntry(Base):
@@ -46,3 +46,53 @@ class ResearchReport(Base):
     action_items = Column(JSON)                      # list[str]
     confidence_level = Column(String(20))            # high | medium | low
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MarketIntelligence(Base):
+    __tablename__ = "market_intelligence"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(500), nullable=False)
+    topics = Column(JSON, default=list)
+    report_content = Column(Text, nullable=False)
+    summary = Column(Text)
+    opportunities = Column(JSON, default=list)
+    risks = Column(JSON, default=list)
+    confidence_score = Column(Float, default=0.0)
+    evidence_refs = Column(JSON, default=list)
+    generated_by = Column(String(100), default="gemini-pro")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CompetitorProfile(Base):
+    __tablename__ = "competitor_profiles"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False, index=True)
+    website_url = Column(String(500), default="")
+    linkedin_url = Column(String(500), default="")
+    pricing_url = Column(String(500), default="")
+    last_website_hash = Column(String(64), default="")
+    last_linkedin_hash = Column(String(64), default="")
+    last_pricing_hash = Column(String(64), default="")
+    last_change_summary = Column(Text, default="")
+    last_checked_at = Column(DateTime(timezone=True))
+    is_active = Column(Boolean, default=True, index=True)
+    metadata_json = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class BriefingHistory(Base):
+    __tablename__ = "briefing_history"
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(300), nullable=False)
+    content = Column(Text, nullable=False)
+    channels = Column(JSON, default=list)
+    status = Column(String(30), nullable=False, default="generated")
+    metrics = Column(JSON, default=dict)
+    sent_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
