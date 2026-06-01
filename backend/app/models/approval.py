@@ -1,33 +1,61 @@
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, Boolean
-from sqlalchemy.sql import func
-from app.core.database import Base
+from __future__ import annotations
+
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, JSON, String, Text
+from sqlalchemy import UUID as SUUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import JarvisBase
 
 
-class ApprovalRequest(Base):
+class ApprovalStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class ApprovalRequest(JarvisBase):
     __tablename__ = "approval_requests"
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(200))
-    action_type = Column(String(100))          # "email_send" | "deploy" | "outreach" etc.
-    summary = Column(Text)
-    risk_level = Column(String(20), default="medium")   # low | medium | high | critical
-    estimated_cost = Column(String(50), nullable=True)
-    benefits = Column(Text, nullable=True)
-    risks = Column(Text, nullable=True)
-    rollback_plan = Column(Text, nullable=True)
-    payload = Column(JSON, default={})         # full action data
-    status = Column(String(20), default="pending")  # pending | approved | rejected
-    captain_note = Column(Text, nullable=True)
-    approved_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    action_type: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(String(30), nullable=True, default="MEDIUM", index=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[ApprovalStatus] = mapped_column(
+        Enum(ApprovalStatus, name="approval_status"),
+        nullable=False,
+        default=ApprovalStatus.PENDING,
+        index=True,
+    )
+    raised_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Compatibility fields used by the existing approvals UI and authority service.
+    estimated_cost: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    benefits: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rollback_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    captain_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class AuditLog(Base):
+class AuditLog(JarvisBase):
     __tablename__ = "audit_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    action = Column(String(200))
-    actor = Column(String(100), default="JARVIS")
-    details = Column(JSON, default={})
-    approval_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    user_id: Mapped[uuid.UUID | None] = mapped_column(SUUID(as_uuid=True), nullable=True, index=True)
+    action: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    entity_type: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(SUUID(as_uuid=True), nullable=True, index=True)
+    before_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    after_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    ip_addr: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Compatibility fields used by existing services.
+    actor: Mapped[str | None] = mapped_column(String(120), nullable=True, default="JARVIS")
+    details: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    approval_id: Mapped[uuid.UUID | None] = mapped_column(SUUID(as_uuid=True), nullable=True, index=True)

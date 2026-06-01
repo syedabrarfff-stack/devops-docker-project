@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import settings
 from app.core.database import init_db
+from app.models import register_models
 from app.api.v1 import api_router
 from app.middleware import (
     RequestContextMiddleware,
@@ -17,6 +18,7 @@ from app.middleware import (
 import app.models  # noqa — registers all models with Base.metadata before init_db()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
+register_models()
 logger = logging.getLogger(__name__)
 
 

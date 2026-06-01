@@ -1,19 +1,34 @@
-# Import all models here so JarvisBase.metadata.create_all() picks them up on init_db()
-from app.models.base import JarvisBase  # noqa
-from app.models.tenant import *         # noqa
-from app.models.conversation import *  # noqa
-from app.models.approval import *      # noqa
-from app.models.crm import *           # noqa
-from app.models.lead import *          # noqa
-from app.models.outreach import *      # noqa
-from app.models.memory import *        # noqa
-from app.models.tasks import *         # noqa
-from app.models.scheduling import *    # noqa
-from app.models.notifications import * # noqa
-from app.models.intelligence import *  # noqa
-from app.models.governance import *    # noqa
-from app.models.knowledge import *     # noqa
-from app.models.service_catalog import * # noqa
-from app.models.ai_audit import *      # noqa
-from app.models.team_member import *   # noqa
-from app.models.gmail import *         # noqa
+from __future__ import annotations
+
+from importlib import import_module
+
+from app.models.base import JarvisBase
+
+
+MODEL_MODULES = (
+    "tenant",
+    "conversation",
+    "approval",
+    "crm",
+    "lead",
+    "outreach",
+    "revenue",
+    "memory",
+    "tasks",
+    "scheduling",
+    "notifications",
+    "intelligence",
+    "governance",
+    "knowledge",
+    "service_catalog",
+    "ai_audit",
+    "team_member",
+    "gmail",
+)
+
+
+def register_models() -> None:
+    """Import every model module so JarvisBase.metadata is complete."""
+
+    for module_name in MODEL_MODULES:
+        import_module(f"app.models.{module_name}")

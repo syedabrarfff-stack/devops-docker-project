@@ -1,30 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean, Numeric
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.core.database import Base
-
-
-class Invoice(Base):
-    __tablename__ = "invoices"
-
-    id = Column(Integer, primary_key=True)
-    invoice_number = Column(String(50), unique=True, nullable=False)
-    client_name = Column(String(200), nullable=False)
-    client_email = Column(String(200))
-    client_company = Column(String(200))
-    items = Column(JSON)                        # [{description, qty, unit_price, amount}]
-    subtotal = Column(Numeric(12, 2), default=0)
-    tax_rate = Column(Numeric(5, 2), default=0)
-    tax_amount = Column(Numeric(12, 2), default=0)
-    total = Column(Numeric(12, 2), default=0)
-    currency = Column(String(10), default="USD")
-    status = Column(String(20), default="draft")  # draft|sent|paid|overdue|cancelled
-    notes = Column(Text)
-    payment_link = Column(Text)
-    due_date = Column(DateTime(timezone=True))
-    sent_at = Column(DateTime(timezone=True))
-    paid_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+from app.models.revenue import Invoice
 
 
 class ContractTemplate(Base):

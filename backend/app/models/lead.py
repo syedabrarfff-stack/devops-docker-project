@@ -1,48 +1,75 @@
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, Boolean, Float
-from sqlalchemy.sql import func
-from app.core.database import Base
+from __future__ import annotations
+
+import enum
+from datetime import datetime
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, Float, Integer, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import JarvisBase
 
 
-class Lead(Base):
+class LeadStatus(str, enum.Enum):
+    NEW = "NEW"
+    CONTACTED = "CONTACTED"
+    REPLIED = "REPLIED"
+    DEMO = "DEMO"
+    PROPOSAL = "PROPOSAL"
+    WON = "WON"
+    LOST = "LOST"
+
+
+class Lead(JarvisBase):
     __tablename__ = "leads"
+    __table_args__ = (
+        CheckConstraint("score >= 0 AND score <= 100", name="ck_leads_score_0_100"),
+    )
 
-    id               = Column(Integer, primary_key=True, index=True)
-    company          = Column(String(200), index=True)      # renamed from company_name
-    company_name     = Column(String(200), nullable=True)   # legacy alias
-    contact_name     = Column(String(200), nullable=True)
-    email            = Column(String(200), nullable=True, index=True)
-    contact_email    = Column(String(200), nullable=True)   # legacy alias
-    website          = Column(String(500), nullable=True)
-    company_website  = Column(String(500), nullable=True)   # legacy alias
-    industry         = Column(String(100), nullable=True, index=True)
-    country          = Column(String(100), nullable=True, index=True)
-    pain_points      = Column(JSON, default=list)
-    opportunity_type = Column(String(100), nullable=True)
-    status           = Column(String(50), default="new", index=True)
-    # new / qualified / contacted / replied / interested / proposal / closed / disqualified
-    score            = Column(Integer, default=0, index=True)   # 0-100 Gemini score
-    tier             = Column(String(5), default="C")            # A/B/C/D
-    ai_analysis      = Column(Text, nullable=True)               # Gemini reasoning
-    outreach_sent    = Column(Boolean, default=False)
-    last_contacted   = Column(DateTime(timezone=True), nullable=True)
-    source           = Column(String(100), default="manual")     # manual/apollo/linkedin
-    notes            = Column(Text, nullable=True)
-    metadata_        = Column("metadata", JSON, default=dict)
-    created_at       = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at       = Column(DateTime(timezone=True), onupdate=func.now())
+    company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    industry: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, index=True)
+    status: Mapped[LeadStatus] = mapped_column(
+        Enum(LeadStatus, name="lead_status"),
+        nullable=False,
+        default=LeadStatus.NEW,
+        index=True,
+    )
+    source: Mapped[str | None] = mapped_column(String(100), nullable=True, default="manual")
+    pain_points: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    enrichment_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    apollo_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    assigned_persona: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    outreach_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_contact: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Compatibility fields used by the existing v9 services while vNEXT routes are migrated.
+    company: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    company_website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    opportunity_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    tier: Mapped[str | None] = mapped_column(String(5), nullable=True, default="C")
+    ai_analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outreach_sent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_contacted: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict)
 
 
-class WorkflowRun(Base):
+class WorkflowRun(JarvisBase):
     __tablename__ = "workflow_runs"
 
-    id            = Column(Integer, primary_key=True, index=True)
-    workflow_id   = Column(String(100), index=True)
-    workflow_name = Column(String(200))
-    status        = Column(String(30), default="running")
-    steps_total   = Column(Integer, default=0)
-    steps_done    = Column(Integer, default=0)
-    result        = Column(Text, nullable=True)
-    error         = Column(Text, nullable=True)
-    metadata_     = Column("metadata", JSON, default=dict)
-    started_at    = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at  = Column(DateTime(timezone=True), nullable=True)
+    workflow_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    workflow_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="running")
+    steps_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    steps_done: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
