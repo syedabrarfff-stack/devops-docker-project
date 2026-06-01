@@ -15,6 +15,7 @@ from app.api.v1.routes import proposals
 from app.api.v1.routes import invoices
 from app.api.v1.routes import revenue
 from app.api.v1.routes import council
+from app.api.v1.routes import tenancy
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -49,3 +50,4 @@ api_router.include_router(proposals.router)
 api_router.include_router(invoices.router)
 api_router.include_router(revenue.router)
 api_router.include_router(council.router)
+api_router.include_router(tenancy.router)

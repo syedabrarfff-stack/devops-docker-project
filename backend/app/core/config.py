@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     TARGET_MARKETS: str = "USA,UK,UAE,Bahrain,Europe,Australia"
     DEBUG: bool = False
     SECRET_KEY: str = "change-this-in-production"
+    CAPTAIN_ADMIN_TOKEN: Optional[str] = None
     APP_BASE_URL: str = "http://localhost:8000"
     JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
 

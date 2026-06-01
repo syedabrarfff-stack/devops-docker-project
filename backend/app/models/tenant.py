@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, Enum, JSON, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import JarvisBase
@@ -35,6 +35,20 @@ class Tenant(JarvisBase):
     api_key_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class TenantApiKey(JarvisBase):
+    __tablename__ = "tenant_api_keys"
+    __table_args__ = (
+        UniqueConstraint("key_hash", name="uq_tenant_api_keys_key_hash"),
+    )
+
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    key_prefix: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, default="default")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class User(JarvisBase):

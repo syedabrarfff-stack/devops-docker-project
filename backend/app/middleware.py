@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from datetime import datetime, timezone
 from inspect import isawaitable
 
 from fastapi import Request, status
@@ -18,7 +19,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.tenant_context import reset_current_tenant_id, set_current_tenant_id
 from app.models.approval import ApprovalRequest, ApprovalStatus
+from app.models.lead import Lead
 from app.models.revenue import Client, ClientStatus
+from app.services.tenancy import PLAN_LIMITS, TenantManager
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,18 @@ JARVIS_REDIS_MEMORY_BYTES = Gauge(
 )
 
 _last_metrics_refresh = 0.0
+_tenant_ai_usage: dict[tuple[str, str], int] = {}
+
+AI_METERED_PATH_PREFIXES = (
+    "/api/v1/chat",
+    "/api/v1/council",
+    "/api/v1/proposals/generate",
+)
+LEAD_METERED_PATH_PREFIXES = (
+    "/api/v1/leads",
+    "/api/v1/discover",
+    "/api/v1/discovery",
+)
 
 
 def _label(value, fallback: str = "unknown") -> str:
@@ -224,13 +239,38 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 class TenantContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        tenant_id = _tenant_id_from_jwt(request.headers.get("authorization", ""))
+        tenant, auth_method = await _resolve_tenant_context(request)
+        tenant_id = str(tenant.id) if tenant else _tenant_id_from_jwt(request.headers.get("authorization", ""))
         token = set_current_tenant_id(tenant_id)
         request.state.tenant_id = tenant_id
+        request.state.tenant_auth_method = auth_method
+        request.state.tenant_plan_tier = tenant.plan_tier.value if tenant else None
+        request.state.tenant_limits = _limits_for_tenant(tenant) if tenant else None
         try:
+            limit_response = await _enforce_tenant_limits(request, tenant)
+            if limit_response:
+                return limit_response
             return await call_next(request)
         finally:
             reset_current_tenant_id(token)
+
+
+async def _resolve_tenant_context(request: Request):
+    manager = TenantManager()
+    api_key = request.headers.get("X-API-Key") or request.headers.get("x-api-key")
+    if api_key:
+        tenant = await manager.get_tenant_from_api_key(api_key.strip())
+        if tenant:
+            return tenant, "api_key"
+
+    tenant_id = _tenant_id_from_jwt(request.headers.get("authorization", ""))
+    if tenant_id:
+        try:
+            tenant = await manager.get_tenant_by_id(tenant_id)
+        except ValueError:
+            tenant = None
+        return tenant, "jwt"
+    return None, None
 
 
 def _tenant_id_from_jwt(authorization: str) -> str | None:
@@ -247,8 +287,66 @@ def _tenant_id_from_jwt(authorization: str) -> str | None:
         logger.warning("Invalid JWT received; tenant context not set")
         return None
 
-    tenant_id = claims.get("tenant_id") or claims.get("tid")
+    tenant_id = claims.get("tenant_id") or claims.get("tid") or claims.get("sub")
     return str(tenant_id) if tenant_id else None
+
+
+def _limits_for_tenant(tenant) -> dict[str, int | None]:
+    if not tenant:
+        return {}
+    tenant_settings = tenant.settings or {}
+    plan_tier = tenant.plan_tier.value
+    default_limits = PLAN_LIMITS["ENTERPRISE"] if plan_tier == "INDUSTRY_OS" else PLAN_LIMITS["STARTER"]
+    return dict(tenant_settings.get("limits") or PLAN_LIMITS.get(plan_tier, default_limits))
+
+
+async def _enforce_tenant_limits(request: Request, tenant) -> JSONResponse | None:
+    if not tenant:
+        return None
+
+    limits = _limits_for_tenant(tenant)
+    path = request.url.path
+    if request.method.upper() == "POST" and path.startswith(LEAD_METERED_PATH_PREFIXES):
+        max_leads = limits.get("max_leads")
+        if max_leads is not None and await _monthly_lead_count(str(tenant.id)) >= int(max_leads):
+            return _limit_response("Monthly lead limit reached", str(tenant.id), limits)
+
+    if request.method.upper() == "POST" and path.startswith(AI_METERED_PATH_PREFIXES):
+        max_ai_calls = limits.get("max_ai_calls")
+        if max_ai_calls is not None:
+            usage_key = (str(tenant.id), datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+            used = _tenant_ai_usage.get(usage_key, 0)
+            if used >= int(max_ai_calls):
+                return _limit_response("Daily AI call limit reached", str(tenant.id), limits)
+            _tenant_ai_usage[usage_key] = used + 1
+
+    return None
+
+
+async def _monthly_lead_count(tenant_id: str) -> int:
+    from app.core.database import AsyncSessionLocal
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    async with AsyncSessionLocal() as db:
+        count = await db.scalar(
+            select(func.count()).select_from(Lead).where(
+                Lead.tenant_id == uuid.UUID(tenant_id),
+                Lead.created_at >= month_start,
+            )
+        )
+    return int(count or 0)
+
+
+def _limit_response(message: str, tenant_id: str, limits: dict) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={
+            "error": message,
+            "tenant_id": tenant_id,
+            "limits": limits,
+        },
+    )
 
 
 def _error_body(status_code: int, message: str, request: Request, detail=None) -> dict:

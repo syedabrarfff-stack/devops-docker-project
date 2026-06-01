@@ -7,6 +7,7 @@ from app.models.council import AICouncilMemberWeight, AICouncilSession
 from app.models.memory import CivilizationMemory, MemoryOperational, MemoryStrategic
 from app.models.outreach import ReplyClassification, ReplyLog
 from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
+from app.models.tenant import PlanTier, Tenant, TenantApiKey, User, UserRole
 
 
 MODEL_MODULES = (
@@ -52,5 +53,10 @@ __all__ = [
     "Invoice",
     "InvoiceStatus",
     "RevenueSnapshot",
+    "PlanTier",
+    "Tenant",
+    "TenantApiKey",
+    "User",
+    "UserRole",
     "register_models",
 ]
