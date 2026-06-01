@@ -136,6 +136,9 @@ async def _register_default_jobs() -> None:
     # Lead scoring sweep every 6 hours
     add_interval_job("lead_scoring_sweep", _job_score_leads, hours=6)
 
+    # vNEXT ICP scoring: score yesterday's NEW leads and promote the top 20 each morning
+    add_cron_job("daily_icp_lead_scoring", _job_daily_icp_lead_scoring, hour=5, minute=0)
+
     # Outreach processing every hour
     add_interval_job("outreach_processor", _job_process_outreach, hours=1)
 
@@ -209,6 +212,22 @@ async def _job_score_leads() -> None:
         logger.info(f"Lead scoring: {count} leads processed")
     except Exception as e:
         logger.warning(f"Lead scoring job failed: {e}")
+
+
+async def _job_daily_icp_lead_scoring() -> None:
+    logger.info("Scheduler: running daily ICP lead scoring")
+    if not settings.JARVIS_DEFAULT_TENANT_ID:
+        logger.info("Daily ICP scoring skipped: JARVIS_DEFAULT_TENANT_ID not configured")
+        return
+    try:
+        from app.services.leads.scoring import lead_scoring_engine
+        promoted = await lead_scoring_engine.score_yesterday_new_leads(
+            settings.JARVIS_DEFAULT_TENANT_ID,
+            promote_limit=20,
+        )
+        logger.info(f"Daily ICP scoring: {promoted} leads promoted")
+    except Exception as e:
+        logger.warning(f"Daily ICP scoring job failed: {e}")
 
 
 async def _job_process_outreach() -> None:

@@ -14,6 +14,7 @@ from app.models.approval import AuditLog
 from app.models.lead import Lead, LeadStatus
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
+from app.services.leads.scoring import lead_scoring_engine
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,10 @@ class LeadDiscoveryEngine:
         }
 
     async def score_lead(self, lead_data: dict) -> float:
+        score, reasoning = await lead_scoring_engine.score_against_icp(lead_data)
+        if reasoning.get("decision") == "promote":
+            return score
+
         prompt = (
             "Score this lead 0-100 for Aliyar Solutions. ICP: SMB companies "
             "($500K-$10M revenue, 5-100 employees), English-speaking, in "
@@ -134,7 +139,7 @@ class LeadDiscoveryEngine:
                         if dedupe_key:
                             seen_keys.add(dedupe_key)
 
-                        score = await self.score_lead(lead_data)
+                        score, reasoning = await lead_scoring_engine.score_against_icp(lead_data)
                         if await self._lead_exists(session, tenant_uuid, lead_data):
                             continue
 
@@ -152,7 +157,10 @@ class LeadDiscoveryEngine:
                             status=LeadStatus.NEW,
                             source=lead_data.get("source") or "lead_discovery",
                             pain_points=lead_data.get("pain_points") or [],
-                            enrichment_data=lead_data.get("enrichment_data") or lead_data,
+                            enrichment_data={
+                                **(lead_data.get("enrichment_data") or lead_data),
+                                "icp_scoring": reasoning,
+                            },
                             apollo_id=lead_data.get("apollo_id"),
                             website=lead_data.get("website"),
                             company_website=lead_data.get("website"),
@@ -172,6 +180,7 @@ class LeadDiscoveryEngine:
                                     "company_name": lead.company_name,
                                     "source": lead.source,
                                     "score": score,
+                                    "icp_scoring": reasoning,
                                     "target": normalized_target,
                                 },
                                 details={"discovery_source": lead.source},

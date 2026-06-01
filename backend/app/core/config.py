@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = "change-this-in-production"
     APP_BASE_URL: str = "http://localhost:8000"
+    JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://jarvis:jarvis_pass@postgres:5432/jarvis_db"
