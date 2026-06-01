@@ -1,8 +1,10 @@
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+from app.core.tenant_context import get_current_tenant_id
 from app.models.base import JarvisBase
 
 
@@ -36,6 +38,9 @@ Base = JarvisBase
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
+            tenant_id = get_current_tenant_id()
+            if tenant_id:
+                await set_tenant_context(session, tenant_id)
             yield session
             await session.commit()
         except Exception:
@@ -52,3 +57,10 @@ async def create_tables() -> None:
 
 async def init_db() -> None:
     await create_tables()
+
+
+async def set_tenant_context(session: AsyncSession, tenant_id: str) -> None:
+    await session.execute(
+        text("SELECT set_tenant_context(:tenant_id)"),
+        {"tenant_id": tenant_id},
+    )

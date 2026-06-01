@@ -11,6 +11,7 @@ from app.models import register_models
 from app.api.v1 import api_router
 from app.middleware import (
     RequestContextMiddleware,
+    TenantContextMiddleware,
     http_exception_handler,
     validation_exception_handler,
     unhandled_exception_handler,
@@ -166,6 +167,7 @@ app = FastAPI(
     redoc_url=None,
 )
 
+app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
