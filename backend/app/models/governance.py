@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean, ForeignKey
+from sqlalchemy import UUID as SUUID
 from sqlalchemy.sql import func
 from app.core.database import Base
 from app.models.revenue import Invoice
@@ -20,18 +21,24 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     id = Column(Integer, primary_key=True)
+    lead_id = Column(SUUID(as_uuid=True), ForeignKey("leads.id", ondelete="SET NULL"), index=True)
     title = Column(String(400), nullable=False)
     client_name = Column(String(200))
     client_email = Column(String(200))
     client_company = Column(String(200))
     service_type = Column(String(100))
+    package_tier = Column(String(50))
+    invoice_number = Column(String(50), index=True)
     proposal_style = Column(String(50), default="standard")  # standard|case_study|short_urgent|social_proof
     scope = Column(Text)
     timeline = Column(String(200))
     pricing = Column(JSON)                      # {setup_fee, monthly_retainer, one_time, notes}
     content = Column(Text)                      # full AI-generated proposal text
+    pdf_path = Column(Text)
+    pdf_url = Column(Text)
     ai_generated = Column(Boolean, default=True)
     status = Column(String(20), default="draft")  # draft|sent|accepted|declined|negotiating
+    approved_at = Column(DateTime(timezone=True))
     sent_at = Column(DateTime(timezone=True))
     viewed_at = Column(DateTime(timezone=True))
     responded_at = Column(DateTime(timezone=True))

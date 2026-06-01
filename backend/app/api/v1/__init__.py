@@ -11,6 +11,7 @@ from app.api.v1.routes import gmail
 from app.api.v1.routes import discovery
 from app.api.v1.routes import voice
 from app.api.v1.routes import pricing
+from app.api.v1.routes import proposals
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(chat.router)
@@ -41,3 +42,4 @@ api_router.include_router(gmail.router)
 api_router.include_router(discovery.router)
 api_router.include_router(voice.router)
 api_router.include_router(pricing.router)
+api_router.include_router(proposals.router)

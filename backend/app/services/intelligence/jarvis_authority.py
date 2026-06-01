@@ -176,12 +176,14 @@ async def request_captain_approval(
     estimated_cost: str = None,
     benefits: str = None,
     risks: str = None,
+    tenant_id=None,
 ) -> dict:
     """
     Raise a Captain approval request for actions that require it.
     JARVIS calls this instead of executing autonomously.
     Returns the approval record dict.
     """
+    from app.core.config import settings
     from app.models.approval import ApprovalRequest, AuditLog
     from app.services.notifications.slack import notify_slack
     from app.services.notifications.telegram import notify_telegram
@@ -190,24 +192,31 @@ async def request_captain_approval(
     if level == "AUTONOMOUS":
         return {"status": "autonomous", "message": f"{action} is in JARVIS full authority — execute directly"}
 
+    payload = payload or {}
+    resolved_tenant_id = tenant_id or payload.get("tenant_id") or settings.JARVIS_DEFAULT_TENANT_ID
+    if not resolved_tenant_id:
+        raise ValueError("tenant_id is required to create a Captain approval request")
+
     approval = ApprovalRequest(
+        tenant_id=resolved_tenant_id,
         title=title,
         action_type=action,
         summary=summary,
-        risk_level=risk_level,
+        risk_level=risk_level.upper(),
         estimated_cost=estimated_cost,
         benefits=benefits,
         risks=risks,
-        payload=payload or {},
-        status="pending",
+        payload=payload,
+        status="PENDING",
     )
     db.add(approval)
     await db.flush()
     await db.refresh(approval)
 
     db.add(AuditLog(
+        tenant_id=resolved_tenant_id,
         action=f"JARVIS raised approval request: {title}",
-        details={"action": action, "approval_id": approval.id, "risk": risk_level},
+        details={"action": action, "approval_id": str(approval.id), "risk": risk_level},
     ))
 
     msg = (
@@ -230,7 +239,7 @@ async def request_captain_approval(
 
     return {
         "status": "pending_approval",
-        "approval_id": approval.id,
+        "approval_id": str(approval.id),
         "action": action,
         "title": title,
         "message": f"Captain approval requested — JARVIS is waiting. Approval #{approval.id}",
