@@ -1,11 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-Base = declarative_base()
+from app.models.base import JarvisBase
 
 
-class AIRequestLog(Base):
+class AIRequestLog(JarvisBase):
     __tablename__ = "ai_request_logs"
 
     id = Column(Integer, primary_key=True, index=True)

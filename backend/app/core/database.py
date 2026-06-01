@@ -1,12 +1,23 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
+from app.models.base import JarvisBase
 
 
-_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+def _async_database_url(url: str) -> str:
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+DATABASE_URL = _async_database_url(settings.DATABASE_URL)
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=not _is_sqlite,
     **({} if _is_sqlite else {"pool_size": 10, "max_overflow": 20}),
@@ -19,11 +30,10 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-class Base(DeclarativeBase):
-    pass
+Base = JarvisBase
 
 
-async def get_db():
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -35,6 +45,10 @@ async def get_db():
             await session.close()
 
 
-async def init_db():
+async def create_tables() -> None:
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(JarvisBase.metadata.create_all)
+
+
+async def init_db() -> None:
+    await create_tables()

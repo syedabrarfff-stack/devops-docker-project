@@ -1,4 +1,6 @@
-# Import all models here so Base.metadata.create_all() picks them up on init_db()
+# Import all models here so JarvisBase.metadata.create_all() picks them up on init_db()
+from app.models.base import JarvisBase  # noqa
+from app.models.tenant import *         # noqa
 from app.models.conversation import *  # noqa
 from app.models.approval import *      # noqa
 from app.models.crm import *           # noqa

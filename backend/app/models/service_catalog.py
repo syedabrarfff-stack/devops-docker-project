@@ -1,11 +1,10 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, JSON, DateTime
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
-Base = declarative_base()
+from app.models.base import JarvisBase
 
 
-class ServiceDivision(Base):
+class ServiceDivision(JarvisBase):
     __tablename__ = "service_divisions"
 
     id = Column(Integer, primary_key=True, index=True)
