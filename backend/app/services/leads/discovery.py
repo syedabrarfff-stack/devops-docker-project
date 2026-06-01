@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.lead import Lead, LeadStatus
+from app.middleware import record_lead_discovered
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 from app.services.leads.scoring import lead_scoring_engine
@@ -187,6 +188,7 @@ class LeadDiscoveryEngine:
                             )
                         )
                         inserted += 1
+                        record_lead_discovered(lead.source, lead.country)
 
         return inserted
 

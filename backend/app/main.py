@@ -10,9 +10,11 @@ from app.core.database import init_db
 from app.models import register_models
 from app.api.v1 import api_router
 from app.middleware import (
+    ObservabilityRefreshMiddleware,
     RequestContextMiddleware,
     TenantContextMiddleware,
     http_exception_handler,
+    setup_observability,
     validation_exception_handler,
     unhandled_exception_handler,
 )
@@ -169,6 +171,7 @@ app = FastAPI(
 
 app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)
+app.add_middleware(ObservabilityRefreshMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS.split(","),
@@ -182,6 +185,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(api_router)
+setup_observability(app)
 
 
 @app.get("/health")

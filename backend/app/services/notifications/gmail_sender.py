@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.middleware import record_outreach_sent
 from app.models.approval import AuditLog
 from app.models.lead import Lead, LeadStatus
 from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
@@ -138,6 +139,7 @@ class GmailSender:
                             "tracking_pixel": _tracking_pixel_url(row.id),
                         },
                     )
+                    record_outreach_sent(row.channel.value if row.channel else "EMAIL", row.sent_from_persona)
                 else:
                     row.status = OutreachStatus.BOUNCED
                     await self._audit(

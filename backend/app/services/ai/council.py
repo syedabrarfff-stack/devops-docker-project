@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.council import AICouncilMemberWeight, AICouncilSession
+from app.middleware import observe_ai_latency, record_ai_cost, record_council_session
 from app.services.ai.base_provider import Message
 from app.services.ai.cost_tracker import estimate_cost
 from app.services.ai.router import JARVIS_SYSTEM_PROMPT, ai_router
@@ -138,6 +139,7 @@ class IntelligenceCouncil:
                 await session.refresh(council_session)
                 session_id = str(council_session.id)
 
+        record_council_session(decision)
         return CouncilResult(
             decision=decision,
             score=score,
@@ -332,6 +334,8 @@ class IntelligenceCouncil:
         parsed = _parse_vote(response.content)
         vote_score = _bounded_float(parsed.get("vote_score"), default=60)
         cost = response.cost_estimate_usd or estimate_cost(member["provider"], response.model, response.tokens_used)
+        observe_ai_latency(member["provider"], response.model or base_vote["model_invoked"], latency_ms)
+        record_ai_cost(member["provider"], response.model or base_vote["model_invoked"], "council", float(cost or 0.0))
         return {
             **base_vote,
             "model_invoked": response.model or base_vote["model_invoked"],

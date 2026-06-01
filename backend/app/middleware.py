@@ -3,18 +3,198 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from inspect import isawaitable
 
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
+from prometheus_client import Counter, Gauge, Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy import func, select
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 from app.core.tenant_context import reset_current_tenant_id, set_current_tenant_id
+from app.models.approval import ApprovalRequest, ApprovalStatus
+from app.models.revenue import Client, ClientStatus
 
 logger = logging.getLogger(__name__)
+
+METRICS_REFRESH_SECONDS = 15
+APPROVAL_RISK_LEVELS = ("LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN")
+
+JARVIS_LEADS_DISCOVERED_TOTAL = Counter(
+    "jarvis_leads_discovered_total",
+    "Leads discovered and persisted by JARVIS.",
+    ["source", "country"],
+)
+JARVIS_OUTREACH_SENT_TOTAL = Counter(
+    "jarvis_outreach_sent_total",
+    "Outbound outreach messages sent by JARVIS.",
+    ["channel", "persona"],
+)
+JARVIS_AI_COST_USD_TOTAL = Counter(
+    "jarvis_ai_cost_usd_total",
+    "Estimated AI provider cost in USD.",
+    ["provider", "model", "task_type"],
+)
+JARVIS_AI_LATENCY_SECONDS = Histogram(
+    "jarvis_ai_latency_seconds",
+    "AI provider response latency in seconds.",
+    ["provider", "model"],
+    buckets=(0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60),
+)
+JARVIS_COUNCIL_SESSIONS_TOTAL = Counter(
+    "jarvis_council_sessions_total",
+    "AI council sessions completed by final decision.",
+    ["decision"],
+)
+JARVIS_APPROVALS_PENDING = Gauge(
+    "jarvis_approvals_pending",
+    "Pending Captain approvals by risk level.",
+    ["risk_level"],
+)
+JARVIS_CLIENTS_ACTIVE = Gauge(
+    "jarvis_clients_active",
+    "Active clients currently tracked by JARVIS.",
+)
+JARVIS_MRR_USD = Gauge(
+    "jarvis_mrr_usd",
+    "Current monthly recurring revenue in USD.",
+)
+JARVIS_DB_CONNECTIONS_ACTIVE = Gauge(
+    "jarvis_db_connections_active",
+    "Active checked-out SQLAlchemy database connections.",
+)
+JARVIS_REDIS_MEMORY_BYTES = Gauge(
+    "jarvis_redis_memory_bytes",
+    "Redis memory usage in bytes.",
+)
+
+_last_metrics_refresh = 0.0
+
+
+def _label(value, fallback: str = "unknown") -> str:
+    text = str(value or fallback).strip() or fallback
+    return text[:96]
+
+
+def record_lead_discovered(source: str | None, country: str | None) -> None:
+    JARVIS_LEADS_DISCOVERED_TOTAL.labels(_label(source), _label(country)).inc()
+
+
+def record_outreach_sent(channel: str | None, persona: str | None) -> None:
+    JARVIS_OUTREACH_SENT_TOTAL.labels(_label(channel), _label(persona)).inc()
+
+
+def record_ai_cost(provider: str | None, model: str | None, task_type: str | None, cost_usd: float | None) -> None:
+    cost = max(0.0, float(cost_usd or 0.0))
+    if cost:
+        JARVIS_AI_COST_USD_TOTAL.labels(_label(provider), _label(model), _label(task_type)).inc(cost)
+
+
+def observe_ai_latency(provider: str | None, model: str | None, latency_ms: int | float | None) -> None:
+    seconds = max(0.0, float(latency_ms or 0) / 1000.0)
+    JARVIS_AI_LATENCY_SECONDS.labels(_label(provider), _label(model)).observe(seconds)
+
+
+def record_council_session(decision: str | None) -> None:
+    JARVIS_COUNCIL_SESSIONS_TOTAL.labels(_label(decision)).inc()
+
+
+def setup_observability(app) -> None:
+    """Expose Prometheus metrics for HTTP, business, AI, and runtime signals."""
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        should_respect_env_var=False,
+        should_instrument_requests_inprogress=True,
+        excluded_handlers=["/metrics"],
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+
+class ObservabilityRefreshMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        await refresh_observability_metrics(force=request.url.path == "/metrics")
+        return await call_next(request)
+
+
+async def refresh_observability_metrics(force: bool = False) -> None:
+    global _last_metrics_refresh
+
+    now = time.monotonic()
+    if not force and now - _last_metrics_refresh < METRICS_REFRESH_SECONDS:
+        return
+    _last_metrics_refresh = now
+
+    _refresh_db_pool_metrics()
+    await _refresh_redis_metrics()
+    await _refresh_business_metrics()
+
+
+def _refresh_db_pool_metrics() -> None:
+    try:
+        from app.core.database import engine
+
+        checkedout = getattr(engine.pool, "checkedout", None)
+        JARVIS_DB_CONNECTIONS_ACTIVE.set(float(checkedout() if callable(checkedout) else 0))
+    except Exception as exc:
+        logger.debug("DB pool metric refresh skipped: %s", exc)
+
+
+async def _refresh_redis_metrics() -> None:
+    if not settings.REDIS_URL:
+        JARVIS_REDIS_MEMORY_BYTES.set(0)
+        return
+
+    client = None
+    try:
+        import redis.asyncio as aioredis
+
+        client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        info = await client.info("memory")
+        JARVIS_REDIS_MEMORY_BYTES.set(float(info.get("used_memory") or 0))
+    except Exception as exc:
+        logger.debug("Redis metric refresh skipped: %s", exc)
+    finally:
+        if client is not None:
+            close = getattr(client, "aclose", None) or getattr(client, "close", None)
+            if close:
+                result = close()
+                if isawaitable(result):
+                    await result
+
+
+async def _refresh_business_metrics() -> None:
+    try:
+        from app.core.database import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as db:
+            pending_rows = (
+                await db.execute(
+                    select(ApprovalRequest.risk_level, func.count())
+                    .where(ApprovalRequest.status == ApprovalStatus.PENDING)
+                    .group_by(ApprovalRequest.risk_level)
+                )
+            ).all()
+
+            for risk_level in APPROVAL_RISK_LEVELS:
+                JARVIS_APPROVALS_PENDING.labels(risk_level).set(0)
+            for risk_level, count in pending_rows:
+                JARVIS_APPROVALS_PENDING.labels(_label(risk_level, "UNKNOWN").upper()).set(float(count or 0))
+
+            active_clients = await db.scalar(
+                select(func.count()).select_from(Client).where(Client.status == ClientStatus.ACTIVE)
+            )
+            mrr_usd = await db.scalar(
+                select(func.coalesce(func.sum(Client.mrr_usd), 0.0)).where(Client.status == ClientStatus.ACTIVE)
+            )
+            JARVIS_CLIENTS_ACTIVE.set(float(active_clients or 0))
+            JARVIS_MRR_USD.set(float(mrr_usd or 0))
+    except Exception as exc:
+        logger.debug("Business metric refresh skipped: %s", exc)
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):

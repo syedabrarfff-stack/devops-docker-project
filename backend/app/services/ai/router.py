@@ -18,6 +18,7 @@ from app.services.ai.providers.extra_providers import (
 )
 from app.services.ai.health_monitor import health_monitor
 from app.services.ai.cost_tracker import estimate_cost
+from app.middleware import observe_ai_latency, record_ai_cost
 
 logger = logging.getLogger(__name__)
 
@@ -300,6 +301,7 @@ class AIRouter:
                 response.task_type = task_type.value
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
+                _record_ai_metrics(force_provider, model_id, task_type.value, latency, response.cost_estimate_usd)
                 if not response.error:
                     health_monitor.record_success(force_provider, latency)
                     return response, task_type.value
@@ -322,6 +324,7 @@ class AIRouter:
                 response.task_type = task_type.value
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(provider_key, model_id, response.tokens_used)
+                _record_ai_metrics(provider_key, model_id, task_type.value, latency, response.cost_estimate_usd)
                 if not response.error:
                     health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
@@ -365,6 +368,11 @@ class AIRouter:
             model="demo", provider="demo",
             task_type=task_type.value, demo=True,
         )
+
+
+def _record_ai_metrics(provider: str, model: str, task_type: str, latency_ms: int, cost_usd: float) -> None:
+    observe_ai_latency(provider, model, latency_ms)
+    record_ai_cost(provider, model, task_type, cost_usd)
 
 
 # Singleton instance
