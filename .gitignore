@@ -51,6 +51,10 @@ Thumbs.db
 # ─── Terraform state (contains secrets) ─────────────────────────
 *.tfstate
 *.tfstate.backup
+*.tfvars
+*.tfvars.json
+tfplan
+infra/terraform/tfplan
 .terraform/
 .terraform.lock.hcl
 
