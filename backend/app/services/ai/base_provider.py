@@ -17,6 +17,7 @@ class TaskType(str, Enum):
     GENERAL = "general"
     ANALYSIS = "analysis"    # deep system/operational analysis
     STRATEGY = "strategy"    # GTM, business, and competitive strategy
+    SALES = "sales"          # client acquisition, outreach, and objection handling
     MULTIMODAL = "multimodal"  # image+text tasks — Qwen Image, GPT-4o-vision
     REALTIME = "realtime"    # ultra-low latency — Groq, DeepSeek Flash, GLM-4-7
 

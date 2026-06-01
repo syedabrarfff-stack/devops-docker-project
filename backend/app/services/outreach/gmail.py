@@ -59,7 +59,7 @@ def _wrap_html(body: str, name: str) -> str:
     <p>{body_html}</p>
     <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
     <p style="color:#888;font-size:12px">
-      Aliyar Solutions — AI Automation &amp; Cloud Consulting<br>
+      Aliyar Solutions - Automation &amp; Cloud Consulting<br>
       <a href="https://aliyarsolutions.com" style="color:#0066cc">aliyarsolutions.com</a>
     </p>
   </div>

@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from pydantic import BaseModel
+from __future__ import annotations
+
 from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
-from app.services.outreach import sequences as seq_service
 from app.services.outreach import gmail as gmail_service
+from app.services.outreach import sequences as seq_service
+from app.services.outreach.engine import outreach_engine
 
 router = APIRouter(prefix="/outreach", tags=["Outreach"])
 
@@ -28,7 +34,11 @@ class SendEmailIn(BaseModel):
     body: str
 
 
-# ── Sequences ─────────────────────────────────────────────────────────────
+class ExecuteOutreachIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    limit: int = 25
+    autonomy_stage: str = "outreach_emails"
+
 
 @router.post("/sequences")
 async def create_sequence(
@@ -41,14 +51,18 @@ async def create_sequence(
     await db.commit()
     if ai_generate:
         background_tasks.add_task(
-            _generate_ai_steps, seq.id,
-            body.target_industry, body.target_country, body.service_offered
+            _generate_ai_steps,
+            seq.id,
+            body.target_industry,
+            body.target_country,
+            body.service_offered,
         )
     return {"id": seq.id, "name": seq.name, "total_steps": seq.total_steps}
 
 
 async def _generate_ai_steps(seq_id: int, industry: str, country: str, service: str):
     from app.core.database import AsyncSessionLocal
+
     async with AsyncSessionLocal() as db:
         async with db.begin():
             await seq_service.generate_sequence_with_ai(db, industry, country, service, seq_id)
@@ -70,7 +84,29 @@ async def sequence_stats(db: AsyncSession = Depends(get_db)):
     return await seq_service.get_sequence_stats(db)
 
 
-# ── Emails ────────────────────────────────────────────────────────────────
+@router.post("/queue/{lead_id}")
+async def queue_lead_outreach(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await outreach_engine.queue_sequence(lead_id, resolved_tenant_id)
+    return {"queued": True, "lead_id": str(lead_id), "tenant_id": str(resolved_tenant_id)}
+
+
+@router.post("/execute")
+async def execute_outreach(request: Request, body: ExecuteOutreachIn = Body(default_factory=ExecuteOutreachIn)):
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    sent = await outreach_engine.execute_due_outreach(
+        resolved_tenant_id,
+        limit=body.limit,
+        autonomy_stage=body.autonomy_stage,
+    )
+    return {"sent": sent, "tenant_id": str(resolved_tenant_id)}
+
+
+@router.get("/stats")
+async def outreach_stats(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await outreach_engine.stats(resolved_tenant_id)
+
 
 @router.post("/emails/{email_id}/send")
 async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
@@ -81,9 +117,11 @@ async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/emails/send-direct")
 async def send_direct_email(body: SendEmailIn):
-    """Send a one-off email directly via SMTP (no DB record)."""
     success, error = gmail_service.send_email_smtp(
-        body.to_email, body.subject, body.body, body.to_name
+        body.to_email,
+        body.subject,
+        body.body,
+        body.to_name,
     )
     if not success:
         raise HTTPException(503, f"Email failed: {error}")
@@ -97,16 +135,25 @@ async def list_pending_emails(
 ):
     from sqlalchemy import select
     from app.models.outreach import OutreachEmail
-    rows = (await db.execute(
-        select(OutreachEmail)
-        .where(OutreachEmail.status == "scheduled")
-        .limit(limit)
-    )).scalars().all()
-    return [{
-        "id": e.id, "to_email": e.to_email, "subject": e.subject,
-        "step_number": e.step_number, "scheduled_at": str(e.scheduled_at),
-        "sequence_id": e.sequence_id,
-    } for e in rows]
+
+    rows = (
+        await db.execute(
+            select(OutreachEmail)
+            .where(OutreachEmail.status == "scheduled")
+            .limit(limit)
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": email.id,
+            "to_email": email.to_email,
+            "subject": email.subject,
+            "step_number": email.step_number,
+            "scheduled_at": str(email.scheduled_at),
+            "sequence_id": email.sequence_id,
+        }
+        for email in rows
+    ]
 
 
 @router.post("/emails/process-due")
@@ -115,17 +162,21 @@ async def process_due_emails(
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Find and send all emails that are due now."""
     from datetime import datetime, timezone
+
     from sqlalchemy import select
+
     from app.models.outreach import OutreachEmail
+
     now = datetime.now(timezone.utc)
-    due = (await db.execute(
-        select(OutreachEmail)
-        .where(OutreachEmail.status == "scheduled")
-        .where(OutreachEmail.scheduled_at <= now)
-        .limit(limit)
-    )).scalars().all()
+    due = (
+        await db.execute(
+            select(OutreachEmail)
+            .where(OutreachEmail.status == "scheduled")
+            .where(OutreachEmail.scheduled_at <= now)
+            .limit(limit)
+        )
+    ).scalars().all()
 
     sent = 0
     for email in due:
@@ -137,3 +188,17 @@ async def process_due_emails(
             pass
     await db.commit()
     return {"processed": len(due), "sent": sent}
+
+
+def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    tenant_id = (
+        explicit_tenant_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc

@@ -233,6 +233,14 @@ async def _job_daily_icp_lead_scoring() -> None:
 async def _job_process_outreach() -> None:
     logger.info("Scheduler: processing due outreach emails")
     try:
+        if settings.JARVIS_DEFAULT_TENANT_ID:
+            from app.services.outreach.engine import outreach_engine
+            sent = await outreach_engine.execute_due_outreach(
+                settings.JARVIS_DEFAULT_TENANT_ID,
+                limit=25,
+            )
+            logger.info(f"vNEXT outreach: {sent} follow-up queue emails sent")
+
         from app.core.database import AsyncSessionLocal
         from app.services.outreach.gmail import send_outreach_email
         from sqlalchemy import select

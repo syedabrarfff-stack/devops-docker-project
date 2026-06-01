@@ -190,6 +190,11 @@ ROUTING_TABLE: dict = {
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
     ],
+    TaskType.SALES: [
+        ("anthropic", "claude-opus"),
+        ("openai", "gpt-4o"),
+        ("google", "gemini-pro"),
+    ],
     TaskType.MULTIMODAL: [
         ("openai", "gpt-4o"),         # GPT-4o vision
         ("qwen", "qwen-image"),       # Qwen image editing
@@ -220,6 +225,8 @@ def detect_task_type(prompt: str) -> TaskType:
         return TaskType.MATH
     if any(w in p for w in ["analyze system", "operational", "optimize system", "self-improve", "recommendation"]):
         return TaskType.ANALYSIS
+    if any(w in p for w in ["outreach", "sales", "lead", "prospect", "objection", "cold email"]):
+        return TaskType.SALES
     if any(w in p for w in ["strategy", "gtm", "go-to-market", "competitive", "niche", "market position"]):
         return TaskType.STRATEGY
     if any(w in p for w in ["image", "photo", "picture", "design", "thumbnail", "visual", "screenshot"]):
