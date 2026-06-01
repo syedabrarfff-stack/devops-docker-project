@@ -4,6 +4,7 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from html import escape
 from typing import Any
 
 from sqlalchemy import func, select
@@ -12,6 +13,7 @@ from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import ApprovalRequest, ApprovalStatus, AuditLog
 from app.models.lead import Lead, LeadStatus
 from app.models.outreach import (
+    EmailTracking,
     FollowUpQueue,
     FollowUpStatus,
     OutreachChannel,
@@ -21,7 +23,7 @@ from app.models.outreach import (
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 from app.services.intelligence.jarvis_authority import requires_captain_approval
-from app.services.outreach.gmail import send_email_smtp
+from app.services.notifications.gmail_sender import gmail_sender
 
 logger = logging.getLogger(__name__)
 
@@ -173,11 +175,12 @@ class OutreachEngine:
                         continue
 
                     to_email = lead.email or lead.contact_email
-                    success, error = send_email_smtp(
-                        to_email,
-                        email["subject"],
-                        email["body"],
-                        lead.contact_name or "",
+                    success = await gmail_sender.send_email(
+                        to=to_email,
+                        subject=email["subject"],
+                        body_html=_body_html(email["body"]),
+                        from_name=PERSONAS["darren_mitchell"]["name"],
+                        from_email=PERSONAS["darren_mitchell"]["email"],
                     )
                     if not success:
                         item.status = FollowUpStatus.FAILED
@@ -187,23 +190,24 @@ class OutreachEngine:
                             tenant_uuid,
                             "outreach_send_failed",
                             lead.id,
-                            {"sequence_step": item.sequence_step, "error": error},
+                            {"sequence_step": item.sequence_step},
                         )
                         continue
 
-                    session.add(
-                        OutreachLog(
-                            tenant_id=tenant_uuid,
-                            lead_id=lead.id,
-                            channel=OutreachChannel.EMAIL,
-                            subject=email["subject"],
-                            body_text=email["body"],
-                            sent_from_persona=PERSONAS["darren_mitchell"]["name"],
-                            sent_at=now,
-                            status=OutreachStatus.SENT,
-                            sequence_step=item.sequence_step,
-                        )
+                    outreach = OutreachLog(
+                        tenant_id=tenant_uuid,
+                        lead_id=lead.id,
+                        channel=OutreachChannel.EMAIL,
+                        subject=email["subject"],
+                        body_text=email["body"],
+                        sent_from_persona=PERSONAS["darren_mitchell"]["name"],
+                        sent_at=now,
+                        status=OutreachStatus.SENT,
+                        sequence_step=item.sequence_step,
                     )
+                    session.add(outreach)
+                    await session.flush()
+                    session.add(EmailTracking(tenant_id=tenant_uuid, outreach_id=outreach.id))
                     item.status = FollowUpStatus.EXECUTED
                     item.executed_at = now
                     lead.status = LeadStatus.CONTACTED
@@ -479,6 +483,10 @@ def _email_for_step(lead: Lead, step: int) -> dict | None:
         if int(item.get("step") or 0) == int(step):
             return {"subject": item.get("subject") or "", "body": item.get("body") or ""}
     return None
+
+
+def _body_html(body_text: str) -> str:
+    return escape(body_text).replace("\n", "<br>")
 
 
 def _first_pain(lead: Lead) -> str:

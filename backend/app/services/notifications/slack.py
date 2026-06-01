@@ -107,6 +107,21 @@ async def notify_system_event(title: str, body: str, level: str = "info") -> boo
     ], text=title)
 
 
+async def notify_business_event(event_type: str, title: str, summary: str) -> bool:
+    icons = {
+        "proposal_accepted": "ðŸŽ¯",
+        "meeting_booked": "ðŸ“…",
+        "payment_received": "âœ…",
+        "system_critical_error": "ðŸ”´",
+    }
+    return await _post([
+        _header(f"{icons.get(event_type, 'ðŸ“¢')} {title}"),
+        _section(summary[:500]),
+        _fields(("Event", event_type), ("Source", "JARVIS")),
+        _context(f"Aliyar Solutions Operations Â· {_ts()}"),
+    ], text=title)
+
+
 def _ts() -> str:
     import datetime
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")

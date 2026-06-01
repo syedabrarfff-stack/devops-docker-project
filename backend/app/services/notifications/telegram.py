@@ -18,3 +18,18 @@ async def notify_telegram(message: str) -> bool:
         return r.status_code == 200
     except Exception:
         return False
+
+
+async def notify_business_event(event_type: str, title: str, summary: str) -> bool:
+    icons = {
+        "proposal_accepted": "ðŸŽ¯",
+        "meeting_booked": "ðŸ“…",
+        "payment_received": "âœ…",
+        "system_critical_error": "ðŸ”´",
+    }
+    icon = icons.get(event_type, "ðŸ“¢")
+    return await notify_telegram(
+        f"{icon} *{title}*\n\n"
+        f"*Event:* {event_type}\n"
+        f"{summary[:800]}"
+    )
