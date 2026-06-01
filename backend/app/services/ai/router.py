@@ -8,6 +8,7 @@ import logging
 from typing import List, Optional, Tuple
 from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message, TaskType
 from app.services.ai.providers.anthropic_provider import AnthropicProvider
+from app.services.ai.providers.bedrock_provider import BedrockProvider
 from app.services.ai.providers.openai_provider import OpenAIProvider
 from app.services.ai.providers.deepseek_provider import DeepSeekProvider
 from app.services.ai.providers.google_provider import GoogleProvider
@@ -242,6 +243,7 @@ class AIRouter:
     def __init__(self):
         self._providers: dict[str, BaseAIProvider] = {
             "anthropic": AnthropicProvider(),
+            "bedrock": BedrockProvider(),
             "openai": OpenAIProvider(),
             "deepseek": DeepSeekProvider(),
             "google": GoogleProvider(),

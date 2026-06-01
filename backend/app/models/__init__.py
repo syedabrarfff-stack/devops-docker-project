@@ -3,6 +3,7 @@ from __future__ import annotations
 from importlib import import_module
 
 from app.models.base import JarvisBase
+from app.models.council import AICouncilMemberWeight, AICouncilSession
 from app.models.outreach import ReplyClassification, ReplyLog
 from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
 
@@ -26,6 +27,7 @@ MODEL_MODULES = (
     "ai_audit",
     "team_member",
     "gmail",
+    "council",
 )
 
 
@@ -38,6 +40,8 @@ def register_models() -> None:
 
 __all__ = [
     "JarvisBase",
+    "AICouncilMemberWeight",
+    "AICouncilSession",
     "ReplyClassification",
     "ReplyLog",
     "Client",
