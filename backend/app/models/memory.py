@@ -1,6 +1,15 @@
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean, ForeignKey
+from sqlalchemy import UUID as SUUID
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase
+
+Base = JarvisBase
 
 
 class OutcomeRecord(Base):
@@ -50,3 +59,39 @@ class ConversationSummary(Base):
     turn_count  = Column(Integer, default=0)
     token_count = Column(Integer, default=0)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MemoryOperational(JarvisBase):
+    __tablename__ = "memory_operational"
+
+    category: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class MemoryStrategic(JarvisBase):
+    __tablename__ = "memory_strategic"
+
+    category: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    embedding: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    source_operational_id: Mapped[uuid.UUID | None] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey("memory_operational.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class CivilizationMemory(JarvisBase):
+    __tablename__ = "civilization_memory"
+
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    record_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

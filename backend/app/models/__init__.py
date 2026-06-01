@@ -4,6 +4,7 @@ from importlib import import_module
 
 from app.models.base import JarvisBase
 from app.models.council import AICouncilMemberWeight, AICouncilSession
+from app.models.memory import CivilizationMemory, MemoryOperational, MemoryStrategic
 from app.models.outreach import ReplyClassification, ReplyLog
 from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
 
@@ -42,6 +43,9 @@ __all__ = [
     "JarvisBase",
     "AICouncilMemberWeight",
     "AICouncilSession",
+    "CivilizationMemory",
+    "MemoryOperational",
+    "MemoryStrategic",
     "ReplyClassification",
     "ReplyLog",
     "Client",

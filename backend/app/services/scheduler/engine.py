@@ -62,10 +62,14 @@ def stop_scheduler() -> None:
 # ── Job registration helpers ──────────────────────────────────────────────────
 
 def add_cron_job(job_id: str, func, hour: int = 8, minute: int = 0,
-                  timezone_str: str = "UTC", replace: bool = True) -> None:
+                  timezone_str: str = "UTC", replace: bool = True,
+                  day_of_week: str | None = None) -> None:
     scheduler = get_scheduler()
+    trigger_kwargs = {"hour": hour, "minute": minute, "timezone": timezone_str}
+    if day_of_week:
+        trigger_kwargs["day_of_week"] = day_of_week
     scheduler.add_job(
-        func, trigger=CronTrigger(hour=hour, minute=minute, timezone=timezone_str),
+        func, trigger=CronTrigger(**trigger_kwargs),
         id=job_id, replace_existing=replace, name=job_id,
     )
 
@@ -157,6 +161,12 @@ async def _register_default_jobs() -> None:
 
     # Daily self-learning cycle (midnight UTC — JARVIS evolves every day)
     add_cron_job("daily_self_learning", _job_self_learning, hour=0, minute=5)
+
+    # Memory architecture maintenance: working -> operational, prune expired records.
+    add_cron_job("memory_consolidation", _job_memory_consolidation, hour=0, minute=30)
+
+    # Weekly strategic memory promotion.
+    add_cron_job("weekly_memory_promotion", _job_memory_promotion, hour=0, minute=45, day_of_week="sun")
 
     # Reply handling every 2 hours: classify prospect replies and advance lead state
     add_interval_job("reply_handler_scan", _job_reply_handler_scan, hours=2)
@@ -332,6 +342,34 @@ async def _job_self_learning() -> None:
         logger.info(f"Self-learning complete: {result.get('learnings_stored', 0)} learnings stored")
     except Exception as e:
         logger.warning(f"Self-learning job failed: {e}")
+
+
+async def _job_memory_consolidation() -> None:
+    logger.info("Scheduler: running memory consolidation")
+    if not settings.JARVIS_DEFAULT_TENANT_ID:
+        logger.info("Memory consolidation skipped: JARVIS_DEFAULT_TENANT_ID not configured")
+        return
+    try:
+        from app.services.memory.memory_engine import memory_engine
+
+        result = await memory_engine.consolidate_working_to_operational(settings.JARVIS_DEFAULT_TENANT_ID)
+        logger.info(f"Memory consolidation complete: {result}")
+    except Exception as e:
+        logger.warning(f"Memory consolidation failed: {e}")
+
+
+async def _job_memory_promotion() -> None:
+    logger.info("Scheduler: running strategic memory promotion")
+    if not settings.JARVIS_DEFAULT_TENANT_ID:
+        logger.info("Memory promotion skipped: JARVIS_DEFAULT_TENANT_ID not configured")
+        return
+    try:
+        from app.services.memory.memory_engine import memory_engine
+
+        result = await memory_engine.promote_high_relevance_operational(settings.JARVIS_DEFAULT_TENANT_ID)
+        logger.info(f"Memory promotion complete: {result}")
+    except Exception as e:
+        logger.warning(f"Memory promotion failed: {e}")
 
 
 async def _job_gmail_inbox() -> None:
