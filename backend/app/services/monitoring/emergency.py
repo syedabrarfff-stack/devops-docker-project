@@ -126,7 +126,7 @@ async def check_system_health() -> dict:
 
     # Scheduler
     try:
-        from app.services.scheduler.engine import get_scheduler
+        from app.services.scheduler.scheduler import get_scheduler
         sched = get_scheduler()
         checks["scheduler"] = {"status": "ok" if sched.running else "stopped", "jobs": len(sched.get_jobs())}
     except Exception as e:

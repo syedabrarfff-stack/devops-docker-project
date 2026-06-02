@@ -4,8 +4,12 @@ prioritized improvement recommendations across architecture, sales, and automati
 """
 import json
 import logging
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from app.core.database import set_tenant_context
+from app.core.config import settings
+from app.core.tenant_context import get_current_tenant_id
 from app.models.intelligence import OptimizationRecommendation
 from app.services.ai.base_provider import Message
 
@@ -71,11 +75,13 @@ async def _gather_context(db: AsyncSession) -> str:
     return "\n".join(lines)
 
 
-async def analyze_system(db: AsyncSession) -> int:
+async def analyze_system(db: AsyncSession, tenant_id=None) -> int:
     """Generate fresh optimization recommendations and persist them."""
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
 
+    tenant_uuid = _tenant_uuid(tenant_id)
+    await _safe_set_tenant_context(db, tenant_uuid)
     context = await _gather_context(db)
     prompt = OPTIMIZER_PROMPT.format(context=context)
     messages = [Message(role="user", content=prompt)]
@@ -108,6 +114,7 @@ async def analyze_system(db: AsyncSession) -> int:
             if priority not in _PRIORITY_ORDER:
                 priority = "medium"
             rec = OptimizationRecommendation(
+                tenant_id=tenant_uuid,
                 area=str(item.get("area", "architecture")).strip(),
                 title=title,
                 current_state=item.get("current_state", ""),
@@ -128,6 +135,19 @@ async def analyze_system(db: AsyncSession) -> int:
     except Exception as e:
         logger.warning(f"Optimizer analysis failed: {e}")
         return 0
+
+
+def _tenant_uuid(tenant_id) -> uuid.UUID:
+    resolved = tenant_id or get_current_tenant_id() or settings.JARVIS_DEFAULT_TENANT_ID
+    if not resolved:
+        raise ValueError("tenant_id is required")
+    return resolved if isinstance(resolved, uuid.UUID) else uuid.UUID(str(resolved))
+
+
+async def _safe_set_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    if settings.DATABASE_URL.startswith("sqlite"):
+        return
+    await set_tenant_context(db, str(tenant_id))
 
 
 async def get_recommendations(db: AsyncSession, status: str | None = None) -> list[dict]:

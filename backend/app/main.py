@@ -140,7 +140,7 @@ async def lifespan(app: FastAPI):
 
     # ── APScheduler ───────────────────────────────────────────────────────────
     try:
-        from app.services.scheduler.engine import start_scheduler
+        from app.services.scheduler.scheduler import start_scheduler
         await start_scheduler()
         logger.info("✅ Scheduler started")
     except Exception as e:
@@ -153,7 +153,7 @@ async def lifespan(app: FastAPI):
     if worker_task:
         worker_task.cancel()
     try:
-        from app.services.scheduler.engine import stop_scheduler
+        from app.services.scheduler.scheduler import stop_scheduler
         stop_scheduler()
     except Exception:
         pass
@@ -240,7 +240,7 @@ async def readyz():
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
     try:
-        from app.services.scheduler.engine import get_scheduler
+        from app.services.scheduler.scheduler import get_scheduler
         sched = get_scheduler()
         running = sched is not None and sched.running
         checks["scheduler"] = {"status": "ok" if running else "stopped", "running": running}

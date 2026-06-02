@@ -1,13 +1,18 @@
 """
 JARVIS Scheduler — manage cron/interval/one-shot agent jobs.
 """
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.core.database import get_db
-from app.services.scheduler.engine import (
+from app.services.scheduler.scheduler import (
+    SYSTEM_TENANT_ID,
+    enqueue_scheduled_task,
     get_jobs, add_cron_job, add_interval_job, add_oneshot_job,
     remove_job, pause_job, resume_job,
 )
@@ -56,21 +61,20 @@ async def list_jobs():
 
 
 @router.post("/jobs/cron")
-async def create_cron_job(body: CronJobIn, db: AsyncSession = Depends(get_db)):
-    from app.services.tasks.queue import enqueue
-    async def _job_fn():
-        from app.core.database import AsyncSessionLocal
-        async with AsyncSessionLocal() as _db:
-            async with _db.begin():
-                await enqueue(
-                    db=_db, title=body.name, description=body.description or "",
-                    task_type=body.task_type, priority=5,
-                    payload=body.payload or {}, assigned_to=body.agent,
-                )
-    add_cron_job(body.job_id, _job_fn, hour=body.hour, minute=body.minute,
-                  timezone_str=body.timezone)
+async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = Depends(get_db)):
+    tenant_id = _metadata_tenant_id(request)
+    add_cron_job(
+        body.job_id,
+        enqueue_scheduled_task,
+        hour=body.hour,
+        minute=body.minute,
+        timezone_str=body.timezone,
+        args=[body.job_id],
+        kwargs={"tenant_id": str(tenant_id)},
+    )
     # Persist in DB
     job = ScheduledJob(
+        tenant_id=tenant_id,
         job_id=body.job_id, name=body.name, description=body.description,
         trigger_type="cron",
         trigger_args={"hour": body.hour, "minute": body.minute, "timezone": body.timezone},
@@ -82,20 +86,19 @@ async def create_cron_job(body: CronJobIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/jobs/interval")
-async def create_interval_job(body: IntervalJobIn, db: AsyncSession = Depends(get_db)):
-    from app.services.tasks.queue import enqueue
-    async def _job_fn():
-        from app.core.database import AsyncSessionLocal
-        async with AsyncSessionLocal() as _db:
-            async with _db.begin():
-                await enqueue(
-                    db=_db, title=body.name, description=body.description or "",
-                    task_type=body.task_type, priority=5,
-                    payload=body.payload or {}, assigned_to=body.agent,
-                )
-    add_interval_job(body.job_id, _job_fn, hours=body.hours, minutes=body.minutes,
-                      seconds=body.seconds)
+async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSession = Depends(get_db)):
+    tenant_id = _metadata_tenant_id(request)
+    add_interval_job(
+        body.job_id,
+        enqueue_scheduled_task,
+        hours=body.hours,
+        minutes=body.minutes,
+        seconds=body.seconds,
+        args=[body.job_id],
+        kwargs={"tenant_id": str(tenant_id)},
+    )
     job = ScheduledJob(
+        tenant_id=tenant_id,
         job_id=body.job_id, name=body.name, description=body.description,
         trigger_type="interval",
         trigger_args={"hours": body.hours, "minutes": body.minutes, "seconds": body.seconds},
@@ -108,10 +111,15 @@ async def create_interval_job(body: IntervalJobIn, db: AsyncSession = Depends(ge
 
 
 @router.delete("/jobs/{job_id}")
-async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     removed = remove_job(job_id)
     from sqlalchemy import delete
-    await db.execute(delete(ScheduledJob).where(ScheduledJob.job_id == job_id))
+    await db.execute(
+        delete(ScheduledJob).where(
+            ScheduledJob.tenant_id == _metadata_tenant_id(request),
+            ScheduledJob.job_id == job_id,
+        )
+    )
     await db.commit()
     return {"removed": removed, "job_id": job_id}
 
@@ -133,11 +141,14 @@ async def resume(job_id: str):
 
 
 @router.get("/jobs/db")
-async def list_db_jobs(db: AsyncSession = Depends(get_db)):
+async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     """Jobs persisted in JARVIS DB (includes metadata)."""
     from sqlalchemy import select, desc
     rows = (await db.execute(
-        select(ScheduledJob).order_by(desc(ScheduledJob.created_at)).limit(50)
+        select(ScheduledJob)
+        .where(ScheduledJob.tenant_id == _metadata_tenant_id(request))
+        .order_by(desc(ScheduledJob.created_at))
+        .limit(50)
     )).scalars().all()
     return [{
         "id": j.id, "job_id": j.job_id, "name": j.name,
@@ -147,3 +158,10 @@ async def list_db_jobs(db: AsyncSession = Depends(get_db)):
         "last_run_at": str(j.last_run_at) if j.last_run_at else None,
         "next_run_at": str(j.next_run_at) if j.next_run_at else None,
     } for j in rows]
+
+
+def _metadata_tenant_id(request: Request) -> uuid.UUID:
+    raw = getattr(request.state, "tenant_id", None) or settings.JARVIS_DEFAULT_TENANT_ID
+    if not raw:
+        return SYSTEM_TENANT_ID
+    return raw if isinstance(raw, uuid.UUID) else uuid.UUID(str(raw))
