@@ -5,12 +5,14 @@ export default {
     extend: {
       colors: {
         jarvis: {
-          blue: '#00d4ff',
+          blue: '#0057FF',
+          cyan: '#00C8FF',
+          gold: '#FFB700',
           purple: '#7c3aed',
-          dark: '#0a0a0f',
-          card: '#0f0f1a',
-          border: '#1a1a2e',
-          glow: 'rgba(0,212,255,0.15)',
+          dark: '#0A1628',
+          card: '#0D1F3C',
+          border: 'rgba(255,255,255,0.10)',
+          glow: 'rgba(0,200,255,0.15)',
         },
       },
       fontFamily: {
@@ -24,8 +26,8 @@ export default {
       },
       keyframes: {
         glow: {
-          from: { boxShadow: '0 0 10px #00d4ff33' },
-          to:   { boxShadow: '0 0 30px #00d4ff88, 0 0 60px #00d4ff33' },
+          from: { boxShadow: '0 0 10px #00C8FF33' },
+          to:   { boxShadow: '0 0 30px #00C8FF88, 0 0 60px #0057FF33' },
         },
         scan: {
           '0%':   { transform: 'translateY(-100%)' },

@@ -1,9 +1,54 @@
 import { create } from 'zustand'
 
+const VIEW_PATHS = {
+  dashboard: '/',
+  chat: '/chat',
+  briefing: '/briefing',
+  approvals: '/approvals',
+  leads: '/leads',
+  outreach: '/outreach',
+  crm: '/crm',
+  proposals: '/proposals',
+  invoices: '/invoices',
+  agents: '/agents',
+  council: '/council',
+  memory: '/memory',
+  intel: '/intel',
+  discovery: '/discovery',
+  tasks: '/tasks',
+  projects: '/projects',
+  scheduler: '/scheduler',
+  notifications: '/notifications',
+  gmail: '/gmail',
+  voice: '/voice',
+  knowledge: '/knowledge',
+  research: '/research',
+  governance: '/governance',
+  catalog: '/catalog',
+  settings: '/settings',
+}
+
+function syncBrowserPath(view) {
+  if (typeof window === 'undefined') return
+  const path = VIEW_PATHS[view]
+  if (!path || window.location.pathname === path) return
+  window.history.pushState({}, '', path)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
 const useJarvisStore = create((set, get) => ({
+  // Identity and tenant context
+  user: null,
+  tenant: null,
+  setUser: (user) => set({ user }),
+  setTenant: (tenant) => set({ tenant }),
+
   // Active view
   activeView: 'dashboard',
-  setActiveView: (view) => set({ activeView: view }),
+  setActiveView: (view) => {
+    syncBrowserPath(view)
+    set({ activeView: view })
+  },
 
   // WebSocket
   ws: null,
@@ -11,6 +56,7 @@ const useJarvisStore = create((set, get) => ({
 
   // Notifications
   notifications: [],
+  setNotifications: (notifications) => set({ notifications }),
   addNotification: (n) => set((s) => ({
     notifications: [{ id: Date.now(), ...n }, ...s.notifications].slice(0, 50),
   })),
@@ -21,6 +67,12 @@ const useJarvisStore = create((set, get) => ({
   // Approval count badge
   pendingApprovals: 0,
   setPendingApprovals: (n) => set({ pendingApprovals: n }),
+  captainQueue: [],
+  setCaptainQueue: (captainQueue) => set({ captainQueue }),
+
+  // System health
+  systemHealth: null,
+  setSystemHealth: (systemHealth) => set({ systemHealth }),
 
   // AI providers
   providers: {},
@@ -39,6 +91,11 @@ const useJarvisStore = create((set, get) => ({
 
   // Connect WebSocket
   connectWS: () => {
+    const existing = get().ws
+    if (existing && [WebSocket.CONNECTING, WebSocket.OPEN].includes(existing.readyState)) {
+      return
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = import.meta.env.DEV
       ? `${window.location.hostname}:8000`
@@ -56,6 +113,12 @@ const useJarvisStore = create((set, get) => ({
         const msg = JSON.parse(e.data)
         if (msg.type === 'captain_connected' && typeof msg.data?.pending_approvals === 'number') {
           get().setPendingApprovals(msg.data.pending_approvals)
+        }
+        if (msg.type === 'captain_queue') {
+          get().setCaptainQueue(msg.data?.items || [])
+        }
+        if (msg.type === 'system_health') {
+          get().setSystemHealth(msg.data)
         }
         if (msg.type === 'approval_created') {
           get().setPendingApprovals(get().pendingApprovals + 1)

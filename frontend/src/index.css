@@ -7,9 +7,7 @@
 
   body {
     @apply bg-jarvis-dark text-white font-sans;
-    background-image:
-      radial-gradient(ellipse at 20% 20%, rgba(124,58,237,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(0,212,255,0.06) 0%, transparent 50%);
+    background-image: linear-gradient(135deg, #0A1628 0%, #0D1F3C 50%, #0A1628 100%);
     min-height: 100vh;
   }
 
@@ -23,7 +21,7 @@
 
 @layer components {
   .glass {
-    @apply bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-xl;
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl;
   }
 
   .glass-hover {
@@ -31,7 +29,7 @@
   }
 
   .glow-blue {
-    box-shadow: 0 0 20px rgba(0,212,255,0.2), inset 0 0 20px rgba(0,212,255,0.05);
+    box-shadow: 0 0 20px rgba(0,200,255,0.2), inset 0 0 20px rgba(0,87,255,0.05);
   }
 
   .glow-purple {
@@ -39,7 +37,7 @@
   }
 
   .text-glow {
-    text-shadow: 0 0 20px rgba(0,212,255,0.5);
+    text-shadow: 0 0 20px rgba(0,200,255,0.5);
   }
 
   .btn-primary {

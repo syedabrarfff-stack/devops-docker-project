@@ -8,6 +8,8 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+export { api }
+
 // Chat
 export const sendChat = (payload) => api.post('/api/v1/chat', payload).then((r) => r.data)
 export const getChatHistory = (sessionId) => api.get(`/api/v1/history/${sessionId}`).then((r) => r.data)
@@ -65,7 +67,7 @@ export const storeMemory = (data) => api.post('/api/v1/memory/store', data).then
 export const recallMemory = (query, params) => api.get('/api/v1/memory/recall', { params: { query, ...params } }).then(r => r.data)
 
 // Phase 3 — Auth / Gmail OAuth
-export const getGmailStatus = () => api.get('/api/v1/auth/gmail/status').then(r => r.data)
+export const getGmailOAuthStatus = () => api.get('/api/v1/auth/gmail/status').then(r => r.data)
 export const initiateGmailOAuth = () => api.get('/api/v1/auth/gmail/initiate').then(r => r.data)
 export const revokeGmailOAuth = () => api.post('/api/v1/auth/gmail/revoke').then(r => r.data)
 

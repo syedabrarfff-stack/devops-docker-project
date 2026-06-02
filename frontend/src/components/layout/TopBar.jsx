@@ -33,11 +33,31 @@ export default function TopBar() {
   }
 
   const labels = {
-    dashboard: 'Command Center',
-    chat: 'JARVIS Chat Interface',
-    briefing: 'Morning Briefing',
-    approvals: 'Approval Queue',
-    agents: 'Agent Hierarchy',
+    dashboard: 'Executive Dashboard',
+    chat: 'JARVIS Chat',
+    briefing: 'Morning Briefings',
+    approvals: 'Captain Approval Queue',
+    leads: 'Lead Pipeline',
+    outreach: 'Outreach Operations',
+    crm: 'Client Management',
+    proposals: 'Proposals',
+    invoices: 'Invoices',
+    agents: 'Agent Registry',
+    council: 'Council Sessions',
+    memory: 'Memory Browser',
+    intel: 'Market Intelligence',
+    discovery: 'Lead Discovery',
+    tasks: 'Task Management',
+    projects: 'Project Tracker',
+    scheduler: 'Scheduler',
+    notifications: 'Notifications',
+    gmail: 'Gmail Monitor',
+    voice: 'Voice Briefings',
+    knowledge: 'Knowledge Base',
+    research: 'Research Reports',
+    governance: 'Governance',
+    catalog: 'Service Catalog',
+    settings: 'Tenant Settings',
   }
 
   const unread = notifications.length
