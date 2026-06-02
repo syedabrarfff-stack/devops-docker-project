@@ -25,6 +25,10 @@ export const getApprovals = (status = 'pending') =>
 export const getPendingCount = () => api.get('/api/v1/approvals/count').then((r) => r.data)
 export const decideApproval = (id, decision) =>
   api.post(`/api/v1/approvals/${id}/decide`, decision).then((r) => r.data)
+export const approveApproval = (id, captain_note = '') =>
+  api.post(`/api/v1/approvals/${id}/approve`, { captain_note }).then((r) => r.data)
+export const rejectApproval = (id, reason = '') =>
+  api.post(`/api/v1/approvals/${id}/reject`, { reason }).then((r) => r.data)
 
 // Agents
 export const getAgentHierarchy = () => api.get('/api/v1/agents/hierarchy').then((r) => r.data)

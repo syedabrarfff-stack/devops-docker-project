@@ -6,7 +6,7 @@ import TopBar from './components/layout/TopBar'
 import Dashboard from './components/dashboard/Dashboard'
 import ChatInterface from './components/chat/ChatInterface'
 import MorningBriefing from './components/briefing/MorningBriefing'
-import ApprovalQueue from './components/approvals/ApprovalQueue'
+import Approvals from './components/approvals/Approvals'
 import AgentHierarchy from './components/agents/AgentHierarchy'
 import CRMDashboard from './components/crm/CRMDashboard'
 import LeadsDashboard from './components/leads/LeadsDashboard'
@@ -34,7 +34,7 @@ export const VIEWS = {
   dashboard:     { path: '/',              title: 'Executive Dashboard',    Component: Dashboard },
   chat:          { path: '/chat',          title: 'JARVIS Chat',            Component: ChatInterface },
   briefing:      { path: '/briefing',      title: 'Morning Briefings',      Component: MorningBriefing },
-  approvals:     { path: '/approvals',     title: 'Captain Approval Queue', Component: ApprovalQueue },
+  approvals:     { path: '/approvals',     title: 'Captain Approval Queue', Component: Approvals },
   leads:         { path: '/leads',         title: 'Lead Pipeline',          Component: LeadsDashboard },
   outreach:      { path: '/outreach',      title: 'Outreach Operations',    Component: OutreachDashboard },
   crm:           { path: '/crm',           title: 'Client Management',      Component: CRMDashboard },

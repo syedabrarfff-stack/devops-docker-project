@@ -33,6 +33,12 @@ class ApprovalDecision(BaseModel):
     tenant_id: Optional[UUID] = None
 
 
+class ApprovalAction(BaseModel):
+    captain_note: Optional[str] = None
+    reason: Optional[str] = None
+    tenant_id: Optional[UUID] = None
+
+
 @router.get("")
 async def list_approvals(request: Request, status: str = "pending", tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -113,6 +119,33 @@ async def decide_approval(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     raise HTTPException(status_code=400, detail="status must be approved or rejected")
+
+
+@router.post("/{approval_id}/approve")
+async def approve_approval(
+    approval_id: str,
+    request: Request,
+    action: ApprovalAction = Body(default_factory=ApprovalAction),
+):
+    resolved_tenant_id = _resolve_tenant_id(request, action.tenant_id)
+    try:
+        return await captain_queue.approve(approval_id, action.captain_note, resolved_tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/{approval_id}/reject")
+async def reject_approval(
+    approval_id: str,
+    request: Request,
+    action: ApprovalAction = Body(default_factory=ApprovalAction),
+):
+    resolved_tenant_id = _resolve_tenant_id(request, action.tenant_id)
+    note = action.reason or action.captain_note
+    try:
+        return await captain_queue.reject(approval_id, note, resolved_tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/count")
