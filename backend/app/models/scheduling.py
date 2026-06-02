@@ -1,24 +1,29 @@
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, Boolean, Float
-from sqlalchemy.sql import func
-from app.core.database import Base
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import Boolean, JSON, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import JarvisBase
 
 
-class ScheduledJob(Base):
+class ScheduledJob(JarvisBase):
     __tablename__ = "scheduled_jobs"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "job_id", name="uq_scheduled_jobs_tenant_job_id"),
+    )
 
-    id           = Column(Integer, primary_key=True, index=True)
-    job_id       = Column(String(100), unique=True, index=True)   # APScheduler job ID
-    name         = Column(String(200))
-    description  = Column(Text, nullable=True)
-    trigger_type = Column(String(20))  # cron | interval | date
-    trigger_args = Column(JSON, default=dict)  # e.g. {"hour": 8, "minute": 0}
-    agent        = Column(String(100), default="jarvis")
-    task_type    = Column(String(100))   # lead_scoring | outreach | briefing | custom
-    payload      = Column(JSON, default=dict)
-    enabled      = Column(Boolean, default=True)
-    last_run_at  = Column(DateTime(timezone=True), nullable=True)
-    next_run_at  = Column(DateTime(timezone=True), nullable=True)
-    last_status  = Column(String(30), nullable=True)   # success | failed | skipped
-    run_count    = Column(Integer, default=0)
-    created_at   = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at   = Column(DateTime(timezone=True), onupdate=func.now())
+    job_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trigger_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    trigger_args: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    agent: Mapped[str] = mapped_column(String(100), nullable=False, default="jarvis")
+    task_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    run_count: Mapped[int] = mapped_column(nullable=False, default=0)

@@ -8,7 +8,6 @@ from typing import Any, Callable
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
-from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -23,7 +22,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 _scheduler: AsyncIOScheduler | None = None
 
 DAILY_DISCOVERY_TARGETS = [
@@ -66,6 +65,20 @@ DEPRECATED_JOB_IDS = (
     "overnight_ops_report",
 )
 
+PRODUCTION_JOB_IDS = (
+    "daily_morning_briefing",
+    "daily_lead_scoring",
+    "daily_lead_discovery",
+    "daily_follow_up_check",
+    "daily_memory_consolidate",
+    "daily_optimization_review",
+    "weekly_outreach_stats",
+    "weekly_pipeline_health",
+    "weekly_tech_radar",
+    "biweekly_research_report",
+    "monthly_weight_adjust",
+)
+
 
 class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
     """APScheduler SQL job store with the tenant_id column required by JARVIS vNEXT."""
@@ -73,7 +86,9 @@ class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if "tenant_id" not in self.jobs_t.c:
-            self.jobs_t.append_column(Column("tenant_id", SUUID(as_uuid=True), nullable=True, index=True))
+            self.jobs_t.append_column(
+                Column("tenant_id", SUUID(as_uuid=True), nullable=False, index=True)
+            )
 
     def start(self, scheduler, alias):
         super().start(scheduler, alias)
@@ -113,9 +128,15 @@ class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
             columns = {column["name"] for column in inspector.get_columns(self.jobs_t.name)}
             if "tenant_id" in columns:
                 return
+            default_tenant = str(SYSTEM_TENANT_ID)
             column_type = "UUID" if self.engine.dialect.name == "postgresql" else "VARCHAR(36)"
             with self.engine.begin() as connection:
-                connection.execute(text(f"ALTER TABLE {self.jobs_t.name} ADD COLUMN tenant_id {column_type}"))
+                connection.execute(
+                    text(
+                        f"ALTER TABLE {self.jobs_t.name} "
+                        f"ADD COLUMN tenant_id {column_type} NOT NULL DEFAULT '{default_tenant}'"
+                    )
+                )
                 connection.execute(text(f"CREATE INDEX IF NOT EXISTS idx_{self.jobs_t.name}_tenant_id ON {self.jobs_t.name} (tenant_id)"))
         except Exception as exc:
             logger.warning("Could not ensure tenant_id on APScheduler job table: %s", exc)
@@ -124,11 +145,10 @@ class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
 def get_scheduler() -> AsyncIOScheduler:
     global _scheduler
     if _scheduler is None:
-        try:
-            jobstore = TenantAwareSQLAlchemyJobStore(url=_sync_database_url())
-        except Exception as exc:
-            logger.warning("Persistent APScheduler job store unavailable; using memory store: %s", exc)
-            jobstore = MemoryJobStore()
+        jobstore = TenantAwareSQLAlchemyJobStore(
+            url=_sync_database_url(),
+            tablename="apscheduler_jobs",
+        )
         _scheduler = AsyncIOScheduler(
             jobstores={"default": jobstore},
             executors={"default": AsyncIOExecutor()},
@@ -163,17 +183,38 @@ def stop_scheduler() -> None:
 
 def register_production_jobs() -> None:
     _remove_deprecated_jobs()
-    add_cron_job("daily_morning_briefing", daily_morning_briefing, hour=1, minute=30)
-    add_cron_job("daily_lead_scoring", daily_lead_scoring, hour=20, minute=30)
-    add_cron_job("daily_lead_discovery", daily_lead_discovery, hour=22, minute=0)
-    add_cron_job("daily_follow_up_check", daily_follow_up_check, hour=4, minute=30)
-    add_cron_job("daily_memory_consolidate", daily_memory_consolidate, hour=19, minute=0)
-    add_cron_job("daily_optimization_review", daily_optimization_review, hour=17, minute=30)
-    add_cron_job("weekly_outreach_stats", weekly_outreach_stats, hour=2, minute=30, day_of_week="mon")
-    add_cron_job("weekly_pipeline_health", weekly_pipeline_health, hour=14, minute=30, day_of_week="sun")
-    add_cron_job("weekly_tech_radar", weekly_tech_radar, hour=0, minute=30, day_of_week="mon")
-    add_cron_job("biweekly_research_report", biweekly_research_report, hour=1, minute=30, day_of_week="sun")
-    add_cron_job("monthly_weight_adjust", monthly_weight_adjust, hour=18, minute=30, day="last")
+    existing_job_ids = {job.id for job in get_scheduler().get_jobs()}
+    specs = _production_job_specs()
+    seeded = 0
+
+    for spec in specs:
+        if spec["job_id"] in existing_job_ids:
+            continue
+        add_cron_job(**spec, replace=False)
+        seeded += 1
+
+    loaded = len(PRODUCTION_JOB_IDS) - seeded
+    logger.info(
+        "JARVIS production scheduler ready: %s jobs loaded from persistent store, %s missing jobs seeded",
+        loaded,
+        seeded,
+    )
+
+
+def _production_job_specs() -> list[dict[str, Any]]:
+    return [
+        {"job_id": "daily_morning_briefing", "func": daily_morning_briefing, "hour": 1, "minute": 30},
+        {"job_id": "daily_lead_scoring", "func": daily_lead_scoring, "hour": 20, "minute": 30},
+        {"job_id": "daily_lead_discovery", "func": daily_lead_discovery, "hour": 22, "minute": 0},
+        {"job_id": "daily_follow_up_check", "func": daily_follow_up_check, "hour": 4, "minute": 30},
+        {"job_id": "daily_memory_consolidate", "func": daily_memory_consolidate, "hour": 19, "minute": 0},
+        {"job_id": "daily_optimization_review", "func": daily_optimization_review, "hour": 17, "minute": 30},
+        {"job_id": "weekly_outreach_stats", "func": weekly_outreach_stats, "hour": 2, "minute": 30, "day_of_week": "mon"},
+        {"job_id": "weekly_pipeline_health", "func": weekly_pipeline_health, "hour": 14, "minute": 30, "day_of_week": "sun"},
+        {"job_id": "weekly_tech_radar", "func": weekly_tech_radar, "hour": 0, "minute": 30, "day_of_week": "mon"},
+        {"job_id": "biweekly_research_report", "func": biweekly_research_report, "hour": 1, "minute": 30, "day_of_week": "sun"},
+        {"job_id": "monthly_weight_adjust", "func": monthly_weight_adjust, "hour": 18, "minute": 30, "day": "last"},
+    ]
 
 
 def _remove_deprecated_jobs() -> None:
