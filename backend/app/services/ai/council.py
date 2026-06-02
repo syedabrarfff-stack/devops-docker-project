@@ -36,7 +36,7 @@ COUNCIL_MEMBERS = [
 
 MODEL_CALL_OVERRIDES = {
     ("anthropic", "claude-opus-4-8"): "claude-opus-4-7",
-    ("bedrock", "claude-sonnet-4-6"): "anthropic.claude-sonnet-4-6",
+    ("bedrock", "claude-sonnet-4-6"): "global.anthropic.claude-sonnet-4-6",
     ("google", "gemini-1.5-pro"): "gemini-pro-latest",
     ("groq", "llama-3.3-70b"): "llama-3.3-70b-versatile",
     ("mistral", "mistral-large"): "mistral-large-latest",
