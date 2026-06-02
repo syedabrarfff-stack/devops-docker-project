@@ -231,6 +231,30 @@ TEAM_SEED = [
         "is_active": True,
         "is_client_facing": True,
     },
+    {
+        "name": "Rachel Turner",
+        "first_name": "Rachel",
+        "email": "rachel.turner@aliyarsolutions.com",
+        "phone": "+1 (646) 555-0412",
+        "linkedin": "linkedin.com/in/rachelturner-aliyar",
+        "department": "People & Feedback Department",
+        "role": "HR & Feedback Manager",
+        "seniority": "Senior",
+        "service_categories": ["hr", "feedback", "people_ops", "team_coordination", "satisfaction", "nps"],
+        "specializations": ["employee coordination", "client feedback collection", "NPS surveys", "satisfaction reporting", "team performance", "onboarding workflows"],
+        "communication_style": "warm",
+        "personality_traits": ["empathetic", "organised", "trustworthy", "solution-focused"],
+        "tone_keywords": ["people-first", "transparent", "constructive", "caring"],
+        "email_signature": (
+            "Rachel Turner\n"
+            "HR & Feedback Manager\n"
+            "Aliyar Solutions — People & Feedback Department\n"
+            "rachel.turner@aliyarsolutions.com"
+        ),
+        "proposal_title": "HR & Feedback Manager — People Operations & Client Satisfaction",
+        "is_active": True,
+        "is_client_facing": True,
+    },
 ]
 
 # Category → member name fallback priority (when multiple match)
@@ -275,6 +299,12 @@ CATEGORY_PRIORITY_MAP: dict[str, str] = {
     "account_management":   "Olivia Bennett",
     "content":              "Olivia Bennett",
     "social_media":         "Olivia Bennett",
+    "hr":                   "Rachel Turner",
+    "feedback":             "Rachel Turner",
+    "people_ops":           "Rachel Turner",
+    "team_coordination":    "Rachel Turner",
+    "satisfaction":         "Rachel Turner",
+    "nps":                  "Rachel Turner",
 }
 
 
