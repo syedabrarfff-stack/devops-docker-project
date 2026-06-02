@@ -255,6 +255,54 @@ TEAM_SEED = [
         "is_active": True,
         "is_client_facing": True,
     },
+    {
+        "name": "James Harlow",
+        "first_name": "James",
+        "email": "james.harlow@aliyarsolutions.com",
+        "phone": "+44 20 5555 0521",
+        "linkedin": "linkedin.com/in/jamesharlow-aliyar",
+        "department": "Customer Support Division",
+        "role": "Customer Support Lead",
+        "seniority": "Senior",
+        "service_categories": ["support", "tickets", "escalation", "issue_resolution", "client_care"],
+        "specializations": ["ticket management", "SLA compliance", "client escalation handling", "issue resolution", "support workflows"],
+        "communication_style": "warm",
+        "personality_traits": ["patient", "solution-focused", "professional", "calm under pressure"],
+        "tone_keywords": ["helpful", "responsive", "reliable", "clear"],
+        "email_signature": (
+            "James Harlow\n"
+            "Customer Support Lead\n"
+            "Aliyar Solutions — Customer Support Division\n"
+            "james.harlow@aliyarsolutions.com"
+        ),
+        "proposal_title": "Customer Support Lead — Client Care & Issue Resolution",
+        "is_active": True,
+        "is_client_facing": True,
+    },
+    {
+        "name": "Priya Nair",
+        "first_name": "Priya",
+        "email": "priya.nair@aliyarsolutions.com",
+        "phone": "+1 (415) 555-0634",
+        "linkedin": "linkedin.com/in/priyanair-aliyar",
+        "department": "Customer Support Division",
+        "role": "Feedback & NPS Analyst",
+        "seniority": "Mid",
+        "service_categories": ["feedback", "nps", "satisfaction", "surveys", "improvement", "reporting"],
+        "specializations": ["NPS surveys", "CSAT measurement", "feedback analysis", "satisfaction reporting", "improvement recommendations", "client sentiment tracking"],
+        "communication_style": "consultative",
+        "personality_traits": ["analytical", "empathetic", "detail-oriented", "proactive"],
+        "tone_keywords": ["insightful", "data-driven", "constructive", "people-centred"],
+        "email_signature": (
+            "Priya Nair\n"
+            "Feedback & NPS Analyst\n"
+            "Aliyar Solutions — Customer Support Division\n"
+            "priya.nair@aliyarsolutions.com"
+        ),
+        "proposal_title": "Feedback & NPS Analyst — Client Satisfaction & Continuous Improvement",
+        "is_active": True,
+        "is_client_facing": True,
+    },
 ]
 
 # Category → member name fallback priority (when multiple match)
@@ -304,7 +352,13 @@ CATEGORY_PRIORITY_MAP: dict[str, str] = {
     "people_ops":           "Rachel Turner",
     "team_coordination":    "Rachel Turner",
     "satisfaction":         "Rachel Turner",
-    "nps":                  "Rachel Turner",
+    "nps":                  "Priya Nair",
+    "tickets":              "James Harlow",
+    "escalation":           "James Harlow",
+    "issue_resolution":     "James Harlow",
+    "client_care":          "James Harlow",
+    "surveys":              "Priya Nair",
+    "improvement":          "Priya Nair",
 }
 
 
