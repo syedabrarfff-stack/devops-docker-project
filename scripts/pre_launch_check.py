@@ -1,10 +1,9 @@
-#!/usr/bin/env python
-"""Pre-launch validation for the first-client JARVIS mission.
-
-The checks are intentionally live: they prove the services Captain needs before
-the first paid client are reachable from this environment. The script never
-sends client outreach. It may create clearly named validation records and small
-notification pings so the real operating path is exercised.
+#!/usr/bin/env python3
+"""
+JARVIS vNEXT Pre-Launch Checklist
+Run before first client activation.
+Usage: python scripts/pre_launch_check.py
+All 17 checks must pass before going live.
 """
 from __future__ import annotations
 
