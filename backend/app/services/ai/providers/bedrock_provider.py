@@ -11,9 +11,9 @@ from app.services.ai.base_provider import AIResponse, BaseAIProvider, Message
 class BedrockProvider(BaseAIProvider):
     name = "bedrock"
     models = {
-        "claude-sonnet-4-6": "anthropic.claude-sonnet-4-6",
-        "claude-sonnet": "anthropic.claude-sonnet-4-6",
-        "claude-haiku": "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "claude-sonnet-4-6": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+        "claude-sonnet": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
+        "claude-haiku": "apac.anthropic.claude-sonnet-4-20250514-v1:0",
     }
 
     def is_available(self) -> bool:
@@ -22,7 +22,7 @@ class BedrockProvider(BaseAIProvider):
     async def chat(
         self,
         messages: List[Message],
-        model_id: str = "anthropic.claude-sonnet-4-6",
+        model_id: str = "apac.anthropic.claude-sonnet-4-20250514-v1:0",
         system_prompt: str = "",
         max_tokens: int = 2048,
     ) -> AIResponse:

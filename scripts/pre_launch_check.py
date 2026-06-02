@@ -102,7 +102,7 @@ async def test_bedrock() -> str:
     model_id = (
         os.getenv("BEDROCK_VALIDATION_MODEL_ID")
         or os.getenv("BEDROCK_MODEL_ID")
-        or "anthropic.claude-haiku-4-5-20251001-v1:0"
+        or "apac.anthropic.claude-sonnet-4-20250514-v1:0"
     )
     payload = {
         "anthropic_version": "bedrock-2023-05-31",
