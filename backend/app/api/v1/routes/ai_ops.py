@@ -1,10 +1,12 @@
 """
 AI Operations API — provider health, circuit breakers, cost tracking, credential audit, request log.
 """
+import time
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.services.ai.base_provider import Message
 from app.services.ai.router import ai_router as jarvis_router
 from app.services.ai.health_monitor import health_monitor
 from app.services.ai.cost_tracker import (
@@ -31,6 +33,53 @@ async def provider_health():
         "circuit_healthy": len(available),
         "providers": jarvis_router.get_provider_status(),
         "circuit_breakers": statuses,
+    }
+
+
+@router.get("/test-bedrock")
+async def test_bedrock():
+    """Invoke Bedrock directly so configured vs. genuinely callable is clear."""
+    provider = jarvis_router._providers.get("bedrock")
+    if provider is None:
+        return {
+            "provider": "bedrock",
+            "configured": False,
+            "invoked": False,
+            "status": "missing_provider",
+        }
+
+    model_id = provider.models.get("claude-sonnet") or next(iter(provider.models.values()))
+    started = time.monotonic()
+    response = await provider.chat(
+        messages=[Message(role="user", content="Return READY.")],
+        model_id=model_id,
+        system_prompt="Return exactly READY.",
+        max_tokens=8,
+    )
+    latency_ms = int((time.monotonic() - started) * 1000)
+
+    if response.error:
+        health_monitor.record_failure("bedrock", latency_ms)
+        return {
+            "provider": "bedrock",
+            "configured": provider.is_available(),
+            "invoked": False,
+            "status": "failed",
+            "model_id": model_id,
+            "latency_ms": latency_ms,
+            "error": response.error[:1000],
+        }
+
+    health_monitor.record_success("bedrock", latency_ms)
+    return {
+        "provider": "bedrock",
+        "configured": provider.is_available(),
+        "invoked": True,
+        "status": "ok",
+        "model_id": model_id,
+        "latency_ms": latency_ms,
+        "response": response.content[:500],
+        "tokens_used": response.tokens_used,
     }
 
 
