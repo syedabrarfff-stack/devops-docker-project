@@ -1,482 +1,558 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Brain, CheckSquare, TrendingUp, Globe, Clock, Zap,
-  Mail, Users, Target, Activity, RefreshCw, Volume2,
-  AlertCircle, CheckCircle, XCircle, Loader
+  AlertTriangle,
+  BarChart3,
+  BriefcaseBusiness,
+  CheckCircle2,
+  CheckSquare,
+  ChevronDown,
+  Clock,
+  Database,
+  DollarSign,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Shield,
+  Target,
+  Users,
 } from 'lucide-react'
 import {
-  getHealth, getPendingCount, getLeadStats,
-  getGmailStats, getJarvisGreeting, getJarvisAIHealth,
-  getJarvisVoiceBrief,
-} from '../../services/api'
-import voiceService from '../../services/voice'
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import api from '../../services/api'
 import useJarvisStore from '../../store/useJarvisStore'
 
-const ZONES = [
-  { city: 'New York',   tz: 'America/New_York',  flag: '🇺🇸' },
-  { city: 'London',     tz: 'Europe/London',      flag: '🇬🇧' },
-  { city: 'Dubai',      tz: 'Asia/Dubai',         flag: '🇦🇪' },
-  { city: 'Sydney',     tz: 'Australia/Sydney',   flag: '🇦🇺' },
-  { city: 'Mumbai',     tz: 'Asia/Kolkata',       flag: '🇮🇳' },
-]
+const FUNNEL_STATUSES = ['NEW', 'CONTACTED', 'REPLIED', 'DEMO', 'PROPOSAL', 'WON']
+const COST_COLORS = ['#00C8FF', '#0057FF', '#FFB700', '#22C55E', '#A855F7', '#F97316', '#EF4444']
 
-const AI_PROVIDER_DISPLAY = {
-  anthropic: 'Claude',
-  openai:    'GPT-4o',
-  google:    'Gemini',
-  deepseek:  'DeepSeek',
-  groq:      'Groq / Llama',
-  mistral:   'Mistral',
+function money(value) {
+  const n = Number(value || 0)
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 }
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
+function number(value) {
+  return Number(value || 0).toLocaleString()
+}
 
-const StatCard = ({ icon: Icon, label, value, sub, color = 'blue', onClick, delay = 0 }) => {
-  const C = {
-    blue:   { border: 'border-jarvis-blue/20',   bg: 'bg-jarvis-blue/10',   text: 'text-jarvis-blue',   glow: 'glow-blue' },
-    purple: { border: 'border-purple-400/20',     bg: 'bg-purple-500/10',    text: 'text-purple-400',    glow: '' },
-    green:  { border: 'border-green-400/20',      bg: 'bg-green-500/10',     text: 'text-green-400',     glow: '' },
-    amber:  { border: 'border-amber-400/20',      bg: 'bg-amber-400/10',     text: 'text-amber-400',     glow: '' },
-    red:    { border: 'border-red-400/20',        bg: 'bg-red-500/10',       text: 'text-red-400',       glow: '' },
-  }[color]
+function safeArray(value, key) {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.[key])) return value[key]
+  return []
+}
+
+function statusIsOk(value) {
+  if (!value) return false
+  const normalized = String(value.status || value).toLowerCase()
+  return ['ok', 'ready', 'operational', 'healthy', 'up'].includes(normalized)
+}
+
+function MetricCard({ icon: Icon, label, value, detail, tone = 'cyan', onClick }) {
+  const tones = {
+    gold: 'border-jarvis-gold/30 text-jarvis-gold bg-jarvis-gold/10',
+    cyan: 'border-jarvis-cyan/30 text-jarvis-cyan bg-jarvis-cyan/10',
+    blue: 'border-jarvis-blue/30 text-jarvis-blue bg-jarvis-blue/10',
+    green: 'border-green-400/30 text-green-300 bg-green-400/10',
+    red: 'border-red-400/30 text-red-300 bg-red-400/10',
+  }[tone]
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.35 }}
+    <motion.button
+      type="button"
       onClick={onClick}
-      className={`glass p-5 border ${C.border} ${C.glow} ${onClick ? 'cursor-pointer hover:border-opacity-60' : ''} transition-all`}
+      disabled={!onClick}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`glass p-5 text-left transition-all ${onClick ? 'hover:border-white/20' : ''}`}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className={`p-2.5 rounded-xl ${C.bg}`}>
-          <Icon size={17} className={C.text} />
+      <div className="flex items-start justify-between gap-3">
+        <div className={`rounded-xl border p-2.5 ${tones}`}>
+          <Icon size={18} />
         </div>
-        <span className="text-[10px] text-white/25 font-mono uppercase tracking-wider">{sub}</span>
+        <p className="text-right text-[11px] uppercase tracking-[0.18em] text-gray-500">{label}</p>
       </div>
-      <p className={`text-3xl font-bold ${C.text}`}>{value ?? '—'}</p>
-      <p className="text-xs text-white/40 mt-1 font-medium">{label}</p>
-    </motion.div>
+      <p className="mt-5 text-3xl font-bold text-white">{value}</p>
+      <p className={`mt-2 text-xs ${tone === 'red' ? 'text-red-300' : 'text-gray-400'}`}>{detail}</p>
+    </motion.button>
   )
 }
 
-// ── AI Provider status dot ─────────────────────────────────────────────────────
-
-const ProviderRow = ({ name, data, delay }) => {
-  const display = AI_PROVIDER_DISPLAY[name] || name
-  const online = data?.status === 'online'
+function Panel({ title, subtitle, icon: Icon, action, children }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay }}
-      className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]"
-    >
-      <div className="flex items-center gap-2.5">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-          online ? 'bg-green-400 shadow-[0_0_6px_#4ade80]' : 'bg-red-400 shadow-[0_0_6px_#f87171]'
-        }`} />
-        <span className="text-sm text-white/65 font-medium">{display}</span>
+    <section className="glass p-5">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          {Icon && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-2 text-jarvis-cyan">
+              <Icon size={15} />
+            </div>
+          )}
+          <div>
+            <h2 className="text-sm font-semibold text-white">{title}</h2>
+            {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
+          </div>
+        </div>
+        {action}
       </div>
-      <div className="flex items-center gap-2">
-        {data?.latency_ms && (
-          <span className="text-[10px] text-white/25 font-mono">{data.latency_ms}ms</span>
-        )}
-        {online
-          ? <CheckCircle size={13} className="text-green-400/70" />
-          : <XCircle size={13} className="text-red-400/70" />}
-      </div>
-    </motion.div>
+      {children}
+    </section>
   )
 }
 
-// ── Main dashboard ─────────────────────────────────────────────────────────────
+function EmptyState({ text }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-center text-sm text-gray-500">
+      {text}
+    </div>
+  )
+}
+
+function HealthRow({ label, ok, detail }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        {ok ? <CheckCircle2 size={14} className="text-green-400" /> : <AlertTriangle size={14} className="text-red-300" />}
+        <span className="text-sm text-white/70">{label}</span>
+      </div>
+      <span className={`text-xs ${ok ? 'text-green-300' : 'text-red-300'}`}>{detail}</span>
+    </div>
+  )
+}
+
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#08111f]/95 px-3 py-2 text-xs shadow-xl">
+      <p className="mb-1 text-gray-400">{label}</p>
+      {payload.map((item) => (
+        <p key={item.name} style={{ color: item.color }}>
+          {item.name}: {typeof item.value === 'number' ? number(item.value) : item.value}
+        </p>
+      ))}
+    </div>
+  )
+}
 
 export default function Dashboard() {
-  const { setActiveView, setPendingApprovals } = useJarvisStore()
+  const {
+    setActiveView,
+    pendingApprovals,
+    setPendingApprovals,
+    notifications,
+    captainQueue,
+    systemHealth,
+    setSystemHealth,
+  } = useJarvisStore()
 
-  const [greeting, setGreeting]       = useState(null)
-  const [health, setHealth]           = useState(null)
-  const [aiHealth, setAiHealth]       = useState(null)
-  const [leadStats, setLeadStats]     = useState(null)
-  const [gmailStats, setGmailStats]   = useState(null)
-  const [approvals, setApprovals]     = useState(0)
-  const [times, setTimes]             = useState({})
-  const [loadingAI, setLoadingAI]     = useState(false)
-  const [speaking, setSpeaking]       = useState(false)
-  const [greeted, setGreeted]         = useState(false)
-  const [now, setNow]                 = useState(new Date())
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [briefExpanded, setBriefExpanded] = useState(false)
+  const [criticalAlert, setCriticalAlert] = useState(null)
+  const [data, setData] = useState({
+    revenue: null,
+    mrrChart: [],
+    pipeline: null,
+    approvals: [],
+    leads: [],
+    briefing: null,
+    ready: null,
+    aiHealth: null,
+    aiCost: null,
+    audit: [],
+  })
 
-  // Fetch all dashboard data in parallel
-  const fetchAll = useCallback(async () => {
-    try {
-      const [h, p, ls, gs] = await Promise.allSettled([
-        getHealth(),
-        getPendingCount(),
-        getLeadStats(),
-        getGmailStats(),
-      ])
-      if (h.status === 'fulfilled') setHealth(h.value)
-      if (p.status === 'fulfilled') {
-        const count = p.value?.pending || 0
-        setApprovals(count)
-        setPendingApprovals(count)
-      }
-      if (ls.status === 'fulfilled') setLeadStats(ls.value)
-      if (gs.status === 'fulfilled') setGmailStats(gs.value)
-    } catch {}
-  }, [setPendingApprovals])
+  const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
+    if (soft) setRefreshing(true)
+    else setLoading(true)
 
-  // Fetch AI health check
-  const runAIHealthCheck = useCallback(async () => {
-    setLoadingAI(true)
-    try {
-      const data = await getJarvisAIHealth()
-      setAiHealth(data)
-    } catch {}
-    setLoadingAI(false)
-  }, [])
+    const results = await Promise.allSettled([
+      api.get('/api/v1/revenue/snapshot'),
+      api.get('/api/v1/revenue/mrr-chart', { params: { days: 365 } }),
+      api.get('/api/v1/crm/deals/pipeline'),
+      api.get('/api/v1/approvals', { params: { status: 'pending' } }),
+      api.get('/api/v1/leads/', { params: { limit: 50 } }),
+      api.get('/api/v1/leads/stats'),
+      api.get('/api/v1/briefing/morning'),
+      api.get('/readyz'),
+      api.get('/api/v1/ai-ops/health'),
+      api.get('/api/v1/ai-ops/cost/summary', { params: { days: 7 } }),
+      api.get('/api/v1/ai-ops/audit', { params: { limit: 10 } }),
+    ])
 
-  // Contextual greeting
-  const fetchAndSpeak = useCallback(async () => {
-    if (greeted) return
-    setGreeted(true)
-    try {
-      const data = await getJarvisGreeting()
-      setGreeting(data.greeting)
-    } catch {
-      const hour = new Date().getHours()
-      setGreeting(
-        hour < 12 ? "Good morning, Captain. JARVIS is operational." :
-        hour < 17 ? "Good afternoon, Captain. All systems running." :
-        "Good evening, Captain. Standing by."
-      )
-    }
-  }, [greeted])
+    const value = (index, fallback = null) => (
+      results[index].status === 'fulfilled' ? results[index].value.data : fallback
+    )
 
-  const speakGreeting = () => {
-    if (!greeting) return
-    setSpeaking(true)
-    voiceService.speak(greeting, { onEnd: () => setSpeaking(false) })
-  }
+    const approvals = safeArray(value(3, []), 'approvals')
+    setPendingApprovals(approvals.length)
+    setSystemHealth(value(7, null))
 
-  const speakVoiceBrief = async () => {
-    setSpeaking(true)
-    try {
-      const data = await getJarvisVoiceBrief()
-      await voiceService.speak(data.brief, { onEnd: () => setSpeaking(false) })
-    } catch {
-      setSpeaking(false)
-    }
-  }
+    setData({
+      revenue: value(0, null),
+      mrrChart: safeArray(value(1, {}), 'points'),
+      pipeline: value(2, null),
+      approvals,
+      leads: safeArray(value(4, []), 'leads'),
+      briefing: value(6, null),
+      ready: value(7, null),
+      aiHealth: value(8, null),
+      aiCost: value(9, null),
+      audit: safeArray(value(10, {}), 'logs'),
+    })
+
+    setLoading(false)
+    setRefreshing(false)
+  }, [setPendingApprovals, setSystemHealth])
 
   useEffect(() => {
-    fetchAll()
-    fetchAndSpeak()
-    runAIHealthCheck()
-
-    // Refresh stats every 60s
-    const interval = setInterval(fetchAll, 60_000)
+    fetchDashboard()
+    const interval = setInterval(() => fetchDashboard({ soft: true }), 30_000)
     return () => clearInterval(interval)
-  }, [])
+  }, [fetchDashboard])
 
-  // World clocks
   useEffect(() => {
-    const update = () => {
-      const t = {}
-      ZONES.forEach(({ city, tz }) => {
-        t[city] = new Date().toLocaleTimeString('en-US', {
-          timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true,
-        })
-      })
-      setTimes(t)
-      setNow(new Date())
-    }
-    update()
-    const ticker = setInterval(update, 10_000)
-    return () => clearInterval(ticker)
-  }, [])
+    const newest = notifications.find((item) => ['critical', 'error', 'warning'].includes(item.level))
+    if (newest) setCriticalAlert(newest)
+  }, [notifications])
 
-  const hour = now.getHours()
-  const timeLabel = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night'
-  const aiOnline = aiHealth?.online ?? 0
-  const aiTotal  = aiHealth?.total ?? 6
+  const mrrGrowth = useMemo(() => {
+    const points = data.mrrChart.filter((point) => Number(point.mrr_usd || 0) >= 0)
+    if (points.length < 2) return 0
+    const previous = Number(points[points.length - 2].mrr_usd || 0)
+    const current = Number(points[points.length - 1].mrr_usd || 0)
+    if (!previous) return current ? 100 : 0
+    return ((current - previous) / previous) * 100
+  }, [data.mrrChart])
+
+  const topLeads = useMemo(() => (
+    [...data.leads]
+      .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+      .slice(0, 5)
+  ), [data.leads])
+
+  const funnelData = useMemo(() => {
+    const byStatus = data.leads.reduce((acc, lead) => {
+      const status = String(lead.status || 'NEW').toUpperCase()
+      acc[status] = (acc[status] || 0) + 1
+      return acc
+    }, {})
+    return FUNNEL_STATUSES.map((status) => ({ status, count: byStatus[status] || 0 }))
+  }, [data.leads])
+
+  const mrrData = useMemo(() => {
+    const points = data.mrrChart.slice(-12).map((point) => ({
+      month: String(point.snapshot_date || point.date || '').slice(0, 7) || 'now',
+      mrr: Number(point.mrr_usd || 0),
+    }))
+    if (points.length) return points
+    return [{ month: 'current', mrr: Number(data.revenue?.mrr_usd || 0) }]
+  }, [data.mrrChart, data.revenue])
+
+  const costData = useMemo(() => {
+    const raw = data.aiCost?.by_provider || data.aiCost?.providers || data.aiCost?.provider_costs || {}
+    const entries = Object.entries(raw).map(([name, value]) => {
+      const amount = typeof value === 'object'
+        ? value?.total_cost_usd ?? value?.cost_usd ?? value?.total ?? 0
+        : value
+      return { name, value: Number(amount || 0) }
+    }).filter((item) => item.value > 0)
+    return entries.length ? entries : [{ name: 'No spend logged', value: 1, placeholder: true }]
+  }, [data.aiCost])
+
+  const apiOk = statusIsOk(data.ready || systemHealth)
+  const checks = data.ready?.checks || systemHealth?.checks || {}
+  const dbOk = statusIsOk(checks.database)
+  const redisOk = statusIsOk(checks.redis) || statusIsOk(systemHealth?.redis) || false
+  const aiOk = statusIsOk(checks.ai_providers) || Number(data.aiHealth?.available || 0) > 0
+  const queueCount = pendingApprovals || data.approvals.length || captainQueue.length
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="glass flex items-center gap-3 px-5 py-4 text-sm text-gray-300">
+          <Loader2 size={18} className="animate-spin text-jarvis-cyan" />
+          Loading executive dashboard
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-5 space-y-5 overflow-y-auto h-full no-scrollbar">
-
-      {/* ── JARVIS Greeting banner ── */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass p-5 border border-jarvis-blue/15 glow-blue relative overflow-hidden"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_#4ade80]" />
-              <span className="text-xs text-green-400 font-semibold tracking-wider uppercase">JARVIS Online</span>
+    <div className="h-full overflow-y-auto p-6 space-y-6">
+      <AnimatePresence>
+        {criticalAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="glass border-red-400/30 bg-red-500/10 p-4"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="mt-0.5 text-red-300" />
+                <div>
+                  <p className="text-sm font-semibold text-red-100">Critical event</p>
+                  <p className="mt-1 text-sm text-red-100/80">{criticalAlert.message}</p>
+                </div>
+              </div>
+              <button onClick={() => setCriticalAlert(null)} className="text-xs text-red-100/60 hover:text-red-100">
+                Dismiss
+              </button>
             </div>
-            <p className="text-white/80 text-sm leading-relaxed mt-2">
-              {greeting || `Good ${timeLabel}, Captain. Loading status…`}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2 flex-shrink-0">
-            <button
-              onClick={speaking ? () => voiceService.stopSpeaking() : speakGreeting}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-                speaking
-                  ? 'bg-jarvis-blue/20 border-jarvis-blue/40 text-jarvis-blue'
-                  : 'glass border-white/15 text-white/45 hover:text-white/80'
-              }`}
-            >
-              <Volume2 size={12} className={speaking ? 'animate-pulse' : ''} />
-              {speaking ? 'Stop' : 'Play'}
-            </button>
-            <button
-              onClick={speakVoiceBrief}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium glass border border-white/10 text-white/40 hover:text-white/70 transition-all"
-            >
-              <Zap size={12} />
-              Full Brief
-            </button>
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* ── Stats row ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          icon={Brain}
-          label="AI Providers Online"
-          value={`${aiOnline}/${aiTotal}`}
-          sub="intelligence"
-          color={aiOnline > 0 ? 'blue' : 'red'}
-          onClick={() => runAIHealthCheck()}
-          delay={0.04}
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">Captain Command</p>
+          <h1 className="mt-2 text-3xl font-bold text-white">Executive Dashboard</h1>
+          <p className="mt-2 max-w-3xl text-sm text-gray-400">
+            Revenue, pipeline, alerts, briefing, and system readiness in one operating view.
+          </p>
+        </div>
+        <button
+          onClick={() => fetchDashboard({ soft: true })}
+          disabled={refreshing}
+          className="btn-primary inline-flex items-center gap-2"
+        >
+          {refreshing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+          Refresh
+        </button>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={DollarSign}
+          label="MRR"
+          value={money(data.revenue?.mrr_usd)}
+          detail={`${mrrGrowth >= 0 ? '+' : ''}${mrrGrowth.toFixed(1)}% vs previous snapshot`}
+          tone="gold"
+          onClick={() => setActiveView('invoices')}
         />
-        <StatCard
+        <MetricCard
+          icon={Users}
+          label="Active Clients"
+          value={number(data.revenue?.active_clients)}
+          detail={`${number(data.revenue?.paid_invoices)} paid invoices`}
+          tone="cyan"
+          onClick={() => setActiveView('crm')}
+        />
+        <MetricCard
+          icon={BriefcaseBusiness}
+          label="Pipeline Value"
+          value={money(data.pipeline?.pipeline_value || data.pipeline?.total_value || data.pipeline?.open_value)}
+          detail="Open opportunities from CRM"
+          tone="blue"
+          onClick={() => setActiveView('leads')}
+        />
+        <MetricCard
           icon={CheckSquare}
           label="Pending Approvals"
-          value={approvals}
-          sub="queue"
-          color={approvals > 0 ? 'amber' : 'green'}
+          value={number(queueCount)}
+          detail={queueCount ? 'Captain decision required' : 'No blocking queue items'}
+          tone={queueCount ? 'red' : 'green'}
           onClick={() => setActiveView('approvals')}
-          delay={0.08}
-        />
-        <StatCard
-          icon={Target}
-          label="Total Leads"
-          value={leadStats?.total ?? '—'}
-          sub="pipeline"
-          color="purple"
-          onClick={() => setActiveView('leads')}
-          delay={0.12}
-        />
-        <StatCard
-          icon={Mail}
-          label="Emails — Needs Action"
-          value={gmailStats?.needs_action ?? '—'}
-          sub="inbox"
-          color={gmailStats?.needs_action > 0 ? 'amber' : 'green'}
-          onClick={() => setActiveView('gmail')}
-          delay={0.16}
         />
       </div>
 
-      {/* ── AI Health + World clocks ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-
-        {/* AI Intelligence Network */}
-        <motion.div
-          initial={{ opacity: 0, x: -16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          className="glass p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Brain size={15} className="text-jarvis-blue" />
-              <span className="text-sm font-semibold text-white/70">AI Intelligence Network</span>
-            </div>
-            <button
-              onClick={runAIHealthCheck}
-              disabled={loadingAI}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-white/35 hover:text-white/60 glass border border-white/10 transition-all disabled:opacity-40"
-            >
-              <RefreshCw size={11} className={loadingAI ? 'animate-spin' : ''} />
-              {loadingAI ? 'Checking…' : 'Test All'}
-            </button>
-          </div>
-
-          {loadingAI && !aiHealth ? (
-            <div className="flex items-center justify-center py-8 gap-2">
-              <Loader size={16} className="animate-spin text-jarvis-blue/60" />
-              <span className="text-sm text-white/30">Testing all providers…</span>
-            </div>
-          ) : aiHealth?.providers ? (
-            <div className="space-y-2">
-              {Object.entries(aiHealth.providers).map(([name, data], i) => (
-                <ProviderRow key={name} name={name} data={data} delay={i * 0.05} />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {['anthropic','openai','google','deepseek','groq','mistral'].map((n, i) => (
-                <div key={n} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                  <span className="w-2 h-2 rounded-full bg-white/20" />
-                  <span className="text-sm text-white/35">{AI_PROVIDER_DISPLAY[n]}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {aiHealth && (
-            <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
-              <span className="text-xs text-white/30">{aiOnline} of {aiTotal} providers responding</span>
-              <span className={`text-xs font-medium ${aiOnline === aiTotal ? 'text-green-400' : aiOnline > 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                {aiOnline === aiTotal ? 'All Operational' : aiOnline > 0 ? 'Partially Degraded' : 'Critical'}
-              </span>
-            </div>
-          )}
-        </motion.div>
-
-        {/* World clock */}
-        <motion.div
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25 }}
-          className="glass p-5"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Globe size={15} className="text-jarvis-blue" />
-            <span className="text-sm font-semibold text-white/70">Target Markets — Live Time</span>
-          </div>
-          <div className="space-y-2.5">
-            {ZONES.map(({ city, flag }) => {
-              const t = times[city]
-              const [hhmm, ampm] = (t || '').split(' ')
-              const isBusinessHours = (() => {
-                if (!t) return false
-                const h = parseInt(hhmm?.split(':')[0] || '0')
-                const isPM = ampm === 'PM'
-                const hour24 = isPM && h !== 12 ? h + 12 : (!isPM && h === 12 ? 0 : h)
-                return hour24 >= 9 && hour24 < 18
-              })()
-              return (
-                <div key={city} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.04]">
-                  <div className="flex items-center gap-2.5">
-                    <span>{flag}</span>
-                    <span className="text-sm text-white/60 font-medium">{city}</span>
-                    {isBusinessHours && (
-                      <span className="text-[9px] text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded-full font-medium">OPEN</span>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
+        <div className="space-y-6">
+          <Panel
+            title="Today's Pipeline"
+            subtitle="Top 5 leads by score with quick actions"
+            icon={Target}
+            action={<button onClick={() => setActiveView('leads')} className="text-xs text-jarvis-cyan hover:text-white">Open leads</button>}
+          >
+            {topLeads.length === 0 ? (
+              <EmptyState text="No lead records are visible yet." />
+            ) : (
+              <div className="space-y-3">
+                {topLeads.map((lead) => (
+                  <div key={lead.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="font-semibold text-white">{lead.company || lead.company_name || 'Unnamed company'}</p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {[lead.industry, lead.country, lead.contact_name].filter(Boolean).join(' | ') || 'No enrichment summary yet'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-jarvis-gold/30 bg-jarvis-gold/10 px-3 py-1 text-xs font-semibold text-jarvis-gold">
+                          Score {Number(lead.score || 0).toFixed(0)}
+                        </span>
+                        <button onClick={() => setActiveView('proposals')} className="btn-primary py-1.5 text-xs">
+                          Proposal
+                        </button>
+                        <button onClick={() => setActiveView('outreach')} className="btn-primary py-1.5 text-xs">
+                          Outreach
+                        </button>
+                      </div>
+                    </div>
+                    {lead.pain_points?.length > 0 && (
+                      <p className="mt-3 text-xs text-gray-400">Pain points: {lead.pain_points.slice(0, 3).join(', ')}</p>
                     )}
                   </div>
-                  <span className="font-mono text-sm text-jarvis-blue">{t || '—'}</span>
-                </div>
-              )
-            })}
-          </div>
-        </motion.div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Recent Activity"
+            subtitle="Last 10 AI/audit events available to the frontend"
+            icon={Clock}
+          >
+            {data.audit.length === 0 ? (
+              <EmptyState text="No recent audit records returned yet." />
+            ) : (
+              <div className="space-y-2">
+                {data.audit.slice(0, 10).map((item, index) => (
+                  <div key={item.id || index} className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div>
+                      <p className="text-sm text-white/80">{item.task_type || item.provider || item.action || 'System activity'}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.model || item.endpoint || item.status || 'No details'} {item.latency_ms ? `| ${item.latency_ms}ms` : ''}
+                      </p>
+                    </div>
+                    <span className={`text-xs ${item.success === false ? 'text-red-300' : 'text-green-300'}`}>
+                      {item.success === false ? 'failed' : 'ok'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <div className="space-y-6">
+          <Panel
+            title="Morning Briefing"
+            subtitle={data.briefing?.generated_at ? `Generated ${new Date(data.briefing.generated_at).toLocaleString()}` : 'Latest briefing'}
+            icon={FileText}
+            action={
+              <button onClick={() => setBriefExpanded((current) => !current)} className="text-gray-400 hover:text-white">
+                <ChevronDown size={16} className={`transition-transform ${briefExpanded ? 'rotate-180' : ''}`} />
+              </button>
+            }
+          >
+            <div className={`overflow-hidden text-sm leading-6 text-gray-300 ${briefExpanded ? '' : 'max-h-40'}`}>
+              {data.briefing?.briefing || 'Morning briefing is not available yet.'}
+            </div>
+            {!briefExpanded && data.briefing?.briefing && (
+              <button onClick={() => setBriefExpanded(true)} className="mt-3 text-xs text-jarvis-cyan hover:text-white">
+                Expand briefing
+              </button>
+            )}
+          </Panel>
+
+          <Panel title="System Health" subtitle="API, database, Redis, and AI readiness" icon={Shield}>
+            <div className="space-y-2">
+              <HealthRow label="API" ok={apiOk} detail={data.ready?.status || 'unknown'} />
+              <HealthRow label="Database" ok={dbOk} detail={checks.database?.latency_ms ? `${checks.database.latency_ms}ms` : checks.database?.status || 'unknown'} />
+              <HealthRow label="Redis" ok={redisOk} detail={checks.redis?.status || systemHealth?.redis?.status || 'not reported'} />
+              <HealthRow
+                label="AI Providers"
+                ok={aiOk}
+                detail={`${data.aiHealth?.available ?? checks.ai_providers?.available ?? 0}/${data.aiHealth?.total_providers ?? checks.ai_providers?.total ?? 0}`}
+              />
+            </div>
+          </Panel>
+
+          <Panel
+            title="Captain Queue"
+            subtitle="Pending approvals and high-authority decisions"
+            icon={CheckSquare}
+            action={<button onClick={() => setActiveView('approvals')} className="text-xs text-jarvis-cyan hover:text-white">Open queue</button>}
+          >
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className={`text-4xl font-bold ${queueCount ? 'text-red-300' : 'text-green-300'}`}>{queueCount}</p>
+              <p className="mt-2 text-sm text-gray-400">
+                {queueCount ? 'Items are waiting for Captain review.' : 'No approvals are blocking execution.'}
+              </p>
+            </div>
+            {data.approvals.slice(0, 3).map((approval) => (
+              <div key={approval.id} className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-sm font-medium text-white">{approval.title}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-gray-500">{approval.summary}</p>
+              </div>
+            ))}
+          </Panel>
+        </div>
       </div>
 
-      {/* ── Lead pipeline + Gmail quick stats ── */}
-      {(leadStats || gmailStats) && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          {leadStats && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="glass p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Target size={15} className="text-purple-400" />
-                  <span className="text-sm font-semibold text-white/70">Lead Pipeline</span>
-                </div>
-                <button onClick={() => setActiveView('leads')} className="text-xs text-jarvis-blue/60 hover:text-jarvis-blue">View all →</button>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'New', value: leadStats.by_status?.new ?? '—', color: 'text-white/60' },
-                  { label: 'Hot (8+)', value: leadStats.hot_leads ?? '—', color: 'text-red-400' },
-                  { label: 'Proposals', value: leadStats.by_status?.proposal_sent ?? '—', color: 'text-amber-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                    <p className={`text-2xl font-bold ${color}`}>{value}</p>
-                    <p className="text-[11px] text-white/35 mt-0.5">{label}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel title="MRR Trend" subtitle="Last 12 available snapshots" icon={BarChart3}>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={mrrData}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={money} />
+                <Tooltip content={<CustomTooltip />} />
+                <Line type="monotone" dataKey="mrr" name="MRR" stroke="#FFB700" strokeWidth={3} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
 
-          {gmailStats && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="glass p-5"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Mail size={15} className="text-green-400" />
-                  <span className="text-sm font-semibold text-white/70">Gmail Operations</span>
-                </div>
-                <button onClick={() => setActiveView('gmail')} className="text-xs text-jarvis-blue/60 hover:text-jarvis-blue">Open inbox →</button>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Unread', value: gmailStats.unread ?? '—', color: 'text-jarvis-blue' },
-                  { label: 'Client Replies', value: gmailStats.client_replies ?? '—', color: 'text-green-400' },
-                  { label: 'Needs Action', value: gmailStats.needs_action ?? '—', color: 'text-amber-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-                    <p className={`text-2xl font-bold ${color}`}>{value}</p>
-                    <p className="text-[11px] text-white/35 mt-0.5">{label}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
-      )}
+        <Panel title="Lead Funnel" subtitle="Visible lead stages" icon={Target}>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={funnelData}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                <XAxis dataKey="status" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Leads" radius={[6, 6, 0, 0]} fill="#00C8FF" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
 
-      {/* ── Overnight engine status ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="glass p-5"
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <Activity size={15} className="text-jarvis-blue" />
-          <span className="text-sm font-semibold text-white/70">Overnight Revenue Engine — Schedule (IST)</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {[
-            { time: '11:30 PM', label: 'Lead Discovery',    status: 'active' },
-            { time: '12:00 AM', label: 'Intel Analysis',    status: 'active' },
-            { time: '01:00 AM', label: 'Proposal Engine',   status: 'active' },
-            { time: '02:00 AM', label: 'Cold Outreach',     status: 'active' },
-            { time: '03:00 AM', label: 'Upwork / PPH Bids', status: 'active' },
-            { time: '05:00 AM', label: 'Follow-ups',        status: 'active' },
-            { time: '06:30 AM', label: 'Pipeline Health',   status: 'active' },
-            { time: '08:00 AM', label: 'Ops Report',        status: 'active' },
-          ].map(({ time, label }) => (
-            <div key={label} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-              <span className="w-1.5 h-1.5 rounded-full bg-jarvis-blue/70 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] text-jarvis-blue/70 font-mono">{time}</p>
-                <p className="text-xs text-white/50 truncate">{label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
+        <Panel title="AI Cost Breakdown" subtitle="Provider spend, last 7 days" icon={Database}>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={costData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={52}
+                  outerRadius={86}
+                  paddingAngle={3}
+                >
+                  {costData.map((entry, index) => (
+                    <Cell key={entry.name} fill={entry.placeholder ? 'rgba(255,255,255,0.16)' : COST_COLORS[index % COST_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {costData.map((entry, index) => (
+              <span key={entry.name} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-gray-300">
+                <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: entry.placeholder ? 'rgba(255,255,255,0.16)' : COST_COLORS[index % COST_COLORS.length] }} />
+                {entry.name}: {entry.placeholder ? '$0' : money(entry.value)}
+              </span>
+            ))}
+          </div>
+        </Panel>
+      </div>
     </div>
   )
 }
