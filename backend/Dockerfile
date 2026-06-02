@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN useradd -m -u 1000 jarvis
+RUN useradd -m -u 1000 jarvis \
+    && mkdir -p /data/proposals /data/invoices \
+    && chown -R jarvis:jarvis /data
 USER jarvis
 
 COPY --chown=jarvis:jarvis . .

@@ -86,6 +86,8 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       WEB_CONCURRENCY: "1"
       GUNICORN_WORKERS: "1"
+    volumes:
+      - backend_data:/data
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -251,6 +253,8 @@ volumes:
     name: jarvis_prometheus_data
   grafana_data:
     name: jarvis_grafana_data
+  backend_data:
+    name: jarvis_backend_data
 
 networks:
   jarvis_net:
