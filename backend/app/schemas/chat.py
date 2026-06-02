@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
@@ -10,10 +10,11 @@ class MessageSchema(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
+    task_type: Optional[str] = None
     auto_route: bool = True
     force_provider: Optional[str] = None
     force_model: Optional[str] = None
-    history: List[MessageSchema] = []
+    history: List[MessageSchema] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
