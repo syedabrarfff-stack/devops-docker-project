@@ -372,6 +372,17 @@ CHECKS: list[tuple[str, CheckFn]] = [
 ]
 
 
+async def run_all_checks() -> list[tuple[bool, str]]:
+    """Return compact pass/fail tuples for orchestration scripts."""
+
+    results: list[tuple[bool, str]] = []
+    for name, fn in CHECKS:
+        result = await run_check(name, fn)
+        detail = f"{name}: {result.detail}"
+        results.append((result.passed, detail))
+    return results
+
+
 async def run_check(name: str, fn: CheckFn) -> CheckResult:
     started = time.monotonic()
     try:
