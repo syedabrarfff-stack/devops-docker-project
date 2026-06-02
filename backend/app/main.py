@@ -43,12 +43,12 @@ async def lifespan(app: FastAPI):
         from app.services.catalog.catalog_service import seed_catalog, get_catalog_stats
         async with AsyncSessionLocal() as db:
             stats = await get_catalog_stats(db)
-            if stats.get("total_divisions", 0) == 0:
+            if stats.get("total", 0) == 0:
                 result = await seed_catalog(db)
                 await db.commit()
-                logger.info(f"✅ Service catalog seeded — {result.get('seeded', 0)} divisions")
+                logger.info(f"✅ Service catalog seeded — {result} divisions")
             else:
-                logger.info(f"✅ Service catalog ready — {stats['total_divisions']} divisions")
+                logger.info(f"✅ Service catalog ready — {stats['total']} divisions")
     except Exception as e:
         logger.warning(f"Catalog seed skipped: {e}")
 
@@ -127,11 +127,8 @@ async def lifespan(app: FastAPI):
 
     # ── Task queue ────────────────────────────────────────────────────────────
     try:
-        from app.core.database import AsyncSessionLocal
         from app.services.tasks.queue import requeue_pending, worker
-        async with AsyncSessionLocal() as db:
-            async with db.begin():
-                await requeue_pending(db)
+        await requeue_pending()
         logger.info("✅ Task queue initialized — starting worker")
         worker_task = asyncio.create_task(worker())
     except Exception as e:

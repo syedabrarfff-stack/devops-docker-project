@@ -2,12 +2,14 @@
 Aliyar Solutions Service Catalog — 30 service divisions seeded and queryable.
 """
 import logging
+import uuid
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models.service_catalog import ServiceDivision
 
 logger = logging.getLogger(__name__)
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 # ─── Seed data ────────────────────────────────────────────────────────────────
 
@@ -449,7 +451,7 @@ async def seed_catalog(db: AsyncSession) -> int:
         return 0
 
     for item in SEED_DIVISIONS:
-        db.add(ServiceDivision(**item))
+        db.add(ServiceDivision(tenant_id=SYSTEM_TENANT_ID, **item))
     await db.commit()
     return len(SEED_DIVISIONS)
 

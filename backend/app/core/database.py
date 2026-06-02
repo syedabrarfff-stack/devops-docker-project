@@ -53,6 +53,19 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(JarvisBase.metadata.create_all)
+        if not _is_sqlite:
+            await conn.execute(
+                text(
+                    """
+                    CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid uuid)
+                    RETURNS void AS $$
+                    BEGIN
+                        PERFORM set_config('app.current_tenant_id', tenant_uuid::text, true);
+                    END;
+                    $$ LANGUAGE plpgsql;
+                    """
+                )
+            )
 
 
 async def init_db() -> None:

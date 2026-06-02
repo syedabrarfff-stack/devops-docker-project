@@ -502,7 +502,7 @@ async def _sync_job_metadata() -> None:
                     existing.task_type = _task_type_for_job(job.id)
                     existing.payload = {"production_job": True}
                     existing.enabled = True
-                    existing.next_run_at = job.next_run_time
+                    existing.next_run_at = _db_datetime(job.next_run_time)
                 else:
                     db.add(
                         ScheduledJob(
@@ -516,7 +516,7 @@ async def _sync_job_metadata() -> None:
                             task_type=_task_type_for_job(job.id),
                             payload={"production_job": True},
                             enabled=True,
-                            next_run_at=job.next_run_time,
+                            next_run_at=_db_datetime(job.next_run_time),
                         )
                     )
 
@@ -540,7 +540,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
                 job.last_status = status
                 job.run_count = int(job.run_count or 0) + 1
                 aps_job = get_scheduler().get_job(job_id)
-                job.next_run_at = aps_job.next_run_time if aps_job else None
+                job.next_run_at = _db_datetime(aps_job.next_run_time) if aps_job else None
             db.add(
                 AuditLog(
                     tenant_id=SYSTEM_TENANT_ID,
@@ -649,6 +649,14 @@ def _job_metadata(job) -> dict:
         "trigger_type": "cron" if "cron" in trigger.lower() else "interval" if "interval" in trigger.lower() else "date",
         "trigger_args": {"trigger": trigger},
     }
+
+
+def _db_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
 
 
 def _task_type_for_job(job_id: str) -> str:

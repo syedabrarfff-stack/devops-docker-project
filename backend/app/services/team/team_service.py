@@ -3,12 +3,14 @@ Team member registry service — seed data and routing helpers.
 Maps service categories to the appropriate human identity for outreach / proposals.
 """
 import logging
+import uuid
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.team_member import TeamMember
 
 logger = logging.getLogger(__name__)
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 # ── Seed data ─────────────────────────────────────────────────────────────────
 
@@ -287,7 +289,7 @@ async def seed_team(db: AsyncSession) -> dict:
         if existing.scalar_one_or_none():
             skipped += 1
             continue
-        member = TeamMember(**data)
+        member = TeamMember(tenant_id=SYSTEM_TENANT_ID, **data)
         db.add(member)
         inserted += 1
     await db.flush()

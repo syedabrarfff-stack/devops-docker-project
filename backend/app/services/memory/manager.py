@@ -7,6 +7,7 @@ JARVIS Memory Manager — three-tier memory system.
   learning    : self-improvement insights from outcome analysis
 """
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.models.memory import Memory, ConversationSummary
 from app.models.conversation import Conversation
 
 logger = logging.getLogger(__name__)
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 SUMMARY_THRESHOLD = 20
 
@@ -30,6 +32,7 @@ async def store_memory(
 ) -> Memory:
     k = key or content[:200]
     m = Memory(
+        tenant_id=SYSTEM_TENANT_ID,
         key=k, value=content, memory_type=memory_type,
         session_id=session_id, importance=importance, tags=tags or []
     )
@@ -226,6 +229,7 @@ async def maybe_summarise(
         summary_text = f"Conversation covering {len(rows)} turns."
 
     s = ConversationSummary(
+        tenant_id=SYSTEM_TENANT_ID,
         session_id=session_id, summary=summary_text,
         topics=[], turn_count=total
     )

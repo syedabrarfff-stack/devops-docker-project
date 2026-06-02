@@ -3,14 +3,16 @@ Gunicorn production configuration for JARVIS.
 Uses UvicornWorker — async-compatible, handles HTTP/1.1 + WebSocket upgrades.
 """
 import multiprocessing
+import os
 
 # ── Server socket ─────────────────────────────────────────────────────────────
 bind = "0.0.0.0:8000"
 backlog = 256
 
 # ── Worker processes ──────────────────────────────────────────────────────────
-# 2 workers is stable for a 768 MB container; each UvicornWorker handles async I/O.
-workers = 2
+# One worker is the stable default for the small EC2 pilot and avoids duplicate
+# startup seed/scheduler work. Larger hosts can override this with env.
+workers = int(os.getenv("GUNICORN_WORKERS", os.getenv("WEB_CONCURRENCY", "1")))
 worker_class = "uvicorn.workers.UvicornWorker"
 worker_connections = 200
 

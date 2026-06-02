@@ -1,0 +1,16 @@
+aliyarsolutions.com {
+    encode gzip
+
+    @api path /api/* /health /ready /readyz /metrics /docs* /openapi.json /ws*
+    reverse_proxy @api jarvis_backend:8000
+    reverse_proxy jarvis_frontend:80
+}
+
+www.aliyarsolutions.com {
+    redir https://aliyarsolutions.com{uri}
+}
+
+aliyarsolutions.com:3000 {
+    encode gzip
+    reverse_proxy jarvis_grafana:3000
+}
