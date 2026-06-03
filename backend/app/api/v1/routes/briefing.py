@@ -1,5 +1,10 @@
-from fastapi import APIRouter
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, Request
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
+from app.core.database import get_db, set_tenant_context
+from app.services.intelligence.morning_briefing import MorningBriefingEngine
 from app.services.ai.router import ai_router
 from app.services.ai.base_provider import Message, TaskType
 
@@ -20,7 +25,28 @@ Keep it sharp, strategic, and energizing. Sound like a premium CTO briefing."""
 
 
 @router.get("/morning")
-async def morning_briefing():
+async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db)):
+    tenant_id = _resolve_tenant_id(request)
+    await set_tenant_context(db, str(tenant_id))
+    engine = MorningBriefingEngine()
+    metrics = await engine._collect_metrics(db, tenant_id)
+    content = engine._render(metrics)
+    now = datetime.now()
+    hour = now.hour
+    greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
+    return {
+        "briefing": content,
+        "metrics": metrics,
+        "model": "grounded_metrics",
+        "provider": "jarvis",
+        "demo": False,
+        "generated_at": now.isoformat(),
+        "greeting": greeting,
+    }
+
+
+@router.get("/morning-ai")
+async def morning_briefing_ai():
     now = datetime.now()
     hour = now.hour
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
@@ -44,8 +70,8 @@ async def morning_briefing():
 
 
 @router.post("/generate")
-async def generate_briefing():
-    return await morning_briefing()
+async def generate_briefing(request: Request, db: AsyncSession = Depends(get_db)):
+    return await morning_briefing(request, db)
 
 
 @router.get("/status")
@@ -63,3 +89,17 @@ async def system_status():
         },
         "timestamp": datetime.now().isoformat(),
     }
+
+
+def _resolve_tenant_id(request: Request) -> UUID:
+    tenant_id = (
+        getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
