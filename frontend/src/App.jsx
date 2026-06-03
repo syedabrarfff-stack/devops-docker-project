@@ -29,6 +29,13 @@ import KnowledgeView from './components/knowledge/KnowledgeView'
 import ResearchView from './components/research/ResearchView'
 import SettingsView from './components/settings/SettingsView'
 import DepartmentsView from './components/departments/DepartmentsView'
+import CaptainBridge from './components/frontier/CaptainBridge'
+import RevenueIntelligence from './components/frontier/RevenueIntelligence'
+import WarRoom from './components/frontier/WarRoom'
+import SystemHUD from './components/frontier/SystemHUD'
+import ExpertCouncil from './components/frontier/ExpertCouncil'
+import Relationships from './components/frontier/Relationships'
+import IntelligenceHub from './components/frontier/IntelligenceHub'
 import useJarvisStore from './store/useJarvisStore'
 
 export const VIEWS = {
@@ -58,6 +65,13 @@ export const VIEWS = {
   governance:    { path: '/governance',    title: 'Governance',             Component: GovernanceDashboard },
   catalog:       { path: '/catalog',       title: 'Service Catalog',        Component: ServiceCatalog },
   settings:      { path: '/settings',      title: 'Tenant Settings',        Component: SettingsView },
+  captainBridge: { path: '/captain-bridge', title: 'Captain Bridge',        Component: CaptainBridge },
+  revenueIntel:  { path: '/revenue-intelligence', title: 'Revenue Intelligence', Component: RevenueIntelligence },
+  warRoom:       { path: '/war-room',       title: 'War Room',              Component: WarRoom },
+  systemHud:     { path: '/system-hud',     title: 'System HUD',            Component: SystemHUD },
+  expertCouncil: { path: '/expert-council', title: 'Expert Council',        Component: ExpertCouncil },
+  relationships: { path: '/relationships',  title: 'Relationships',         Component: Relationships },
+  intelligenceHub: { path: '/intelligence-hub', title: 'Intelligence Hub',   Component: IntelligenceHub },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)
