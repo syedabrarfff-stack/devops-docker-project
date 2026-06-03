@@ -1,6 +1,10 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Body, HTTPException, Request
+from pydantic import BaseModel, Field
 from typing import Optional
+from uuid import UUID
+
+from app.core.config import settings
+from app.services.agents.liaison import client_liaison_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -48,6 +52,14 @@ class TaskDispatch(BaseModel):
     context: Optional[dict] = None
 
 
+class PrepareLiaisonCallRequest(BaseModel):
+    lead_id: Optional[UUID] = None
+    client_id: Optional[UUID] = None
+    tenant_id: Optional[UUID] = None
+    call_topic: Optional[str] = Field(default=None, max_length=300)
+    call_objective: Optional[str] = Field(default=None, max_length=500)
+
+
 @router.get("/hierarchy")
 async def get_hierarchy():
     total = len(AGENT_HIERARCHY["managers"]) + len(AGENT_HIERARCHY["workers"]) + 1
@@ -68,3 +80,49 @@ async def dispatch_task(task: TaskDispatch):
         "message": f"Task dispatched to agent {task.agent_id}",
         "status": "queued",
     }
+
+
+@router.get("/liaison")
+async def list_liaison_agents():
+    return client_liaison_service.list_agents()
+
+
+@router.post("/liaison/seed")
+async def seed_liaison_agents(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await client_liaison_service.seed_agents(resolved_tenant_id)
+
+
+@router.post("/liaison/{agent_name}/prepare-call")
+async def prepare_liaison_call(
+    agent_name: str,
+    request: Request,
+    body: PrepareLiaisonCallRequest = Body(default_factory=PrepareLiaisonCallRequest),
+):
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    try:
+        return await client_liaison_service.prepare_call(
+            agent_name,
+            resolved_tenant_id,
+            lead_id=body.lead_id,
+            client_id=body.client_id,
+            call_topic=body.call_topic,
+            call_objective=body.call_objective,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    tenant_id = (
+        explicit_tenant_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc

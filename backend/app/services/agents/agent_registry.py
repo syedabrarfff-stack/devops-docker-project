@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional
 import logging
 
+from app.services.agents.liaison_profiles import liaison_agent_cards
+
 logger = logging.getLogger(__name__)
 
 # ── Complete Agent Registry ────────────────────────────────────────────────────
@@ -129,6 +131,13 @@ AGENT_TEAMS = {
             {"id": "backup_agent", "name": "Safe — Backup Agent", "role": "Automated backups and recovery", "status": "active"},
             {"id": "alert_dispatcher", "name": "Alert — Alert Dispatcher", "role": "Notifies Captain of critical issues", "status": "active"},
         ]
+    },
+    "client_liaison": {
+        "team_name": "Client Liaison Team",
+        "manager": "Olivia Bennett",
+        "icon": "CL",
+        "color": "#14B8A6",
+        "agents": liaison_agent_cards(),
     },
 }
 

@@ -40,6 +40,11 @@ class ExecuteOutreachIn(BaseModel):
     autonomy_stage: str = "outreach_emails"
 
 
+class RegeneratePendingIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    limit: int = 100
+
+
 class LinkedInSendIn(BaseModel):
     lead_id: UUID
     message_type: int = 1
@@ -106,6 +111,19 @@ async def execute_outreach(request: Request, body: ExecuteOutreachIn = Body(defa
         autonomy_stage=body.autonomy_stage,
     )
     return {"sent": sent, "tenant_id": str(resolved_tenant_id)}
+
+
+@router.post("/regenerate-pending")
+async def regenerate_pending_outreach(
+    request: Request,
+    body: RegeneratePendingIn = Body(default_factory=RegeneratePendingIn),
+):
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    result = await outreach_engine.regenerate_pending_sequences(
+        resolved_tenant_id,
+        limit=body.limit,
+    )
+    return {**result, "tenant_id": str(resolved_tenant_id)}
 
 
 @router.post("/linkedin/send")

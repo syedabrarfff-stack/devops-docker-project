@@ -20,6 +20,7 @@ from app.middleware import observe_ai_latency, record_ai_cost, record_council_se
 from app.services.ai.base_provider import Message
 from app.services.ai.cost_tracker import estimate_cost
 from app.services.ai.router import JARVIS_SYSTEM_PROMPT, ai_router
+from app.services.memory.human_intelligence import human_intelligence_context
 
 logger = logging.getLogger(__name__)
 
@@ -376,6 +377,7 @@ def _member_prompt(member: dict, question: str, context: dict, council_type: str
     return (
         f"Council type: {council_type}\n"
         f"Your role: {member['id']} / {member['specialty']}\n\n"
+        f"Human intelligence M2 context:\n{human_intelligence_context(max_chars=1600)}\n\n"
         f"Question:\n{question}\n\n"
         f"Context JSON:\n{json.dumps(context or {}, default=str, indent=2)[:6000]}\n\n"
         "Return strict JSON only with keys: vote_score (0-100), recommendation "
@@ -387,6 +389,7 @@ def _member_prompt(member: dict, question: str, context: dict, council_type: str
 def _council_system_prompt(member: dict) -> str:
     return (
         f"{JARVIS_SYSTEM_PROMPT}\n\n"
+        f"{human_intelligence_context(max_chars=1000)}\n\n"
         "You are one independent member of the JARVIS Intelligence Council. "
         f"Council member: {member['id']}. Specialty: {member['specialty']}. "
         "Evaluate the decision with evidence, risk, and business impact. "

@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.services.memory import manager as mem
 from app.services.memory.graph import graph_status, search_memory_graph, seed_memory_graph
+from app.services.memory.human_intelligence import HUMAN_INTELLIGENCE_KB, seed_human_intelligence
 
 router = APIRouter(prefix="/memory", tags=["Memory"])
 
@@ -105,6 +106,17 @@ async def semantic_memory_search(body: MemorySearchIn, request: Request):
 async def enterprise_memory_status(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await graph_status(resolved_tenant_id)
+
+
+@router.post("/human-intelligence/seed")
+async def seed_human_intelligence_memory(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await seed_human_intelligence(resolved_tenant_id)
+
+
+@router.get("/human-intelligence")
+async def get_human_intelligence():
+    return HUMAN_INTELLIGENCE_KB
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:

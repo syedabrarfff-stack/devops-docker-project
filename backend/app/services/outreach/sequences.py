@@ -1,13 +1,18 @@
 """
-Outreach sequence engine — Gemini-generated multi-step email campaigns.
-All emails are signed by the appropriate Aliyar Solutions team member identity.
+Compatibility outreach sequence engine.
+All cold emails follow the concise Phase 2 client-acquisition format.
 """
+from __future__ import annotations
+
+import json
 import logging
 from typing import Optional
+
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-from app.models.outreach import OutreachSequence, OutreachEmail
+
 from app.models.crm import Contact
+from app.models.outreach import OutreachEmail, OutreachSequence
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +21,7 @@ async def _get_sender(db: AsyncSession, service_category: str = "outreach") -> d
     """Resolve the human team member identity for a given service category."""
     try:
         from app.services.team.team_service import get_member_for_service
+
         member = await get_member_for_service(db, service_category)
         if member:
             return {
@@ -26,50 +32,104 @@ async def _get_sender(db: AsyncSession, service_category: str = "outreach") -> d
                 "role": member.role,
                 "department": member.department,
             }
-    except Exception as e:
-        logger.warning(f"Team member lookup failed: {e}")
-    # Safe fallback
+    except Exception as exc:
+        logger.warning("Team member lookup failed: %s", exc)
     return {
         "name": "Darren",
         "full_name": "Darren Mitchell",
         "email": "darren.mitchell@aliyarsolutions.com",
-        "signature": "Darren Mitchell\nClient Acquisition Specialist\nAliyar Solutions",
+        "signature": "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions.",
         "role": "Client Acquisition Specialist",
         "department": "Client Acquisition Division",
     }
 
+
 def _build_templates(sender_name: str, signature: str) -> dict:
+    clean_signature = _compact_signature(signature)
     return {
         "saas_usa": {
             "steps": [
-                {"step": 1, "delay_days": 0,
-                 "subject": "Quick question about {company}'s automation",
-                 "body": f"Hi {{name}},\n\nI came across {{company}} and noticed you're in the {{industry}} space.\n\nWe help SaaS companies like yours automate their operations — reducing manual work by 60-80% and accelerating revenue.\n\nWould a 15-min call to explore if this fits make sense?\n\n{signature}"},
-                {"step": 2, "delay_days": 3,
-                 "subject": "Re: {company} automation",
-                 "body": f"Hi {{name}},\n\nJust following up on my last message. We recently helped a similar SaaS cut their ops overhead by 70%.\n\nHappy to share a quick case study if useful.\n\n{signature}"},
-                {"step": 3, "delay_days": 7,
-                 "subject": "Last touch — automation for {company}",
-                 "body": f"Hi {{name}},\n\nI'll keep this brief. If streamlining your operations isn't a priority right now, no worries — I won't follow up again.\n\nBut if you'd like to see what we built for companies like {{company}}, reply and I'll send over details.\n\n{signature}"},
+                {
+                    "step": 1,
+                    "delay_days": 0,
+                    "subject": "Where follow-ups leak revenue",
+                    "body": (
+                        "Hi {name} - {company} looks exposed to manual follow-up gaps, which usually slows {industry} teams when volume rises. "
+                        "For a comparable operator, our team removed 38% of manual follow-up work in 30 days and recovered about 11 hours per week. "
+                        "How are you currently catching missed handoffs before they turn into lost revenue? "
+                        "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                        f"{clean_signature}"
+                    ),
+                },
+                {
+                    "step": 2,
+                    "delay_days": 3,
+                    "subject": "One workflow question",
+                    "body": (
+                        "Hi {name} - the reason {company} stood out is that customer handoffs can quietly drain team focus even when demand is healthy. "
+                        "A similar team used our workflow map to cut response gaps by 42% and make every follow-up visible in one operating view. "
+                        "What would change if your team could see every pending customer action before it slipped? "
+                        "Would a short demo outline help you decide whether this matters? "
+                        f"{clean_signature}"
+                    ),
+                },
+                {
+                    "step": 3,
+                    "delay_days": 7,
+                    "subject": "Final note on handoffs",
+                    "body": (
+                        "Hi {name} - this is the last note because missed handoffs may not be today's priority. "
+                        "For another operator, the same pattern turned into 9 recovered hours per week after the first workflow fix. "
+                        "Is the bigger risk for {company} missed revenue, slower response time, or team overload? "
+                        "If any of those feel current, Aliyar Solutions can send the demo path. "
+                        f"{clean_signature}"
+                    ),
+                },
             ]
         },
         "hotel_uk": {
             "steps": [
-                {"step": 1, "delay_days": 0,
-                 "subject": "Reducing costs at {company} — worth a look?",
-                 "body": f"Hi {{name}},\n\nHotels working with our team are cutting operational costs by 40% while improving guest experience.\n\nWe handle: automated check-in, demand forecasting, staff scheduling, and guest communication.\n\nIs this worth a quick chat?\n\n{signature}"},
-                {"step": 2, "delay_days": 4,
-                 "subject": "Case study: Hotel saved £180k",
-                 "body": f"Hi {{name}},\n\nFollowing up — I wanted to share how a UK hotel similar to {{company}} saved £180k annually.\n\nKey results: 38% cost reduction, 4.9★ guest rating, 92% staff satisfaction.\n\nWant the full case study?\n\n{signature}"},
+                {
+                    "step": 1,
+                    "delay_days": 0,
+                    "subject": "Guest handoffs worth checking",
+                    "body": (
+                        "Hi {name} - {company} may be losing staff time where guest requests, bookings, and follow-ups move between teams. "
+                        "A comparable hospitality workflow cut response gaps by 41% and recovered 12 staff hours per week after the first operating map. "
+                        "Where do guest handoffs most often slow your team down? "
+                        "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                        f"{clean_signature}"
+                    ),
+                },
+                {
+                    "step": 2,
+                    "delay_days": 4,
+                    "subject": "One guest-flow question",
+                    "body": (
+                        "Hi {name} - guest experience often suffers when small requests are tracked across inboxes, phones, and spreadsheets. "
+                        "A similar hotel team reduced missed follow-ups by 38% and improved response visibility for managers within 30 days. "
+                        "What would change if every pending guest action was visible before the shift changed? "
+                        "Would a short demo outline help you decide whether this matters? "
+                        f"{clean_signature}"
+                    ),
+                },
             ]
         },
     }
 
 
-# Fallback static templates (used before team seed runs)
+def _compact_signature(signature: str) -> str:
+    parts = [part.strip() for part in (signature or "").splitlines() if part.strip()]
+    if not parts:
+        return "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
+    if len(parts) >= 2:
+        return f"{parts[0]}, {parts[1]}, Aliyar Solutions."
+    return parts[0].rstrip(".") + "."
+
+
 ICP_TEMPLATES = _build_templates(
     "Darren",
-    "Darren Mitchell\nClient Acquisition Specialist\nAliyar Solutions\ndarren.mitchell@aliyarsolutions.com"
+    "Darren Mitchell\nClient Acquisition Specialist\nAliyar Solutions\ndarren.mitchell@aliyarsolutions.com",
 )
 
 
@@ -79,11 +139,10 @@ async def create_sequence(db: AsyncSession, data: dict) -> OutreachSequence:
         service_cat = data.get("service_category", "outreach")
         sender = await _get_sender(db, service_cat)
         templates = _build_templates(sender["name"], sender["signature"])
-        template_key = f"{data.get('target_industry','saas')}_{data.get('target_country','usa')}".lower()
+        template_key = f"{data.get('target_industry', 'saas')}_{data.get('target_country', 'usa')}".lower()
         template = templates.get(template_key) or list(templates.values())[0]
         seq.steps = template["steps"]
         seq.total_steps = len(seq.steps)
-        # Store sender identity in sequence metadata if field exists
         if hasattr(seq, "sender_name"):
             seq.sender_name = sender["full_name"]
         if hasattr(seq, "sender_email"):
@@ -94,29 +153,34 @@ async def create_sequence(db: AsyncSession, data: dict) -> OutreachSequence:
     return seq
 
 
-async def generate_sequence_with_ai(db: AsyncSession,
-                                    target_industry: str,
-                                    target_country: str,
-                                    service_offered: str,
-                                    sequence_id: int) -> list[dict]:
-    """Use Gemini to generate a custom 3-step sequence."""
-    from app.services.ai.router import ai_router
+async def generate_sequence_with_ai(
+    db: AsyncSession,
+    target_industry: str,
+    target_country: str,
+    service_offered: str,
+    sequence_id: int,
+) -> list[dict]:
+    """Use the AI router to generate a custom concise 3-step sequence."""
     from app.services.ai.base_provider import Message, TaskType
-    import json
+    from app.services.ai.router import ai_router
+    from app.services.memory.human_intelligence import human_intelligence_context
 
     prompt = (
-        f"Create a 3-step cold email outreach sequence for Aliyar Solutions.\n\n"
+        "Create a 3-step cold email outreach sequence for Aliyar Solutions.\n\n"
         f"Target: {target_industry} companies in {target_country}\n"
         f"Service: {service_offered}\n\n"
-        f"Rules:\n"
-        f"- Professional but human, not corporate-speak\n"
-        f"- Step 1: day 0, introduce value proposition\n"
-        f"- Step 2: day 3, social proof / case study\n"
-        f"- Step 3: day 7, soft close / break-up\n"
-        f"- Each email under 120 words\n"
-        f"- Use {{name}}, {{company}}, {{industry}} as placeholders\n\n"
-        f"Return ONLY valid JSON array:\n"
-        f'[{{"step":1,"delay_days":0,"subject":"...","body":"..."}},...]\n'
+        f"Human intelligence rules:\n{human_intelligence_context(max_chars=1200)}\n\n"
+        "Rules:\n"
+        "- Maximum 5 sentences total per email\n"
+        "- Sentence 1: one specific pain point relevant to their industry\n"
+        "- Sentence 2: one quantified result for a comparable company\n"
+        "- Sentence 3: one question that makes them think about their own situation\n"
+        "- Sentence 4: soft relevance CTA, never 'book a call'\n"
+        "- Sentence 5: sender full name and title from the team persona\n"
+        "- Subject line maximum 7 words, no AI, no automation, no solution\n"
+        "- Zero attachments, no pricing, no first-person singular language\n"
+        "- Use {name}, {company}, {industry} as placeholders\n\n"
+        'Return ONLY valid JSON array: [{"step":1,"delay_days":0,"subject":"...","body":"..."},...]'
     )
     resp, _ = await ai_router.chat(
         [Message(role="user", content=prompt)],
@@ -128,19 +192,23 @@ async def generate_sequence_with_ai(db: AsyncSession,
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
         steps = json.loads(text)
-        from sqlalchemy import update
-        await db.execute(update(OutreachSequence).where(OutreachSequence.id == sequence_id).values(
-            steps=steps, total_steps=len(steps)
-        ))
+        await db.execute(
+            update(OutreachSequence)
+            .where(OutreachSequence.id == sequence_id)
+            .values(steps=steps, total_steps=len(steps))
+        )
         await db.flush()
         return steps
-    except Exception as e:
-        logger.warning(f"AI sequence parse failed: {e}")
+    except Exception as exc:
+        logger.warning("AI sequence parse failed: %s", exc)
         return []
 
 
-async def enroll_contacts(db: AsyncSession, sequence_id: int,
-                          contact_ids: list[int]) -> list[OutreachEmail]:
+async def enroll_contacts(
+    db: AsyncSession,
+    sequence_id: int,
+    contact_ids: list[int],
+) -> list[OutreachEmail]:
     """Enroll contacts into a sequence by creating scheduled OutreachEmail records."""
     from datetime import datetime, timedelta, timezone
 
@@ -153,10 +221,11 @@ async def enroll_contacts(db: AsyncSession, sequence_id: int,
     now = datetime.now(timezone.utc)
 
     for contact in contacts:
-        for step in (seq_row.steps or []):
+        for step in seq_row.steps or []:
             delay = step.get("delay_days", 0)
-            subject = step.get("subject", "").replace("{name}", contact.name or "")
-            body    = step.get("body", "")
+            subject = (step.get("subject") or "").replace("{name}", contact.name or "")
+            company_name = ""
+            body = (step.get("body") or "").replace("{name}", contact.name or "").replace("{company}", company_name)
             email = OutreachEmail(
                 sequence_id=sequence_id,
                 contact_id=contact.id,
@@ -176,9 +245,19 @@ async def enroll_contacts(db: AsyncSession, sequence_id: int,
 
 
 async def get_sequence_stats(db: AsyncSession) -> list[dict]:
-    rows = (await db.execute(select(OutreachSequence).order_by(desc(OutreachSequence.created_at)).limit(20))).scalars().all()
-    return [{
-        "id": s.id, "name": s.name, "status": s.status,
-        "emails_sent": s.emails_sent, "replies_received": s.replies_received,
-        "open_rate": round(s.emails_opened / s.emails_sent * 100, 1) if s.emails_sent else 0,
-    } for s in rows]
+    rows = (
+        await db.execute(
+            select(OutreachSequence).order_by(desc(OutreachSequence.created_at)).limit(20)
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "status": s.status,
+            "emails_sent": s.emails_sent,
+            "replies_received": s.replies_received,
+            "open_rate": round(s.emails_opened / s.emails_sent * 100, 1) if s.emails_sent else 0,
+        }
+        for s in rows
+    ]

@@ -20,6 +20,7 @@ from app.models.outreach import (
 )
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
+from app.services.memory.human_intelligence import human_intelligence_context
 from app.services.notifications import notify_business_event
 from app.services.outreach.engine import PERSONAS
 
@@ -297,6 +298,9 @@ def _response_prompt(reply_text: str, lead: Lead, classification: str) -> str:
     calendar = _calendar_line()
     return f"""
 Write a client-facing reply as Darren Mitchell from Aliyar Solutions.
+
+Human intelligence M2:
+{human_intelligence_context(max_chars=1200)}
 
 Lead:
 - Company: {company}

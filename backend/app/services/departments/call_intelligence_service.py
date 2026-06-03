@@ -42,6 +42,7 @@ from app.models.department_intelligence import (
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.council import intelligence_council
 from app.services.ai.router import ai_router
+from app.services.memory.human_intelligence import human_intelligence_context
 
 logger = logging.getLogger(__name__)
 
@@ -370,6 +371,9 @@ class CallIntelligenceService:
     async def _generate_briefing_content(self, call: ClientCallIntelligence) -> dict:
         """Generate comprehensive briefing content."""
         prompt = f"""You are JARVIS, the intelligence core of Aliyar Solutions.
+
+Use this M2 human intelligence context before writing:
+{human_intelligence_context(max_chars=1800)}
 
 Generate a comprehensive pre-call briefing for a {call.call_topic} call with:
 - Client: {call.client_name}

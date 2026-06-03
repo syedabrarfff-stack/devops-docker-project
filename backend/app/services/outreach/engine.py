@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from html import escape
@@ -26,6 +27,8 @@ from app.services.intelligence.jarvis_authority import requires_captain_approval
 from app.services.notifications.gmail_sender import gmail_sender
 
 logger = logging.getLogger(__name__)
+
+EMAIL_FORMAT_VERSION = "concise_5_sentence_v1"
 
 PERSONAS = {
     "darren_mitchell": {
@@ -79,6 +82,7 @@ class OutreachEngine:
                     **(lead.enrichment_data or {}),
                     "outreach_sequence": serialized_steps,
                     "outreach_sequence_queued_at": now.isoformat(),
+                    "email_format_version": EMAIL_FORMAT_VERSION,
                 }
 
                 created = 0
@@ -111,8 +115,108 @@ class OutreachEngine:
                     tenant_uuid,
                     "outreach_sequence_queued",
                     lead.id,
-                    {"queued_items": created, "persona": PERSONAS["darren_mitchell"]["name"]},
+                    {
+                        "queued_items": created,
+                        "persona": PERSONAS["darren_mitchell"]["name"],
+                        "email_format_version": EMAIL_FORMAT_VERSION,
+                    },
                 )
+
+    async def regenerate_pending_sequences(self, tenant_id, limit: int = 100) -> dict[str, Any]:
+        tenant_uuid = uuid.UUID(str(tenant_id))
+        now = datetime.now(UTC)
+        leads_updated = 0
+        approvals_updated = 0
+        sample: dict[str, Any] | None = None
+
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                await set_tenant_context(session, str(tenant_uuid))
+                pending_items = (
+                    await session.execute(
+                        select(FollowUpQueue)
+                        .where(
+                            FollowUpQueue.tenant_id == tenant_uuid,
+                            FollowUpQueue.status == FollowUpStatus.PENDING,
+                        )
+                        .order_by(FollowUpQueue.scheduled_at.asc())
+                        .limit(max(1, min(int(limit or 100), 500)))
+                    )
+                ).scalars().all()
+
+                pending_by_lead: dict[uuid.UUID, list[FollowUpQueue]] = {}
+                for item in pending_items:
+                    if item.lead_id:
+                        pending_by_lead.setdefault(item.lead_id, []).append(item)
+
+                for lead_id, lead_items in pending_by_lead.items():
+                    lead = await self._get_lead(session, tenant_uuid, lead_id)
+                    logs = await self.generate_sequence(lead, tenant_uuid)
+                    serialized_steps = [_log_to_sequence_step(log) for log in logs]
+                    lead.assigned_persona = PERSONAS["darren_mitchell"]["name"]
+                    lead.enrichment_data = {
+                        **(lead.enrichment_data or {}),
+                        "outreach_sequence": serialized_steps,
+                        "outreach_sequence_regenerated_at": now.isoformat(),
+                        "email_format_version": EMAIL_FORMAT_VERSION,
+                    }
+                    leads_updated += 1
+                    if sample is None and serialized_steps:
+                        sample = {
+                            "lead_id": str(lead.id),
+                            "company": lead.company_name or lead.company,
+                            **serialized_steps[0],
+                        }
+
+                    approvals = (
+                        await session.execute(
+                            select(ApprovalRequest).where(
+                                ApprovalRequest.tenant_id == tenant_uuid,
+                                ApprovalRequest.status == ApprovalStatus.PENDING,
+                            )
+                        )
+                    ).scalars().all()
+                    item_ids = {str(item.id) for item in lead_items}
+                    step_by_queue_id = {str(item.id): int(item.sequence_step or 1) for item in lead_items}
+                    email_by_step = {int(step["step"]): step for step in serialized_steps}
+                    for approval in approvals:
+                        payload = dict(approval.payload or {})
+                        if str(payload.get("lead_id") or "") != str(lead.id) and str(payload.get("follow_up_queue_id") or "") not in item_ids:
+                            continue
+                        step = step_by_queue_id.get(str(payload.get("follow_up_queue_id"))) or int(payload.get("sequence_step") or 1)
+                        email = email_by_step.get(step)
+                        if not email:
+                            continue
+                        approval.payload = {
+                            **payload,
+                            "subject": email["subject"],
+                            "body": email["body"],
+                            "email_format_version": EMAIL_FORMAT_VERSION,
+                        }
+                        approval.summary = f"Concise outreach step {step} is ready for Captain review."
+                        approvals_updated += 1
+
+                    await self._audit(
+                        session,
+                        tenant_uuid,
+                        "outreach_sequence_regenerated",
+                        lead.id,
+                        {
+                            "pending_followups": len(lead_items),
+                            "email_format_version": EMAIL_FORMAT_VERSION,
+                            "sentence_limit": 5,
+                            "subject_word_limit": 7,
+                        },
+                    )
+
+        return {
+            "email_format_updated": True,
+            "email_format_version": EMAIL_FORMAT_VERSION,
+            "leads_updated": leads_updated,
+            "pending_followups_seen": sum(len(items) for items in pending_by_lead.values()),
+            "approvals_updated": approvals_updated,
+            "sample_email": sample,
+        }
 
     async def execute_due_outreach(self, tenant_id, limit: int = 25, autonomy_stage: str = "outreach_emails") -> int:
         tenant_uuid = uuid.UUID(str(tenant_id))
@@ -376,11 +480,14 @@ class OutreachEngine:
 
 
 def _sequence_prompt(lead: Lead) -> str:
+    from app.services.memory.human_intelligence import human_intelligence_context
+
     company = lead.company_name or lead.company or "the company"
     contact = lead.contact_name or "there"
     industry = lead.industry or "their market"
     pain_points = ", ".join(lead.pain_points or []) or "manual coordination, missed follow-ups, slow operations"
     website = lead.website or lead.company_website or "unknown"
+    human_context = human_intelligence_context(max_chars=1800)
     return f"""
 Write a 3-step cold outreach sequence for Aliyar Solutions as Darren Mitchell.
 
@@ -392,17 +499,25 @@ Lead:
 - Known pain points: {pain_points}
 - Opportunity type: {lead.opportunity_type or "operations improvement"}
 
+Human intelligence context JARVIS must follow:
+{human_context}
+
 Rules:
 - Return only valid JSON array with 3 objects.
 - Each object must have: step, subject, body.
-- Step 1 is day 1: specific observation, one concrete likely problem, soft CTA for 15 minutes.
-- Step 2 is day 4: reference the earlier note, one quantified result example, offer to show the approach.
-- Step 3 is day 8: acknowledge timing, final value statement, easy out.
+- Every email must be exactly 5 sentences total.
+- Sentence 1: one specific pain point relevant to the lead's industry.
+- Sentence 2: one quantified result for a comparable company.
+- Sentence 3: one question that makes the client think about their own situation.
+- Sentence 4: soft call to action, phrased as relevance, not booking a call.
+- Sentence 5: sign-off with full name and title from Darren Mitchell.
+- Subject line: maximum 7 words, no "AI", no "automation", no "solution".
+- Zero attachments and no pricing.
 - Do not reveal pricing.
 - Do not mention AI, bots, Claude, prompts, or internal systems.
 - Do not use first-person singular language. Avoid "I", "me", "my", "we hope", and generic pleasantries.
 - Use "our team", "Aliyar Solutions", or named specialist team language.
-- Keep each body under 120 words.
+- Keep each body under 95 words.
 """.strip()
 
 
@@ -414,35 +529,35 @@ def _fallback_steps(lead: Lead) -> list[dict]:
     return [
         {
             "step": 1,
-            "subject": f"Quick question about {company}'s operations",
+            "subject": "Where follow-ups leak revenue",
             "body": (
-                f"Hi {first_name},\n\n"
-                f"Aliyar Solutions reviewed {company}'s public footprint and noticed a likely operations gap around {pain}.\n\n"
-                "Our operations team helps businesses reduce manual work, tighten customer response time, and make delivery easier to manage as volume grows.\n\n"
-                "Would a 15-minute conversation this week make sense?"
-                "\n\nDarren Mitchell | Client Acquisition | Aliyar Solutions"
+                f"Hi {first_name} - {company} looks exposed to {pain}, which usually slows {industry} teams when volume rises. "
+                "For a comparable operator, our team removed 38% of manual follow-up work in 30 days and recovered about 11 hours per week. "
+                "How are you currently catching missed handoffs before they turn into lost revenue? "
+                "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
         {
             "step": 2,
-            "subject": f"Results for similar {industry} teams",
+            "subject": "One workflow question",
             "body": (
-                f"Hi {first_name},\n\n"
-                "Following up on the earlier note. Our team has helped similar operators cut repetitive admin by 60-70% while improving follow-up consistency.\n\n"
-                f"For {company}, the first useful step would be mapping the current customer and operations flow, then showing exactly where the fastest gains sit.\n\n"
-                "Would it be useful to see the approach?"
-                "\n\nDarren Mitchell | Client Acquisition | Aliyar Solutions"
+                f"Hi {first_name} - the reason {company} stood out is that {pain} can quietly drain team focus even when demand is healthy. "
+                "A similar team used our workflow map to cut response gaps by 42% and make every follow-up visible in one operating view. "
+                "What would change if your team could see every pending customer action before it slipped? "
+                "Would a short demo outline help you decide whether this matters? "
+                "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
         {
             "step": 3,
-            "subject": f"Last note, {first_name}",
+            "subject": "Final note on handoffs",
             "body": (
-                f"Hi {first_name},\n\n"
-                "Timing may not be right, so this will be the final note for now.\n\n"
-                f"The reason {company} stood out is that the visible workflow signals suggest there may be avoidable manual effort, slower response times, or lost follow-up opportunities.\n\n"
-                "If improving that becomes a priority, Aliyar Solutions can show a practical path in one short call."
-                "\n\nDarren Mitchell | Client Acquisition | Aliyar Solutions"
+                f"Hi {first_name} - this is the last note because {pain} may not be today's priority. "
+                "For another operator, the same pattern turned into 9 recovered hours per week after the first workflow fix. "
+                f"Is the bigger risk for {company} missed revenue, slower response time, or team overload? "
+                "If any of those feel current, Aliyar Solutions can send the demo path. "
+                "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
     ]
@@ -473,7 +588,12 @@ def _clean_steps(steps: list[dict], lead: Lead) -> list[dict]:
         step = int(candidate.get("step") or index + 1)
         subject = str(candidate.get("subject") or fallback[index]["subject"]).strip()
         body = str(candidate.get("body") or fallback[index]["body"]).strip()
-        if _has_blocked_client_language(subject) or _has_blocked_client_language(body):
+        if (
+            not _subject_is_valid(subject)
+            or not _body_is_valid(body)
+            or _has_blocked_client_language(subject)
+            or _has_blocked_client_language(body)
+        ):
             subject = fallback[index]["subject"]
             body = fallback[index]["body"]
         cleaned.append({"step": step, "subject": subject, "body": body})
@@ -491,11 +611,33 @@ def _has_blocked_client_language(text: str) -> bool:
         " pricing ",
         " price is ",
         " cost is ",
+        " automation ",
+        " book a call ",
+        " schedule a call ",
         " i ",
         " me ",
         " my ",
     ]
     return any(term in lowered for term in blocked)
+
+
+def _subject_is_valid(subject: str) -> bool:
+    lowered = subject.lower()
+    if any(term in lowered for term in ("ai", "automation", "solution")):
+        return False
+    words = [word for word in re.split(r"\s+", subject.strip()) if word]
+    return 1 <= len(words) <= 7
+
+
+def _body_is_valid(body: str) -> bool:
+    if len(body.split()) > 95:
+        return False
+    return _sentence_count(body) <= 5
+
+
+def _sentence_count(body: str) -> int:
+    sentences = re.findall(r"[^.!?]+[.!?]", body.strip())
+    return len(sentences) or 1
 
 
 def _log_to_sequence_step(log: OutreachLog) -> dict:

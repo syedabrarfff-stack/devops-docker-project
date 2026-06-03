@@ -125,6 +125,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Authority seeding skipped: {e}")
 
+    # Seed M2 human intelligence and client liaison identities (idempotent)
+    try:
+        from app.services.agents.liaison import client_liaison_service
+        from app.services.memory.human_intelligence import seed_human_intelligence
+
+        tenant_id = settings.JARVIS_DEFAULT_TENANT_ID
+        if tenant_id:
+            human_result = await seed_human_intelligence(tenant_id)
+            liaison_result = await client_liaison_service.seed_agents(tenant_id)
+            logger.info(
+                "Human intelligence and liaison agents ready: %s / %s",
+                human_result.get("m2_ready"),
+                liaison_result.get("agents"),
+            )
+    except Exception as e:
+        logger.warning(f"Human intelligence and liaison seed skipped: {e}")
+
     # ── Task queue ────────────────────────────────────────────────────────────
     try:
         from app.services.tasks.queue import requeue_pending, worker
