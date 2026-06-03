@@ -88,6 +88,7 @@ services:
       GUNICORN_WORKERS: "1"
     volumes:
       - backend_data:/data
+      - backup_data:/var/backups/jarvis
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -255,6 +256,8 @@ volumes:
     name: jarvis_grafana_data
   backend_data:
     name: jarvis_backend_data
+  backup_data:
+    name: jarvis_backup_data
 
 networks:
   jarvis_net:
