@@ -38,20 +38,10 @@ def _enable_rls(table: str) -> None:
     op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
     op.execute(
         f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1
-                FROM pg_policies
-                WHERE schemaname = 'public'
-                  AND tablename = '{table}'
-                  AND policyname = '{policy}'
-            ) THEN
-                EXECUTE 'CREATE POLICY {policy} ON {table}
-                    USING (tenant_id = current_setting(''''app.current_tenant_id'''')::uuid)
-                    WITH CHECK (tenant_id = current_setting(''''app.current_tenant_id'''')::uuid)';
-            END IF;
-        END $$;
+        DROP POLICY IF EXISTS {policy} ON {table};
+        CREATE POLICY {policy} ON {table}
+            USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
         """
     )
 
