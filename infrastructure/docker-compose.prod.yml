@@ -21,7 +21,7 @@ services:
   # ─── PostgreSQL ───────────────────────────────────────────────────────────
   postgres:
     <<: [*restart, *logging]
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: jarvis_postgres_prod
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-jarvis}

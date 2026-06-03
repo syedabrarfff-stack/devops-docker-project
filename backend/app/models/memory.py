@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -94,4 +94,52 @@ class CivilizationMemory(JarvisBase):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     record_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class MemoryGraphNode(JarvisBase):
+    """Enterprise memory node used for semantic search and cross-agent recall."""
+
+    __tablename__ = "memory_graph_nodes"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "source_table", "source_id", name="uq_memory_graph_source"),
+    )
+
+    node_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_table: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    source_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    embedding: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class MemoryGraphEdge(JarvisBase):
+    """Relationship between two enterprise memory nodes."""
+
+    __tablename__ = "memory_graph_edges"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "source_node_id",
+            "target_node_id",
+            "relationship_type",
+            name="uq_memory_graph_edge",
+        ),
+    )
+
+    source_node_id: Mapped[uuid.UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey("memory_graph_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_node_id: Mapped[uuid.UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey("memory_graph_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    relationship_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    weight: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     metadata_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

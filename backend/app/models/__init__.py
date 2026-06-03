@@ -4,8 +4,15 @@ from importlib import import_module
 
 from app.models.base import JarvisBase
 from app.models.council import AICouncilMemberWeight, AICouncilSession
+from app.models.demo import DemoPackage
 from app.models.intelligence import BriefingHistory, CompetitorProfile, MarketIntelligence, TechRadarEntry
-from app.models.memory import CivilizationMemory, MemoryOperational, MemoryStrategic
+from app.models.memory import (
+    CivilizationMemory,
+    MemoryGraphEdge,
+    MemoryGraphNode,
+    MemoryOperational,
+    MemoryStrategic,
+)
 from app.models.outreach import ReplyClassification, ReplyLog
 from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
 from app.models.tenant import PlanTier, Tenant, TenantApiKey, User, UserRole
@@ -32,6 +39,7 @@ MODEL_MODULES = (
     "gmail",
     "council",
     "department_intelligence",
+    "demo",
 )
 
 
@@ -46,11 +54,14 @@ __all__ = [
     "JarvisBase",
     "AICouncilMemberWeight",
     "AICouncilSession",
+    "DemoPackage",
     "BriefingHistory",
     "CompetitorProfile",
     "MarketIntelligence",
     "TechRadarEntry",
     "CivilizationMemory",
+    "MemoryGraphEdge",
+    "MemoryGraphNode",
     "MemoryOperational",
     "MemoryStrategic",
     "ReplyClassification",

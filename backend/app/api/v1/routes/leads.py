@@ -127,20 +127,52 @@ async def lead_stats(db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{lead_id}/status")
 async def update_lead_status(
-    lead_id: int,
+    lead_id: UUID,
     status: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import select, update
+    from sqlalchemy import select
     from app.models.lead import Lead
-    result = await db.execute(
-        update(Lead).where(Lead.id == lead_id).values(status=status).returning(Lead.id, Lead.status)
+    from app.services.demos.builder import demo_builder
+
+    tenant_id = _resolve_tenant_id(request, None)
+    next_status = _normalise_lead_status(status)
+    lead = await db.scalar(
+        select(Lead).where(Lead.tenant_id == tenant_id, Lead.id == lead_id)
     )
-    row = result.fetchone()
-    if not row:
+    if not lead:
         raise HTTPException(404, "Lead not found")
+    lead.status = next_status
     await db.commit()
-    return {"id": row.id, "status": row.status}
+    demo_package_id = None
+    if status.lower().strip() in {"demo_scheduled", "demo", "call_scheduled"}:
+        demo = await demo_builder.generate(
+            tenant_id,
+            lead_id=lead.id,
+            industry=lead.industry,
+            pain_points=lead.pain_points or [],
+            company_name=lead.company_name or lead.company,
+        )
+        demo_package_id = str(demo.id)
+    return {"id": str(lead.id), "status": lead.status.value, "demo_package_id": demo_package_id}
+
+
+def _normalise_lead_status(status: str):
+    from app.models.lead import LeadStatus
+
+    value = status.strip().upper()
+    aliases = {
+        "DEMO_SCHEDULED": LeadStatus.DEMO,
+        "CALL_SCHEDULED": LeadStatus.DEMO,
+        "INTERESTED": LeadStatus.DEMO,
+    }
+    if value in aliases:
+        return aliases[value]
+    try:
+        return LeadStatus(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Unsupported lead status: {status}") from exc
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:

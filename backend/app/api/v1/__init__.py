@@ -18,6 +18,8 @@ from app.api.v1.routes import revenue
 from app.api.v1.routes import council
 from app.api.v1.routes import tenancy
 from app.api.v1.routes import departments
+from app.api.v1.routes import demos
+from app.api.v1.routes import pilot
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -73,3 +75,5 @@ api_router.include_router(revenue.router)
 api_router.include_router(council.router)
 api_router.include_router(tenancy.router)
 api_router.include_router(departments.router)
+api_router.include_router(demos.router)
+api_router.include_router(pilot.router)

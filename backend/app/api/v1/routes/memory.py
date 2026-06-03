@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.core.database import get_db
 from app.services.memory import manager as mem
+from app.services.memory.graph import graph_status, search_memory_graph, seed_memory_graph
 
 router = APIRouter(prefix="/memory", tags=["Memory"])
 
@@ -20,6 +23,12 @@ class InstructionIn(BaseModel):
     content: str
     category: Optional[str] = "general"
     priority: Optional[int] = 5
+
+
+class MemorySearchIn(BaseModel):
+    query: str
+    limit: int = 5
+    tenant_id: Optional[UUID] = None
 
 
 @router.post("/store")
@@ -77,3 +86,37 @@ async def summarize_session(session_id: str, db: AsyncSession = Depends(get_db))
     result = await mem.maybe_summarise(db, session_id=session_id, force=True)
     await db.commit()
     return {"summarized": bool(result), "session_id": session_id}
+
+
+@router.post("/seed")
+async def seed_enterprise_memory(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await seed_memory_graph(resolved_tenant_id)
+
+
+@router.post("/search")
+async def semantic_memory_search(body: MemorySearchIn, request: Request):
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    limit = max(1, min(body.limit, 25))
+    return await search_memory_graph(body.query, resolved_tenant_id, limit=limit)
+
+
+@router.get("/status")
+async def enterprise_memory_status(request: Request, tenant_id: Optional[UUID] = None):
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await graph_status(resolved_tenant_id)
+
+
+def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    tenant_id = (
+        explicit_tenant_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc

@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     CAPTAIN_ADMIN_TOKEN: Optional[str] = None
     APP_BASE_URL: str = "http://localhost:8000"
     JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
+    PILOT_READY: bool = True
+    AUTONOMOUS_CONFIDENCE_THRESHOLD: float = 0.70
+    SYSTEM_CONFIDENCE_BASE: float = 0.68
+    EXTERNAL_API_BLOCKERS_BYPASSED_FOR_PILOT: bool = True
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://jarvis:jarvis_pass@postgres:5432/jarvis_db"

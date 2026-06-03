@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+import logging
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -6,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import settings
 from app.core.tenant_context import get_current_tenant_id
 from app.models.base import JarvisBase
+
+
+logger = logging.getLogger(__name__)
 
 
 def _async_database_url(url: str) -> str:
@@ -66,6 +70,23 @@ async def create_tables() -> None:
                     """
                 )
             )
+            try:
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                for table_name in (
+                    "memories",
+                    "memory_operational",
+                    "memory_strategic",
+                    "civilization_memory",
+                    "memory_graph_nodes",
+                ):
+                    await conn.execute(
+                        text(
+                            f"ALTER TABLE {table_name} "
+                            "ADD COLUMN IF NOT EXISTS embedding_vector vector(1536)"
+                        )
+                    )
+            except Exception as exc:
+                logger.warning("pgvector startup schema step skipped: %s", exc)
 
 
 async def init_db() -> None:
