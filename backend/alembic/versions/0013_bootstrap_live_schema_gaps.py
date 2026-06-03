@@ -1,7 +1,7 @@
 """Bootstrap live schema gaps after the merged vNEXT baseline.
 
 Revision ID: 0013_bootstrap_live_schema_gaps
-Revises: 0012_merge_master_prompt_and_frontier
+Revises: 0012_merge_heads
 Create Date: 2026-06-03
 """
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from alembic import op
 
 revision = "0013_bootstrap_live_schema_gaps"
-down_revision = "0012_merge_master_prompt_and_frontier"
+down_revision = "0012_merge_heads"
 branch_labels = None
 depends_on = None
 
