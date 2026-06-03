@@ -545,7 +545,7 @@ def _fallback_steps(lead: Lead) -> list[dict]:
                 f"Hi {first_name} - the reason {company} stood out is that {pain} can quietly drain team focus even when demand is healthy. "
                 "A similar team used our workflow map to cut response gaps by 42% and make every follow-up visible in one operating view. "
                 "What would change if your team could see every pending customer action before it slipped? "
-                "Would a short demo outline help you decide whether this matters? "
+                "Would this be relevant enough for Aliyar Solutions to share the demo path? "
                 "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
@@ -556,7 +556,7 @@ def _fallback_steps(lead: Lead) -> list[dict]:
                 f"Hi {first_name} - this is the last note because {pain} may not be today's priority. "
                 "For another operator, the same pattern turned into 9 recovered hours per week after the first workflow fix. "
                 f"Is the bigger risk for {company} missed revenue, slower response time, or team overload? "
-                "If any of those feel current, Aliyar Solutions can send the demo path. "
+                "Would this be relevant enough for Aliyar Solutions to share the demo path? "
                 "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
@@ -632,12 +632,25 @@ def _subject_is_valid(subject: str) -> bool:
 def _body_is_valid(body: str) -> bool:
     if len(body.split()) > 95:
         return False
-    return _sentence_count(body) <= 5
+    sentences = _sentences(body)
+    if len(sentences) != 5:
+        return False
+    if not re.search(r"\d", sentences[1]):
+        return False
+    if "?" not in sentences[2]:
+        return False
+    if "would this be relevant" not in sentences[3].lower():
+        return False
+    signoff = sentences[4].lower()
+    return "darren mitchell" in signoff and "client acquisition specialist" in signoff
 
 
 def _sentence_count(body: str) -> int:
-    sentences = re.findall(r"[^.!?]+[.!?]", body.strip())
-    return len(sentences) or 1
+    return len(_sentences(body)) or 1
+
+
+def _sentences(body: str) -> list[str]:
+    return [item.strip() for item in re.findall(r"[^.!?]+[.!?]", body.strip()) if item.strip()]
 
 
 def _log_to_sequence_step(log: OutreachLog) -> dict:
