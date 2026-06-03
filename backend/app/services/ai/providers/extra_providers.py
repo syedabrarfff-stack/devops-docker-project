@@ -30,9 +30,11 @@ class ZhipuAIProvider(BaseAIProvider):
                     json={"model": model_id, "messages": msgs, "max_tokens": max_tokens},
                 )
                 data = r.json()
+            content = data["choices"][0]["message"]["content"]
             return AIResponse(
-                content=data["choices"][0]["message"]["content"],
+                content=content,
                 model=model_id, provider=self.name, task_type="general",
+                tokens_used=data.get("usage", {}).get("total_tokens", 0),
             )
         except Exception as e:
             return AIResponse(content="", model=model_id, provider=self.name,
@@ -94,6 +96,7 @@ class MoonshotProvider(BaseAIProvider):
             return AIResponse(
                 content=data["choices"][0]["message"]["content"],
                 model=model_id, provider=self.name, task_type="general",
+                tokens_used=data.get("usage", {}).get("total_tokens", 0),
             )
         except Exception as e:
             return AIResponse(content="", model=model_id, provider=self.name,
@@ -153,6 +156,7 @@ class NvidiaProvider(BaseAIProvider):
             return AIResponse(
                 content=data["choices"][0]["message"]["content"],
                 model=model_id, provider=self.name, task_type="general",
+                tokens_used=data.get("usage", {}).get("total_tokens", 0),
             )
         except Exception as e:
             return AIResponse(content="", model=model_id, provider=self.name,

@@ -313,7 +313,7 @@ class AIRouter:
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
                 _record_ai_metrics(force_provider, model_id, task_type.value, latency, response.cost_estimate_usd)
-                if not response.error:
+                if not response.error and (response.content or "").strip():
                     health_monitor.record_success(force_provider, latency)
                     return response, task_type.value
                 health_monitor.record_failure(force_provider, latency)
@@ -336,7 +336,7 @@ class AIRouter:
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(provider_key, model_id, response.tokens_used)
                 _record_ai_metrics(provider_key, model_id, task_type.value, latency, response.cost_estimate_usd)
-                if not response.error:
+                if not response.error and (response.content or "").strip():
                     health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
                 health_monitor.record_failure(provider_key, latency)
