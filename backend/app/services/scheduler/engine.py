@@ -241,7 +241,15 @@ async def _register_default_jobs() -> None:
     # DIO initialization check — runs once on startup then daily
     add_cron_job("dio_health_check", _job_dio_health_check, hour=6, minute=30)
 
-    logger.info("✅ Default JARVIS jobs registered (including 6-Layer Intelligence System)")
+    # ── 9-Connector Daily Automation Pipeline ─────────────────────────────────
+
+    # Connector Hub ingestion — 14:30 UTC (20:00 IST) — pulls GitHub /jarvis-data/, scores 20 leads from connectors
+    add_cron_job("daily_connector_hub_ingestion", _job_connector_hub_ingestion, hour=14, minute=30)
+
+    # Market intelligence generation — 04:00 UTC (09:30 IST) — feeds next day's jarvis-data/intelligence/
+    add_cron_job("daily_market_intelligence", _job_market_intelligence_generation, hour=4, minute=0)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline)")
 
 
 async def _job_morning_briefing() -> None:
@@ -808,3 +816,35 @@ async def _job_dio_health_check() -> None:
             logger.info("DIO health check: tenant=%s | 15 departments confirmed", tenant_id)
     except Exception as exc:
         logger.warning("DIO health check failed: %s", exc)
+
+
+async def _job_connector_hub_ingestion() -> None:
+    """9-Connector Pipeline: ingest daily GitHub /jarvis-data/ package (20 leads from connectors)."""
+    logger.info("ConnectorHub: starting daily ingestion at 14:30 UTC")
+    try:
+        from app.services.integrations.connector_hub import connector_hub
+        for tenant_id in await _target_tenant_ids():
+            result = await connector_hub.ingest_daily_package(tenant_id)
+            logger.info(
+                "ConnectorHub: tenant=%s leads=%d sequences=%d errors=%d",
+                tenant_id,
+                result.get("leads", {}).get("processed", 0),
+                result.get("sequences", {}).get("sequences_loaded", 0),
+                len(result.get("errors", [])),
+            )
+    except Exception as exc:
+        logger.warning("ConnectorHub ingestion failed: %s", exc)
+
+
+async def _job_market_intelligence_generation() -> None:
+    """9-Connector Pipeline: generate daily market intelligence at 04:00 UTC for next cycle."""
+    logger.info("MarketIntelligence: starting daily generation at 04:00 UTC")
+    try:
+        from app.services.integrations.market_intelligence_engine import MarketIntelligenceEngine
+        engine = MarketIntelligenceEngine()
+        for tenant_id in await _target_tenant_ids():
+            report = await engine.generate_daily_market_report()
+            await engine.write_github_intelligence_package(report)
+            logger.info("MarketIntelligence: tenant=%s topic=%s", tenant_id, report.get("topic", "unknown"))
+    except Exception as exc:
+        logger.warning("Market intelligence generation failed: %s", exc)
