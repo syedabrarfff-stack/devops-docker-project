@@ -239,6 +239,177 @@ async def teach_jarvis(request: Request, body: TeachRequest):
     )
 
 
+# ── Batch-2 Intelligence Engines ─────────────────────────────────────────────
+
+class ProspectPsychologyRequest(BaseModel):
+    lead_id: UUID
+    tenant_id: Optional[UUID] = None
+    use_ai: bool = False
+
+
+class RevenueForecastRequest(BaseModel):
+    tenant_id: Optional[UUID] = None
+    iterations: int = 1000
+    horizon_days: int = 90
+
+
+class DynamicPricingRequest(BaseModel):
+    service_type: str
+    lead_id: Optional[UUID] = None
+    tenant_id: Optional[UUID] = None
+    context: Optional[dict] = None
+
+
+class GovernanceEvaluateRequest(BaseModel):
+    action_type: str
+    payload: dict = {}
+    tenant_id: Optional[UUID] = None
+
+
+@router.post("/prospect-psychology")
+async def prospect_psychology(
+    req: ProspectPsychologyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.intelligence.prospect_psychology import prospect_psychology_engine
+    from sqlalchemy import select
+    from app.models.lead import Lead
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+
+    result = await db.execute(
+        select(Lead).where(Lead.id == req.lead_id, Lead.tenant_id == tenant_id)
+    )
+    lead = result.scalar_one_or_none()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    lead_data = {
+        "company_name": lead.company_name,
+        "company": lead.company,
+        "industry": lead.industry,
+        "notes": lead.notes,
+        "pain_points": lead.pain_points,
+        "score": lead.score,
+        "enrichment_data": lead.enrichment_data,
+        "opportunity_type": lead.opportunity_type,
+        "country": lead.country,
+    }
+
+    if req.use_ai:
+        profile = await prospect_psychology_engine.analyze_with_ai(lead_data, tenant_id)
+    else:
+        profile = prospect_psychology_engine.profile(lead_data)
+
+    return {"lead_id": str(req.lead_id), "tenant_id": str(tenant_id), "profile": profile}
+
+
+@router.post("/revenue-forecast")
+async def revenue_forecast(req: RevenueForecastRequest, request: Request):
+    from app.services.intelligence.revenue_forecaster import revenue_forecaster
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    result = await revenue_forecaster.run_monte_carlo(
+        tenant_id=tenant_id,
+        iterations=req.iterations,
+        horizon_days=req.horizon_days,
+    )
+    return {"tenant_id": str(tenant_id), "forecast": result}
+
+
+@router.get("/self-assessment")
+async def self_assessment(request: Request, tenant_id: Optional[UUID] = None):
+    from app.services.intelligence.self_assessment import jarvis_self_assessment
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    report = await jarvis_self_assessment.run_assessment(resolved_tenant_id)
+    return {"tenant_id": str(resolved_tenant_id), "assessment": report}
+
+
+@router.post("/dynamic-pricing")
+async def dynamic_pricing(
+    req: DynamicPricingRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.intelligence.dynamic_pricing import dynamic_pricing_engine
+    from sqlalchemy import select
+    from app.models.lead import Lead
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    lead_data: dict = {}
+
+    if req.lead_id:
+        result = await db.execute(
+            select(Lead).where(Lead.id == req.lead_id, Lead.tenant_id == tenant_id)
+        )
+        lead = result.scalar_one_or_none()
+        if lead:
+            lead_data = {
+                "company_name": lead.company_name,
+                "industry": lead.industry,
+                "score": lead.score,
+                "country": lead.country,
+                "notes": lead.notes,
+                "pain_points": lead.pain_points,
+                "enrichment_data": lead.enrichment_data or {},
+            }
+
+    pricing = dynamic_pricing_engine.calculate_price(
+        service_type=req.service_type,
+        lead_data=lead_data,
+        context=req.context,
+    )
+    return {
+        "tenant_id": str(tenant_id),
+        "lead_id": str(req.lead_id) if req.lead_id else None,
+        "pricing": pricing,
+    }
+
+
+@router.post("/governance/evaluate")
+async def governance_evaluate(req: GovernanceEvaluateRequest, request: Request):
+    from app.services.governance.autonomous_governance import autonomous_governance
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    evaluation = autonomous_governance.evaluate_action(
+        action_type=req.action_type,
+        payload=req.payload,
+        tenant_id=tenant_id,
+    )
+    return {"tenant_id": str(tenant_id), "evaluation": evaluation}
+
+
+@router.get("/governance/summary")
+async def governance_summary(request: Request, tenant_id: Optional[UUID] = None):
+    from app.services.governance.autonomous_governance import autonomous_governance
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    summary = await autonomous_governance.get_governance_summary(resolved_tenant_id)
+    return {"tenant_id": str(resolved_tenant_id), **summary}
+
+
+@router.get("/client-health")
+async def client_health_all(request: Request, tenant_id: Optional[UUID] = None):
+    from app.services.intelligence.client_health import client_health_scorer
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    scores = await client_health_scorer.score_all_clients(resolved_tenant_id)
+    return {
+        "tenant_id": str(resolved_tenant_id),
+        "count": len(scores),
+        "clients": scores,
+        "at_risk": [c for c in scores if c["health_tier"] in ("AT_RISK", "CRITICAL")],
+    }
+
+
+@router.get("/pricing/catalog")
+async def pricing_catalog():
+    from app.services.intelligence.dynamic_pricing import dynamic_pricing_engine
+    return dynamic_pricing_engine.get_service_catalog_pricing()
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
 
