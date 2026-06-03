@@ -146,18 +146,22 @@ class NvidiaProvider(BaseAIProvider):
             if system_prompt:
                 msgs.append({"role": "system", "content": system_prompt})
             msgs.extend([{"role": m.role, "content": m.content} for m in messages])
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=90) as client:
                 r = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {settings.NVIDIA_API_KEY}"},
                     json={"model": model_id, "messages": msgs, "max_tokens": max_tokens},
                 )
+                r.raise_for_status()
                 data = r.json()
             return AIResponse(
                 content=data["choices"][0]["message"]["content"],
                 model=model_id, provider=self.name, task_type="general",
                 tokens_used=data.get("usage", {}).get("total_tokens", 0),
             )
+        except httpx.TimeoutException:
+            return AIResponse(content="", model=model_id, provider=self.name,
+                              task_type="general", error="nvidia_request_timeout")
         except Exception as e:
             return AIResponse(content="", model=model_id, provider=self.name,
                               task_type="general", error=str(e))
