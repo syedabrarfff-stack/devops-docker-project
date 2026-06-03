@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from app.core.config import settings
 from app.api.v1.routes import chat, briefing, approvals, agents, ws
 from app.api.v1.routes import crm, leads, outreach, memory, tasks
 from app.api.v1.routes import auth, scheduler, calendar, notifications, sync
@@ -19,6 +20,19 @@ from app.api.v1.routes import tenancy
 from app.api.v1.routes import departments
 
 api_router = APIRouter(prefix="/api/v1")
+
+
+@api_router.get("/health", tags=["health"])
+async def api_health():
+    """API-prefixed liveness probe for public checks and deployment scripts."""
+    return {
+        "status": "ok",
+        "system": "JARVIS",
+        "company": "Aliyar Solutions",
+        "version": settings.APP_VERSION,
+    }
+
+
 api_router.include_router(chat.router)
 api_router.include_router(briefing.router)
 api_router.include_router(approvals.router)
