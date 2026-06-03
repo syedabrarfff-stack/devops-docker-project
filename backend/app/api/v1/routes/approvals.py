@@ -62,6 +62,11 @@ async def list_approvals(request: Request, status: str = "pending", tenant_id: O
             return [_serialize(row) for row in rows]
 
 
+@router.get("/pending")
+async def pending_approvals(request: Request, tenant_id: Optional[UUID] = None):
+    return await list_approvals(request, status="pending", tenant_id=tenant_id)
+
+
 @router.post("")
 async def create_approval(request: Request, data: ApprovalCreate):
     resolved_tenant_id = _resolve_tenant_id(request, data.tenant_id)
