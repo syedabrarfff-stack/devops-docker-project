@@ -43,6 +43,11 @@ async def morning_briefing():
     }
 
 
+@router.post("/generate")
+async def generate_briefing():
+    return await morning_briefing()
+
+
 @router.get("/status")
 async def system_status():
     providers = ai_router.get_provider_status()

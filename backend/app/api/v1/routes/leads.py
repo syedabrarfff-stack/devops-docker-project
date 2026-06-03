@@ -76,6 +76,13 @@ async def bulk_score(limit: int = Query(20, le=50), db: AsyncSession = Depends(g
     return {"scored": count}
 
 
+@router.post("/score-all")
+async def score_all(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
+    count = await leads.bulk_score(db, limit=limit)
+    await db.commit()
+    return {"scored": count, "limit": limit, "status": "complete"}
+
+
 @router.get("/stats")
 async def lead_stats(db: AsyncSession = Depends(get_db)):
     return await leads.lead_stats(db)

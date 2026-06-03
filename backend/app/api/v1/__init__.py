@@ -33,6 +33,12 @@ async def api_health():
     }
 
 
+@api_router.get("/ai/health", tags=["AI Operations"])
+async def ai_health_alias():
+    """Compatibility alias for AI provider health."""
+    return await ai_ops.provider_health()
+
+
 api_router.include_router(chat.router)
 api_router.include_router(briefing.router)
 api_router.include_router(approvals.router)
