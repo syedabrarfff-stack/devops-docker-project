@@ -18,6 +18,13 @@ from app.models.captain_intelligence import (
     PredictedAction,
 )
 from app.models.connector_hub import ConnectorHubIngestion, ConnectorHubPackage
+from app.models.department_intelligence import (
+    ClientCallIntelligence,
+    DepartmentIntelligenceOfficer,
+    DepartmentMilestone,
+    StrategyReport,
+    TechnologyDiscovery,
+)
 from app.models.memory import (
     CivilizationMemory,
     MemoryGraphEdge,
@@ -112,4 +119,9 @@ __all__ = [
     "PredictedAction",
     "ConnectorHubIngestion",
     "ConnectorHubPackage",
+    "ClientCallIntelligence",
+    "DepartmentIntelligenceOfficer",
+    "DepartmentMilestone",
+    "StrategyReport",
+    "TechnologyDiscovery",
 ]
