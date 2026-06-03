@@ -78,6 +78,9 @@ PRODUCTION_JOB_IDS = (
     "weekly_innovation_review",
     "biweekly_research_report",
     "monthly_weight_adjust",
+    "speed_to_lead_5min",
+    "daily_free_lead_discovery",
+    "weekly_market_scan",
 )
 
 
@@ -188,10 +191,15 @@ def register_production_jobs() -> None:
     specs = _production_job_specs()
     seeded = 0
 
-    for spec in specs:
+    for raw_spec in specs:
+        spec = dict(raw_spec)
         if spec["job_id"] in existing_job_ids:
             continue
-        add_cron_job(**spec, replace=False)
+        kind = spec.pop("kind", "cron")
+        if kind == "interval":
+            add_interval_job(**spec, replace=False)
+        else:
+            add_cron_job(**spec, replace=False)
         seeded += 1
 
     loaded = len(PRODUCTION_JOB_IDS) - seeded
@@ -216,6 +224,9 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "weekly_innovation_review", "func": weekly_innovation_review, "hour": 3, "minute": 30, "day_of_week": "mon"},
         {"job_id": "biweekly_research_report", "func": biweekly_research_report, "hour": 1, "minute": 30, "day_of_week": "sun"},
         {"job_id": "monthly_weight_adjust", "func": monthly_weight_adjust, "hour": 18, "minute": 30, "day": "last"},
+        {"job_id": "speed_to_lead_5min", "func": speed_to_lead_5min, "kind": "interval", "minutes": 5},
+        {"job_id": "daily_free_lead_discovery", "func": daily_free_lead_discovery, "hour": 3, "minute": 30},
+        {"job_id": "weekly_market_scan", "func": weekly_market_scan, "hour": 5, "minute": 0, "day_of_week": "mon"},
     ]
 
 
@@ -394,6 +405,56 @@ async def daily_follow_up_check() -> None:
     for tenant_id in await _target_tenant_ids():
         sent += await outreach_engine.execute_due_outreach(tenant_id, limit=25)
     await _record_job_result("daily_follow_up_check", "success", {"sent": sent})
+
+
+async def speed_to_lead_5min() -> None:
+    from app.services.revenue_activation.speed_to_lead import speed_to_lead_engine
+
+    processed = 0
+    tenants = []
+    for tenant_id in await _target_tenant_ids():
+        result = await speed_to_lead_engine.trigger(tenant_id, lookback_minutes=5)
+        processed += int(result.get("processed", 0))
+        tenants.append(result)
+    await _record_job_result(
+        "speed_to_lead_5min",
+        "success",
+        {"processed": processed, "tenants": tenants},
+    )
+
+
+async def daily_free_lead_discovery() -> None:
+    from app.services.revenue_activation.free_discovery import free_discovery_engine
+
+    inserted = 0
+    enriched = 0
+    tenants = []
+    for tenant_id in await _target_tenant_ids():
+        result = await free_discovery_engine.run(tenant_id, limit=50)
+        inserted += int(result.get("inserted", 0))
+        enriched += int(result.get("manual_leads_enriched", 0))
+        tenants.append(result)
+    await _record_job_result(
+        "daily_free_lead_discovery",
+        "success",
+        {"inserted": inserted, "manual_leads_enriched": enriched, "tenants": tenants},
+    )
+
+
+async def weekly_market_scan() -> None:
+    from app.services.revenue_activation.market_awareness import market_awareness_engine
+
+    scans = []
+    high_relevance = 0
+    for tenant_id in await _target_tenant_ids():
+        result = await market_awareness_engine.weekly_scan(tenant_id)
+        high_relevance += int(result.get("high_relevance_new_items", 0))
+        scans.append(result)
+    await _record_job_result(
+        "weekly_market_scan",
+        "success",
+        {"high_relevance_new_items": high_relevance, "tenants": scans},
+    )
 
 
 async def daily_memory_consolidate() -> None:
@@ -672,15 +733,15 @@ def _db_datetime(value: datetime | None) -> datetime | None:
 
 
 def _task_type_for_job(job_id: str) -> str:
-    if "lead" in job_id:
+    if "free_lead_discovery" in job_id or "lead" in job_id:
         return "lead_ops"
-    if "outreach" in job_id or "follow_up" in job_id:
+    if "speed_to_lead" in job_id or "outreach" in job_id or "follow_up" in job_id:
         return "outreach"
     if "memory" in job_id:
         return "memory"
     if "briefing" in job_id:
         return "briefing"
-    if "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
+    if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
         return "intelligence"
     if "weight" in job_id:
         return "ai_council"

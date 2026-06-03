@@ -9,6 +9,7 @@ from app.models.economics import AICostLedger, InfrastructureCostConfig
 from app.models.intelligence import BriefingHistory, CompetitorProfile, MarketIntelligence, TechRadarEntry
 from app.models.innovation import InnovationQueueItem, InnovationStatus
 from app.models.civilization import CivilizationLedger
+from app.models.revenue_activation import MarketPulseItem, OutreachLearning, SpeedToLeadEvent
 from app.models.memory import (
     CivilizationMemory,
     MemoryGraphEdge,
@@ -46,6 +47,7 @@ MODEL_MODULES = (
     "economics",
     "innovation",
     "civilization",
+    "revenue_activation",
 )
 
 
@@ -66,6 +68,9 @@ __all__ = [
     "InnovationQueueItem",
     "InnovationStatus",
     "CivilizationLedger",
+    "MarketPulseItem",
+    "OutreachLearning",
+    "SpeedToLeadEvent",
     "BriefingHistory",
     "CompetitorProfile",
     "MarketIntelligence",

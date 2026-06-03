@@ -24,6 +24,8 @@ from app.api.v1.routes import captain
 from app.api.v1.routes import economics
 from app.api.v1.routes import innovation
 from app.api.v1.routes import civilization
+from app.api.v1.routes import calls
+from app.api.v1.routes import intel
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -85,3 +87,5 @@ api_router.include_router(captain.router)
 api_router.include_router(economics.router)
 api_router.include_router(innovation.router)
 api_router.include_router(civilization.router)
+api_router.include_router(calls.router)
+api_router.include_router(intel.router)

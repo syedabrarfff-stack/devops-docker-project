@@ -33,6 +33,11 @@ class RunDiscoveryRequest(BaseModel):
     targets: list[DiscoveryTarget | dict[str, Any] | str] = Field(default_factory=list)
 
 
+class FreeSourcesRequest(BaseModel):
+    tenant_id: UUID | None = None
+    limit: int = Field(50, ge=1, le=200)
+
+
 class ScoreLeadRequest(BaseModel):
     lead_data: dict[str, Any]
 
@@ -54,6 +59,14 @@ async def run_discovery(body: RunDiscoveryRequest, request: Request):
 
     count = await lead_discovery_engine.run_daily_discovery(tenant_id, targets)
     return {"tenant_id": str(tenant_id), "inserted": count, "targets": len(targets)}
+
+
+@discover_router.post("/free-sources")
+async def run_free_source_discovery(body: FreeSourcesRequest, request: Request):
+    from app.services.revenue_activation.free_discovery import free_discovery_engine
+
+    tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    return await free_discovery_engine.run(tenant_id, limit=body.limit)
 
 
 @discover_router.post("/leads/score")
@@ -197,6 +210,7 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: UUID | None) -> UUI
         explicit_tenant_id
         or getattr(request.state, "tenant_id", None)
         or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
     )
     if not tenant_id:
         raise HTTPException(status_code=400, detail="tenant_id is required")

@@ -23,6 +23,18 @@ class StatusUpdate(BaseModel):
     status: str  # approved | implemented | dismissed
 
 
+class TeachRequest(BaseModel):
+    title: str
+    learning: str
+    category: str = "outreach_intelligence"
+    source_type: str = "captain_manual"
+    source_id: Optional[str] = None
+    score: float = 80.0
+    evidence: Optional[dict] = None
+    applies_to: Optional[dict] = None
+    tenant_id: Optional[UUID] = None
+
+
 # ── Tech Radar ────────────────────────────────────────────────────────────────
 
 @router.get("/radar")
@@ -189,6 +201,42 @@ async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
     seed_result = await seed_competitor_profiles(resolved_tenant_id)
     profiles = await list_competitor_profiles(resolved_tenant_id)
     return {**seed_result, "count": len(profiles), "competitors": profiles}
+
+
+@router.get("/outreach-learnings")
+async def get_outreach_learnings(
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    category: Optional[str] = None,
+    limit: int = 50,
+):
+    from app.services.revenue_activation.teaching_engine import teaching_engine
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    return await teaching_engine.list_learnings(
+        resolved_tenant_id,
+        category=category,
+        limit=limit,
+    )
+
+
+@router.post("/teach")
+async def teach_jarvis(request: Request, body: TeachRequest):
+    from app.services.revenue_activation.teaching_engine import teaching_engine
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    return await teaching_engine.teach(
+        tenant_id=resolved_tenant_id,
+        title=body.title,
+        learning=body.learning,
+        category=body.category,
+        source_type=body.source_type,
+        source_id=body.source_id,
+        score=body.score,
+        evidence=body.evidence,
+        applies_to=body.applies_to,
+        created_by="Captain",
+    )
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:

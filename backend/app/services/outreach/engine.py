@@ -353,6 +353,14 @@ class OutreachEngine:
                         dedupe=True,
                     )
 
+        if sent:
+            try:
+                from app.services.revenue_activation.teaching_engine import teaching_engine
+
+                await teaching_engine.analyze_recent_outreach(tenant_uuid, days=30)
+            except Exception as exc:
+                logger.warning("Outreach teaching analysis skipped: %s", exc)
+
         return sent
 
     async def stats(self, tenant_id) -> dict:

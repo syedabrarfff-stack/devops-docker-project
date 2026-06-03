@@ -45,6 +45,11 @@ class RegeneratePendingIn(BaseModel):
     limit: int = 100
 
 
+class SpeedToLeadTriggerIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    lookback_minutes: int = 5
+
+
 class LinkedInSendIn(BaseModel):
     lead_id: UUID
     message_type: int = 1
@@ -124,6 +129,20 @@ async def regenerate_pending_outreach(
         limit=body.limit,
     )
     return {**result, "tenant_id": str(resolved_tenant_id)}
+
+
+@router.post("/speed-to-lead/trigger")
+async def trigger_speed_to_lead(
+    request: Request,
+    body: SpeedToLeadTriggerIn = Body(default_factory=SpeedToLeadTriggerIn),
+):
+    from app.services.revenue_activation.speed_to_lead import speed_to_lead_engine
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    return await speed_to_lead_engine.trigger(
+        resolved_tenant_id,
+        lookback_minutes=body.lookback_minutes,
+    )
 
 
 @router.post("/linkedin/send")
