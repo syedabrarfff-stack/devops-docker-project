@@ -220,7 +220,7 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
         """Pull live pipeline metrics from the database."""
         try:
             from app.models.lead import Lead  # noqa: PLC0415
-            from app.models.outreach import ReplyLog  # noqa: PLC0415
+            from app.models.outreach import OutreachLog, ReplyClassification, ReplyLog  # noqa: PLC0415
             from app.models.revenue import Invoice, InvoiceStatus  # noqa: PLC0415
 
             now = datetime.now(UTC)
@@ -235,12 +235,30 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                         select(func.count()).select_from(Lead).where(Lead.tenant_id == tenant_uuid)
                     ) or 0
 
+                    qualified_count = await session.scalar(
+                        select(func.count())
+                        .select_from(Lead)
+                        .where(
+                            Lead.tenant_id == tenant_uuid,
+                            Lead.score >= 60,
+                        )
+                    ) or 0
+
+                    hot_count = await session.scalar(
+                        select(func.count())
+                        .select_from(Lead)
+                        .where(
+                            Lead.tenant_id == tenant_uuid,
+                            Lead.score >= 80,
+                        )
+                    ) or 0
+
                     outreach_today = await session.scalar(
                         select(func.count())
-                        .select_from(ReplyLog)
+                        .select_from(OutreachLog)
                         .where(
-                            ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.created_at >= today_start,
+                            OutreachLog.tenant_id == tenant_uuid,
+                            OutreachLog.created_at >= today_start,
                         )
                     ) or 0
 
@@ -249,12 +267,14 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                         .select_from(ReplyLog)
                         .where(
                             ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.classification.in_(["INTERESTED", "QUESTION", "WARM"]),
+                            ReplyLog.classification.in_(
+                                [ReplyClassification.INTERESTED, ReplyClassification.QUESTION]
+                            ),
                         )
                     ) or 0
 
                     revenue_this_month = await session.scalar(
-                        select(func.coalesce(func.sum(Invoice.amount_due), 0))
+                        select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0))
                         .where(
                             Invoice.tenant_id == tenant_uuid,
                             Invoice.status == InvoiceStatus.PAID,
@@ -269,11 +289,15 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
             alerts = []
             if outreach_today == 0:
                 alerts.append({"type": "NO_OUTREACH", "severity": "HIGH", "message": "Zero outreach sent today"})
+            if hot_count > 0:
+                alerts.append({"type": "HOT_LEADS", "severity": "MEDIUM", "message": f"{hot_count} hot leads are ready for review"})
             if pending_replies > 5:
                 alerts.append({"type": "REPLY_BACKLOG", "severity": "MEDIUM", "message": f"{pending_replies} replies awaiting response"})
 
             return {
                 "pipeline_leads_count": leads_count,
+                "qualified_leads_count": qualified_count,
+                "hot_leads_count": hot_count,
                 "outreach_today": outreach_today,
                 "replies_pending": pending_replies,
                 "revenue_this_month": float(revenue_this_month),
@@ -285,6 +309,8 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
             logger.warning("Pipeline metrics fetch failed: %s", exc)
             return {
                 "pipeline_leads_count": 0,
+                "qualified_leads_count": 0,
+                "hot_leads_count": 0,
                 "outreach_today": 0,
                 "replies_pending": 0,
                 "revenue_this_month": 0.0,

@@ -188,7 +188,7 @@ SCRIPT REQUIREMENTS:
         try:
             from app.core.database import AsyncSessionLocal, set_tenant_context  # noqa: PLC0415
             from app.models.lead import Lead  # noqa: PLC0415
-            from app.models.outreach import ReplyLog  # noqa: PLC0415
+            from app.models.outreach import OutreachLog, ReplyClassification, ReplyLog  # noqa: PLC0415
             from app.models.revenue import Invoice, InvoiceStatus  # noqa: PLC0415
             from sqlalchemy import func, select  # noqa: PLC0415
 
@@ -204,10 +204,16 @@ SCRIPT REQUIREMENTS:
                         select(func.count()).select_from(Lead).where(Lead.tenant_id == tenant_uuid)
                     ) or 0
 
+                    qualified_leads = await session.scalar(
+                        select(func.count())
+                        .select_from(Lead)
+                        .where(Lead.tenant_id == tenant_uuid, Lead.score >= 60)
+                    ) or 0
+
                     outreach_today = await session.scalar(
                         select(func.count())
-                        .select_from(ReplyLog)
-                        .where(ReplyLog.tenant_id == tenant_uuid, ReplyLog.created_at >= today_start)
+                        .select_from(OutreachLog)
+                        .where(OutreachLog.tenant_id == tenant_uuid, OutreachLog.created_at >= today_start)
                     ) or 0
 
                     warm_replies = await session.scalar(
@@ -215,12 +221,12 @@ SCRIPT REQUIREMENTS:
                         .select_from(ReplyLog)
                         .where(
                             ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.classification.in_(["INTERESTED", "WARM"]),
+                            ReplyLog.classification == ReplyClassification.INTERESTED,
                         )
                     ) or 0
 
                     revenue_month = await session.scalar(
-                        select(func.coalesce(func.sum(Invoice.amount_due), 0))
+                        select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0))
                         .where(
                             Invoice.tenant_id == tenant_uuid,
                             Invoice.status == InvoiceStatus.PAID,
@@ -234,6 +240,7 @@ SCRIPT REQUIREMENTS:
 
             return {
                 "total_leads": total_leads,
+                "qualified_leads": qualified_leads,
                 "outreach_today": outreach_today,
                 "warm_replies": warm_replies,
                 "revenue_month": float(revenue_month),
