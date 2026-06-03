@@ -1,0 +1,63 @@
+[
+  {
+    "name": "E-commerce Scaling Outreach",
+    "target_segment": "E-commerce companies UK/USA/Australia, 10-100 employees, scaling challenges",
+    "persona": "Darren Mitchell",
+    "emails": [
+      {
+        "day": 0,
+        "subject": "Quick question about {company_name}'s operations",
+        "body": "Hi {first_name},\n\nI came across {company_name} and noticed you're scaling your e-commerce operations — which is exactly the kind of challenge our team at Aliyar Solutions specialises in.\n\nA lot of growing e-commerce businesses we work with hit the same wall: the manual processes that worked at £500K revenue become a serious drag at £2M+.\n\nWould it make sense to have a 20-minute conversation this week about where {company_name} is operationally and whether there's a fit?\n\nBest,\nDarren Mitchell\nClient Acquisition | Aliyar Solutions"
+      },
+      {
+        "day": 4,
+        "subject": "Re: {company_name} — one thought on your ops stack",
+        "body": "Hi {first_name},\n\nFollowing up on my previous note. I had a look at {company_name}'s growth trajectory and wanted to share one specific observation:\n\nMost e-commerce operations at your stage are spending 15-25 hours/week on tasks that should be automated — order processing exceptions, customer follow-up sequences, inventory alerts, and reporting.\n\nWe recently built an operational stack for a similar UK-based retailer that cut their admin overhead by 60% and increased conversion by 18%.\n\nWorth a quick call to see if that applies to {company_name}?\n\nDarren Mitchell\nAliyar Solutions"
+      },
+      {
+        "day": 9,
+        "subject": "Last note from Aliyar Solutions",
+        "body": "Hi {first_name},\n\nI'll keep this brief — I don't want to clog your inbox.\n\nIf operational efficiency at {company_name} isn't a priority right now, no problem at all. But if the manual workload is holding your team back, our team can have a solution designed and ready within 2 weeks.\n\nReply anytime if the timing changes.\n\nBest,\nDarren Mitchell\nAliyar Solutions"
+      }
+    ]
+  },
+  {
+    "name": "SaaS DevOps Cold Outreach",
+    "target_segment": "SaaS startups USA/UK/Australia, 5-50 employees, no DevOps infrastructure",
+    "persona": "Nathan Scott",
+    "emails": [
+      {
+        "day": 0,
+        "subject": "How {company_name} deploys to production",
+        "body": "Hi {first_name},\n\nI noticed {company_name} is building in the SaaS space — I wanted to reach out because we see a consistent pattern with growing SaaS teams.\n\nWhen you're moving fast, DevOps debt accumulates quietly: manual deployments, no rollback capability, AWS costs creeping up, and a single failed deploy that costs you a customer.\n\nOur team at Aliyar Solutions has built CI/CD pipelines, blue/green deployments, and monitoring stacks for SaaS companies at your stage — typically cutting deployment time from hours to minutes and reducing cloud spend by 20-35%.\n\nWould a 20-minute call this week make sense?\n\nNathan Scott\nDeployment Engineer | Aliyar Solutions"
+      },
+      {
+        "day": 5,
+        "subject": "Re: {company_name} DevOps — the bottleneck question",
+        "body": "Hi {first_name},\n\nA quick follow-up. I know engineering time is your most valuable resource — so I'll be direct:\n\nIs your team spending more than 4 hours/week on deployment, infrastructure maintenance, or firefighting production issues? If yes, that's a signal the underlying infrastructure needs attention before your next growth phase.\n\nWe offer a free 30-minute DevOps audit where we assess your current setup and show you specifically what we'd fix. No pitch, just a technical assessment.\n\nInterested?\n\nNathan Scott\nAliyar Solutions"
+      },
+      {
+        "day": 10,
+        "subject": "Closing the loop on {company_name}",
+        "body": "Hi {first_name},\n\nLast message — I promise.\n\nIf now isn't the right time, I completely understand. SaaS timelines are unpredictable.\n\nIf infrastructure becomes a blocker for {company_name} in the next quarter, feel free to reach out directly. We typically turn around full DevOps setups in 2-3 weeks.\n\nBest of luck with the build.\n\nNathan Scott\nAliyar Solutions"
+      }
+    ]
+  },
+  {
+    "name": "Agency Operations Transformation",
+    "target_segment": "Digital/marketing agencies UK/USA, 15-80 employees, growing client base",
+    "persona": "Sophia Reynolds",
+    "emails": [
+      {
+        "day": 0,
+        "subject": "The agency ops bottleneck — {company_name}",
+        "body": "Hi {first_name},\n\nRunning an agency at {company_name}'s size means you're doing something right — but it also means you're probably spending too much time on the operational side that doesn't directly serve clients.\n\nOur team at Aliyar Solutions works specifically with agencies to automate the parts that slow you down: client onboarding, reporting, project tracking, invoicing, and CRM workflows.\n\nOne of our recent agency clients went from spending 3 days/month on client reporting to 2 hours — while actually improving the quality of insights delivered.\n\nWorth exploring for {company_name}?\n\nSophia Reynolds\nWorkflow Consultant | Aliyar Solutions"
+      },
+      {
+        "day": 6,
+        "subject": "Re: Agency automation — what we'd build for {company_name}",
+        "body": "Hi {first_name},\n\nFollowing up with something more concrete.\n\nBased on what I know about agencies at {company_name}'s scale, the top 3 automation wins are typically:\n1. Automated client onboarding (saves 4-6 hours per new client)\n2. AI-generated monthly performance reports (saves 8+ hours/month)\n3. CRM pipeline automation so no lead ever falls through\n\nWe can build all of this for around $4,500/month — and it typically pays for itself within the first 60 days.\n\nWould a 20-minute call this week make sense?\n\nSophia Reynolds\nAliyar Solutions"
+      }
+    ]
+  }
+]

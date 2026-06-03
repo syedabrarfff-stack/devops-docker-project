@@ -1,0 +1,29 @@
+[
+  {
+    "invoice_number": "ALY-202606-0001",
+    "client_name": "Meridian SaaS Labs",
+    "amount_usd": 4500,
+    "status": "unpaid",
+    "due_date": "2026-06-10",
+    "service": "Cloud DevOps Infrastructure Setup — Phase 1",
+    "notes": "50% deposit — awaiting signature confirmation"
+  },
+  {
+    "invoice_number": "ALY-202605-0009",
+    "client_name": "BrightTech Agency",
+    "amount_usd": 5500,
+    "status": "paid",
+    "due_date": "2026-05-30",
+    "service": "AI Automation Stack — Monthly Retainer May 2026",
+    "notes": "Paid on time"
+  },
+  {
+    "invoice_number": "ALY-202605-0007",
+    "client_name": "Gulf Horizon Logistics",
+    "amount_usd": 3000,
+    "status": "overdue",
+    "due_date": "2026-05-25",
+    "service": "Process Automation Consultation — Phase 1",
+    "notes": "5 days overdue. Contact: Khalid. WhatsApp follow-up required."
+  }
+]

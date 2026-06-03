@@ -88,6 +88,8 @@ PRODUCTION_JOB_IDS = (
     "speed_to_lead_5min",
     "daily_free_lead_discovery",
     "weekly_market_scan",
+    "daily_connector_hub_ingestion",
+    "daily_market_intelligence",
 )
 
 JOB_LOCK_TTLS = {
@@ -247,6 +249,10 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "speed_to_lead_5min", "func": speed_to_lead_5min, "kind": "interval", "minutes": 5},
         {"job_id": "daily_free_lead_discovery", "func": daily_free_lead_discovery, "hour": 3, "minute": 30},
         {"job_id": "weekly_market_scan", "func": weekly_market_scan, "hour": 5, "minute": 0, "day_of_week": "mon"},
+        # Connector Hub — 14:30 UTC (20:00 IST) — ingest daily GitHub data package
+        {"job_id": "daily_connector_hub_ingestion", "func": daily_connector_hub_ingestion, "hour": 14, "minute": 30},
+        # Market Intelligence — 04:00 UTC (09:30 IST) — generate daily market reports
+        {"job_id": "daily_market_intelligence", "func": daily_market_intelligence, "hour": 4, "minute": 0},
     ]
 
 
@@ -678,6 +684,55 @@ async def daily_db_backup() -> None:
     )
 
 
+async def daily_connector_hub_ingestion() -> None:
+    """Pull daily data package from GitHub /jarvis-data/ and ingest into JARVIS pipeline."""
+    from app.services.integrations.connector_hub import connector_hub
+
+    results = {}
+    for tenant_id in await _target_tenant_ids():
+        try:
+            result = await connector_hub.ingest_daily_package(tenant_id)
+            results[str(tenant_id)] = {
+                "leads_processed": result.get("leads", {}).get("processed", 0),
+                "sequences_loaded": result.get("sequences", {}).get("sequences_loaded", 0),
+                "errors": result.get("errors", []),
+            }
+        except Exception as exc:
+            logger.error("Connector hub ingestion failed for tenant %s: %s", tenant_id, exc)
+            results[str(tenant_id)] = {"error": str(exc)}
+
+    await _record_job_result(
+        "daily_connector_hub_ingestion",
+        "success",
+        {"tenants": len(results), "results": results},
+    )
+
+
+async def daily_market_intelligence() -> None:
+    """Generate daily market intelligence report and trending opportunity scan."""
+    from app.services.integrations.market_intelligence_engine import market_intelligence_engine
+    from app.services.integrations.github_bridge import github_bridge
+    import os
+
+    reports = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            output_dir = os.path.join(github_bridge.REPO_DATA_PATH, "intelligence")
+            result = await market_intelligence_engine.write_github_intelligence_package(
+                tenant_id=tenant_id,
+                output_dir=output_dir,
+            )
+            reports += len(result.get("files_written", []))
+        except Exception as exc:
+            logger.error("Market intelligence failed for tenant %s: %s", tenant_id, exc)
+
+    await _record_job_result(
+        "daily_market_intelligence",
+        "success",
+        {"files_generated": reports},
+    )
+
+
 async def _sync_job_metadata() -> None:
     _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
@@ -1001,6 +1056,10 @@ def _task_type_for_job(job_id: str) -> str:
         return "memory"
     if "briefing" in job_id:
         return "briefing"
+    if "connector_hub" in job_id:
+        return "connector_hub"
+    if "market_intelligence" in job_id:
+        return "intelligence"
     if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
         return "intelligence"
     if "weight" in job_id:

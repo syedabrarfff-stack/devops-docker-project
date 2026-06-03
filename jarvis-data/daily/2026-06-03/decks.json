@@ -1,0 +1,29 @@
+[
+  {
+    "company_name": "VaultPay Fintech",
+    "contact_name": "Jessica Chen",
+    "deck_url": "https://gamma.app/docs/aliyar-vaultpay-devops-proposal-xyz123",
+    "created_date": "2026-06-03",
+    "service_focus": "Cloud DevOps + CI/CD + Compliance Infrastructure",
+    "estimated_value_usd": 4500,
+    "notes": "Custom proposal highlighting AWS compliance, Terraform IaC, and zero-downtime deployments for fintech"
+  },
+  {
+    "company_name": "Meridian SaaS Labs",
+    "contact_name": "Rachel Torres",
+    "deck_url": "https://gamma.app/docs/aliyar-meridiansaas-infrastructure-abc456",
+    "created_date": "2026-06-03",
+    "service_focus": "AWS Architecture + GitHub Actions CI/CD + Kubernetes",
+    "estimated_value_usd": 5500,
+    "notes": "Full infrastructure modernisation proposal — migrate from manual EC2 to ECS Fargate with blue/green deployments"
+  },
+  {
+    "company_name": "PixelForge Digital Agency",
+    "contact_name": "Brandon Marsh",
+    "deck_url": "https://gamma.app/docs/aliyar-pixelforge-agency-automation-def789",
+    "created_date": "2026-06-03",
+    "service_focus": "AI Automation Stack + CRM Architecture + Client Reporting",
+    "estimated_value_usd": 5500,
+    "notes": "Agency transformation package — automated onboarding, AI report generation, and client portal"
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "event_title": "Discovery Call — VaultPay Fintech",
+    "date": "2026-06-05",
+    "time": "09:00 UTC",
+    "attendee_email": "jessica@vaultpay.com.au",
+    "company": "VaultPay Fintech",
+    "contact_name": "Jessica Chen",
+    "call_type": "discovery",
+    "notes": "High-priority — score 88. Pre-call prep: focus on compliance DevOps, ASIC requirements, and Series A readiness."
+  },
+  {
+    "event_title": "Demo Call — BrightCommerce UK",
+    "date": "2026-06-06",
+    "time": "14:00 UTC",
+    "attendee_email": "james@brightcommerce.co.uk",
+    "company": "BrightCommerce UK",
+    "contact_name": "James Harrison",
+    "call_type": "demo",
+    "notes": "Showing our e-commerce automation dashboard. Prepare BrightCommerce-specific proposal."
+  },
+  {
+    "event_title": "Follow-up Call — PixelForge Digital Agency",
+    "date": "2026-06-07",
+    "time": "16:00 UTC",
+    "attendee_email": "brandon@pixelforge.agency",
+    "company": "PixelForge Digital Agency",
+    "contact_name": "Brandon Marsh",
+    "call_type": "closing",
+    "notes": "Third touchpoint. Deck already sent. Objective: close $5,500/month retainer."
+  }
+]

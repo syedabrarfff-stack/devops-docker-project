@@ -1,0 +1,77 @@
+[
+  {
+    "pain_point": "Post-AI-hype implementation gap — companies bought AI tools but can't integrate them",
+    "market_size": "~180,000 SMBs in UK/UAE/USA that purchased AI tools in 2024-2025 with <20% utilisation",
+    "urgency": "high",
+    "trigger_event": "Board pressure to show AI ROI after 12-18 months of tool subscriptions with no measurable output",
+    "our_service": "AI Automation Stack + Workflow Integration",
+    "pricing_range": "$4,000–$6,000/month",
+    "prospect_profile": {
+      "industry": "Professional Services, SaaS, Agencies",
+      "size": "20-150 employees",
+      "countries": ["UK", "USA", "Australia"],
+      "decision_maker": "CEO / COO / Head of Operations"
+    },
+    "outreach_hook": "You invested in AI tools last year. Are they actually saving your team time — or just adding subscriptions?"
+  },
+  {
+    "pain_point": "E-commerce teams drowning in manual operations during growth phase",
+    "market_size": "~65,000 e-commerce brands in UK/Australia with $500K-$5M revenue and no dedicated ops team",
+    "urgency": "high",
+    "trigger_event": "Post-Q1 2026 e-commerce growth surge — brands that grew 30%+ now have operational infrastructure built for half their current volume",
+    "our_service": "E-commerce Automation + CRM + AI Lead Generation",
+    "pricing_range": "$3,000–$5,000/month",
+    "prospect_profile": {
+      "industry": "E-commerce, Retail, D2C Brands",
+      "size": "10-80 employees",
+      "countries": ["UK", "Australia", "USA"],
+      "decision_maker": "Founder / Head of E-commerce / Operations Director"
+    },
+    "outreach_hook": "Your operations were built for half your current order volume. We fix that before it costs you customers."
+  },
+  {
+    "pain_point": "UAE businesses facing mandatory digital transformation under Vision 2031 regulatory push",
+    "market_size": "~40,000 UAE businesses required to adopt digital operations systems under new regulations",
+    "urgency": "high",
+    "trigger_event": "UAE Smart Government Initiative 2026 Q2 enforcement deadline requiring digital record-keeping across regulated sectors",
+    "our_service": "Cloud Infrastructure + CRM Architecture + Compliance Automation",
+    "pricing_range": "$3,500–$7,000/month",
+    "prospect_profile": {
+      "industry": "Healthcare, Finance, Logistics, Real Estate",
+      "size": "15-200 employees",
+      "countries": ["UAE"],
+      "decision_maker": "CEO / CFO / Compliance Officer"
+    },
+    "outreach_hook": "The Vision 2031 compliance deadline is approaching. Is your digital infrastructure ready for the audit?"
+  },
+  {
+    "pain_point": "DevOps talent shortage forcing SaaS teams to deploy manually",
+    "market_size": "~95,000 tech companies in UK/USA/Australia with 5-50 engineers and no dedicated DevOps function",
+    "urgency": "medium",
+    "trigger_event": "UK tech hiring freeze 2025-2026 means companies can't hire the DevOps engineers they need at senior level",
+    "our_service": "Cloud DevOps + CI/CD Pipelines + Monitoring",
+    "pricing_range": "$4,000–$6,000/month",
+    "prospect_profile": {
+      "industry": "SaaS, FinTech, HealthTech",
+      "size": "10-100 employees",
+      "countries": ["UK", "USA", "Australia"],
+      "decision_maker": "CTO / VP Engineering"
+    },
+    "outreach_hook": "Senior DevOps engineers cost £100K+ to hire. Our team does the same work for a fraction of that — without the hiring risk."
+  },
+  {
+    "pain_point": "Agency owner bottleneck — founders still doing billable work instead of scaling",
+    "market_size": "~250,000 digital agencies in UK/USA/Canada with 5-50 employees where the owner is the primary delivery person",
+    "urgency": "medium",
+    "trigger_event": "Post-COVID agency growth has plateaued for many boutique agencies that couldn't systemise their delivery fast enough",
+    "our_service": "AI Automation Stack + Client Portal + Operations Dashboard",
+    "pricing_range": "$4,500–$6,500/month",
+    "prospect_profile": {
+      "industry": "Digital Agencies, Marketing Agencies, Creative Agencies",
+      "size": "5-50 employees",
+      "countries": ["UK", "USA", "Canada"],
+      "decision_maker": "Founder / Managing Director"
+    },
+    "outreach_hook": "If your agency's growth depends on you personally delivering client work, you don't have a business — you have a job. We change that."
+  }
+]

@@ -17,6 +17,7 @@ from app.models.captain_intelligence import (
     CaptainPushback,
     PredictedAction,
 )
+from app.models.connector_hub import ConnectorHubIngestion, ConnectorHubPackage
 from app.models.memory import (
     CivilizationMemory,
     MemoryGraphEdge,
@@ -57,6 +58,7 @@ MODEL_MODULES = (
     "revenue_activation",
     "compliance",
     "captain_intelligence",
+    "connector_hub",
 )
 
 
@@ -108,4 +110,6 @@ __all__ = [
     "CaptainEmailIntelligence",
     "CaptainPushback",
     "PredictedAction",
+    "ConnectorHubIngestion",
+    "ConnectorHubPackage",
 ]
