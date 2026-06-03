@@ -40,6 +40,12 @@ class ExecuteOutreachIn(BaseModel):
     autonomy_stage: str = "outreach_emails"
 
 
+class LinkedInSendIn(BaseModel):
+    lead_id: UUID
+    message_type: int = 1
+    tenant_id: Optional[UUID] = None
+
+
 @router.post("/sequences")
 async def create_sequence(
     body: SequenceIn,
@@ -100,6 +106,21 @@ async def execute_outreach(request: Request, body: ExecuteOutreachIn = Body(defa
         autonomy_stage=body.autonomy_stage,
     )
     return {"sent": sent, "tenant_id": str(resolved_tenant_id)}
+
+
+@router.post("/linkedin/send")
+async def prepare_linkedin_outreach(request: Request, body: LinkedInSendIn):
+    from app.services.outreach.linkedin import linkedin_outreach_service
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    try:
+        return await linkedin_outreach_service.prepare_message(
+            resolved_tenant_id,
+            body.lead_id,
+            body.message_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/stats")
@@ -191,10 +212,13 @@ async def process_due_emails(
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    from app.core.config import settings
+
     tenant_id = (
         explicit_tenant_id
         or getattr(request.state, "tenant_id", None)
         or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
     )
     if not tenant_id:
         raise HTTPException(status_code=400, detail="tenant_id is required")

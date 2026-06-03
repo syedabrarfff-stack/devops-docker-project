@@ -2,9 +2,10 @@
 JARVIS Intelligence API — Tech Radar, Self-Optimization, Research Division.
 Phase 5: Autonomous learning and continuous self-improvement.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 
@@ -166,3 +167,42 @@ async def intelligence_pulse(db: AsyncSession = Depends(get_db)):
             "biweekly_research_report (Sun 07:00 UTC)",
         ],
     }
+
+
+@router.get("/competitors")
+async def get_competitors(request: Request, tenant_id: Optional[UUID] = None):
+    from app.services.intelligence.competitor_intel import list_competitor_profiles
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    profiles = await list_competitor_profiles(resolved_tenant_id)
+    return {"count": len(profiles), "competitors": profiles}
+
+
+@router.post("/competitors/seed")
+async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
+    from app.services.intelligence.competitor_intel import (
+        list_competitor_profiles,
+        seed_competitor_profiles,
+    )
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    seed_result = await seed_competitor_profiles(resolved_tenant_id)
+    profiles = await list_competitor_profiles(resolved_tenant_id)
+    return {**seed_result, "count": len(profiles), "competitors": profiles}
+
+
+def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
+    from app.core.config import settings
+
+    tenant_id = (
+        explicit_tenant_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
