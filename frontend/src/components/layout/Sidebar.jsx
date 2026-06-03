@@ -4,7 +4,7 @@ import {
   LayoutDashboard, MessageSquare, CheckSquare, Users, Newspaper,
   Zap, Activity, UserCircle, Target, Mail, ListTodo, Bell, Clock,
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
-  Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings,
+  Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -19,6 +19,7 @@ const NAV = [
   { id: 'proposals',      path: '/proposals',     label: 'Proposals',     icon: FileText },
   { id: 'invoices',       path: '/invoices',      label: 'Invoices',      icon: Receipt },
   { id: 'agents',         path: '/agents',        label: 'Agents',        icon: Users },
+  { id: 'departments',    path: '/departments',   label: 'Departments',   icon: Building2 },
   { id: 'council',        path: '/council',       label: 'Council',       icon: Brain },
   { id: 'memory',         path: '/memory',        label: 'Memory',        icon: Database },
   { id: 'intel',          path: '/intel',         label: 'Intel',         icon: Search },

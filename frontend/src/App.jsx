@@ -28,6 +28,7 @@ import VoiceView from './components/voice/VoiceView'
 import KnowledgeView from './components/knowledge/KnowledgeView'
 import ResearchView from './components/research/ResearchView'
 import SettingsView from './components/settings/SettingsView'
+import DepartmentsView from './components/departments/DepartmentsView'
 import useJarvisStore from './store/useJarvisStore'
 
 export const VIEWS = {
@@ -53,6 +54,7 @@ export const VIEWS = {
   voice:         { path: '/voice',         title: 'Voice Briefings',        Component: VoiceView },
   knowledge:     { path: '/knowledge',     title: 'Knowledge Base',         Component: KnowledgeView },
   research:      { path: '/research',      title: 'Research Reports',       Component: ResearchView },
+  departments:   { path: '/departments',   title: 'Department Intelligence', Component: DepartmentsView },
   governance:    { path: '/governance',    title: 'Governance',             Component: GovernanceDashboard },
   catalog:       { path: '/catalog',       title: 'Service Catalog',        Component: ServiceCatalog },
   settings:      { path: '/settings',      title: 'Tenant Settings',        Component: SettingsView },
