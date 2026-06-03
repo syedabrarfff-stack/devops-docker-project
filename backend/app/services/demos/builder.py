@@ -93,6 +93,25 @@ class DemoBuilder:
                         },
                     )
                 )
+                from app.services.civilization import civilization_ledger
+
+                await civilization_ledger.append_event(
+                    session,
+                    tenant_uuid,
+                    event_type="first_demo_booked",
+                    title="First demo package ready",
+                    description=f"JARVIS generated a personalized demo package for {company}.",
+                    impact="revenue",
+                    actors=["DemoBuilder", "JARVIS"],
+                    data_snapshot={
+                        "lead_id": str(lead_uuid) if lead_uuid else None,
+                        "demo_id": str(demo.id),
+                        "company": company,
+                        "pdf_path": str(pdf_path),
+                    },
+                    milestone=True,
+                    dedupe=True,
+                )
 
             await notify_telegram(
                 f"Demo package ready for {company} - {_pdf_link(lead_uuid or demo.id)}"

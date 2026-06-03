@@ -136,6 +136,25 @@ class IntelligenceCouncil:
                         details={"council_session_id": str(council_session.id), "decision": decision},
                     )
                 )
+                from app.services.civilization import civilization_ledger
+
+                await civilization_ledger.append_event(
+                    session,
+                    tenant_uuid,
+                    event_type="council_session_completed",
+                    title=f"Council session completed: {decision}",
+                    description=f"JARVIS council reviewed: {question[:220]}",
+                    impact="decision_intelligence",
+                    actors=["IntelligenceCouncil", "JARVIS"],
+                    data_snapshot={
+                        "council_session_id": str(council_session.id),
+                        "score": score,
+                        "quorum_met": quorum_met,
+                        "responses_count": responses_count,
+                        "winner_model": winner_model,
+                    },
+                    milestone=False,
+                )
                 await session.refresh(council_session)
                 session_id = str(council_session.id)
 

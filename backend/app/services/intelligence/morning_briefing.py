@@ -130,6 +130,7 @@ class MorningBriefingEngine:
             "mrr": float(mrr or 0.0),
             "new_leads": int(new_leads or 0),
             "pipeline": float(pipeline or 0.0),
+            "economic_line": await _economic_line(tenant_id),
             "pending_approvals": len(pending_approvals),
             "approval_list": [
                 {
@@ -157,6 +158,8 @@ class MorningBriefingEngine:
             f"- Current MRR: ${metrics['mrr']:,.0f}\n"
             f"- New leads today: {metrics['new_leads']}\n"
             f"- Pipeline value: ${metrics['pipeline']:,.0f}\n\n"
+            "ECONOMICS:\n"
+            f"- {metrics.get('economic_line', 'AI spend yesterday: unavailable')}\n\n"
             f"ACTION REQUIRED ({metrics['pending_approvals']} items):\n"
             f"{approval_lines}\n\n"
             "OUTREACH:\n"
@@ -175,6 +178,15 @@ async def _apply_tenant_context(db, tenant_id: uuid.UUID) -> None:
 
 def _coerce_tenant_id(tenant_id) -> uuid.UUID:
     return tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+
+
+async def _economic_line(tenant_id: uuid.UUID) -> str:
+    try:
+        from app.services.economics import economics_service
+
+        return await economics_service.yesterday_report_line(tenant_id)
+    except Exception:
+        return "AI spend yesterday: unavailable"
 
 
 def _lead_name(lead: Lead) -> str:

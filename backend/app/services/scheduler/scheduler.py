@@ -75,6 +75,7 @@ PRODUCTION_JOB_IDS = (
     "weekly_outreach_stats",
     "weekly_pipeline_health",
     "weekly_tech_radar",
+    "weekly_innovation_review",
     "biweekly_research_report",
     "monthly_weight_adjust",
 )
@@ -212,6 +213,7 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "weekly_outreach_stats", "func": weekly_outreach_stats, "hour": 2, "minute": 30, "day_of_week": "mon"},
         {"job_id": "weekly_pipeline_health", "func": weekly_pipeline_health, "hour": 14, "minute": 30, "day_of_week": "sun"},
         {"job_id": "weekly_tech_radar", "func": weekly_tech_radar, "hour": 0, "minute": 30, "day_of_week": "mon"},
+        {"job_id": "weekly_innovation_review", "func": weekly_innovation_review, "hour": 3, "minute": 30, "day_of_week": "mon"},
         {"job_id": "biweekly_research_report", "func": biweekly_research_report, "hour": 1, "minute": 30, "day_of_week": "sun"},
         {"job_id": "monthly_weight_adjust", "func": monthly_weight_adjust, "hour": 18, "minute": 30, "day": "last"},
     ]
@@ -454,6 +456,16 @@ async def weekly_tech_radar() -> None:
     await _record_job_result("weekly_tech_radar", "success", {"entries": entries})
 
 
+async def weekly_innovation_review() -> None:
+    from app.services.innovation import innovation_queue_service
+
+    reviewed = 0
+    for tenant_id in await _target_tenant_ids():
+        result = await innovation_queue_service.weekly_council_review(tenant_id)
+        reviewed += int(result.get("reviewed", 0))
+    await _record_job_result("weekly_innovation_review", "success", {"reviewed": reviewed})
+
+
 async def biweekly_research_report() -> None:
     if datetime.now(UTC).isocalendar().week % 2:
         await _record_job_result("biweekly_research_report", "skipped", {"reason": "alternate_week_guard"})
@@ -668,7 +680,7 @@ def _task_type_for_job(job_id: str) -> str:
         return "memory"
     if "briefing" in job_id:
         return "briefing"
-    if "radar" in job_id or "research" in job_id or "optimization" in job_id:
+    if "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
         return "intelligence"
     if "weight" in job_id:
         return "ai_council"

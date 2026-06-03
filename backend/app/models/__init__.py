@@ -5,7 +5,10 @@ from importlib import import_module
 from app.models.base import JarvisBase
 from app.models.council import AICouncilMemberWeight, AICouncilSession
 from app.models.demo import DemoPackage
+from app.models.economics import AICostLedger, InfrastructureCostConfig
 from app.models.intelligence import BriefingHistory, CompetitorProfile, MarketIntelligence, TechRadarEntry
+from app.models.innovation import InnovationQueueItem, InnovationStatus
+from app.models.civilization import CivilizationLedger
 from app.models.memory import (
     CivilizationMemory,
     MemoryGraphEdge,
@@ -40,6 +43,9 @@ MODEL_MODULES = (
     "council",
     "department_intelligence",
     "demo",
+    "economics",
+    "innovation",
+    "civilization",
 )
 
 
@@ -55,6 +61,11 @@ __all__ = [
     "AICouncilMemberWeight",
     "AICouncilSession",
     "DemoPackage",
+    "AICostLedger",
+    "InfrastructureCostConfig",
+    "InnovationQueueItem",
+    "InnovationStatus",
+    "CivilizationLedger",
     "BriefingHistory",
     "CompetitorProfile",
     "MarketIntelligence",

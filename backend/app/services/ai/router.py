@@ -5,6 +5,7 @@ per-call cost estimation, and automatic latency-aware failover.
 """
 import time
 import logging
+import asyncio
 from typing import List, Optional, Tuple
 from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message, TaskType
 from app.services.ai.providers.anthropic_provider import AnthropicProvider
@@ -312,7 +313,16 @@ class AIRouter:
                 response.task_type = task_type.value
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
-                _record_ai_metrics(force_provider, model_id, task_type.value, latency, response.cost_estimate_usd)
+                _record_ai_metrics(
+                    force_provider,
+                    model_id,
+                    task_type.value,
+                    latency,
+                    response.cost_estimate_usd,
+                    response.tokens_used,
+                    _estimate_input_tokens(messages, system_prompt),
+                    response.error,
+                )
                 if not response.error and (response.content or "").strip():
                     health_monitor.record_success(force_provider, latency)
                     return response, task_type.value
@@ -335,7 +345,16 @@ class AIRouter:
                 response.task_type = task_type.value
                 response.latency_ms = latency
                 response.cost_estimate_usd = estimate_cost(provider_key, model_id, response.tokens_used)
-                _record_ai_metrics(provider_key, model_id, task_type.value, latency, response.cost_estimate_usd)
+                _record_ai_metrics(
+                    provider_key,
+                    model_id,
+                    task_type.value,
+                    latency,
+                    response.cost_estimate_usd,
+                    response.tokens_used,
+                    _estimate_input_tokens(messages, system_prompt),
+                    response.error,
+                )
                 if not response.error and (response.content or "").strip():
                     health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
@@ -381,9 +400,63 @@ class AIRouter:
         )
 
 
-def _record_ai_metrics(provider: str, model: str, task_type: str, latency_ms: int, cost_usd: float) -> None:
+def _record_ai_metrics(
+    provider: str,
+    model: str,
+    task_type: str,
+    latency_ms: int,
+    cost_usd: float,
+    tokens_total: int,
+    tokens_in: int,
+    error_message: str | None = None,
+) -> None:
     observe_ai_latency(provider, model, latency_ms)
     record_ai_cost(provider, model, task_type, cost_usd)
+    try:
+        from app.services.economics.tracker import economics_service
+
+        tokens_out = max(0, int(tokens_total or 0) - int(tokens_in or 0))
+        asyncio.create_task(
+            economics_service.log_ai_call(
+                provider=provider,
+                model=model,
+                tokens_in=int(tokens_in or 0),
+                tokens_out=tokens_out,
+                tokens_total=int(tokens_total or 0),
+                cost_usd=float(cost_usd or 0.0),
+                department=_department_for_task(task_type),
+                task_type=task_type,
+                latency_ms=latency_ms,
+                success=not bool(error_message),
+                error_message=error_message,
+            )
+        )
+    except RuntimeError:
+        logger.debug("AI cost persistence skipped: no running event loop")
+    except Exception as exc:
+        logger.debug("AI cost persistence skipped: %s", exc)
+
+
+def _estimate_input_tokens(messages: List[Message], system_prompt: str) -> int:
+    text = (system_prompt or "") + "\n" + "\n".join(message.content or "" for message in messages)
+    return max(1, len(text) // 4)
+
+
+def _department_for_task(task_type: str) -> str:
+    mapping = {
+        "sales": "Revenue Command",
+        "research": "Market Intelligence",
+        "strategy": "Strategy Council",
+        "analysis": "System Intelligence",
+        "code": "Engineering",
+        "fast": "Operations",
+        "general": "Command Center",
+        "reasoning": "AI Council",
+        "long_context": "Knowledge Office",
+        "multimodal": "Creative Studio",
+        "realtime": "Voice and Realtime Ops",
+    }
+    return mapping.get(task_type, "Command Center")
 
 
 # Singleton instance

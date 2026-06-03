@@ -21,6 +21,9 @@ from app.api.v1.routes import departments
 from app.api.v1.routes import demos
 from app.api.v1.routes import pilot
 from app.api.v1.routes import captain
+from app.api.v1.routes import economics
+from app.api.v1.routes import innovation
+from app.api.v1.routes import civilization
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -79,3 +82,6 @@ api_router.include_router(departments.router)
 api_router.include_router(demos.router)
 api_router.include_router(pilot.router)
 api_router.include_router(captain.router)
+api_router.include_router(economics.router)
+api_router.include_router(innovation.router)
+api_router.include_router(civilization.router)

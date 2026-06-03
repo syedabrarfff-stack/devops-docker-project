@@ -227,6 +227,27 @@ class OutreachEngine:
                             "persona": PERSONAS["darren_mitchell"]["name"],
                         },
                     )
+                    from app.services.civilization import civilization_ledger
+
+                    await civilization_ledger.append_event(
+                        session,
+                        tenant_uuid,
+                        event_type="first_outreach_email_sent",
+                        title="First outreach email sent",
+                        description=(
+                            f"JARVIS sent an outbound Aliyar Solutions outreach email to "
+                            f"{lead.company_name or lead.company or to_email}."
+                        ),
+                        impact="revenue",
+                        actors=["OutreachEngine", PERSONAS["darren_mitchell"]["name"]],
+                        data_snapshot={
+                            "lead_id": str(lead.id),
+                            "sequence_step": item.sequence_step,
+                            "subject": email["subject"],
+                        },
+                        milestone=True,
+                        dedupe=True,
+                    )
 
         return sent
 

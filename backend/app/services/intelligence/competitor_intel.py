@@ -13,6 +13,7 @@ from sqlalchemy import select
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.intelligence import CompetitorProfile
+from app.services.civilization import civilization_ledger
 from app.services.memory.graph import _upsert_node
 
 
@@ -199,6 +200,25 @@ async def seed_competitor_profiles(tenant_id: uuid.UUID | str) -> dict[str, Any]
                     },
                 )
                 memory_nodes_created += int(created)
+                await civilization_ledger.append_event(
+                    session,
+                    tenant_uuid,
+                    event_type="competitor_profile_created",
+                    title=f"Competitor profile active: {snapshot['name']}",
+                    description=(
+                        f"JARVIS stored public competitor intelligence for {snapshot['name']} and identified Aliyar win reasons."
+                    ),
+                    impact="market_intelligence",
+                    actors=["CompetitorIntelligence", "JARVIS"],
+                    data_snapshot={
+                        "competitor": snapshot["name"],
+                        "website_url": snapshot.get("website_url"),
+                        "pricing_signals": snapshot.get("pricing_signals", []),
+                        "win_reasons": snapshot.get("aliyar_win_reasons", []),
+                    },
+                    milestone=False,
+                    dedupe=True,
+                )
 
             session.add(
                 AuditLog(

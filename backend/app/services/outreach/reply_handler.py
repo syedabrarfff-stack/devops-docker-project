@@ -115,6 +115,28 @@ class ReplyHandler:
                         "action_taken": action_taken,
                     },
                 )
+                from app.services.civilization import civilization_ledger
+
+                await civilization_ledger.append_event(
+                    session,
+                    tenant_uuid,
+                    event_type="first_reply_received",
+                    title="First reply received",
+                    description=(
+                        f"JARVIS processed a prospect reply from "
+                        f"{live_lead.company_name or live_lead.company or live_lead.email}."
+                    ),
+                    impact="revenue",
+                    actors=["ReplyHandler", "JARVIS"],
+                    data_snapshot={
+                        "lead_id": str(live_lead.id),
+                        "classification": classification,
+                        "confidence_score": confidence,
+                        "action_taken": action_taken,
+                    },
+                    milestone=True,
+                    dedupe=True,
+                )
 
         if classification == "INTERESTED":
             await notify_business_event(
