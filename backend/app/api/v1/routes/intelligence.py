@@ -410,6 +410,192 @@ async def pricing_catalog():
     return dynamic_pricing_engine.get_service_catalog_pricing()
 
 
+# ── Batch-4 Frontier Intelligence Endpoints ───────────────────────────────────
+
+class ExpertCouncilRequest(BaseModel):
+    question: str
+    context: Optional[dict] = None
+    tenant_id: Optional[UUID] = None
+    quick: bool = False
+
+
+class RedTeamRequest(BaseModel):
+    tenant_id: Optional[UUID] = None
+
+
+class CialdiniEnhanceRequest(BaseModel):
+    lead_id: Optional[UUID] = None
+    email_draft: str
+    tenant_id: Optional[UUID] = None
+
+
+class CialdiniSequenceRequest(BaseModel):
+    lead_id: Optional[UUID] = None
+    tenant_id: Optional[UUID] = None
+
+
+@router.post("/expert-council")
+async def expert_council(req: ExpertCouncilRequest, request: Request):
+    """Convene 5-agent (or quick 3-agent) expert council on a strategic question."""
+    from app.services.intelligence.expert_council import expert_council_engine
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    if req.quick:
+        result = await expert_council_engine.quick_council(tenant_id, req.question)
+    else:
+        result = await expert_council_engine.convene_council(tenant_id, req.question, req.context)
+    return result
+
+
+@router.get("/expert-council/sessions")
+async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = None, limit: int = 10):
+    """Get recent expert council sessions."""
+    from app.services.intelligence.expert_council import expert_council_engine
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    sessions = await expert_council_engine.get_recent_sessions(resolved, limit=limit)
+    return {"tenant_id": str(resolved), "sessions": sessions, "count": len(sessions)}
+
+
+@router.post("/red-team/run")
+async def red_team_run(req: RedTeamRequest, request: Request, background_tasks=None):
+    """Run full adversarial red team analysis against current business strategy."""
+    from app.services.intelligence.red_team import red_team_engine
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    result = await red_team_engine.run_weekly_analysis(tenant_id)
+    return result
+
+
+@router.post("/red-team/competitor")
+async def red_team_competitor(
+    request: Request,
+    competitor_name: str = "generic AI agency",
+    tenant_id: Optional[UUID] = None,
+):
+    """Analyze how a specific competitor would position against Aliyar Solutions."""
+    from app.services.intelligence.red_team import red_team_engine
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    result = await red_team_engine.analyze_competitor_positioning(resolved, competitor_name)
+    return result
+
+
+@router.get("/flywheel")
+async def get_flywheel(request: Request, tenant_id: Optional[UUID] = None):
+    """Calculate current flywheel velocity and compound growth metrics."""
+    from app.services.intelligence.flywheel import flywheel_engine
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    result = await flywheel_engine.calculate_flywheel_score(resolved)
+    return result
+
+
+@router.get("/flywheel/projection")
+async def get_flywheel_projection(
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    months: int = 12,
+):
+    """Project month-by-month flywheel-driven growth."""
+    from app.services.intelligence.flywheel import flywheel_engine
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    projections = await flywheel_engine.project_flywheel_growth(resolved, months=months)
+    return {
+        "tenant_id": str(resolved),
+        "months": months,
+        "projections": projections,
+    }
+
+
+@router.post("/cialdini/enhance")
+async def cialdini_enhance(req: CialdiniEnhanceRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Enhance an email draft using Cialdini's 6 persuasion principles."""
+    from app.services.intelligence.cialdini import cialdini_engine
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    lead_data: dict = {}
+
+    if req.lead_id:
+        from sqlalchemy import select
+        from app.models.lead import Lead
+        result = await db.execute(
+            select(Lead).where(Lead.id == req.lead_id, Lead.tenant_id == tenant_id)
+        )
+        lead = result.scalar_one_or_none()
+        if lead:
+            lead_data = {
+                "id": str(lead.id),
+                "company_name": lead.company_name,
+                "company": lead.company,
+                "industry": lead.industry,
+                "notes": lead.notes,
+                "pain_points": lead.pain_points,
+            }
+
+    result = await cialdini_engine.engineer_outreach(tenant_id, lead_data, req.email_draft)
+    return result
+
+
+@router.post("/cialdini/sequence")
+async def cialdini_sequence(req: CialdiniSequenceRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Generate a 3-email Cialdini-engineered outreach sequence for a lead."""
+    from app.services.intelligence.cialdini import cialdini_engine
+
+    tenant_id = _resolve_tenant_id(request, req.tenant_id)
+    lead_data: dict = {}
+
+    if req.lead_id:
+        from sqlalchemy import select
+        from app.models.lead import Lead
+        result = await db.execute(
+            select(Lead).where(Lead.id == req.lead_id, Lead.tenant_id == tenant_id)
+        )
+        lead = result.scalar_one_or_none()
+        if lead:
+            lead_data = {
+                "id": str(lead.id),
+                "company_name": lead.company_name,
+                "company": lead.company,
+                "industry": lead.industry,
+                "notes": lead.notes,
+                "pain_points": lead.pain_points,
+            }
+
+    sequence = await cialdini_engine.generate_cialdini_sequence(tenant_id, lead_data)
+    return {
+        "tenant_id": str(tenant_id),
+        "lead_id": str(req.lead_id) if req.lead_id else None,
+        "sequence": sequence,
+        "count": len(sequence),
+    }
+
+
+@router.get("/conscience/audit")
+async def conscience_audit(request: Request, tenant_id: Optional[UUID] = None, days: int = 7):
+    """Audit recent autonomous actions for ethical compliance."""
+    from app.services.intelligence.conscience import conscience_layer
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    result = await conscience_layer.audit_recent_actions(resolved, days=days)
+    return result
+
+
+@router.post("/conscience/evaluate")
+async def conscience_evaluate(
+    request: Request,
+    action_type: str,
+    payload: dict,
+    tenant_id: Optional[UUID] = None,
+):
+    """Evaluate a proposed action against JARVIS core values."""
+    from app.services.intelligence.conscience import conscience_layer
+
+    result = conscience_layer.evaluate_action_ethics(action_type, payload)
+    return result
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
 

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.crm import service as crm
@@ -154,3 +155,94 @@ async def update_deal(deal_id: int, body: DealUpdate, db: AsyncSession = Depends
 @router.get("/deals/pipeline")
 async def pipeline_stats(db: AsyncSession = Depends(get_db)):
     return await crm.pipeline_stats(db)
+
+
+# ── Relationship Graph ────────────────────────────────────────────────────────
+
+class RelationshipNodeIn(BaseModel):
+    entity_type: str
+    entity_id: str
+    attributes: dict = {}
+    tenant_id: Optional[UUID] = None
+
+
+class RelationshipEdgeIn(BaseModel):
+    from_node_id: str
+    to_node_id: str
+    relationship_type: str
+    strength: float = 1.0
+    tenant_id: Optional[UUID] = None
+
+
+def _resolve_crm_tenant_id(request: Request, explicit: Optional[UUID]) -> UUID:
+    from app.core.config import settings
+    tenant_id = (
+        explicit
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+    try:
+        return UUID(str(tenant_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenant_id format")
+
+
+@router.get("/relationship-graph")
+async def get_relationship_graph(
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    entity_type: Optional[str] = None,
+):
+    """Get relationship graph summary and node list."""
+    from app.services.crm.relationship_graph import relationship_graph
+
+    resolved = _resolve_crm_tenant_id(request, tenant_id)
+    summary = await relationship_graph.get_graph_summary(resolved)
+    nodes = await relationship_graph.list_nodes(resolved, entity_type=entity_type)
+    return {**summary, "nodes": nodes}
+
+
+@router.post("/relationship-graph/node")
+async def add_relationship_node(body: RelationshipNodeIn, request: Request):
+    """Add or update a node in the relationship graph."""
+    from app.services.crm.relationship_graph import relationship_graph
+
+    resolved = _resolve_crm_tenant_id(request, body.tenant_id)
+    result = await relationship_graph.add_node(
+        resolved, body.entity_type, body.entity_id, body.attributes
+    )
+    return result
+
+
+@router.post("/relationship-graph/edge")
+async def add_relationship_edge(body: RelationshipEdgeIn, request: Request):
+    """Add a relationship edge between two nodes."""
+    from app.services.crm.relationship_graph import relationship_graph
+
+    resolved = _resolve_crm_tenant_id(request, body.tenant_id)
+    result = await relationship_graph.add_edge(
+        resolved, body.from_node_id, body.to_node_id, body.relationship_type, body.strength
+    )
+    return result
+
+
+@router.get("/relationship-graph/warm-intros/{lead_id}")
+async def get_warm_intros(
+    lead_id: str,
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+):
+    """Find warm introduction paths from existing contacts to a target lead."""
+    from app.services.crm.relationship_graph import relationship_graph
+
+    resolved = _resolve_crm_tenant_id(request, tenant_id)
+    intros = await relationship_graph.get_warm_intros(resolved, lead_id)
+    return {
+        "tenant_id": str(resolved),
+        "target_lead_id": lead_id,
+        "intro_paths": intros,
+        "count": len(intros),
+    }
