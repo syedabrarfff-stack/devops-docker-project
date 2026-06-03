@@ -37,11 +37,13 @@ def _enable_rls(table: str) -> None:
     policy = f"rls_{table}_tenant_isolation"
     op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
     op.execute(
+        f"DROP POLICY IF EXISTS {policy} ON {table}"
+    )
+    op.execute(
         f"""
-        DROP POLICY IF EXISTS {policy} ON {table};
         CREATE POLICY {policy} ON {table}
             USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
-            WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+            WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid)
         """
     )
 
