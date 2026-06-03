@@ -11,6 +11,12 @@ from app.models.intelligence import BriefingHistory, CompetitorProfile, MarketIn
 from app.models.innovation import InnovationQueueItem, InnovationStatus
 from app.models.civilization import CivilizationLedger
 from app.models.revenue_activation import MarketPulseItem, OutreachLearning, SpeedToLeadEvent
+from app.models.captain_intelligence import (
+    CaptainBrainDump,
+    CaptainEmailIntelligence,
+    CaptainPushback,
+    PredictedAction,
+)
 from app.models.memory import (
     CivilizationMemory,
     MemoryGraphEdge,
@@ -50,6 +56,7 @@ MODEL_MODULES = (
     "civilization",
     "revenue_activation",
     "compliance",
+    "captain_intelligence",
 )
 
 
@@ -97,4 +104,8 @@ __all__ = [
     "User",
     "UserRole",
     "register_models",
+    "CaptainBrainDump",
+    "CaptainEmailIntelligence",
+    "CaptainPushback",
+    "PredictedAction",
 ]
