@@ -247,13 +247,13 @@ class OutreachComplianceService:
         return {"allowed": True, "sent_today": int(sent), "cap": cap}
 
     def current_daily_cap(self) -> int:
-        configured_cap = max(1, int(settings.OUTREACH_DAILY_SEND_CAP or 50))
+        configured_cap = max(1, int(settings.OUTREACH_DAILY_SEND_CAP or 48))
         domain_age_days = max(0, int(settings.OUTREACH_DOMAIN_AGE_DAYS or 0))
         if domain_age_days < 14:
             return min(configured_cap, 20)
         if domain_age_days < 28:
             return min(configured_cap, 35)
-        return min(configured_cap, 50)
+        return min(configured_cap, 48)
 
     async def is_outreach_paused(self, session, tenant_id: uuid.UUID) -> bool:
         if settings.OUTREACH_PAUSED:

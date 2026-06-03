@@ -36,6 +36,10 @@ QUALIFIED_THRESHOLD = 60.0
 HOT_THRESHOLD = 80.0
 COUNCIL_QUALITY_THRESHOLD = 0.7
 
+# Hard daily limits — Gmail safety + controlled growth
+DAILY_OUTREACH_CAP = 48   # max emails sent per day (Google safe zone)
+DAILY_LEAD_DISCOVERY_CAP = 20  # max new leads discovered per day
+
 
 class ConnectorHub:
     """
@@ -82,8 +86,8 @@ class ConnectorHub:
             summary["errors"].append(f"read_package: {exc}")
             return summary
 
-        # --- Process leads ---
-        leads_raw = package.get("leads", [])
+        # --- Process leads (hard cap: 20 new leads per day) ---
+        leads_raw = package.get("leads", [])[:DAILY_LEAD_DISCOVERY_CAP]
         if leads_raw:
             try:
                 summary["leads"] = await self.process_leads_package(tenant_id, leads_raw)

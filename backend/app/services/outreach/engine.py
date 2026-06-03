@@ -231,7 +231,7 @@ class OutreachEngine:
             "sample_email": sample,
         }
 
-    async def execute_due_outreach(self, tenant_id, limit: int = 25, autonomy_stage: str = "outreach_emails") -> int:
+    async def execute_due_outreach(self, tenant_id, limit: int = 48, autonomy_stage: str = "outreach_emails") -> int:
         tenant_uuid = uuid.UUID(str(tenant_id))
         now = datetime.now(UTC)
         sent = 0
