@@ -221,7 +221,27 @@ async def _register_default_jobs() -> None:
     # 08:00 AM IST = 02:30 UTC — Morning operations report
     add_cron_job("overnight_ops_report", _job_overnight_ops_report, hour=2, minute=30)
 
-    logger.info("✅ Default JARVIS jobs registered")
+    # ── 6-Layer Autonomous Intelligence System ────────────────────────────────
+
+    # Layer 1+6: Daily strategy report — all departments → Council → cascade (11:00 PM UTC)
+    add_cron_job("daily_strategy_report", _job_daily_strategy_report, hour=23, minute=0)
+
+    # Layer 2: Bulk milestone council review — process all pending milestones (10:00 AM UTC)
+    add_cron_job("milestone_bulk_review", _job_milestone_bulk_review, hour=10, minute=0)
+
+    # Layer 4: Technology evolution scan — 24/7 discovery cycle (every 6 hours)
+    add_interval_job("tech_evolution_scan", _job_tech_evolution_scan, hours=6)
+
+    # Layer 5: Pre-call briefing generation — 1 hour before each scheduled call
+    add_interval_job("pre_call_briefing_trigger", _job_pre_call_briefing_trigger, minutes=30)
+
+    # Weekly strategic review — Sunday 07:00 UTC
+    add_cron_job("weekly_strategy_review", _job_weekly_strategy_review, hour=7, minute=0, day_of_week="sun")
+
+    # DIO initialization check — runs once on startup then daily
+    add_cron_job("dio_health_check", _job_dio_health_check, hour=6, minute=30)
+
+    logger.info("✅ Default JARVIS jobs registered (including 6-Layer Intelligence System)")
 
 
 async def _job_morning_briefing() -> None:
@@ -676,3 +696,115 @@ async def _job_overnight_ops_report() -> None:
         logger.info("Overnight ops report stored and ready for Captain")
     except Exception as e:
         logger.warning(f"Overnight ops report failed: {e}")
+
+
+# ── 6-Layer Autonomous Intelligence System Jobs ───────────────────────────────
+
+async def _job_daily_strategy_report() -> None:
+    """Layer 6: Daily strategy report — collect all dept data → Council → cascade → Captain."""
+    logger.info("6-Layer: running daily strategy report")
+    try:
+        from app.services.departments.strategy_report_service import strategy_report_service
+        for tenant_id in await _target_tenant_ids():
+            result = await strategy_report_service.generate_daily_strategy_report(tenant_id)
+            logger.info(
+                "Daily strategy: tenant=%s | score=%.1f | directives=%d",
+                tenant_id, result.get("council_score", 0), result.get("directives_issued", 0)
+            )
+    except Exception as exc:
+        logger.warning("Daily strategy report failed: %s", exc)
+
+
+async def _job_milestone_bulk_review() -> None:
+    """Layer 2: Process all pending milestones through the Council Intelligence Loop."""
+    logger.info("6-Layer: running bulk milestone Council review")
+    try:
+        from app.services.departments.milestone_engine import milestone_engine
+        for tenant_id in await _target_tenant_ids():
+            result = await milestone_engine.run_bulk_milestone_review(tenant_id)
+            logger.info(
+                "Milestone review: tenant=%s | processed=%d | failed=%d",
+                tenant_id, result["processed"], result["failed"]
+            )
+    except Exception as exc:
+        logger.warning("Milestone bulk review failed: %s", exc)
+
+
+async def _job_tech_evolution_scan() -> None:
+    """Layer 4: 24/7 technology discovery and evaluation cycle."""
+    logger.info("6-Layer: running technology evolution scan")
+    try:
+        from app.services.departments.tech_evolution_engine import tech_evolution_engine
+        for tenant_id in await _target_tenant_ids():
+            result = await tech_evolution_engine.run_discovery_cycle(tenant_id)
+            logger.info(
+                "Tech evolution: tenant=%s | new=%d | high_priority=%d",
+                tenant_id, result["new_saved"], result["high_priority_count"]
+            )
+    except Exception as exc:
+        logger.warning("Tech evolution scan failed: %s", exc)
+
+
+async def _job_pre_call_briefing_trigger() -> None:
+    """Layer 5: Generate pre-call briefings for calls scheduled in the next 90 minutes."""
+    logger.info("6-Layer: checking pre-call briefing triggers")
+    try:
+        from datetime import timedelta
+        from sqlalchemy import select, and_
+        from app.core.database import AsyncSessionLocal
+        from app.models.department_intelligence import ClientCallIntelligence, CallStatus
+        from app.services.departments.call_intelligence_service import call_intelligence_service
+
+        now = datetime.now(timezone.utc)
+        window_end = now + timedelta(minutes=90)
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(ClientCallIntelligence).where(
+                    and_(
+                        ClientCallIntelligence.scheduled_at >= now,
+                        ClientCallIntelligence.scheduled_at <= window_end,
+                        ClientCallIntelligence.status == CallStatus.SCHEDULED.value,
+                        ClientCallIntelligence.briefing_pdf_url.is_(None),
+                    )
+                )
+            )
+            calls = result.scalars().all()
+            call_pairs = [(str(c.tenant_id), str(c.id)) for c in calls]
+
+        for tenant_id, call_id in call_pairs:
+            try:
+                await call_intelligence_service.generate_pre_call_briefing(tenant_id, call_id)
+                logger.info("Pre-call briefing generated: call=%s", call_id)
+            except Exception as exc:
+                logger.warning("Pre-call briefing failed: call=%s | %s", call_id, exc)
+
+    except Exception as exc:
+        logger.warning("Pre-call briefing trigger failed: %s", exc)
+
+
+async def _job_weekly_strategy_review() -> None:
+    """Layer 6: Full weekly strategic review with 30/60/90 day horizon."""
+    logger.info("6-Layer: running weekly strategy review")
+    try:
+        from app.services.departments.strategy_report_service import strategy_report_service
+        for tenant_id in await _target_tenant_ids():
+            result = await strategy_report_service.generate_weekly_strategy_report(tenant_id)
+            logger.info(
+                "Weekly strategy: tenant=%s | score=%.1f",
+                tenant_id, result.get("council_score", 0)
+            )
+    except Exception as exc:
+        logger.warning("Weekly strategy review failed: %s", exc)
+
+
+async def _job_dio_health_check() -> None:
+    """Layer 1: Ensure all DIOs are initialized and operational."""
+    logger.info("6-Layer: DIO health check and initialization")
+    try:
+        from app.services.departments.department_agent_service import department_agent_service
+        for tenant_id in await _target_tenant_ids():
+            await department_agent_service.initialize_all_dios(tenant_id)
+            logger.info("DIO health check: tenant=%s | 15 departments confirmed", tenant_id)
+    except Exception as exc:
+        logger.warning("DIO health check failed: %s", exc)

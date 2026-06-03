@@ -31,6 +31,7 @@ MODEL_MODULES = (
     "team_member",
     "gmail",
     "council",
+    "department_intelligence",
 )
 
 
