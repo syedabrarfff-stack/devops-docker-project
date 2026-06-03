@@ -40,7 +40,8 @@ ALIYAR_ICP = {
         "scaling problems",
     ],
     "disqualifiers": ["competitor", "no budget", "too large enterprise", "government"],
-    "min_score_for_outreach": 60,
+    "min_score_for_outreach": 65,
+    "review_threshold": 45,
 }
 
 SCORING_WEIGHTS = {
@@ -88,8 +89,9 @@ class LeadScoringEngine:
                 "pain_point_match": {"score": pain_score, "max": 25, "reason": pain_reason},
                 "contact_quality": {"score": contact_score, "max": 10, "reason": contact_reason},
             },
-            "decision": "promote" if total >= ALIYAR_ICP["min_score_for_outreach"] else "hold",
+            "decision": _routing_decision(total),
             "min_score_for_outreach": ALIYAR_ICP["min_score_for_outreach"],
+            "review_threshold": ALIYAR_ICP["review_threshold"],
         }
         return total, reasoning
 
@@ -121,6 +123,8 @@ class LeadScoringEngine:
                     raise ValueError("Lead not found")
 
                 if (lead.score or 0) < ALIYAR_ICP["min_score_for_outreach"]:
+                    lead.outreach_eligible = False
+                    lead.review_queue = (lead.score or 0) >= ALIYAR_ICP["review_threshold"]
                     await self._audit(
                         session,
                         tenant_uuid,
@@ -132,6 +136,8 @@ class LeadScoringEngine:
 
                 lead.status = LeadStatus.CONTACTED
                 lead.assigned_persona = SALES_PERSONA
+                lead.outreach_eligible = True
+                lead.review_queue = False
                 lead.enrichment_data = {
                     **(lead.enrichment_data or {}),
                     "pipeline": {
@@ -175,6 +181,60 @@ class LeadScoringEngine:
                 )
                 return lead
 
+    async def route_after_scoring(self, lead_id, score: float, tenant_id) -> dict:
+        tenant_uuid = uuid.UUID(str(tenant_id))
+        lead_uuid = uuid.UUID(str(lead_id))
+        score = float(score or 0.0)
+
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                await set_tenant_context(session, str(tenant_uuid))
+                lead = await session.scalar(
+                    select(Lead).where(Lead.tenant_id == tenant_uuid, Lead.id == lead_uuid)
+                )
+                if not lead:
+                    raise ValueError("Lead not found")
+
+                decision = _routing_decision(score)
+                lead.score = score
+                lead.outreach_eligible = decision == "auto_enroll_outreach"
+                lead.review_queue = decision == "captain_review"
+                if decision == "auto_enroll_outreach":
+                    lead.assigned_persona = lead.assigned_persona or SALES_PERSONA
+                    existing_queue = await session.scalar(
+                        select(FollowUpQueue.id)
+                        .where(
+                            FollowUpQueue.tenant_id == tenant_uuid,
+                            FollowUpQueue.lead_id == lead.id,
+                            FollowUpQueue.sequence_step == 1,
+                            FollowUpQueue.status == FollowUpStatus.PENDING,
+                        )
+                        .limit(1)
+                    )
+                    if not existing_queue:
+                        session.add(
+                            FollowUpQueue(
+                                tenant_id=tenant_uuid,
+                                lead_id=lead.id,
+                                sequence_step=1,
+                                scheduled_at=datetime.now(UTC),
+                                status=FollowUpStatus.PENDING,
+                            )
+                        )
+                await self._audit(
+                    session,
+                    tenant_uuid,
+                    "lead_routed_after_scoring",
+                    lead.id,
+                    {
+                        "score": score,
+                        "decision": decision,
+                        "outreach_eligible": lead.outreach_eligible,
+                        "review_queue": lead.review_queue,
+                    },
+                )
+                return {"lead_id": str(lead.id), "score": score, "decision": decision}
+
     async def score_yesterday_new_leads(self, tenant_id, promote_limit: int = 20) -> int:
         tenant_uuid = uuid.UUID(str(tenant_id))
         now = datetime.now(UTC)
@@ -204,6 +264,7 @@ class LeadScoringEngine:
                         **(lead.enrichment_data or {}),
                         "icp_scoring": reasoning,
                     }
+                    _apply_scoring_route(lead, score, reasoning)
                     await self._audit(
                         session,
                         tenant_uuid,
@@ -218,6 +279,8 @@ class LeadScoringEngine:
                     if (lead.score or 0) >= ALIYAR_ICP["min_score_for_outreach"]:
                         lead.status = LeadStatus.CONTACTED
                         lead.assigned_persona = SALES_PERSONA
+                        lead.outreach_eligible = True
+                        lead.review_queue = False
                         existing_queue = await session.scalar(
                             select(FollowUpQueue.id)
                             .where(
@@ -263,6 +326,7 @@ class LeadScoringEngine:
                 "icp_scoring": reasoning,
                 "latest_batch_payload": data,
             }
+            _apply_scoring_route(existing, score, reasoning)
             await self._audit(
                 session,
                 tenant_id,
@@ -290,6 +354,10 @@ class LeadScoringEngine:
             source=data.get("source") or "icp_batch",
             pain_points=_as_list(data.get("pain_points")),
             enrichment_data={**data, "icp_scoring": reasoning},
+            outreach_eligible=score >= ALIYAR_ICP["min_score_for_outreach"],
+            review_queue=ALIYAR_ICP["review_threshold"] <= score < ALIYAR_ICP["min_score_for_outreach"],
+            disqualification_reason=reasoning.get("reason") if reasoning.get("disqualified") else None,
+            signal_breakdown=reasoning.get("components") or {},
             website=website,
             company_website=website,
             opportunity_type=data.get("opportunity_type"),
@@ -442,6 +510,26 @@ def _lead_to_dict(lead: Lead) -> dict:
         "opportunity_type": lead.opportunity_type,
         "notes": lead.notes,
     }
+
+
+def _routing_decision(score: float) -> str:
+    if score >= ALIYAR_ICP["min_score_for_outreach"]:
+        return "auto_enroll_outreach"
+    if score >= ALIYAR_ICP["review_threshold"]:
+        return "captain_review"
+    return "store_only"
+
+
+def _apply_scoring_route(lead: Lead, score: float, reasoning: dict) -> None:
+    lead.signal_breakdown = reasoning.get("components") or {}
+    if reasoning.get("disqualified"):
+        lead.outreach_eligible = False
+        lead.review_queue = False
+        lead.disqualification_reason = reasoning.get("reason") or "Lead disqualified by ICP."
+        return
+    lead.disqualification_reason = None
+    lead.outreach_eligible = score >= ALIYAR_ICP["min_score_for_outreach"]
+    lead.review_queue = ALIYAR_ICP["review_threshold"] <= score < ALIYAR_ICP["min_score_for_outreach"]
 
 
 def _empty_components() -> dict:

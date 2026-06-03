@@ -12,6 +12,7 @@ from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
 from html import escape
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import func, select
 
@@ -267,7 +268,7 @@ def _gmail_configured() -> bool:
 
 
 def _wrap_html(body_text: str, outreach_id: uuid.UUID | None) -> str:
-    body_html = escape(body_text).replace("\n", "<br>")
+    body_html = _linkify_body(body_text, outreach_id)
     pixel = ""
     if outreach_id and settings.APP_BASE_URL:
         pixel = (
@@ -285,6 +286,31 @@ def _tracking_pixel_url(outreach_id: uuid.UUID | None) -> str | None:
     if not outreach_id or not settings.APP_BASE_URL:
         return None
     return f"{settings.APP_BASE_URL.rstrip('/')}/api/v1/outreach/track/open/{outreach_id}.gif"
+
+
+def _click_tracking_url(outreach_id: uuid.UUID, destination: str) -> str | None:
+    if not settings.APP_BASE_URL:
+        return None
+    encoded = quote(destination, safe="")
+    return f"{settings.APP_BASE_URL.rstrip('/')}/api/v1/outreach/track/click/{outreach_id}?url={encoded}"
+
+
+def _linkify_body(body_text: str, outreach_id: uuid.UUID | None) -> str:
+    url_pattern = re.compile(r"https?://[^\s<>\"]+")
+    pieces: list[str] = []
+    cursor = 0
+    for match in url_pattern.finditer(body_text or ""):
+        pieces.append(escape((body_text or "")[cursor:match.start()]).replace("\n", "<br>"))
+        destination = match.group(0).rstrip(".,)")
+        trailing = match.group(0)[len(destination):]
+        href = _click_tracking_url(outreach_id, destination) if outreach_id else None
+        if href:
+            pieces.append(f'<a href="{escape(href)}">{escape(destination)}</a>{escape(trailing)}')
+        else:
+            pieces.append(escape(match.group(0)))
+        cursor = match.end()
+    pieces.append(escape((body_text or "")[cursor:]).replace("\n", "<br>"))
+    return "".join(pieces)
 
 
 def _html_to_text(html: str) -> str:

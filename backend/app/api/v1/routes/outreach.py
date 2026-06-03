@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
+from datetime import UTC, datetime
+from urllib.parse import unquote
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -153,6 +157,45 @@ async def trigger_speed_to_lead(
         resolved_tenant_id,
         lookback_minutes=body.lookback_minutes,
     )
+
+
+@router.get("/track/open/{outreach_id}.gif")
+async def track_email_open(outreach_id: UUID, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
+
+    now = datetime.now(UTC)
+    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+    if outreach:
+        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+        if not tracking:
+            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+            db.add(tracking)
+        tracking.opened_at = tracking.opened_at or now
+        if outreach.status not in (OutreachStatus.REPLIED, OutreachStatus.CLICKED):
+            outreach.status = OutreachStatus.OPENED
+    return Response(content=_TRANSPARENT_GIF, media_type="image/gif")
+
+
+@router.get("/track/click/{outreach_id}")
+async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
+
+    destination = unquote(url or "").strip()
+    if not destination.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Invalid redirect URL")
+    now = datetime.now(UTC)
+    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+    if outreach:
+        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+        if not tracking:
+            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+            db.add(tracking)
+        tracking.clicked_at = tracking.clicked_at or now
+        if outreach.status != OutreachStatus.REPLIED:
+            outreach.status = OutreachStatus.CLICKED
+    return RedirectResponse(destination, status_code=302)
 
 
 @router.get("/unsubscribe")
@@ -383,3 +426,10 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
         return UUID(str(tenant_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
+
+
+_TRANSPARENT_GIF = (
+    b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
+    b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
+    b"\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+)

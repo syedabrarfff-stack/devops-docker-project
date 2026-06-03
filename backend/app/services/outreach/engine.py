@@ -301,6 +301,20 @@ class OutreachEngine:
                         else:
                             item.status = FollowUpStatus.SKIPPED
                             item.executed_at = now
+                        session.add(
+                            OutreachLog(
+                                tenant_id=tenant_uuid,
+                                lead_id=lead.id,
+                                channel=OutreachChannel.EMAIL,
+                                subject=email.get("subject"),
+                                body_text=email.get("body"),
+                                sent_from_persona=PERSONAS["darren_mitchell"]["name"],
+                                sent_at=None,
+                                status=OutreachStatus.SKIPPED,
+                                sequence_step=item.sequence_step,
+                                skip_reason=safety.get("reason") or "compliance_block",
+                            )
+                        )
                         await self._audit(
                             session,
                             tenant_uuid,

@@ -91,11 +91,23 @@ async def create_tables() -> None:
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS timezone VARCHAR(80)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS qualification_status VARCHAR(40)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS loss_reason VARCHAR(80)"))
+                await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS outreach_eligible BOOLEAN NOT NULL DEFAULT true"))
+                await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS review_queue BOOLEAN NOT NULL DEFAULT false"))
+                await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS disqualification_reason TEXT"))
+                await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS signal_breakdown JSON NOT NULL DEFAULT '{}'::json"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_timezone ON leads (timezone)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_qualification_status ON leads (qualification_status)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_loss_reason ON leads (loss_reason)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_outreach_eligible ON leads (outreach_eligible)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_review_queue ON leads (review_queue)"))
             except Exception as exc:
                 logger.warning("lead safety column startup schema step skipped: %s", exc)
+            try:
+                await conn.execute(text("ALTER TYPE outreach_status ADD VALUE IF NOT EXISTS 'SKIPPED'"))
+                await conn.execute(text("ALTER TABLE outreach_log ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(160)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_outreach_log_skip_reason ON outreach_log (skip_reason)"))
+            except Exception as exc:
+                logger.warning("outreach status startup schema step skipped: %s", exc)
 
 
 async def init_db() -> None:

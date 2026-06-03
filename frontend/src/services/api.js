@@ -45,6 +45,13 @@ export const createDeal = (data) => api.post('/api/v1/crm/deals', data).then(r =
 export const getPipelineStats = () => api.get('/api/v1/crm/deals/pipeline').then(r => r.data)
 export const getContactStats = () => api.get('/api/v1/crm/contacts/stats').then(r => r.data)
 
+// Clients
+export const getClients = (params) => api.get('/api/v1/clients', { params }).then(r => r.data)
+export const getClient = (id, params) => api.get(`/api/v1/clients/${id}`, { params }).then(r => r.data)
+export const createClient = (data) => api.post('/api/v1/clients', data).then(r => r.data)
+export const updateClient = (id, data) => api.patch(`/api/v1/clients/${id}`, data).then(r => r.data)
+export const updateClientStatus = (id, data) => api.post(`/api/v1/clients/${id}/status`, data).then(r => r.data)
+
 // Leads
 export const getLeads = (params) => api.get('/api/v1/leads/', { params }).then(r => r.data)
 export const createLead = (data) => api.post('/api/v1/leads/', data).then(r => r.data)

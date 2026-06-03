@@ -24,6 +24,7 @@ class OutreachStatus(str, enum.Enum):
     CLICKED = "CLICKED"
     REPLIED = "REPLIED"
     BOUNCED = "BOUNCED"
+    SKIPPED = "SKIPPED"
 
 
 class FollowUpStatus(str, enum.Enum):
@@ -67,6 +68,7 @@ class OutreachLog(JarvisBase):
         index=True,
     )
     sequence_step: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    skip_reason: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
 
 
 class EmailTracking(JarvisBase):

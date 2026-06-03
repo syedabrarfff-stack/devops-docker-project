@@ -19,7 +19,7 @@ ALIYAR_ICP = {
                     "netherlands", "ireland", "singapore"],
     "pain_points": ["manual processes", "scaling", "cost reduction", "automation",
                     "lead generation", "cloud migration", "devops", "ai integration"],
-    "min_score":   60,
+    "min_score":   65,
 }
 
 SCORE_PROMPT = """You are JARVIS, AI analyst for Aliyar Solutions.
@@ -95,8 +95,21 @@ async def qualify_and_score(db: AsyncSession, lead_id: int) -> Optional[Lead]:
     lead.pain_points  = result.get("pain_points", lead.pain_points or [])
     lead.opportunity_type = result.get("recommended_service", lead.opportunity_type)
 
+    lead.signal_breakdown = {
+        "score": int(lead.score or 0),
+        "tier": lead.tier,
+        "recommended_service": result.get("recommended_service"),
+        "outreach_angle": result.get("outreach_angle"),
+    }
     if lead.score >= ALIYAR_ICP["min_score"] and lead.status == LeadStatus.NEW:
         lead.status = LeadStatus.NURTURE
+        lead.outreach_eligible = True
+        lead.review_queue = False
+        lead.disqualification_reason = None
+    else:
+        lead.outreach_eligible = False
+        lead.review_queue = lead.score >= 45
+        lead.disqualification_reason = "Score below 65 outreach threshold"
     await db.flush()
 
     # Telegram notification for A-tier leads
@@ -104,8 +117,8 @@ async def qualify_and_score(db: AsyncSession, lead_id: int) -> Optional[Lead]:
         try:
             from app.services.notifications.telegram import notify_telegram
             await notify_telegram(
-                f"🔥 *A-Tier Lead Identified!*\n\n"
-                f"*{lead.company}* — {lead.industry} ({lead.country})\n"
+                f"*A-Tier Lead Identified*\n\n"
+                f"*{lead.company}* - {lead.industry} ({lead.country})\n"
                 f"Score: {lead.score}/100\n"
                 f"Service: {result.get('recommended_service')}\n"
                 f"Angle: {result.get('outreach_angle')}"
