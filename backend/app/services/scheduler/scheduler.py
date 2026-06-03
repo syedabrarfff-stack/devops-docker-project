@@ -737,7 +737,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
                 )
             )
             if job:
-                job.last_run_at = datetime.now(UTC)
+                job.last_run_at = _db_datetime(datetime.now(UTC))
                 job.last_status = status
                 job.run_count = int(job.run_count or 0) + 1
                 aps_job = get_scheduler().get_job(job_id)
@@ -777,7 +777,7 @@ async def _record_job_failure(job_id: str, exc: Exception, retry_count: int = 0)
                 error=error,
                 traceback=trace,
                 retry_count=retry_count,
-                next_retry_at=next_retry_at,
+                next_retry_at=_db_datetime(next_retry_at),
                 metadata_json={"managed_scheduler": True},
             )
             db.add(failure)
