@@ -679,6 +679,7 @@ async def daily_db_backup() -> None:
 
 
 async def _sync_job_metadata() -> None:
+    _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
     from app.models.scheduling import ScheduledJob
 
@@ -721,6 +722,7 @@ async def _sync_job_metadata() -> None:
 
 
 async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
+    _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
     from app.models.approval import AuditLog
     from app.models.scheduling import ScheduledJob
@@ -753,6 +755,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
 
 
 async def _record_job_failure(job_id: str, exc: Exception, retry_count: int = 0) -> None:
+    _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
     from app.models.approval import AuditLog
     from app.models.scheduling import JobFailure
@@ -950,6 +953,12 @@ def _prune_local_backups(backup_dir: Path, keep: int = 30) -> None:
             old.unlink()
         except OSError:
             logger.warning("Could not remove old backup %s", old)
+
+
+def _ensure_model_registry() -> None:
+    from app.models import register_models
+
+    register_models()
 
 
 def _tenant_id_for_job(job) -> uuid.UUID:
