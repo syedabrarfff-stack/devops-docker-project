@@ -257,6 +257,14 @@ class OutreachEngine:
                     select(func.count()).select_from(OutreachLog).where(
                         OutreachLog.tenant_id == tenant_uuid,
                         OutreachLog.status == OutreachStatus.SENT,
+                        OutreachLog.sent_at.is_not(None),
+                    )
+                ) or 0
+                linkedin_drafts = await session.scalar(
+                    select(func.count()).select_from(OutreachLog).where(
+                        OutreachLog.tenant_id == tenant_uuid,
+                        OutreachLog.channel == OutreachChannel.LINKEDIN,
+                        OutreachLog.sent_at.is_(None),
                     )
                 ) or 0
 
@@ -265,6 +273,7 @@ class OutreachEngine:
             "executed_followups": int(executed),
             "failed_followups": int(failed),
             "sent_outreach": int(sent),
+            "prepared_linkedin_drafts": int(linkedin_drafts),
             "active_persona": PERSONAS["darren_mitchell"],
         }
 
