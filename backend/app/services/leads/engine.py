@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
-from app.models.lead import Lead
+from app.models.lead import Lead, LeadStatus
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +95,8 @@ async def qualify_and_score(db: AsyncSession, lead_id: int) -> Optional[Lead]:
     lead.pain_points  = result.get("pain_points", lead.pain_points or [])
     lead.opportunity_type = result.get("recommended_service", lead.opportunity_type)
 
-    if lead.score >= ALIYAR_ICP["min_score"]:
-        lead.status = "qualified"
+    if lead.score >= ALIYAR_ICP["min_score"] and lead.status == LeadStatus.NEW:
+        lead.status = LeadStatus.NURTURE
     await db.flush()
 
     # Telegram notification for A-tier leads
@@ -151,7 +151,9 @@ async def list_leads(db: AsyncSession, status: Optional[str] = None,
 
 async def lead_stats(db: AsyncSession) -> dict:
     total     = await db.scalar(select(func.count()).select_from(Lead)) or 0
-    qualified = await db.scalar(select(func.count()).select_from(Lead).where(Lead.status == "qualified")) or 0
+    qualified = await db.scalar(
+        select(func.count()).select_from(Lead).where(Lead.score >= ALIYAR_ICP["min_score"])
+    ) or 0
     contacted = await db.scalar(select(func.count()).select_from(Lead).where(Lead.outreach_sent == True)) or 0
     avg_score = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0)) or 0
     return {
