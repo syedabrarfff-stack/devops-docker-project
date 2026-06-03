@@ -145,18 +145,22 @@ ROUTING_TABLE: dict = {
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.RESEARCH: [
         ("google", "gemini-pro"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.REASONING: [
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.FAST: [
+        ("nvidia", "nvidia-nim"),
         ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
         ("openai", "gpt-4o-mini"),
@@ -165,6 +169,7 @@ ROUTING_TABLE: dict = {
         ("google", "gemini-pro"),
         ("moonshot", "kimi-k2"),
         ("anthropic", "claude-sonnet"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.MULTILINGUAL: [
         ("zhipuai", "glm-5-1"),
@@ -175,8 +180,10 @@ ROUTING_TABLE: dict = {
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.GENERAL: [
+        ("nvidia", "nvidia-nim"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-flash"),
@@ -186,16 +193,19 @@ ROUTING_TABLE: dict = {
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.STRATEGY: [
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("anthropic", "claude-sonnet"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.SALES: [
         ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
         ("google", "gemini-pro"),
+        ("nvidia", "nvidia-nim"),
     ],
     TaskType.MULTIMODAL: [
         ("openai", "gpt-4o"),         # GPT-4o vision
@@ -203,6 +213,7 @@ ROUTING_TABLE: dict = {
         ("google", "gemini-pro"),     # Gemini multimodal
     ],
     TaskType.REALTIME: [
+        ("nvidia", "nvidia-nim"),
         ("groq", "llama-4-scout"),    # Groq — ultra-low latency
         ("groq", "llama-3-3"),
         ("zhipuai", "glm-4-flash"),   # GLM flash — fast

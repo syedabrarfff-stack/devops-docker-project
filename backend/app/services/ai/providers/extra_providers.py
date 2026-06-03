@@ -131,12 +131,12 @@ class MinimaxProvider(BaseAIProvider):
 class NvidiaProvider(BaseAIProvider):
     name = "nvidia"
     base_url = "https://integrate.api.nvidia.com/v1"
-    models = {"nvidia-nim": "nvidia/llama-3.1-nemotron-70b-instruct"}
+    models = {"nvidia-nim": "meta/llama-3.1-70b-instruct"}
 
     def is_available(self) -> bool:
         return bool(settings.NVIDIA_API_KEY)
 
-    async def chat(self, messages: List[Message], model_id: str = "nvidia/llama-3.1-nemotron-70b-instruct",
+    async def chat(self, messages: List[Message], model_id: str = "meta/llama-3.1-70b-instruct",
                    system_prompt: str = "", max_tokens: int = 2048) -> AIResponse:
         try:
             msgs = []
