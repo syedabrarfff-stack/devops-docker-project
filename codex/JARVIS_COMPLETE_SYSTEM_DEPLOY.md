@@ -31,8 +31,8 @@ The complete JARVIS autonomous business operating system for Aliyar Solutions:
 ```
 GitHub repo:       syedabrarfff-stack/devops-docker-project
 Branch:            claude/jarvis-cans-api-integration-ZThTD
-EC2 working dir:   /home/ubuntu/jarvis_sales_pipeline/
-Backend path:      /home/ubuntu/jarvis_sales_pipeline/backend/app/
+EC2 working dir:   /opt/jarvis/
+Backend path:      /opt/jarvis/backend/app/
 Docker command:    docker compose up -d --build
 Tenant UUID:       aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 ```
@@ -42,7 +42,7 @@ Tenant UUID:       aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 ## STEP 1 — PULL COMPLETE CODEBASE FROM GITHUB
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git fetch origin
 git pull origin claude/jarvis-cans-api-integration-ZThTD --rebase
 ```
@@ -77,7 +77,7 @@ If any are missing, the pull failed — retry before continuing.
 ## STEP 2 — INSTALL ALL DEPENDENCIES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 pip install -r requirements.txt --quiet
 ```
 
@@ -96,7 +96,7 @@ pip install reportlab httpx apscheduler sqlalchemy fastapi redis anthropic
 ## STEP 3 — RUN ALL DATABASE MIGRATIONS (PERMANENT SCHEMA)
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 alembic upgrade head
 ```
 
@@ -156,37 +156,37 @@ Run all these checks. If any directory is empty or missing, copy from backend/:
 
 ```bash
 # Phase 6 — Council + Departments
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/departments/
+ls /opt/jarvis/backend/app/services/departments/
 # Must contain: department_agent_service.py, milestone_engine.py, tech_evolution_engine.py,
 #               call_intelligence_service.py, strategy_report_service.py, __init__.py
 
 # 9-Connector Pipeline
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/integrations/
+ls /opt/jarvis/backend/app/services/integrations/
 # Must contain: connector_hub.py, github_bridge.py, hubspot_sync.py, market_intelligence_engine.py, __init__.py
 
 # Intelligence Engines (Batch 2)
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/intelligence/
+ls /opt/jarvis/backend/app/services/intelligence/
 # Must contain: prospect_psychology.py, revenue_forecaster.py, self_assessment.py,
 #               client_health.py, dynamic_pricing.py, memory_synthesis.py,
 #               expert_council.py, red_team.py, conscience.py, flywheel.py, cialdini.py
 
 # Captain Bridge (Batch 3)
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/captain/
+ls /opt/jarvis/backend/app/services/captain/
 # Must contain: bridge.py, predictive_action.py, pushback.py, voice_command.py, __init__.py
 
 # CRM Relationship Graph (Batch 4)
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/crm/
+ls /opt/jarvis/backend/app/services/crm/
 # Must contain: relationship_graph.py
 
 # Governance
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/governance/
+ls /opt/jarvis/backend/app/services/governance/
 # Must contain: autonomous_governance.py (+ existing invoice/proposal/contract files)
 ```
 
 If any are missing, copy from backend to app:
 ```bash
-APP=/home/ubuntu/jarvis_sales_pipeline/app
-BACKEND=/home/ubuntu/jarvis_sales_pipeline/backend/app
+APP=/opt/jarvis/app
+BACKEND=/opt/jarvis/backend/app
 cp -r $BACKEND/services/departments $APP/services/
 cp -r $BACKEND/services/integrations $APP/services/
 cp -r $BACKEND/services/intelligence $APP/services/
@@ -308,14 +308,14 @@ grep "DAILY_LEAD_DISCOVERY_CAP\|leads_raw\[:DAILY" \
 
 Check what's already in `.env` — DO NOT overwrite existing values:
 ```bash
-cat /home/ubuntu/jarvis_sales_pipeline/.env | grep -E "HUBSPOT|JARVIS_REPO|ELEVENLABS|APOLLO|SLACK"
+cat /opt/jarvis/.env | grep -E "HUBSPOT|JARVIS_REPO|ELEVENLABS|APOLLO|SLACK"
 ```
 
 Add ONLY what is missing:
 ```bash
 # Add to .env if not present (append, never overwrite)
 [ -z "$(grep JARVIS_REPO_DATA_PATH .env)" ] && \
-  echo "JARVIS_REPO_DATA_PATH=/home/ubuntu/jarvis_sales_pipeline/jarvis-data" >> .env
+  echo "JARVIS_REPO_DATA_PATH=/opt/jarvis/jarvis-data" >> .env
 
 [ -z "$(grep OUTREACH_DAILY_SEND_CAP .env)" ] && \
   echo "OUTREACH_DAILY_SEND_CAP=48" >> .env
@@ -335,7 +335,7 @@ Get secrets from AWS Secrets Manager (do NOT hardcode):
 ## STEP 10 — BUILD FRONTEND
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline/frontend
+cd /opt/jarvis/frontend
 npm install
 npm run build
 ```
@@ -363,7 +363,7 @@ NGINX_ROOT=$(cat /etc/nginx/sites-enabled/default 2>/dev/null | grep -m1 "root" 
 ## STEP 11 — RESTART ALL SERVICES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 docker compose down
 docker compose up -d --build
 ```
@@ -468,7 +468,7 @@ cat > /home/ubuntu/jarvis_daily_pull.sh << 'SCRIPT'
 #!/bin/bash
 set -euo pipefail
 LOG_PREFIX="[JARVIS $(date '+%Y-%m-%d %H:%M:%S UTC')]"
-REPO_DIR="/home/ubuntu/jarvis_sales_pipeline"
+REPO_DIR="/opt/jarvis"
 API="http://localhost:8000"
 T="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 

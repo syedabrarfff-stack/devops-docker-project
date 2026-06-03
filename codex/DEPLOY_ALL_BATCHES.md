@@ -1,5 +1,5 @@
 # CODEX DEPLOYMENT PROMPT — ALL 4 BATCHES
-## Deploy to EC2: `/home/ubuntu/jarvis_sales_pipeline/`
+## Deploy to EC2: `/opt/jarvis/`
 
 You are JARVIS Codex. Execute every step below in strict order.
 Do NOT stop. Do NOT ask questions. If anything is unclear, make the best decision and continue.
@@ -9,7 +9,7 @@ If a step fails, fix the error and retry before moving on.
 
 ## SYSTEM IDENTITY
 
-Working directory on EC2: `/home/ubuntu/jarvis_sales_pipeline/`
+Working directory on EC2: `/opt/jarvis/`
 GitHub repo: `syedabrarfff-stack/devops-docker-project`
 Branch: `claude/jarvis-cans-api-integration-ZThTD`
 Backend lives at: `app/` inside the working directory
@@ -20,7 +20,7 @@ Docker stack: `docker compose up -d --build` (or `docker-compose` depending on E
 ## STEP 1 — PULL LATEST CODE FROM GITHUB
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git fetch origin
 git pull origin claude/jarvis-cans-api-integration-ZThTD --rebase
 ```
@@ -43,7 +43,7 @@ Verify the pull succeeded — you should see these commits in `git log --oneline
 ## STEP 2 — INSTALL PYTHON DEPENDENCIES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 pip install -r requirements.txt --quiet
 ```
 
@@ -61,7 +61,7 @@ All other dependencies (fastapi, sqlalchemy, alembic, asyncpg, redis, reportlab)
 Run Alembic migrations in order. The EC2 database already has migrations 0001–0008 applied (from batch 1 deployment). Apply the new ones:
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 alembic upgrade head
 ```
 
@@ -101,14 +101,14 @@ And at `backend/app/services/governance/`:
 
 Verify the files exist:
 ```bash
-ls /home/ubuntu/jarvis_sales_pipeline/app/services/intelligence/
-ls /home/ubuntu/jarvis_sales_pipeline/app/services/governance/
+ls /opt/jarvis/app/services/intelligence/
+ls /opt/jarvis/app/services/governance/
 ```
 
 If they are NOT there (because your EC2 app structure differs), manually copy from the GitHub pull location:
 ```bash
-cp -r /home/ubuntu/jarvis_sales_pipeline/backend/app/services/intelligence/* /home/ubuntu/jarvis_sales_pipeline/app/services/intelligence/
-cp /home/ubuntu/jarvis_sales_pipeline/backend/app/services/governance/autonomous_governance.py /home/ubuntu/jarvis_sales_pipeline/app/services/governance/
+cp -r /opt/jarvis/backend/app/services/intelligence/* /opt/jarvis/app/services/intelligence/
+cp /opt/jarvis/backend/app/services/governance/autonomous_governance.py /opt/jarvis/app/services/governance/
 ```
 
 New intelligence endpoints are now registered at:
@@ -135,8 +135,8 @@ Updated route: `backend/app/api/v1/routes/captain.py`
 
 **Action required:** Same as Step 4 — verify files are in place. If EC2 directory differs, copy:
 ```bash
-cp -r /home/ubuntu/jarvis_sales_pipeline/backend/app/services/captain /home/ubuntu/jarvis_sales_pipeline/app/services/
-cp /home/ubuntu/jarvis_sales_pipeline/backend/app/models/captain_intelligence.py /home/ubuntu/jarvis_sales_pipeline/app/models/
+cp -r /opt/jarvis/backend/app/services/captain /opt/jarvis/app/services/
+cp /opt/jarvis/backend/app/models/captain_intelligence.py /opt/jarvis/app/models/
 ```
 
 Register the `captain_intelligence` model in `app/models/__init__.py` if not already there:
@@ -188,14 +188,14 @@ New React views at `frontend/src/components/`:
 
 **Build the frontend:**
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline/frontend
+cd /opt/jarvis/frontend
 npm install
 npm run build
 ```
 
 If the frontend is served by nginx from a dist folder:
 ```bash
-cp -r /home/ubuntu/jarvis_sales_pipeline/frontend/dist/* /var/www/html/
+cp -r /opt/jarvis/frontend/dist/* /var/www/html/
 ```
 or whatever your nginx root is. Check with:
 ```bash
@@ -207,7 +207,7 @@ cat /etc/nginx/sites-enabled/default | grep root
 ## STEP 8 — RESTART ALL SERVICES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 docker compose down
 docker compose up -d --build
 ```
@@ -257,7 +257,7 @@ If any endpoint returns 500, check docker logs: `docker compose logs backend --t
 After everything is deployed and smoke tests pass:
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git add -A
 git commit -m "deploy: all 4 batches live on EC2 — intelligence engines, captain bridge, frontier systems, frontend views"
 git push origin claude/jarvis-cans-api-integration-ZThTD

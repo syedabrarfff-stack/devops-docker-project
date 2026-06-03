@@ -11,7 +11,7 @@ If a step fails, fix the error and retry before moving on.
 
 GitHub repo: `syedabrarfff-stack/devops-docker-project`
 Branch: `claude/jarvis-cans-api-integration-ZThTD`
-Working directory (EC2 instance 1): `/home/ubuntu/jarvis_sales_pipeline/`
+Working directory (EC2 instance 1): `/opt/jarvis/`
 Working directory (EC2 instance 2): same path unless configured differently
 Docker stack: `docker compose up -d --build`
 
@@ -33,7 +33,7 @@ Docker stack: `docker compose up -d --build`
 ## STEP 1 — PULL LATEST CODE
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git fetch origin
 git pull origin claude/jarvis-cans-api-integration-ZThTD --rebase
 ```
@@ -57,7 +57,7 @@ Verify these commits are present in `git log --oneline -5`:
 ## STEP 2 — INSTALL DEPENDENCIES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 pip install -r requirements.txt --quiet
 ```
 
@@ -71,7 +71,7 @@ Phase 6 requires these packages (should already be in requirements.txt):
 ## STEP 3 — RUN ALL DATABASE MIGRATIONS
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 alembic upgrade head
 ```
 
@@ -103,7 +103,7 @@ alembic current
 ## STEP 4 — VERIFY PHASE 6 FILES ARE IN PLACE
 
 ```bash
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/departments/
+ls /opt/jarvis/backend/app/services/departments/
 ```
 
 Expected files:
@@ -116,13 +116,13 @@ Expected files:
 
 If NOT there (EC2 app uses different directory layout), copy from backend:
 ```bash
-cp -r /home/ubuntu/jarvis_sales_pipeline/backend/app/services/departments /home/ubuntu/jarvis_sales_pipeline/app/services/
-cp /home/ubuntu/jarvis_sales_pipeline/backend/app/models/department_intelligence.py /home/ubuntu/jarvis_sales_pipeline/app/models/
+cp -r /opt/jarvis/backend/app/services/departments /opt/jarvis/app/services/
+cp /opt/jarvis/backend/app/models/department_intelligence.py /opt/jarvis/app/models/
 ```
 
 Also verify connector hub:
 ```bash
-ls /home/ubuntu/jarvis_sales_pipeline/backend/app/services/integrations/
+ls /opt/jarvis/backend/app/services/integrations/
 # Should show: __init__.py, connector_hub.py, github_bridge.py, hubspot_sync.py, market_intelligence_engine.py
 ```
 
@@ -160,10 +160,10 @@ app.include_router(connector_hub_router, prefix="/api/v1")
 
 ## STEP 7 — SET ENVIRONMENT VARIABLES
 
-Add to `/home/ubuntu/jarvis_sales_pipeline/.env` (DO NOT overwrite existing values):
+Add to `/opt/jarvis/.env` (DO NOT overwrite existing values):
 ```bash
 # Only add these if not already present
-echo "JARVIS_REPO_DATA_PATH=/home/ubuntu/jarvis_sales_pipeline/jarvis-data" >> .env
+echo "JARVIS_REPO_DATA_PATH=/opt/jarvis/jarvis-data" >> .env
 echo "HUBSPOT_ACCESS_TOKEN=your_token_here" >> .env
 ```
 
@@ -174,7 +174,7 @@ Replace `your_token_here` with the actual HubSpot token from AWS Secrets Manager
 ## STEP 8 — BUILD FRONTEND
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline/frontend
+cd /opt/jarvis/frontend
 npm install
 npm run build
 ```
@@ -193,7 +193,7 @@ cat /etc/nginx/sites-enabled/default | grep root
 ## STEP 9 — RESTART ALL SERVICES
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 docker compose down
 docker compose up -d --build
 ```
@@ -261,7 +261,7 @@ cat > /home/ubuntu/jarvis_daily_pull.sh << 'EOF'
 #!/bin/bash
 set -euo pipefail
 LOG_PREFIX="[JARVIS-PULL $(date '+%Y-%m-%d %H:%M:%S UTC')]"
-REPO_DIR="/home/ubuntu/jarvis_sales_pipeline"
+REPO_DIR="/opt/jarvis"
 JARVIS_API="http://localhost:8000"
 TENANT_ID="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -331,7 +331,7 @@ crontab -l | grep jarvis
 After all smoke tests pass on ALL instances:
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git add -A
 git diff --cached --quiet || git commit -m "deploy: phase-6 council + connector hub live on EC2"
 git push origin claude/jarvis-cans-api-integration-ZThTD

@@ -5,7 +5,7 @@
 
 ## CONTEXT
 
-Working directory: `/home/ubuntu/jarvis_sales_pipeline/`
+Working directory: `/opt/jarvis/`
 Prerequisites: Batches 1, 2, and 3 complete and verified.
 Deploy: `docker-compose up -d --build jarvis_app`
 
@@ -963,7 +963,7 @@ async def get_flywheel(db=Depends(get_db)):
 
 ## STEP 11 — FRONTEND: 7 NEW VIEWS
 
-In the React frontend (`/home/ubuntu/jarvis_sales_pipeline/frontend/src/` or your frontend directory):
+In the React frontend (`/opt/jarvis/frontend/src/` or your frontend directory):
 
 ### View 1 — Captain Bridge (`/captain-bridge`)
 
@@ -1114,7 +1114,7 @@ scheduler.add_job(
 ## STEP 13 — FINAL DEPLOYMENT AND VERIFICATION
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 
 # Run final migration
 docker-compose exec jarvis_app alembic upgrade head

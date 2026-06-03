@@ -5,7 +5,7 @@
 
 ## CONTEXT
 
-Working directory: `/home/ubuntu/jarvis_sales_pipeline/`
+Working directory: `/opt/jarvis/`
 Prerequisites: Batch 1 complete and all tables from migration 0009 exist.
 Deploy: `docker-compose up -d --build jarvis_app`
 
@@ -1195,7 +1195,7 @@ Wrap every AI call with timing + track_routing_performance.
 ## STEP 12 — DEPLOY AND VERIFY
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 
 # Run migration
 docker-compose exec jarvis_app alembic upgrade head

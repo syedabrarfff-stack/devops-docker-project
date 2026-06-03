@@ -28,7 +28,7 @@ JARVIS pushes outputs back to GitHub ← Claude reads tomorrow morning
 ## STEP 1 — Pull Latest from GitHub
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git pull origin claude/jarvis-cans-api-integration-ZThTD --rebase
 ```
 
@@ -115,7 +115,7 @@ ls -la jarvis-data/outputs/
 ## STEP 8 — Commit JARVIS Outputs Back to GitHub
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 git add jarvis-data/outputs/
 git add jarvis-data/intelligence/
 git diff --cached --quiet || \
@@ -134,7 +134,7 @@ cat > /home/ubuntu/jarvis_daily_pull.sh << 'EOF'
 #!/bin/bash
 set -euo pipefail
 LOG_PREFIX="[JARVIS-PULL $(date '+%Y-%m-%d %H:%M:%S UTC')]"
-REPO_DIR="/home/ubuntu/jarvis_sales_pipeline"
+REPO_DIR="/opt/jarvis"
 JARVIS_API="http://localhost:8000"
 TENANT_ID="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 
@@ -245,7 +245,7 @@ tail -f /var/log/jarvis_pull.log
 ## ENVIRONMENT VARIABLES REQUIRED ON EACH EC2 INSTANCE
 
 ```
-JARVIS_REPO_DATA_PATH=/home/ubuntu/jarvis_sales_pipeline/jarvis-data
+JARVIS_REPO_DATA_PATH=/opt/jarvis/jarvis-data
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 HUBSPOT_ACCESS_TOKEN=<from AWS Secrets Manager>
 ELEVENLABS_API_KEY=<from AWS Secrets Manager>

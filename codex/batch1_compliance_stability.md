@@ -6,7 +6,7 @@
 ## CONTEXT
 
 You are working on the LIVE JARVIS system on EC2.
-- App directory: `/home/ubuntu/jarvis_sales_pipeline/`
+- App directory: `/opt/jarvis/`
 - Stack: FastAPI + SQLAlchemy async + PostgreSQL + Redis + APScheduler
 - Deploy command: `docker-compose up -d --build jarvis_app`
 - Never touch `.env`
@@ -858,7 +858,7 @@ async def hubspot_webhook(request: Request, db=Depends(get_db)):
 ## STEP 13 — DEPLOY AND VERIFY
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 
 # Run migration
 docker-compose exec jarvis_app alembic upgrade head

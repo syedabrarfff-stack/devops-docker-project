@@ -14,7 +14,7 @@ You are the Lead Architect building JARVIS vNEXT for Aliyar Solutions. CEO: Syed
 4. After each sprint: `docker-compose up -d --build jarvis_app`, run verify commands, then IMMEDIATELY start next sprint
 5. Never commit .env — all secrets stay in .env only
 6. After every sprint: `git add -A && git commit -m "feat(sprint-N): description" && git push origin claude/jarvis-cans-api-integration-ZThTD`
-7. Working directory: `/home/ubuntu/jarvis_sales_pipeline/`
+7. Working directory: `/opt/jarvis/`
 8. If a file already exists, extend it — do not overwrite working code
 9. When done with all 12 sprints, post a final summary of everything built
 
@@ -80,7 +80,7 @@ Extend `backend/app/middleware.py` — add TenantContextMiddleware that reads te
 ### Step 1.4 — Deploy Sprint 1
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 docker-compose exec jarvis_app alembic upgrade head
 docker-compose up -d --build jarvis_app
 sleep 10
@@ -602,7 +602,7 @@ Ensure these are implemented:
 ```bash
 # Do NOT run terraform apply — just validate config
 cd infra/terraform && terraform validate && terraform plan -out=tfplan 2>&1 | tail -20 || echo "Terraform validation complete"
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 curl -s http://localhost:8000/readyz | python3 -m json.tool
 git add -A && git commit -m "feat(sprint-9): ECS Fargate config, CI/CD pipeline, health endpoints" && git push origin claude/jarvis-cans-api-integration-ZThTD
 ```
@@ -910,7 +910,7 @@ Ensure these connections are made:
 ### Final Deploy and Verification
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 
 # Run all migrations
 docker-compose exec jarvis_app alembic upgrade head

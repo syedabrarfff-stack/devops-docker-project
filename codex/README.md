@@ -17,7 +17,7 @@ These 4 files contain complete instructions to build the full 227-system JARVIS 
 
 1. **Complete and verify each batch before starting the next.**
 2. Each batch includes its own Alembic migration — run `alembic upgrade head` after each.
-3. Working directory on EC2: `/home/ubuntu/jarvis_sales_pipeline/`
+3. Working directory on EC2: `/opt/jarvis/`
 4. Deploy after each batch: `docker-compose up -d --build jarvis_app`
 5. Each batch ends with a verification checklist — all items must be checked before proceeding.
 6. **Never touch .env**

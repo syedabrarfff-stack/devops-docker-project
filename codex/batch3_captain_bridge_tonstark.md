@@ -5,7 +5,7 @@
 
 ## CONTEXT
 
-Working directory: `/home/ubuntu/jarvis_sales_pipeline/`
+Working directory: `/opt/jarvis/`
 Prerequisites: Batches 1 and 2 complete.
 Deploy: `docker-compose up -d --build jarvis_app`
 
@@ -1393,7 +1393,7 @@ async def system_hud(db=Depends(get_db)):
 ## STEP 12 — DEPLOY AND VERIFY
 
 ```bash
-cd /home/ubuntu/jarvis_sales_pipeline
+cd /opt/jarvis
 
 # Run migration
 docker-compose exec jarvis_app alembic upgrade head

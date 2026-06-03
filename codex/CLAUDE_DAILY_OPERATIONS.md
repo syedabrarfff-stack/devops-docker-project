@@ -278,7 +278,7 @@ Notify Captain immediately (via Slack) if:
 
 - JARVIS system tenant ID: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`
 - Active branch: `claude/jarvis-cans-api-integration-ZThTD`
-- EC2 repo path: `/home/ubuntu/jarvis_sales_pipeline`
+- EC2 repo path: `/opt/jarvis`
 - JARVIS API: `http://localhost:8000` (EC2 internal)
 - Company: Aliyar Solutions | Contact: syedabrarbhd@gmail.com
 
