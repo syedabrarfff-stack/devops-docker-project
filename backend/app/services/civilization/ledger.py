@@ -74,7 +74,7 @@ class CivilizationLedgerService:
         previous = await session.scalar(
             select(CivilizationLedger)
             .where(CivilizationLedger.tenant_id == tenant_id)
-            .order_by(CivilizationLedger.created_at.desc())
+            .order_by(CivilizationLedger.event_timestamp.desc(), CivilizationLedger.created_at.desc())
             .limit(1)
         )
         previous_hash = previous.record_hash if previous else None
@@ -161,14 +161,14 @@ class CivilizationLedgerService:
                     query = query.where(CivilizationLedger.milestone.is_(True))
                 rows = (
                     await session.execute(
-                        query.order_by(CivilizationLedger.created_at.asc()).limit(max(1, min(limit, 1000)))
+                        query.order_by(CivilizationLedger.event_timestamp.asc(), CivilizationLedger.created_at.asc()).limit(max(1, min(limit, 1000)))
                     )
                 ).scalars().all()
                 full_rows = (
                     await session.execute(
                         select(CivilizationLedger)
                         .where(CivilizationLedger.tenant_id == tenant_uuid)
-                        .order_by(CivilizationLedger.created_at.asc())
+                        .order_by(CivilizationLedger.event_timestamp.asc(), CivilizationLedger.created_at.asc())
                     )
                 ).scalars().all()
         return {
@@ -198,7 +198,7 @@ class CivilizationLedgerService:
             await session.execute(
                 select(CivilizationLedger)
                 .where(CivilizationLedger.tenant_id == tenant_id)
-                .order_by(CivilizationLedger.created_at.asc())
+                .order_by(CivilizationLedger.event_timestamp.asc(), CivilizationLedger.created_at.asc())
             )
         ).scalars().all()
         pdf_path = await _build_chronicle_pdf(rows)
