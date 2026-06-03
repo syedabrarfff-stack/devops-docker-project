@@ -34,6 +34,12 @@ class DiscoverLeadsRequest(BaseModel):
     tenant_id: Optional[UUID] = None
 
 
+class LeadLossIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    reason: str
+    notes: Optional[str] = None
+
+
 @router.post("/")
 async def create_lead(
     body: LeadIn,
@@ -123,6 +129,40 @@ async def discover_leads(body: DiscoverLeadsRequest, request: Request):
 @router.get("/stats")
 async def lead_stats(db: AsyncSession = Depends(get_db)):
     return await leads.lead_stats(db)
+
+
+@router.post("/{lead_id}/loss")
+async def record_lead_loss(
+    lead_id: UUID,
+    body: LeadLossIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import select
+    from app.core.database import set_tenant_context
+    from app.models.approval import AuditLog
+    from app.models.lead import Lead, LeadStatus
+
+    tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    await set_tenant_context(db, str(tenant_id))
+    lead = await db.scalar(select(Lead).where(Lead.tenant_id == tenant_id, Lead.id == lead_id))
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    lead.status = LeadStatus.LOST
+    lead.loss_reason = body.reason.strip()[:80]
+    lead.notes = "\n\n".join(part for part in [lead.notes, body.notes] if part)
+    db.add(
+        AuditLog(
+            tenant_id=tenant_id,
+            action="lead_marked_lost",
+            entity_type="lead",
+            entity_id=lead.id,
+            actor="Captain",
+            details={"loss_reason": lead.loss_reason, "notes": body.notes},
+            after_json={"status": lead.status.value, "loss_reason": lead.loss_reason},
+        )
+    )
+    return {"id": str(lead.id), "status": lead.status.value, "loss_reason": lead.loss_reason}
 
 
 @router.patch("/{lead_id}/status")

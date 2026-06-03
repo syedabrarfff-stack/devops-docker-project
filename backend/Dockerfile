@@ -3,15 +3,15 @@ FROM python:3.11-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev curl \
+    gcc libpq-dev postgresql-client curl gzip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN useradd -m -u 1000 jarvis \
-    && mkdir -p /data/proposals /data/invoices \
-    && chown -R jarvis:jarvis /data
+    && mkdir -p /data/proposals /data/invoices /var/backups/jarvis \
+    && chown -R jarvis:jarvis /data /var/backups/jarvis
 USER jarvis
 
 COPY --chown=jarvis:jarvis . .

@@ -160,6 +160,39 @@ async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     } for j in rows]
 
 
+@router.get("/failures")
+async def list_job_failures(
+    request: Request,
+    status: Optional[str] = None,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import desc, select
+    from app.models.scheduling import JobFailure
+
+    query = select(JobFailure).where(JobFailure.tenant_id == _metadata_tenant_id(request))
+    if status:
+        query = query.where(JobFailure.status == status)
+    rows = (
+        await db.execute(
+            query.order_by(desc(JobFailure.created_at)).limit(max(1, min(limit, 200)))
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": str(row.id),
+            "job_name": row.job_name,
+            "status": row.status,
+            "error": row.error,
+            "retry_count": row.retry_count,
+            "last_retry_at": str(row.last_retry_at) if row.last_retry_at else None,
+            "next_retry_at": str(row.next_retry_at) if row.next_retry_at else None,
+            "created_at": str(row.created_at) if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
 def _metadata_tenant_id(request: Request) -> uuid.UUID:
     raw = getattr(request.state, "tenant_id", None) or settings.JARVIS_DEFAULT_TENANT_ID
     if not raw:

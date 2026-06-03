@@ -25,6 +25,7 @@ from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 from app.services.intelligence.jarvis_authority import requires_captain_approval
 from app.services.notifications.gmail_sender import gmail_sender
+from app.services.outreach.compliance import outreach_compliance
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,18 @@ class OutreachEngine:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
                 lead = await self._get_lead(session, tenant_uuid, lead_uuid)
+                qualification = await outreach_compliance.qualification_status(session, tenant_uuid, lead)
+                lead.qualification_status = qualification["status"]
+                if not qualification["allowed"]:
+                    await self._audit(
+                        session,
+                        tenant_uuid,
+                        "outreach_sequence_not_queued",
+                        lead.id,
+                        qualification,
+                    )
+                    return
+
                 logs = await self.generate_sequence(lead, tenant_uuid)
                 serialized_steps = [_log_to_sequence_step(log) for log in logs]
 
@@ -279,10 +292,45 @@ class OutreachEngine:
                         continue
 
                     to_email = lead.email or lead.contact_email
+                    safety = await outreach_compliance.safety_gate(session, tenant_uuid, lead, to_email, now=now)
+                    if not safety["allowed"]:
+                        reschedule_at = safety.get("reschedule_at")
+                        if reschedule_at:
+                            item.scheduled_at = reschedule_at
+                            item.status = FollowUpStatus.PENDING
+                        else:
+                            item.status = FollowUpStatus.SKIPPED
+                            item.executed_at = now
+                        await self._audit(
+                            session,
+                            tenant_uuid,
+                            "outreach_send_blocked_by_compliance",
+                            lead.id,
+                            {
+                                "sequence_step": item.sequence_step,
+                                "reason": safety.get("reason"),
+                                "reschedule_at": reschedule_at.isoformat() if reschedule_at else None,
+                                "safety": {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in safety.items()},
+                            },
+                        )
+                        if safety.get("reason") == "daily_send_cap_reached":
+                            try:
+                                from app.services.notifications import notify_business_event
+
+                                await notify_business_event(
+                                    "outreach_daily_cap_reached",
+                                    "Outreach daily cap reached",
+                                    f"JARVIS reached {safety.get('sent_today')}/{safety.get('cap')} sends. Remaining outreach was moved to the next safe window.",
+                                )
+                            except Exception as exc:
+                                logger.warning("Daily cap notification skipped: %s", exc)
+                        continue
+
+                    body_to_send = outreach_compliance.append_footer(email["body"], to_email)
                     success = await gmail_sender.send_email(
                         to=to_email,
                         subject=email["subject"],
-                        body_html=_body_html(email["body"]),
+                        body_html=_body_html(body_to_send),
                         from_name=PERSONAS["darren_mitchell"]["name"],
                         from_email=PERSONAS["darren_mitchell"]["email"],
                     )
@@ -303,7 +351,7 @@ class OutreachEngine:
                         lead_id=lead.id,
                         channel=OutreachChannel.EMAIL,
                         subject=email["subject"],
-                        body_text=email["body"],
+                        body_text=body_to_send,
                         sent_from_persona=PERSONAS["darren_mitchell"]["name"],
                         sent_at=now,
                         status=OutreachStatus.SENT,

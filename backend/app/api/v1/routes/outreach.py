@@ -50,6 +50,16 @@ class SpeedToLeadTriggerIn(BaseModel):
     lookback_minutes: int = 5
 
 
+class ResumeOutreachIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    reason: str = "Captain resumed outreach after review."
+
+
+class QualificationApplyIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    limit: int = 500
+
+
 class LinkedInSendIn(BaseModel):
     lead_id: UUID
     message_type: int = 1
@@ -145,6 +155,103 @@ async def trigger_speed_to_lead(
     )
 
 
+@router.get("/unsubscribe")
+async def unsubscribe_from_outreach(token: str, request: Request, db: AsyncSession = Depends(get_db)):
+    from app.core.database import set_tenant_context
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, None)
+    try:
+        email = outreach_compliance.email_from_token(token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid unsubscribe token") from exc
+    await set_tenant_context(db, str(resolved_tenant_id))
+    await outreach_compliance.add_do_not_contact(
+        db,
+        resolved_tenant_id,
+        email,
+        reason="unsubscribe_link",
+        source="one_click_unsubscribe",
+        notes="Recipient used the one-click unsubscribe link.",
+    )
+    return {
+        "unsubscribed": True,
+        "message": "This email address has been removed from Aliyar Solutions outreach.",
+    }
+
+
+@router.post("/resume")
+async def resume_outreach(request: Request, body: ResumeOutreachIn = Body(default_factory=ResumeOutreachIn), db: AsyncSession = Depends(get_db)):
+    from app.core.database import set_tenant_context
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    return await outreach_compliance.resume_outreach(db, resolved_tenant_id, reason=body.reason)
+
+
+@router.get("/compliance/status")
+async def outreach_compliance_status(request: Request, tenant_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func, select
+    from app.core.database import set_tenant_context
+    from app.models.compliance import DoNotContact
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    dnc_count = await db.scalar(
+        select(func.count()).select_from(DoNotContact).where(DoNotContact.tenant_id == resolved_tenant_id)
+    ) or 0
+    cap = await outreach_compliance.daily_send_cap_status(db, resolved_tenant_id)
+    return {
+        "tenant_id": str(resolved_tenant_id),
+        "do_not_contact_count": int(dnc_count),
+        "outreach_paused": await outreach_compliance.is_outreach_paused(db, resolved_tenant_id),
+        "daily_send_cap": cap,
+        "current_daily_cap": outreach_compliance.current_daily_cap(),
+    }
+
+
+@router.post("/compliance/review")
+async def run_outreach_safety_review(request: Request, tenant_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
+    from app.core.database import set_tenant_context
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    result = await outreach_compliance.assess_reply_rate_pause(db, resolved_tenant_id)
+    return {"tenant_id": str(resolved_tenant_id), **result}
+
+
+@router.post("/qualification/apply")
+async def apply_qualification_thresholds(
+    request: Request,
+    body: QualificationApplyIn = Body(default_factory=QualificationApplyIn),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import select
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    leads = (
+        await db.execute(
+            select(Lead)
+            .where(Lead.tenant_id == resolved_tenant_id)
+            .order_by(Lead.created_at.desc())
+            .limit(max(1, min(body.limit, 2000)))
+        )
+    ).scalars().all()
+    counts = {"needs_enrichment": 0, "review_required": 0, "auto_approved": 0, "captain_approved": 0}
+    for lead in leads:
+        result = await outreach_compliance.qualification_status(db, resolved_tenant_id, lead)
+        lead.qualification_status = result["status"]
+        counts[result["status"]] = counts.get(result["status"], 0) + 1
+    return {"tenant_id": str(resolved_tenant_id), "processed": len(leads), "counts": counts}
+
+
 @router.post("/linkedin/send")
 async def prepare_linkedin_outreach(request: Request, body: LinkedInSendIn):
     from app.services.outreach.linkedin import linkedin_outreach_service
@@ -174,11 +281,24 @@ async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/emails/send-direct")
-async def send_direct_email(body: SendEmailIn):
+async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSession = Depends(get_db)):
+    from app.core.database import set_tenant_context
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, None)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    if await outreach_compliance.is_outreach_paused(db, resolved_tenant_id):
+        raise HTTPException(status_code=409, detail="Outreach is paused. Resume outreach before sending direct mail.")
+    if await outreach_compliance.is_do_not_contact(db, resolved_tenant_id, body.to_email):
+        raise HTTPException(status_code=409, detail="Recipient is on the do-not-contact list.")
+    cap = await outreach_compliance.daily_send_cap_status(db, resolved_tenant_id)
+    if not cap["allowed"]:
+        raise HTTPException(status_code=409, detail={"reason": "daily_send_cap_reached", **cap})
+    body_with_footer = outreach_compliance.append_footer(body.body, body.to_email)
     success, error = gmail_service.send_email_smtp(
         body.to_email,
         body.subject,
-        body.body,
+        body_with_footer,
         body.to_name,
     )
     if not success:

@@ -1,11 +1,19 @@
 """
 Contact synchronization routes — Apollo → JARVIS CRM.
 """
+import hashlib
+import json
+from datetime import UTC, datetime
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
+from app.core.config import settings
+from app.core.database import get_db, set_tenant_context
+from app.models.compliance import ProcessedWebhook
 from app.services.contacts.sync import sync_from_apollo, enrich_contact
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
@@ -43,9 +51,33 @@ async def enrich(contact_id: int, db: AsyncSession = Depends(get_db)):
 async def telegram_webhook(update: dict, db: AsyncSession = Depends(get_db)):
     """Receive Telegram bot webhook updates."""
     from app.services.notifications.telegram_bot import handle_update
+    tenant_id = _default_tenant_id()
+    payload_json = _stable_json(update)
+    event_id = str(update.get("update_id") or hashlib.sha256(payload_json.encode("utf-8")).hexdigest())
+    payload_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+    await set_tenant_context(db, str(tenant_id))
+    existing = await db.scalar(
+        select(ProcessedWebhook.id).where(
+            ProcessedWebhook.tenant_id == tenant_id,
+            ProcessedWebhook.source == "telegram",
+            ProcessedWebhook.event_id == event_id,
+        )
+    )
+    if existing:
+        return {"ok": True, "duplicate": True, "event_id": event_id}
+    db.add(
+        ProcessedWebhook(
+            tenant_id=tenant_id,
+            source="telegram",
+            event_id=event_id,
+            processed_at=datetime.now(UTC),
+            payload_hash=payload_hash,
+            metadata_json={"receiver": "telegram_webhook"},
+        )
+    )
     await handle_update(update, db)
     await db.commit()
-    return {"ok": True}
+    return {"ok": True, "duplicate": False, "event_id": event_id}
 
 
 @router.post("/telegram/webhook/register")
@@ -62,3 +94,13 @@ async def register_telegram_webhook(
 async def telegram_webhook_info():
     from app.services.notifications.telegram_bot import get_webhook_info
     return await get_webhook_info()
+
+
+def _stable_json(payload: dict) -> str:
+    return json.dumps(payload or {}, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _default_tenant_id() -> UUID:
+    if not settings.JARVIS_DEFAULT_TENANT_ID:
+        raise ValueError("JARVIS_DEFAULT_TENANT_ID is required for webhook processing")
+    return UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))

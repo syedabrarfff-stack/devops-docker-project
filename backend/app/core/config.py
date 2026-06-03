@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     CAPTAIN_NAME: str = "Captain Abrar"
     COMPANY_TAGLINE: str = "Global AI-Powered Technology Operations"
     COMPANY_EXTERNAL_TEAM: str = "Aliyar Solutions Team"
+    COMPANY_PHYSICAL_ADDRESS: str = "Aliyar Solutions, Hyderabad, Telangana, India"
     TARGET_MARKETS: str = "USA,UK,UAE,Bahrain,Europe,Australia"
     DEBUG: bool = False
     SECRET_KEY: str = "change-this-in-production"
@@ -21,6 +22,9 @@ class Settings(BaseSettings):
     AUTONOMOUS_CONFIDENCE_THRESHOLD: float = 0.70
     SYSTEM_CONFIDENCE_BASE: float = 0.68
     EXTERNAL_API_BLOCKERS_BYPASSED_FOR_PILOT: bool = True
+    OUTREACH_DAILY_SEND_CAP: int = 50
+    OUTREACH_DOMAIN_AGE_DAYS: int = 365
+    OUTREACH_PAUSED: bool = False
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://jarvis:jarvis_pass@postgres:5432/jarvis_db"
@@ -70,6 +74,7 @@ class Settings(BaseSettings):
     AWS_REGION: str = "ap-south-2"             # Hyderabad primary
     AWS_BACKUP_REGION: str = "ap-south-1"      # Mumbai backup (Phase 2)
     AWS_S3_BUCKET: Optional[str] = None
+    S3_BACKUP_BUCKET: Optional[str] = None
     AWS_SSM_PREFIX: str = "/jarvis"
     AWS_ECS_CLUSTER: Optional[str] = None
     AWS_ECS_SERVICE: Optional[str] = None

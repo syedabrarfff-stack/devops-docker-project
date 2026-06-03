@@ -22,6 +22,7 @@ from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 from app.services.memory.human_intelligence import human_intelligence_context
 from app.services.notifications import notify_business_event
+from app.services.outreach.compliance import outreach_compliance
 from app.services.outreach.engine import PERSONAS
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,10 @@ class ReplyHandler:
         tenant_uuid = uuid.UUID(str(tenant_id))
         lead_uuid = uuid.UUID(str(lead_id))
         classification, confidence = await self.classify_reply(reply_text)
+        opt_out_detected = outreach_compliance.has_opt_out_intent(reply_text)
+        if opt_out_detected:
+            classification = "NO"
+            confidence = max(confidence, 0.95)
         lead = await self._load_lead(tenant_uuid, lead_uuid)
         if not lead:
             return {
@@ -91,6 +96,18 @@ class ReplyHandler:
                     live_lead,
                     classification,
                 )
+                if opt_out_detected:
+                    opt_out_email = live_lead.email or live_lead.contact_email
+                    if opt_out_email:
+                        await outreach_compliance.add_do_not_contact(
+                            session,
+                            tenant_uuid,
+                            opt_out_email,
+                            reason="reply_opt_out",
+                            source="reply_handler",
+                            notes="Opt-out intent detected in prospect reply.",
+                        )
+                        action_taken = "opted_out_do_not_contact"
                 session.add(
                     ReplyLog(
                         tenant_id=tenant_uuid,
@@ -114,6 +131,7 @@ class ReplyHandler:
                         "classification": classification,
                         "confidence_score": confidence,
                         "action_taken": action_taken,
+                        "opt_out_detected": opt_out_detected,
                     },
                 )
                 from app.services.civilization import civilization_ledger

@@ -31,6 +31,7 @@ class Lead(JarvisBase):
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     country: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    timezone: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     industry: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, index=True)
     status: Mapped[LeadStatus] = mapped_column(
@@ -44,6 +45,8 @@ class Lead(JarvisBase):
     enrichment_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     apollo_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     assigned_persona: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    qualification_status: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    loss_reason: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     outreach_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_contact: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

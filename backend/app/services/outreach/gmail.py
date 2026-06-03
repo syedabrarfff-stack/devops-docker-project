@@ -93,6 +93,27 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     if not row or row.status not in ("scheduled", "queued"):
         return False
 
+    from app.services.outreach.compliance import outreach_compliance
+
+    if await outreach_compliance.is_outreach_paused(db, row.tenant_id):
+        row.status = "skipped"
+        row.error = "outreach_paused"
+        await db.flush()
+        return False
+    if await outreach_compliance.is_do_not_contact(db, row.tenant_id, row.to_email):
+        row.status = "skipped"
+        row.error = "do_not_contact"
+        await db.flush()
+        return False
+    cap = await outreach_compliance.daily_send_cap_status(db, row.tenant_id)
+    if not cap["allowed"]:
+        row.error = "daily_send_cap_reached"
+        if cap.get("reschedule_at"):
+            row.scheduled_at = cap["reschedule_at"]
+            row.status = "scheduled"
+        await db.flush()
+        return False
+
     body = row.body or ""
     if row.contact_id and not row.personalized:
         from app.models.crm import Contact
@@ -105,6 +126,7 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             })
             row.personalized = True
 
+    body = outreach_compliance.append_footer(body, row.to_email)
     success, error = send_email_smtp(row.to_email, row.subject or "", body, row.to_name or "")
     if success:
         row.status = "sent"

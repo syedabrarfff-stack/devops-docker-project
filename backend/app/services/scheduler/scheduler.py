@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import logging
+import os
 import pickle
+import traceback as traceback_lib
 import uuid
+import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse, unquote
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
@@ -70,6 +75,7 @@ PRODUCTION_JOB_IDS = (
     "daily_lead_scoring",
     "daily_lead_discovery",
     "daily_follow_up_check",
+    "daily_outreach_safety_review",
     "daily_memory_consolidate",
     "daily_optimization_review",
     "weekly_outreach_stats",
@@ -78,10 +84,19 @@ PRODUCTION_JOB_IDS = (
     "weekly_innovation_review",
     "biweekly_research_report",
     "monthly_weight_adjust",
+    "daily_db_backup",
     "speed_to_lead_5min",
     "daily_free_lead_discovery",
     "weekly_market_scan",
 )
+
+JOB_LOCK_TTLS = {
+    "speed_to_lead_5min": 240,
+    "daily_free_lead_discovery": 1800,
+    "weekly_market_scan": 2400,
+    "daily_db_backup": 2400,
+    "daily_outreach_safety_review": 900,
+}
 
 
 class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
@@ -193,14 +208,17 @@ def register_production_jobs() -> None:
 
     for raw_spec in specs:
         spec = dict(raw_spec)
-        if spec["job_id"] in existing_job_ids:
-            continue
         kind = spec.pop("kind", "cron")
+        job_id = spec["job_id"]
+        already_persisted = job_id in existing_job_ids
+        spec["func"] = run_registered_production_job
+        spec["args"] = [job_id]
         if kind == "interval":
-            add_interval_job(**spec, replace=False)
+            add_interval_job(**spec, replace=True)
         else:
-            add_cron_job(**spec, replace=False)
-        seeded += 1
+            add_cron_job(**spec, replace=True)
+        if not already_persisted:
+            seeded += 1
 
     loaded = len(PRODUCTION_JOB_IDS) - seeded
     logger.info(
@@ -216,6 +234,7 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "daily_lead_scoring", "func": daily_lead_scoring, "hour": 20, "minute": 30},
         {"job_id": "daily_lead_discovery", "func": daily_lead_discovery, "hour": 22, "minute": 0},
         {"job_id": "daily_follow_up_check", "func": daily_follow_up_check, "hour": 4, "minute": 30},
+        {"job_id": "daily_outreach_safety_review", "func": daily_outreach_safety_review, "hour": 4, "minute": 45},
         {"job_id": "daily_memory_consolidate", "func": daily_memory_consolidate, "hour": 19, "minute": 0},
         {"job_id": "daily_optimization_review", "func": daily_optimization_review, "hour": 17, "minute": 30},
         {"job_id": "weekly_outreach_stats", "func": weekly_outreach_stats, "hour": 2, "minute": 30, "day_of_week": "mon"},
@@ -224,6 +243,7 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "weekly_innovation_review", "func": weekly_innovation_review, "hour": 3, "minute": 30, "day_of_week": "mon"},
         {"job_id": "biweekly_research_report", "func": biweekly_research_report, "hour": 1, "minute": 30, "day_of_week": "sun"},
         {"job_id": "monthly_weight_adjust", "func": monthly_weight_adjust, "hour": 18, "minute": 30, "day": "last"},
+        {"job_id": "daily_db_backup", "func": daily_db_backup, "hour": 1, "minute": 0},
         {"job_id": "speed_to_lead_5min", "func": speed_to_lead_5min, "kind": "interval", "minutes": 5},
         {"job_id": "daily_free_lead_discovery", "func": daily_free_lead_discovery, "hour": 3, "minute": 30},
         {"job_id": "weekly_market_scan", "func": weekly_market_scan, "hour": 5, "minute": 0, "day_of_week": "mon"},
@@ -338,6 +358,31 @@ def get_jobs() -> list[dict]:
     return jobs
 
 
+async def run_registered_production_job(job_id: str, retry_count: int = 0) -> None:
+    registry = _production_job_registry()
+    func = registry.get(job_id)
+    if not func:
+        await _record_job_result(job_id, "failed", {"error": "production job not registered"})
+        return
+
+    token = uuid.uuid4().hex
+    lock_acquired = await _acquire_job_lock(job_id, token)
+    if not lock_acquired:
+        await _record_job_result(job_id, "skipped", {"reason": "already_running"})
+        return
+
+    try:
+        await func()
+    except Exception as exc:
+        await _record_job_failure(job_id, exc, retry_count=retry_count)
+    finally:
+        await _release_job_lock(job_id, token)
+
+
+async def retry_registered_production_job(job_id: str, retry_count: int) -> None:
+    await run_registered_production_job(job_id, retry_count=retry_count)
+
+
 async def enqueue_scheduled_task(job_id: str, tenant_id: str | None = None) -> None:
     from app.core.database import AsyncSessionLocal, set_tenant_context
     from app.models.scheduling import ScheduledJob
@@ -405,6 +450,31 @@ async def daily_follow_up_check() -> None:
     for tenant_id in await _target_tenant_ids():
         sent += await outreach_engine.execute_due_outreach(tenant_id, limit=25)
     await _record_job_result("daily_follow_up_check", "success", {"sent": sent})
+
+
+async def daily_outreach_safety_review() -> None:
+    from app.core.database import AsyncSessionLocal
+    from app.services.notifications import notify_business_event
+    from app.services.outreach.compliance import outreach_compliance
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        tenant_uuid = _coerce_tenant_id(tenant_id)
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await _safe_set_tenant_context(db, tenant_uuid)
+                result = await outreach_compliance.assess_reply_rate_pause(db, tenant_uuid)
+                results.append({"tenant_id": str(tenant_uuid), **result})
+                if result.get("paused"):
+                    await notify_business_event(
+                        "outreach_auto_paused",
+                        "Outreach auto-paused",
+                        (
+                            f"JARVIS paused outreach for tenant {tenant_uuid}: "
+                            f"reply rate {result.get('reply_rate')} after {result.get('sent')} sends."
+                        ),
+                    )
+    await _record_job_result("daily_outreach_safety_review", "success", {"tenants": results})
 
 
 async def speed_to_lead_5min() -> None:
@@ -552,6 +622,62 @@ async def monthly_weight_adjust() -> None:
     await _record_job_result("monthly_weight_adjust", "success", {"tenants": adjusted})
 
 
+async def daily_db_backup() -> None:
+    from app.services.notifications import notify_business_event
+
+    parsed = _parse_postgres_url(settings.DATABASE_URL)
+    if not parsed:
+        await _record_job_result("daily_db_backup", "skipped", {"reason": "unsupported_database_url"})
+        return
+
+    backup_dir = Path("/var/backups/jarvis")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d")
+    output_path = backup_dir / f"postgres-{stamp}.sql.gz"
+    command = (
+        f"pg_dump -h {parsed['host']} -p {parsed['port']} "
+        f"-U {parsed['user']} -d {parsed['database']} | gzip -c > {output_path}"
+    )
+    env = {**os.environ, "PGPASSWORD": parsed["password"]}
+    process = await asyncio.create_subprocess_shell(
+        command,
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise RuntimeError(f"pg_dump failed: {stderr.decode(errors='replace')[:1000]}")
+    size = output_path.stat().st_size if output_path.exists() else 0
+    if size <= 0:
+        raise RuntimeError("pg_dump produced an empty backup file")
+
+    bucket = settings.S3_BACKUP_BUCKET or settings.AWS_S3_BUCKET
+    uploaded = False
+    if bucket:
+        import boto3
+
+        key = f"postgres/{stamp}.sql.gz"
+        boto3.client("s3", region_name=settings.AWS_REGION).upload_file(str(output_path), bucket, key)
+        uploaded = True
+    else:
+        try:
+            await notify_business_event(
+                "backup_local_only",
+                "Database backup stored locally",
+                "S3_BACKUP_BUCKET is not configured. Backup saved locally in /var/backups/jarvis/.",
+            )
+        except Exception as exc:
+            logger.warning("Local backup notification skipped: %s", exc)
+
+    _prune_local_backups(backup_dir, keep=30)
+    await _record_job_result(
+        "daily_db_backup",
+        "success",
+        {"path": str(output_path), "size_bytes": size, "uploaded_to_s3": uploaded, "bucket": bucket},
+    )
+
+
 async def _sync_job_metadata() -> None:
     from app.core.database import AsyncSessionLocal
     from app.models.scheduling import ScheduledJob
@@ -626,6 +752,70 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
             )
 
 
+async def _record_job_failure(job_id: str, exc: Exception, retry_count: int = 0) -> None:
+    from app.core.database import AsyncSessionLocal
+    from app.models.approval import AuditLog
+    from app.models.scheduling import JobFailure
+    from app.services.notifications import notify_business_event
+
+    retry_count = int(retry_count or 0)
+    delay_minutes = [5, 15, 45][retry_count] if retry_count < 3 else None
+    next_retry_at = datetime.now(UTC) + timedelta(minutes=delay_minutes) if delay_minutes else None
+    error = str(exc)[:4000]
+    trace = traceback_lib.format_exc()
+
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            await _safe_set_tenant_context(db, SYSTEM_TENANT_ID)
+            failure = JobFailure(
+                tenant_id=SYSTEM_TENANT_ID,
+                job_name=job_id,
+                status="retry_scheduled" if next_retry_at else "failed",
+                error=error,
+                traceback=trace,
+                retry_count=retry_count,
+                next_retry_at=next_retry_at,
+                metadata_json={"managed_scheduler": True},
+            )
+            db.add(failure)
+            db.add(
+                AuditLog(
+                    tenant_id=SYSTEM_TENANT_ID,
+                    action=f"scheduler_{job_id}_failed",
+                    entity_type="scheduled_job",
+                    actor="ProductionScheduler",
+                    after_json={
+                        "error": error,
+                        "retry_count": retry_count,
+                        "next_retry_at": next_retry_at.isoformat() if next_retry_at else None,
+                    },
+                    details={
+                        "error": error,
+                        "retry_count": retry_count,
+                        "next_retry_at": next_retry_at.isoformat() if next_retry_at else None,
+                    },
+                )
+            )
+
+    if next_retry_at:
+        add_oneshot_job(
+            f"retry_{job_id}_{retry_count + 1}_{int(datetime.now(UTC).timestamp())}",
+            retry_registered_production_job,
+            next_retry_at,
+            replace=True,
+            args=[job_id, retry_count + 1],
+        )
+    else:
+        try:
+            await notify_business_event(
+                "scheduler_job_failed",
+                f"Job failed 3 times: {job_id}",
+                f"Job {job_id} failed 3 times. Last error: {error}",
+            )
+        except Exception as notify_exc:
+            logger.warning("Scheduler failure notification skipped: %s", notify_exc)
+
+
 async def _target_tenant_ids() -> list[str]:
     if settings.JARVIS_DEFAULT_TENANT_ID:
         return [settings.JARVIS_DEFAULT_TENANT_ID]
@@ -690,6 +880,42 @@ async def _safe_set_tenant_context(db, tenant_id: uuid.UUID) -> None:
     await set_tenant_context(db, str(tenant_id))
 
 
+def _production_job_registry() -> dict[str, Callable]:
+    return {spec["job_id"]: spec["func"] for spec in _production_job_specs()}
+
+
+async def _acquire_job_lock(job_id: str, token: str) -> bool:
+    if not settings.REDIS_URL:
+        return True
+    try:
+        import redis.asyncio as aioredis
+
+        ttl = int(JOB_LOCK_TTLS.get(job_id, 900))
+        redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        acquired = await redis.set(f"job_lock:{job_id}", token, ex=ttl, nx=True)
+        await redis.aclose()
+        return bool(acquired)
+    except Exception as exc:
+        logger.warning("Scheduler lock degraded for %s: %s", job_id, exc)
+        return True
+
+
+async def _release_job_lock(job_id: str, token: str) -> None:
+    if not settings.REDIS_URL:
+        return
+    try:
+        import redis.asyncio as aioredis
+
+        redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        key = f"job_lock:{job_id}"
+        current = await redis.get(key)
+        if current == token:
+            await redis.delete(key)
+        await redis.aclose()
+    except Exception as exc:
+        logger.warning("Scheduler lock release skipped for %s: %s", job_id, exc)
+
+
 def _sync_database_url() -> str:
     url = settings.DATABASE_URL
     if url.startswith("postgresql+asyncpg://"):
@@ -699,6 +925,31 @@ def _sync_database_url() -> str:
     if url.startswith("sqlite+aiosqlite://"):
         return url.replace("sqlite+aiosqlite://", "sqlite://", 1)
     return url
+
+
+def _parse_postgres_url(url: str) -> dict[str, str] | None:
+    if not url.startswith("postgresql"):
+        return None
+    clean = url.replace("postgresql+asyncpg://", "postgresql://", 1).replace("postgresql+psycopg://", "postgresql://", 1)
+    parsed = urlparse(clean)
+    if not parsed.hostname or not parsed.username or not parsed.path:
+        return None
+    return {
+        "host": parsed.hostname,
+        "port": str(parsed.port or 5432),
+        "user": unquote(parsed.username),
+        "password": unquote(parsed.password or ""),
+        "database": parsed.path.lstrip("/"),
+    }
+
+
+def _prune_local_backups(backup_dir: Path, keep: int = 30) -> None:
+    backups = sorted(backup_dir.glob("postgres-*.sql.gz"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for old in backups[max(0, keep):]:
+        try:
+            old.unlink()
+        except OSError:
+            logger.warning("Could not remove old backup %s", old)
 
 
 def _tenant_id_for_job(job) -> uuid.UUID:

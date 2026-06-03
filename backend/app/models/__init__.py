@@ -4,6 +4,7 @@ from importlib import import_module
 
 from app.models.base import JarvisBase
 from app.models.council import AICouncilMemberWeight, AICouncilSession
+from app.models.compliance import DoNotContact, OutreachPauseState, ProcessedWebhook
 from app.models.demo import DemoPackage
 from app.models.economics import AICostLedger, InfrastructureCostConfig
 from app.models.intelligence import BriefingHistory, CompetitorProfile, MarketIntelligence, TechRadarEntry
@@ -48,6 +49,7 @@ MODEL_MODULES = (
     "innovation",
     "civilization",
     "revenue_activation",
+    "compliance",
 )
 
 
@@ -62,6 +64,9 @@ __all__ = [
     "JarvisBase",
     "AICouncilMemberWeight",
     "AICouncilSession",
+    "DoNotContact",
+    "OutreachPauseState",
+    "ProcessedWebhook",
     "DemoPackage",
     "AICostLedger",
     "InfrastructureCostConfig",
