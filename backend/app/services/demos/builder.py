@@ -136,7 +136,9 @@ Rules:
                 max_tokens=1800,
             )
             if response.content and not response.error and not response.demo:
-                return _clean_client_text(response.content)
+                cleaned = _clean_client_text(response.content)
+                if _is_client_safe(cleaned):
+                    return cleaned
         except Exception:
             pass
         return _fallback_script(company, industry, pain_points)
@@ -305,6 +307,25 @@ def _clean_client_text(text: str) -> str:
     for term in blocked:
         cleaned = re.sub(rf"\b{re.escape(term)}\b", "our specialist team", cleaned, flags=re.IGNORECASE)
     return cleaned
+
+
+def _is_client_safe(text: str) -> bool:
+    lowered = f" {text.lower()} "
+    blocked_terms = [
+        " i ",
+        " i'm ",
+        " i am ",
+        " me ",
+        " my ",
+        " ai ",
+        " bot ",
+        " claude ",
+        " prompt ",
+        " gpt ",
+        "[",
+        "]",
+    ]
+    return not any(term in lowered for term in blocked_terms)
 
 
 def _lead_name(lead: Lead | None) -> str:
