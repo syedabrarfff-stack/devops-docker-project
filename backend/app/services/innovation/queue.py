@@ -128,7 +128,6 @@ class InnovationQueueService:
 
     async def list_queue(self, tenant_id) -> dict[str, Any]:
         tenant_uuid = _tenant_uuid(tenant_id)
-        await self.seed(tenant_uuid)
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))

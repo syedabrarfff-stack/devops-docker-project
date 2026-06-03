@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Boolean, CheckConstraint, Float, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Float, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import JarvisBase
@@ -21,6 +21,7 @@ class InnovationQueueItem(JarvisBase):
         CheckConstraint("impact_score >= 0 AND impact_score <= 100", name="ck_innovation_impact_0_100"),
         CheckConstraint("feasibility_score >= 0 AND feasibility_score <= 100", name="ck_innovation_feasibility_0_100"),
         CheckConstraint("priority_score >= 0 AND priority_score <= 100", name="ck_innovation_priority_0_100"),
+        UniqueConstraint("tenant_id", "title", name="uq_innovation_queue_tenant_title"),
     )
 
     title: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
