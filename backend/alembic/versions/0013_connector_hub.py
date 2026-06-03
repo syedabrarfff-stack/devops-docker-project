@@ -31,7 +31,8 @@ def upgrade() -> None:
             outreach_triggered INTEGER NOT NULL DEFAULT 0,
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
             summary JSONB,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
         """
     )
@@ -56,7 +57,8 @@ def upgrade() -> None:
             processed BOOLEAN NOT NULL DEFAULT false,
             council_verdict VARCHAR(20),
             processed_at TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
         """
     )
