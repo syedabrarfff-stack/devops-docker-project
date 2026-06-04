@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "ap-south-2"             # Hyderabad primary
     AWS_BACKUP_REGION: str = "ap-south-1"      # Mumbai backup (Phase 2)
+    BEDROCK_API_KEY: Optional[str] = None       # Bedrock bearer token fallback
+    AWS_BEARER_TOKEN_BEDROCK: Optional[str] = None
     AWS_S3_BUCKET: Optional[str] = None
     S3_BACKUP_BUCKET: Optional[str] = None
     AWS_SSM_PREFIX: str = "/jarvis"
