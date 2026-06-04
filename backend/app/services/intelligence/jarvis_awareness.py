@@ -4,10 +4,13 @@ JARVIS Self-Awareness & Daily Intelligence Engine
 import logging
 from datetime import datetime
 from typing import Optional
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import settings
 from app.services.ai.router import ai_router
 from app.services.memory import manager as mem
 from app.services.intelligence.jarvis_authority import JARVIS_AUTHORITY_PROMPT
+from app.services.notifications.gmail_sender import gmail_sender
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +136,111 @@ For each agent define:
 
 Then provide the execution plan step by step.
 """
+
+_EMAIL_STATUS_TERMS = (
+    "email",
+    "emails",
+    "gmail",
+    "outreach",
+    "client send",
+    "send to clients",
+    "48",
+    "engine",
+)
+
+_STATUS_INTENT_TERMS = (
+    "working",
+    "work",
+    "live",
+    "started",
+    "start",
+    "send",
+    "sending",
+    "status",
+    "where",
+    "what happened",
+    "why",
+)
+
+
+def _is_email_runtime_status_question(message: str) -> bool:
+    text_value = (message or "").lower()
+    return (
+        any(term in text_value for term in _EMAIL_STATUS_TERMS)
+        and any(term in text_value for term in _STATUS_INTENT_TERMS)
+    )
+
+
+async def _email_runtime_status(db: AsyncSession) -> dict:
+    configured = bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
+    connected = await gmail_sender.test_connection() if configured else False
+
+    result = await db.execute(
+        text(
+            """
+            select
+              (select count(*) from leads) as leads_total,
+              (select count(*) from leads where coalesce(email, contact_email, '') <> '') as leads_with_email,
+              (select count(*) from follow_up_queue where status::text = 'PENDING') as pending_followups,
+              (select count(*) from follow_up_queue where status::text = 'PENDING' and scheduled_at <= now()) as due_followups,
+              (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at is not null) as real_email_sent_total,
+              (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at >= date_trunc('day', now())) as real_email_sent_today,
+              (select count(*) from outreach_log where status::text = 'SENT' and sent_at is null) as draft_sent_without_sent_at,
+              (select count(*) from gmail_messages) as gmail_messages_total
+            """
+        )
+    )
+    row = dict(result.mappings().first() or {})
+
+    cap_result = await db.execute(
+        text(
+            """
+            select count(*) as sent_today
+            from outreach_log
+            where tenant_id = :tenant_id
+              and channel::text = 'EMAIL'
+              and status::text = 'SENT'
+              and sent_at >= date_trunc('day', now())
+            """
+        ),
+        {"tenant_id": settings.JARVIS_DEFAULT_TENANT_ID},
+    )
+    sent_today = int((cap_result.mappings().first() or {}).get("sent_today") or 0)
+    cap = int(settings.OUTREACH_DAILY_SEND_CAP or 48)
+
+    return {
+        **row,
+        "gmail_configured": configured,
+        "gmail_connected": connected,
+        "gmail_address": settings.GMAIL_ADDRESS or None,
+        "daily_send_cap": cap,
+        "daily_send_remaining": max(0, cap - sent_today),
+    }
+
+
+def _email_runtime_response(status: dict) -> str:
+    if not status["gmail_configured"]:
+        leading = "Email engine is NOT ready: Gmail credentials are missing."
+    elif not status["gmail_connected"]:
+        leading = (
+            "Email engine is NOT sending right now: Gmail credentials exist, "
+            "but Google is rejecting SMTP login, so production email delivery is blocked."
+        )
+    else:
+        leading = "Email engine is connected and allowed to send within the daily cap."
+
+    return (
+        f"{leading}\n\n"
+        f"Live facts: {status.get('real_email_sent_today', 0)} real emails sent today, "
+        f"{status.get('real_email_sent_total', 0)} real email sends recorded total, "
+        f"{status.get('pending_followups', 0)} follow-ups queued, "
+        f"{status.get('due_followups', 0)} due now, "
+        f"{status.get('leads_with_email', 0)}/{status.get('leads_total', 0)} leads have email addresses, "
+        f"daily cap is {status.get('daily_send_cap', 48)} with "
+        f"{status.get('daily_send_remaining', 0)} remaining. "
+        f"Gmail inbox/outbound message table currently has {status.get('gmail_messages_total', 0)} records. "
+        "Do not treat the dashboard as fully operational until Gmail OAuth/app-password login is fixed and the queue is populated with qualified recipients."
+    )
 
 
 async def generate_morning_briefing(db: AsyncSession) -> dict:
@@ -261,6 +369,17 @@ async def jarvis_chat(
     session_id: Optional[str] = None,
 ) -> dict:
     try:
+        if _is_email_runtime_status_question(message):
+            status = await _email_runtime_status(db)
+            return {
+                "response": _email_runtime_response(status),
+                "model": "runtime-status",
+                "provider": "system",
+                "task_type": "operational_status",
+                "memory_active": False,
+                "runtime_status": status,
+            }
+
         # Recall relevant memories for this conversation
         memory_context = await mem.build_context(db, session_id=session_id, query=message)
 

@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func as sqlfunc
+from sqlalchemy import String, cast, select, desc, func as sqlfunc
 from app.models.memory import Memory, OutcomeRecord
 from app.models.conversation import Conversation
 from app.services.ai.router import ai_router
@@ -291,7 +291,7 @@ async def get_evolution_history(db: AsyncSession, limit: int = 10) -> list[dict]
     rows = (await db.execute(
         select(Memory)
         .where(Memory.memory_type == "learning")
-        .where(Memory.tags.contains(["daily_learning"]))
+        .where(cast(Memory.tags, String).ilike("%daily_learning%"))
         .order_by(desc(Memory.created_at))
         .limit(limit)
     )).scalars().all()

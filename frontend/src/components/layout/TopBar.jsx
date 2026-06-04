@@ -4,6 +4,7 @@ import { Mic, MicOff, Volume2, VolumeX, Bell, X } from 'lucide-react'
 import { format } from 'date-fns'
 import useJarvisStore from '../../store/useJarvisStore'
 import voiceService from '../../services/voice'
+import { api } from '../../services/api'
 
 export default function TopBar() {
   const { wsConnected, voiceActive, setVoiceActive, voiceListening,
@@ -11,10 +12,78 @@ export default function TopBar() {
   const [time, setTime] = useState(new Date())
   const [muted, setMuted] = useState(false)
   const [showNotifs, setShowNotifs] = useState(false)
+  const [runtimeStatus, setRuntimeStatus] = useState({
+    level: 'checking',
+    label: 'CHECKING',
+    detail: 'Checking production subsystems',
+  })
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    const checkRuntime = async () => {
+      try {
+        const [ready, gmail, outreach] = await Promise.all([
+          api.get('/readyz'),
+          api.get('/api/v1/gmail/status'),
+          api.get('/api/v1/outreach/compliance/status'),
+        ])
+
+        if (!active) return
+
+        if (ready.data?.status !== 'ready') {
+          setRuntimeStatus({
+            level: 'degraded',
+            label: 'DEGRADED',
+            detail: 'Backend readiness check is not fully ready',
+          })
+          return
+        }
+
+        if (!gmail.data?.connected) {
+          setRuntimeStatus({
+            level: 'degraded',
+            label: 'EMAIL BLOCKED',
+            detail: gmail.data?.message || 'Gmail sender is configured but not connected',
+          })
+          return
+        }
+
+        if (outreach.data?.outreach_paused) {
+          setRuntimeStatus({
+            level: 'degraded',
+            label: 'OUTREACH PAUSED',
+            detail: 'Outreach is paused by compliance controls',
+          })
+          return
+        }
+
+        setRuntimeStatus({
+          level: 'operational',
+          label: 'OPERATIONAL',
+          detail: 'Core runtime, Gmail, and outreach controls are ready',
+        })
+      } catch {
+        if (!active) return
+        setRuntimeStatus({
+          level: 'degraded',
+          label: 'CHECK FAILED',
+          detail: 'Could not verify production subsystem readiness',
+        })
+      }
+    }
+
+    checkRuntime()
+    const t = setInterval(checkRuntime, 30000)
+    return () => {
+      active = false
+      clearInterval(t)
+    }
   }, [])
 
   const toggleVoice = () => {
@@ -61,6 +130,23 @@ export default function TopBar() {
   }
 
   const unread = notifications.length
+  const effectiveStatus = wsConnected ? runtimeStatus : {
+    level: 'offline',
+    label: 'OFFLINE',
+    detail: 'Realtime backend connection is offline',
+  }
+  const statusStyles = {
+    operational: 'bg-green-400/10 border-green-400/20 text-green-400',
+    degraded: 'bg-amber-400/10 border-amber-400/25 text-amber-300',
+    checking: 'bg-sky-400/10 border-sky-400/20 text-sky-300',
+    offline: 'bg-red-400/10 border-red-400/20 text-red-400',
+  }
+  const dotStyles = {
+    operational: 'bg-green-400 animate-pulse',
+    degraded: 'bg-amber-300 animate-pulse',
+    checking: 'bg-sky-300 animate-pulse',
+    offline: 'bg-red-400',
+  }
 
   return (
     <header className="h-14 flex items-center justify-between px-6
@@ -157,11 +243,10 @@ export default function TopBar() {
         {/* Status pill */}
         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium
                          border transition-all
-                         ${wsConnected
-                           ? 'bg-green-400/10 border-green-400/20 text-green-400'
-                           : 'bg-red-400/10 border-red-400/20 text-red-400'}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${wsConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-          {wsConnected ? 'OPERATIONAL' : 'OFFLINE'}
+                         ${statusStyles[effectiveStatus.level] || statusStyles.degraded}`}
+             title={effectiveStatus.detail}>
+          <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[effectiveStatus.level] || dotStyles.degraded}`} />
+          {effectiveStatus.label}
         </div>
       </div>
     </header>

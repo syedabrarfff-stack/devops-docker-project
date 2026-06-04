@@ -11,6 +11,7 @@ from email.header import decode_header
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
 from html import escape
+from time import monotonic
 from typing import Any
 from urllib.parse import quote
 
@@ -32,10 +33,17 @@ IMAP_PORT = 993
 
 
 class GmailSender:
-    async def test_connection(self) -> bool:
+    def __init__(self) -> None:
+        self._connection_cache = {"checked_at": 0.0, "result": False}
+
+    async def test_connection(self, *, force: bool = False, ttl_seconds: int = 300) -> bool:
         """Verify Gmail SMTP credentials without sending a message."""
         if not _gmail_configured():
             return False
+
+        now = monotonic()
+        if not force and now - self._connection_cache["checked_at"] < ttl_seconds:
+            return bool(self._connection_cache["result"])
 
         try:
             import aiosmtplib
@@ -44,9 +52,11 @@ class GmailSender:
             await smtp.connect()
             await smtp.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
             await smtp.quit()
+            self._connection_cache = {"checked_at": now, "result": True}
             return True
         except Exception as exc:
             logger.warning("Gmail SMTP connection test failed: %s", exc)
+            self._connection_cache = {"checked_at": now, "result": False}
             await self._audit_failure(
                 "gmail_connection_test_failed",
                 {"email": settings.GMAIL_ADDRESS, "error": str(exc)},

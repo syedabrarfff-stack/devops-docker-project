@@ -40,7 +40,7 @@ class SendEmailIn(BaseModel):
 
 class ExecuteOutreachIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 25
+    limit: int = 48
     autonomy_stage: str = "outreach_emails"
 
 

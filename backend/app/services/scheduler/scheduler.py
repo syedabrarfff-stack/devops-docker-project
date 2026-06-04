@@ -391,7 +391,7 @@ async def retry_registered_production_job(job_id: str, retry_count: int) -> None
 
 async def enqueue_scheduled_task(job_id: str, tenant_id: str | None = None) -> None:
     from app.core.database import AsyncSessionLocal, set_tenant_context
-    from app.models.scheduling import ScheduledJob
+    from app.models.scheduling import JobFailure, ScheduledJob
     from app.services.tasks.queue import enqueue
 
     tenant_uuid = _coerce_tenant_id(tenant_id) if tenant_id else SYSTEM_TENANT_ID
@@ -454,7 +454,7 @@ async def daily_follow_up_check() -> None:
 
     sent = 0
     for tenant_id in await _target_tenant_ids():
-        sent += await outreach_engine.execute_due_outreach(tenant_id, limit=25)
+        sent += await outreach_engine.execute_due_outreach(tenant_id, limit=48)
     await _record_job_result("daily_follow_up_check", "success", {"sent": sent})
 
 
@@ -736,7 +736,7 @@ async def daily_market_intelligence() -> None:
 async def _sync_job_metadata() -> None:
     _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
-    from app.models.scheduling import ScheduledJob
+    from app.models.scheduling import JobFailure, ScheduledJob
 
     async with AsyncSessionLocal() as db:
         async with db.begin():
@@ -780,7 +780,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
     _ensure_model_registry()
     from app.core.database import AsyncSessionLocal
     from app.models.approval import AuditLog
-    from app.models.scheduling import ScheduledJob
+    from app.models.scheduling import JobFailure, ScheduledJob
 
     async with AsyncSessionLocal() as db:
         async with db.begin():
@@ -797,6 +797,24 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
                 job.run_count = int(job.run_count or 0) + 1
                 aps_job = get_scheduler().get_job(job_id)
                 job.next_run_at = _db_datetime(aps_job.next_run_time) if aps_job else None
+            if status == "success":
+                failures = (
+                    await db.execute(
+                        select(JobFailure).where(
+                            JobFailure.tenant_id == SYSTEM_TENANT_ID,
+                            JobFailure.job_name == job_id,
+                            JobFailure.status.in_(("open", "retry_scheduled", "failed")),
+                        )
+                    )
+                ).scalars().all()
+                for failure in failures:
+                    failure.status = "resolved"
+                    failure.last_retry_at = _db_datetime(datetime.now(UTC))
+                    failure.metadata_json = {
+                        **(failure.metadata_json or {}),
+                        "resolved_by": "successful_job_run",
+                        "resolved_at": datetime.now(UTC).isoformat(),
+                    }
             db.add(
                 AuditLog(
                     tenant_id=SYSTEM_TENANT_ID,

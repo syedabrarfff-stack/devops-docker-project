@@ -173,6 +173,8 @@ async def list_job_failures(
     query = select(JobFailure).where(JobFailure.tenant_id == _metadata_tenant_id(request))
     if status:
         query = query.where(JobFailure.status == status)
+    else:
+        query = query.where(JobFailure.status.in_(("open", "retry_scheduled", "failed")))
     rows = (
         await db.execute(
             query.order_by(desc(JobFailure.created_at)).limit(max(1, min(limit, 200)))

@@ -27,10 +27,13 @@ async def get_contact(db: AsyncSession, contact_id: int) -> Optional[Contact]:
 
 
 async def list_contacts(db: AsyncSession, status: Optional[str] = None,
+                        company_id: Optional[int] = None,
                         limit: int = 50, offset: int = 0) -> list[Contact]:
     q = select(Contact).order_by(desc(Contact.created_at)).limit(limit).offset(offset)
     if status:
         q = q.where(Contact.status == status)
+    if company_id is not None:
+        q = q.where(Contact.company_id == company_id)
     r = await db.execute(q)
     return list(r.scalars().all())
 
@@ -73,8 +76,19 @@ async def create_company(db: AsyncSession, data: dict) -> Company:
     return c
 
 
-async def list_companies(db: AsyncSession, limit: int = 50, offset: int = 0) -> list[Company]:
-    r = await db.execute(select(Company).order_by(desc(Company.score)).limit(limit).offset(offset))
+async def list_companies(
+    db: AsyncSession,
+    industry: Optional[str] = None,
+    country: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[Company]:
+    q = select(Company).order_by(desc(Company.score)).limit(limit).offset(offset)
+    if industry:
+        q = q.where(Company.industry == industry)
+    if country:
+        q = q.where(Company.country == country)
+    r = await db.execute(q)
     return list(r.scalars().all())
 
 
@@ -94,10 +108,13 @@ async def create_deal(db: AsyncSession, data: dict) -> Deal:
 
 
 async def list_deals(db: AsyncSession, stage: Optional[str] = None,
+                     min_value: float = 0,
                      limit: int = 50) -> list[Deal]:
     q = select(Deal).order_by(desc(Deal.value)).limit(limit)
     if stage:
         q = q.where(Deal.stage == stage)
+    if min_value:
+        q = q.where(Deal.value >= min_value)
     r = await db.execute(q)
     return list(r.scalars().all())
 

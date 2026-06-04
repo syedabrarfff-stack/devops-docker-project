@@ -114,7 +114,7 @@ export default function ChatInterface() {
     {
       id: 'init',
       role: 'assistant',
-      content: "Online, Captain. All systems operational. What are we working on?",
+      content: "Online, Captain. Core runtime is live; production subsystems are being verified. What are we working on?",
       timestamp: new Date().toISOString(),
     }
   ])
@@ -151,7 +151,7 @@ export default function ChatInterface() {
         : hour < 17 ? 'Good afternoon, Captain.'
         : hour < 21 ? 'Good evening, Captain.'
         : 'Still up, Captain.'
-      voiceService.speak(`${greeting} JARVIS is online. All systems running. What do you need?`)
+      voiceService.speak(`${greeting} JARVIS is online. Core runtime is live and production subsystems are being verified. What do you need?`)
     }
   }, [voiceActive])
 
