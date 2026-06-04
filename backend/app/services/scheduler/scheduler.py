@@ -92,6 +92,17 @@ PRODUCTION_JOB_IDS = (
     "daily_market_intelligence",
 )
 
+AIONX_JOB_IDS = (
+    "aionx_sentinel_sweep",
+    "aionx_escalation_processor",
+    "aionx_operational_iq",
+    "aionx_retro_30d",
+    "aionx_retro_90d",
+    "aionx_twin_predictions",
+    "aionx_wisdom_weekly",
+    "aionx_decision_retrospective",
+)
+
 JOB_LOCK_TTLS = {
     "speed_to_lead_5min": 240,
     "daily_free_lead_discovery": 1800,
@@ -207,6 +218,7 @@ def register_production_jobs() -> None:
     existing_job_ids = {job.id for job in get_scheduler().get_jobs()}
     specs = _production_job_specs()
     seeded = 0
+    aionx_seeded = 0
 
     for raw_spec in specs:
         spec = dict(raw_spec)
@@ -222,11 +234,21 @@ def register_production_jobs() -> None:
         if not already_persisted:
             seeded += 1
 
+    try:
+        from app.services.aionx.aionx_scheduler import register_aionx_jobs
+
+        register_aionx_jobs(add_cron_job, add_interval_job)
+        aionx_seeded = len([job_id for job_id in AIONX_JOB_IDS if job_id not in existing_job_ids])
+    except Exception as exc:
+        logger.warning("AIONX scheduler heartbeat registration skipped: %s", exc)
+
     loaded = len(PRODUCTION_JOB_IDS) - seeded
     logger.info(
-        "JARVIS production scheduler ready: %s jobs loaded from persistent store, %s missing jobs seeded",
+        "JARVIS production scheduler ready: %s jobs loaded from persistent store, "
+        "%s missing production jobs seeded, %s AIONX heartbeat jobs seeded",
         loaded,
         seeded,
+        aionx_seeded,
     )
 
 
