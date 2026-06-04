@@ -171,7 +171,10 @@ async def claude_governance_status() -> dict:
 def _is_strategic_context(task_type: str, messages: Iterable[Message], system_prompt: str) -> bool:
     if task_type in CLAUDE_STRATEGIC_TASKS:
         return True
-    text = " ".join([system_prompt or "", *(message.content or "" for message in messages)]).lower()
+    # Do not inspect the global JARVIS system prompt here: it naturally contains
+    # words like "architecture" and "council", which would turn every small task
+    # into a false Claude escalation. Only the actual request context counts.
+    text = " ".join(message.content or "" for message in messages).lower()
     return any(marker in text for marker in CLAUDE_ESCALATION_MARKERS)
 
 
