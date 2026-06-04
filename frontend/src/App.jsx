@@ -36,6 +36,7 @@ import SystemHUD from './components/frontier/SystemHUD'
 import ExpertCouncil from './components/frontier/ExpertCouncil'
 import Relationships from './components/frontier/Relationships'
 import IntelligenceHub from './components/frontier/IntelligenceHub'
+import ConsciousnessHub from './components/consciousness/ConsciousnessHub'
 import useJarvisStore from './store/useJarvisStore'
 
 export const VIEWS = {
@@ -71,7 +72,8 @@ export const VIEWS = {
   systemHud:     { path: '/system-hud',     title: 'System HUD',            Component: SystemHUD },
   expertCouncil: { path: '/expert-council', title: 'Expert Council',        Component: ExpertCouncil },
   relationships: { path: '/relationships',  title: 'Relationships',         Component: Relationships },
-  intelligenceHub: { path: '/intelligence-hub', title: 'Intelligence Hub',   Component: IntelligenceHub },
+  intelligenceHub:   { path: '/intelligence-hub',  title: 'Intelligence Hub',  Component: IntelligenceHub },
+  consciousness:     { path: '/consciousness',      title: 'Consciousness Hub', Component: ConsciousnessHub },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

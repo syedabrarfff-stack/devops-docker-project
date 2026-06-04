@@ -5,7 +5,7 @@ import {
   Zap, Activity, UserCircle, Target, Mail, ListTodo, Bell, Clock,
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
-  DollarSign,
+  DollarSign, Cpu,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -30,7 +30,8 @@ const NAV = [
   { id: 'expertCouncil',  path: '/expert-council', label: 'Expert Council', icon: Brain },
   { id: 'memory',         path: '/memory',        label: 'Memory',        icon: Database },
   { id: 'intel',          path: '/intel',         label: 'Intel',         icon: Search },
-  { id: 'intelligenceHub', path: '/intelligence-hub', label: 'Intel Hub',  icon: Search },
+  { id: 'intelligenceHub', path: '/intelligence-hub', label: 'Intel Hub',     icon: Search },
+  { id: 'consciousness',   path: '/consciousness',    label: 'Consciousness', icon: Cpu },
   { id: 'discovery',      path: '/discovery',     label: 'Discovery',     icon: Target },
   { id: 'tasks',          path: '/tasks',         label: 'Tasks',         icon: ListTodo },
   { id: 'projects',       path: '/projects',      label: 'Projects',      icon: BriefcaseBusiness },

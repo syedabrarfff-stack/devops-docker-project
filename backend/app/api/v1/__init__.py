@@ -28,6 +28,7 @@ from app.api.v1.routes import civilization
 from app.api.v1.routes import calls
 from app.api.v1.routes import intel
 from app.api.v1.routes import connector_hub
+from app.api.v1.routes import consciousness
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -94,3 +95,4 @@ api_router.include_router(civilization.router)
 api_router.include_router(calls.router)
 api_router.include_router(intel.router)
 api_router.include_router(connector_hub.router)
+api_router.include_router(consciousness.router)
