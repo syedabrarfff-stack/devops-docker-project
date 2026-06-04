@@ -32,13 +32,35 @@ IMAP_PORT = 993
 
 
 class GmailSender:
+    async def test_connection(self) -> bool:
+        """Verify Gmail SMTP credentials without sending a message."""
+        if not _gmail_configured():
+            return False
+
+        try:
+            import aiosmtplib
+
+            smtp = aiosmtplib.SMTP(hostname=SMTP_HOST, port=SMTP_PORT, start_tls=True, timeout=20)
+            await smtp.connect()
+            await smtp.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
+            await smtp.quit()
+            return True
+        except Exception as exc:
+            logger.warning("Gmail SMTP connection test failed: %s", exc)
+            await self._audit_failure(
+                "gmail_connection_test_failed",
+                {"email": settings.GMAIL_ADDRESS, "error": str(exc)},
+            )
+            return False
+
     async def send_email(
         self,
         to: str,
         subject: str,
-        body_html: str,
-        from_name: str,
-        from_email: str,
+        body_html: str | None = None,
+        from_name: str = "",
+        from_email: str = "",
+        body: str | None = None,
     ) -> bool:
         if not _gmail_configured():
             await self._audit_failure(
@@ -47,6 +69,7 @@ class GmailSender:
             )
             return False
 
+        body_html = body_html if body_html is not None else (body or "")
         message = EmailMessage()
         sender_email = settings.GMAIL_ADDRESS
         reply_to = from_email or settings.GMAIL_ADDRESS
