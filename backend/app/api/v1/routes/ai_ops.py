@@ -34,7 +34,7 @@ async def provider_health():
         "available": len(operational),
         "active_providers": operational,
         "configured_providers": configured,
-        "circuit_healthy": len([s for s in statuses if s["available"]]),
+        "circuit_healthy": len(operational),
         "providers": jarvis_router.get_provider_status(),
         "circuit_breakers": statuses,
     }
