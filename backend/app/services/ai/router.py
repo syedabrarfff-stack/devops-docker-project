@@ -272,9 +272,21 @@ class AIRouter:
     def available_providers(self) -> List[str]:
         return [name for name, p in self._providers.items() if p.is_available()]
 
+    def operational_providers(self) -> List[str]:
+        """Providers that are configured and whose circuit breaker allows traffic."""
+        return [
+            name
+            for name, provider in self._providers.items()
+            if provider.is_available() and health_monitor.is_available(name)
+        ]
+
     def get_provider_status(self) -> dict:
         return {
-            name: {"available": p.is_available(), "models": list(p.models.keys())}
+            name: {
+                "configured": p.is_available(),
+                "available": p.is_available() and health_monitor.is_available(name),
+                "models": list(p.models.keys()),
+            }
             for name, p in self._providers.items()
         }
 
@@ -368,7 +380,7 @@ class AIRouter:
     def _demo_response(self, prompt: str, task_type: TaskType) -> AIResponse:
         p = prompt.lower()
         if "status" in p or "health" in p:
-            available = self.available_providers()
+            available = self.operational_providers()
             content = (
                 f"JARVIS SYSTEM STATUS\n\n"
                 f"Available AI Providers: {len(available)}/{len(self._providers)}\n"

@@ -240,12 +240,15 @@ async def readyz():
     # ── AI providers ──────────────────────────────────────────────────────────
     try:
         providers = _ai_router.get_provider_status()
-        available = [k for k, v in providers.items() if v["available"]]
+        configured = [k for k, v in providers.items() if v.get("configured")]
+        available = _ai_router.operational_providers()
         checks["ai_providers"] = {
             "status": "ok" if available else "degraded",
             "available": len(available),
+            "configured": len(configured),
             "total": len(providers),
             "active": available,
+            "configured_providers": configured,
         }
         if not available:
             overall_ok = False

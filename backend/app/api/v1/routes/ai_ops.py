@@ -26,11 +26,15 @@ async def provider_health():
         for p in jarvis_router.available_providers():
             health_monitor.get(p)
         statuses = health_monitor.all_status()
-    available = [s for s in statuses if s["available"]]
+    operational = jarvis_router.operational_providers()
+    configured = jarvis_router.available_providers()
     return {
         "total_providers": len(jarvis_router._providers),
-        "available": len(jarvis_router.available_providers()),
-        "circuit_healthy": len(available),
+        "configured": len(configured),
+        "available": len(operational),
+        "active_providers": operational,
+        "configured_providers": configured,
+        "circuit_healthy": len([s for s in statuses if s["available"]]),
         "providers": jarvis_router.get_provider_status(),
         "circuit_breakers": statuses,
     }
@@ -59,12 +63,16 @@ async def test_bedrock():
     latency_ms = int((time.monotonic() - started) * 1000)
 
     if response.error:
-        health_monitor.record_failure("bedrock", latency_ms)
+        account_blocked = _is_bedrock_account_blocked(response.error)
+        for _ in range(3 if account_blocked else 1):
+            health_monitor.record_failure("bedrock", latency_ms)
         return {
             "provider": "bedrock",
             "configured": provider.is_available(),
             "invoked": False,
             "status": "failed",
+            "account_blocked": account_blocked,
+            "action_required": _bedrock_action_required(response.error) if account_blocked else None,
             "model_id": model_id,
             "latency_ms": latency_ms,
             "error": response.error[:1000],
@@ -143,7 +151,7 @@ async def ai_ops_pulse(db: AsyncSession = Depends(get_db)):
     """One-stop summary: provider health + today's cost + credential status."""
     credentials = run_credential_audit()
     cost = await get_daily_cost(db)
-    available = jarvis_router.available_providers()
+    available = jarvis_router.operational_providers()
     open_circuits = [s for s in health_monitor.all_status() if s["state"] == "OPEN"]
     return {
         "ai_providers_available": len(available),
@@ -157,3 +165,26 @@ async def ai_ops_pulse(db: AsyncSession = Depends(get_db)):
         "credentials_total": credentials["total"],
         "system_ready": credentials["system_ready"],
     }
+
+
+def _is_bedrock_account_blocked(error: str) -> bool:
+    markers = (
+        "INVALID_PAYMENT_INSTRUMENT",
+        "AWS Marketplace subscription",
+        "aws-marketplace:Subscribe",
+        "aws-marketplace:ViewSubscriptions",
+        "Marketplace",
+    )
+    return any(marker in error for marker in markers)
+
+
+def _bedrock_action_required(error: str) -> str:
+    if "INVALID_PAYMENT_INSTRUMENT" in error:
+        return (
+            "AWS account payment instrument is invalid for Bedrock Marketplace model subscription. "
+            "Fix Billing payment method, then subscribe/enable the selected Bedrock Anthropic model."
+        )
+    return (
+        "Attach Marketplace subscription permissions to the EC2 role and enable the selected "
+        "Bedrock Anthropic model in AWS Bedrock Marketplace."
+    )
