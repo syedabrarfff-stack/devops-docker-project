@@ -18,6 +18,31 @@ from app.models.captain_intelligence import (
     PredictedAction,
 )
 from app.models.connector_hub import ConnectorHubIngestion, ConnectorHubPackage
+from app.models.aionx_organs import (
+    DecisionObject,
+    DecisionOption,
+    DecisionOutcome,
+    DecisionPattern,
+    DecisionRetrospective,
+    CounterfactualSimulation,
+    CounterfactualActualization,
+    DecisionDebtAssessment,
+    InstitutionalDebtIndex,
+    ClientDigitalTwin,
+    ClientTwinInteraction,
+    ClientTwinPrediction,
+    WisdomIndexSnapshot,
+    ProviderCalibrationRecord,
+    ProviderCouncilSession,
+    ShelvedDiscovery,
+    ConvergenceCouncilSession,
+    ConvergenceCouncilMessage,
+    MissionAutopsy,
+    SentinelObservation,
+    SentinelThreat,
+    MissionOwnershipRecord,
+    SelfModificationRecord,
+)
 from app.models.department_intelligence import (
     ClientCallIntelligence,
     DepartmentIntelligenceOfficer,
@@ -66,6 +91,7 @@ MODEL_MODULES = (
     "compliance",
     "captain_intelligence",
     "connector_hub",
+    "aionx_organs",
 )
 
 
