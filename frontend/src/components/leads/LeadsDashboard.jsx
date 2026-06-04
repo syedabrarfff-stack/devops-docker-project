@@ -5,6 +5,20 @@ import { api } from "../../services/api";
 const TIER_COLORS = { A: "text-red-400 bg-red-500/10 border-red-500/30", B: "text-orange-400 bg-orange-500/10 border-orange-500/30", C: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", D: "text-gray-400 bg-gray-500/10 border-gray-500/30" };
 const STATUS_COLORS = { new: "text-blue-400", qualified: "text-green-400", contacted: "text-yellow-400", replied: "text-purple-400", interested: "text-teal-400", proposal: "text-orange-400", closed: "text-green-500", disqualified: "text-red-400" };
 
+function asArray(value, key) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.[key])) return value[key];
+  return [];
+}
+
+function leadCompany(lead) {
+  return lead.company_name || lead.company || lead.enrichment_data?.company_name || lead.email?.split("@")[1] || "Unnamed company";
+}
+
+function normaliseStatus(status) {
+  return String(status || "new").toLowerCase();
+}
+
 function ScoreBar({ score }) {
   const color = score >= 80 ? "bg-red-500" : score >= 60 ? "bg-orange-500" : score >= 40 ? "bg-yellow-500" : "bg-gray-500";
   return (
@@ -32,7 +46,7 @@ function LeadRow({ lead, onScore }) {
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="font-semibold text-white">{lead.company}</p>
+          <p className="font-semibold text-white">{leadCompany(lead)}</p>
           <p className="text-sm text-gray-400">{lead.contact_name || "—"}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -41,7 +55,7 @@ function LeadRow({ lead, onScore }) {
               {lead.tier}
             </span>
           )}
-          <span className={`text-xs ${STATUS_COLORS[lead.status] || "text-gray-400"}`}>{lead.status}</span>
+          <span className={`text-xs ${STATUS_COLORS[normaliseStatus(lead.status)] || "text-gray-400"}`}>{normaliseStatus(lead.status)}</span>
         </div>
       </div>
 
@@ -92,29 +106,29 @@ export default function LeadsDashboard() {
     setLoading(true);
     try {
       const [l, s] = await Promise.all([
-        api.get("/leads/?limit=100").then(r => r.data),
-        api.get("/leads/stats").then(r => r.data),
+        api.get("/api/v1/leads/?limit=100").then(r => r.data),
+        api.get("/api/v1/leads/stats").then(r => r.data),
       ]);
-      setLeads(l);
+      setLeads(asArray(l, "leads"));
       setStats(s);
     } catch (e) { console.error(e); }
     setLoading(false);
   }
 
   async function scoreLead(id) {
-    await api.post(`/leads/${id}/score`);
+    await api.post(`/api/v1/leads/${id}/score`);
     loadAll();
   }
 
   async function bulkScore() {
     setBulkScoring(true);
-    try { await api.post("/leads/bulk-score?limit=20"); loadAll(); }
+    try { await api.post("/api/v1/leads/bulk-score?limit=20"); loadAll(); }
     finally { setBulkScoring(false); }
   }
 
   async function addLead() {
     try {
-      await api.post("/leads/?auto_score=true", newLead);
+      await api.post("/api/v1/leads/?auto_score=true", newLead);
       setShowAdd(false);
       setNewLead({ company: "", contact_name: "", email: "", industry: "", country: "" });
       setTimeout(loadAll, 2000); // brief delay for background scoring
@@ -123,7 +137,7 @@ export default function LeadsDashboard() {
 
   const filtered = filter === "all" ? leads :
     filter === "unscored" ? leads.filter(l => l.score === 0) :
-    leads.filter(l => l.status === filter);
+    leads.filter(l => normaliseStatus(l.status) === filter);
 
   return (
     <div className="p-6 space-y-6">

@@ -8,6 +8,60 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+const API_PREFIX = '/api/v1'
+const API_RESOURCES = new Set([
+  'agent-ops',
+  'agents',
+  'ai-ops',
+  'approvals',
+  'auth',
+  'briefing',
+  'calendar',
+  'catalog',
+  'chat',
+  'civilization',
+  'clients',
+  'connector-hub',
+  'council',
+  'crm',
+  'departments',
+  'demos',
+  'discovery',
+  'economics',
+  'emergency',
+  'gmail',
+  'governance',
+  'innovation',
+  'intelligence',
+  'invoices',
+  'jarvis',
+  'knowledge',
+  'leads',
+  'memory',
+  'notifications',
+  'outreach',
+  'pilot',
+  'pricing',
+  'proposals',
+  'revenue',
+  'scheduler',
+  'sync',
+  'tasks',
+  'team',
+  'voice',
+])
+
+api.interceptors.request.use((config) => {
+  const url = config.url || ''
+  if (url.startsWith('/') && !url.startsWith('/api/') && !url.startsWith('/health') && !url.startsWith('/readyz')) {
+    const resource = url.slice(1).split(/[/?#]/)[0]
+    if (API_RESOURCES.has(resource)) {
+      config.url = `${API_PREFIX}${url}`
+    }
+  }
+  return config
+})
+
 export { api }
 
 // Chat

@@ -310,6 +310,58 @@ async def prepare_linkedin_outreach(request: Request, body: LinkedInSendIn):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/logs")
+async def list_outreach_logs(
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import desc, select
+
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead
+    from app.models.outreach import OutreachLog
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    rows = (
+        await db.execute(
+            select(OutreachLog, Lead)
+            .outerjoin(Lead, Lead.id == OutreachLog.lead_id)
+            .where(OutreachLog.tenant_id == resolved_tenant_id)
+            .order_by(desc(OutreachLog.created_at))
+            .limit(limit)
+        )
+    ).all()
+    logs = []
+    for log, lead in rows:
+        channel = log.channel.value if hasattr(log.channel, "value") else log.channel
+        status = log.status.value if hasattr(log.status, "value") else log.status
+        company = None
+        if lead:
+            company = lead.company_name or lead.company
+            if not company and lead.email and "@" in lead.email:
+                company = lead.email.split("@", 1)[1]
+        logs.append({
+            "id": str(log.id),
+            "lead_id": str(log.lead_id) if log.lead_id else None,
+            "company": company,
+            "contact_name": lead.contact_name if lead else None,
+            "to_email": lead.email if lead else None,
+            "channel": channel,
+            "subject": log.subject,
+            "body_text": log.body_text,
+            "persona": log.sent_from_persona,
+            "status": status,
+            "sequence_step": log.sequence_step,
+            "skip_reason": log.skip_reason,
+            "sent_at": log.sent_at.isoformat() if log.sent_at else None,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        })
+    return {"tenant_id": str(resolved_tenant_id), "count": len(logs), "logs": logs}
+
+
 @router.get("/stats")
 async def outreach_stats(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)

@@ -6,6 +6,7 @@ Target: USA, Canada, UK, Europe, Australia, NZ.
 """
 import logging
 from typing import Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 from app.models.lead import Lead, LeadStatus
@@ -50,7 +51,7 @@ async def score_lead_with_ai(lead: Lead) -> dict:
     import json
 
     lead_data = (
-        f"Company: {lead.company}\n"
+        f"Company: {lead.company_name or lead.company}\n"
         f"Contact: {lead.contact_name}\n"
         f"Industry: {lead.industry}\n"
         f"Country: {lead.country}\n"
@@ -82,7 +83,7 @@ async def score_lead_with_ai(lead: Lead) -> dict:
                 "recommended_service": "AI automation", "outreach_angle": "Automate your operations"}
 
 
-async def qualify_and_score(db: AsyncSession, lead_id: int) -> Optional[Lead]:
+async def qualify_and_score(db: AsyncSession, lead_id: UUID) -> Optional[Lead]:
     """Score a lead with Gemini and update the database record."""
     lead = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
     if not lead:
@@ -118,7 +119,7 @@ async def qualify_and_score(db: AsyncSession, lead_id: int) -> Optional[Lead]:
             from app.services.notifications.telegram import notify_telegram
             await notify_telegram(
                 f"*A-Tier Lead Identified*\n\n"
-                f"*{lead.company}* - {lead.industry} ({lead.country})\n"
+                f"*{lead.company_name or lead.company}* - {lead.industry} ({lead.country})\n"
                 f"Score: {lead.score}/100\n"
                 f"Service: {result.get('recommended_service')}\n"
                 f"Angle: {result.get('outreach_angle')}"

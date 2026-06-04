@@ -70,22 +70,32 @@ async def list_leads(
 ):
     rows = await leads.list_leads(db, status=status, min_score=min_score, limit=limit)
     return [{
-        "id": l.id, "company": l.company, "contact_name": l.contact_name,
-        "email": l.email, "industry": l.industry, "country": l.country,
+        "id": l.id,
+        "company": _lead_company(l),
+        "company_name": _lead_company(l),
+        "contact_name": l.contact_name,
+        "email": l.email,
+        "website": l.website or l.company_website,
+        "industry": l.industry, "country": l.country,
         "score": l.score, "tier": l.tier, "status": l.status,
         "outreach_sent": l.outreach_sent, "source": l.source,
         "pain_points": l.pain_points or [],
+        "qualification_status": l.qualification_status,
+        "outreach_eligible": l.outreach_eligible,
+        "assigned_persona": l.assigned_persona,
+        "last_contact": l.last_contact or l.last_contacted,
+        "notes": l.notes,
     } for l in rows]
 
 
 @router.post("/{lead_id}/score")
-async def score_lead(lead_id: int, db: AsyncSession = Depends(get_db)):
+async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
     lead = await leads.qualify_and_score(db, lead_id)
     if not lead:
         raise HTTPException(404, "Lead not found")
     await db.commit()
-    return {"id": lead.id, "score": lead.score, "tier": lead.tier,
-            "status": lead.status, "ai_analysis": lead.ai_analysis}
+    return {"id": str(lead.id), "company": _lead_company(lead), "score": lead.score, "tier": lead.tier,
+            "status": lead.status.value if hasattr(lead.status, "value") else lead.status, "ai_analysis": lead.ai_analysis}
 
 
 @router.post("/bulk-score")
@@ -262,3 +272,17 @@ def _default_discovery_targets(limit: int) -> list[dict]:
             "limit": per_target,
         },
     ]
+
+
+def _lead_company(lead) -> str | None:
+    if lead.company_name:
+        return lead.company_name
+    if lead.company:
+        return lead.company
+    enrichment = lead.enrichment_data or {}
+    for key in ("company_name", "company", "name", "organization_name", "account_name"):
+        if enrichment.get(key):
+            return str(enrichment[key])
+    if lead.email and "@" in lead.email:
+        return lead.email.split("@", 1)[1]
+    return None

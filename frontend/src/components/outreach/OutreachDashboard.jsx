@@ -9,6 +9,12 @@ const STATUS_COLOR = {
   replied: "text-purple-400 bg-purple-500/10 border-purple-500/20",
 };
 
+function asArray(value, key) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.[key])) return value[key];
+  return [];
+}
+
 export default function OutreachDashboard() {
   const [tab, setTab] = useState("sequences");
   const [sequences, setSequences] = useState([]);
@@ -25,18 +31,18 @@ export default function OutreachDashboard() {
     setLoading(true);
     try {
       const [s, e] = await Promise.all([
-        api.get("/outreach/sequences/stats").then(r => r.data),
-        api.get("/outreach/emails/pending?limit=50").then(r => r.data),
+        api.get("/api/v1/outreach/sequences/stats").then(r => r.data),
+        api.get("/api/v1/outreach/emails/pending?limit=50").then(r => r.data),
       ]);
-      setSequences(s);
-      setPendingEmails(e);
+      setSequences(asArray(s, "sequences"));
+      setPendingEmails(asArray(e, "emails"));
     } catch (e) { console.error(e); }
     setLoading(false);
   }
 
   async function createSequence() {
     try {
-      await api.post("/outreach/sequences?ai_generate=true", newSeq);
+      await api.post("/api/v1/outreach/sequences?ai_generate=true", newSeq);
       setShowNew(false);
       setNewSeq({ name: "", target_industry: "saas", target_country: "usa", service_offered: "AI automation" });
       loadAll();
@@ -46,7 +52,7 @@ export default function OutreachDashboard() {
   async function sendEmail(id) {
     setSending(s => ({ ...s, [id]: true }));
     try {
-      await api.post(`/outreach/emails/${id}/send`);
+      await api.post(`/api/v1/outreach/emails/${id}/send`);
       loadAll();
     } catch (e) { console.error(e); }
     setSending(s => ({ ...s, [id]: false }));
@@ -55,7 +61,7 @@ export default function OutreachDashboard() {
   async function processDue() {
     setProcessing(true);
     try {
-      const r = await api.post("/outreach/emails/process-due?limit=10");
+      const r = await api.post("/api/v1/outreach/emails/process-due?limit=10");
       alert(`Processed ${r.data.processed} emails, sent ${r.data.sent}`);
       loadAll();
     } catch (e) { console.error(e); }
