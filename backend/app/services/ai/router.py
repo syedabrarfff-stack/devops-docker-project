@@ -18,6 +18,7 @@ from app.services.ai.providers.extra_providers import (
     ZhipuAIProvider, QwenProvider, MoonshotProvider, MinimaxProvider, NvidiaProvider
 )
 from app.services.ai.health_monitor import health_monitor
+from app.services.ai.cost_governance import should_use_claude
 from app.services.ai.cost_tracker import estimate_cost
 from app.middleware import observe_ai_latency, record_ai_cost
 
@@ -143,22 +144,25 @@ OPERATIONAL CAPABILITIES
 # Routing table: task_type -> [(provider_key, model_key), ...] (primary first, then fallbacks)
 ROUTING_TABLE: dict = {
     TaskType.CODE: [
-        ("anthropic", "claude-sonnet"),
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
         ("nvidia", "nvidia-nim"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.RESEARCH: [
-        ("google", "gemini-pro"),
+        ("deepseek", "deepseek-v4-pro"),
+        ("groq", "llama-3-3"),
         ("openai", "gpt-4o"),
-        ("anthropic", "claude-sonnet"),
         ("nvidia", "nvidia-nim"),
+        ("google", "gemini-pro"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.REASONING: [
-        ("anthropic", "claude-opus"),
+        ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
-        ("google", "gemini-pro"),
         ("nvidia", "nvidia-nim"),
+        ("google", "gemini-pro"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.FAST: [
         ("nvidia", "nvidia-nim"),
@@ -167,10 +171,11 @@ ROUTING_TABLE: dict = {
         ("openai", "gpt-4o-mini"),
     ],
     TaskType.LONG_CONTEXT: [
-        ("google", "gemini-pro"),
         ("moonshot", "kimi-k2"),
-        ("anthropic", "claude-sonnet"),
+        ("openai", "gpt-4o"),
         ("nvidia", "nvidia-nim"),
+        ("google", "gemini-pro"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.MULTILINGUAL: [
         ("zhipuai", "glm-5-1"),
@@ -180,33 +185,34 @@ ROUTING_TABLE: dict = {
     TaskType.MATH: [
         ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
-        ("anthropic", "claude-sonnet"),
         ("nvidia", "nvidia-nim"),
     ],
     TaskType.GENERAL: [
         ("nvidia", "nvidia-nim"),
-        ("openai", "gpt-4o"),
-        ("anthropic", "claude-sonnet"),
-        ("deepseek", "deepseek-v4-flash"),
         ("groq", "llama-3-3"),
+        ("mistral", "mistral-large"),
+        ("openai", "gpt-4o-mini"),
+        ("deepseek", "deepseek-v4-flash"),
     ],
     TaskType.ANALYSIS: [
-        ("anthropic", "claude-opus"),
+        ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
-        ("google", "gemini-pro"),
         ("nvidia", "nvidia-nim"),
+        ("google", "gemini-pro"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.STRATEGY: [
-        ("anthropic", "claude-opus"),
+        ("deepseek", "deepseek-v4-pro"),
         ("openai", "gpt-4o"),
-        ("anthropic", "claude-sonnet"),
         ("nvidia", "nvidia-nim"),
+        ("anthropic", "claude-sonnet"),
     ],
     TaskType.SALES: [
-        ("anthropic", "claude-opus"),
         ("openai", "gpt-4o"),
-        ("google", "gemini-pro"),
+        ("deepseek", "deepseek-v4-pro"),
+        ("mistral", "mistral-large"),
         ("nvidia", "nvidia-nim"),
+        ("google", "gemini-pro"),
     ],
     TaskType.MULTIMODAL: [
         ("openai", "gpt-4o"),         # GPT-4o vision
@@ -317,8 +323,27 @@ class AIRouter:
         # Force specific provider/model (bypasses circuit breaker — Captain override)
         if force_provider and force_provider in self._providers:
             provider = self._providers[force_provider]
+            model_id = ""
             if provider.is_available():
                 model_id = force_model or list(provider.models.values())[0]
+                budget_decision = await should_use_claude(
+                    task_type=task_type.value,
+                    provider=force_provider,
+                    model_id=model_id,
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    max_tokens=max_tokens,
+                    forced=True,
+                )
+                if not budget_decision.allowed:
+                    logger.warning(
+                        "Skipping forced %s/%s: %s",
+                        force_provider,
+                        model_id,
+                        budget_decision.reason,
+                    )
+                    model_id = ""
+            if provider.is_available() and model_id:
                 t0 = time.monotonic()
                 response = await provider.chat(messages, model_id, system_prompt, max_tokens)
                 latency = int((time.monotonic() - t0) * 1000)
@@ -350,6 +375,22 @@ class AIRouter:
             provider = self._providers.get(provider_key)
             if provider and provider.is_available():
                 model_id = self._resolve_model(provider, model_key)
+                budget_decision = await should_use_claude(
+                    task_type=task_type.value,
+                    provider=provider_key,
+                    model_id=model_id,
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    max_tokens=max_tokens,
+                )
+                if not budget_decision.allowed:
+                    logger.info(
+                        "Skipping %s/%s: %s",
+                        provider_key,
+                        model_id,
+                        budget_decision.reason,
+                    )
+                    continue
                 logger.info(f"Routing {task_type.value} → {provider_key}/{model_id}")
                 t0 = time.monotonic()
                 response = await provider.chat(messages, model_id, system_prompt, max_tokens)

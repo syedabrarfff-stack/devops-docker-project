@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.services.ai.base_provider import Message
 from app.services.ai.router import ai_router as jarvis_router
 from app.services.ai.health_monitor import health_monitor
+from app.services.ai.cost_governance import claude_governance_status
 from app.services.ai.cost_tracker import (
     get_daily_cost, get_audit_log, get_cost_summary,
 )
@@ -144,6 +145,20 @@ async def routing_table():
             for p, m in route
         ]
     return {"routing_table": table}
+
+
+@router.get("/governance")
+async def ai_governance():
+    """Cost governance status for premium model usage."""
+    return {
+        "claude": await claude_governance_status(),
+        "routing_policy": {
+            "default": "cheap_provider_first",
+            "claude_role": "supreme_architect_only",
+            "lightweight_council": ["deepseek", "groq", "one premium only if policy allows"],
+            "full_council": "manual or high-impact escalation only",
+        },
+    }
 
 
 @router.get("/pulse")

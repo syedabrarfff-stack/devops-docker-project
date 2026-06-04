@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
     ELEVENLABS_VOICE_ID: str = "onwK4e9ZLuTAKqWW03F9"  # Daniel — British male
+    CLAUDE_BUDGET_TOTAL_USD: float = 5.0
+    CLAUDE_BUDGET_WINDOW_DAYS: int = 14
+    CLAUDE_RESERVE_RATIO: float = 0.20
+    CLAUDE_SINGLE_CALL_MAX_USD: float = 0.20
 
     # Lead discovery
     GOOGLE_MAPS_API_KEY: Optional[str] = None
