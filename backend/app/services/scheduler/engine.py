@@ -243,6 +243,9 @@ async def _register_default_jobs() -> None:
 
     # ── 9-Connector Daily Automation Pipeline ─────────────────────────────────
 
+    # Scout Network — 01:30 UTC — 9 agents discover leads, push to GitHub /jarvis-data/
+    add_cron_job("daily_scout_network", _job_scout_network, hour=1, minute=30)
+
     # Connector Hub ingestion — 14:30 UTC (20:00 IST) — pulls GitHub /jarvis-data/, scores 20 leads from connectors
     add_cron_job("daily_connector_hub_ingestion", _job_connector_hub_ingestion, hour=14, minute=30)
 
@@ -834,6 +837,22 @@ async def _job_connector_hub_ingestion() -> None:
             )
     except Exception as exc:
         logger.warning("ConnectorHub ingestion failed: %s", exc)
+
+
+async def _job_scout_network() -> None:
+    """9 Scout Agents: discover leads in parallel and push to GitHub jarvis-data/ at 01:30 UTC."""
+    logger.info("ScoutNetwork: starting daily 9-agent lead discovery")
+    try:
+        from app.services.leads.scout_network import scout_network
+        result = await scout_network.run_all_scouts()
+        logger.info(
+            "ScoutNetwork: %d leads discovered across %d scouts | github=%s",
+            result.get("total_leads", 0),
+            len(result.get("scout_summary", {})),
+            result.get("github_push", {}).get("github", "unknown"),
+        )
+    except Exception as exc:
+        logger.warning("ScoutNetwork daily job failed: %s", exc)
 
 
 async def _job_market_intelligence_generation() -> None:

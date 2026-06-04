@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
 
+    # GitHub Bridge (scout network pushes daily leads to jarvis-data/)
+    GITHUB_TOKEN: Optional[str] = None
+    GITHUB_REPO_OWNER: str = "syedabrarfff-stack"
+    GITHUB_REPO_NAME: str = "devops-docker-project"
+    GITHUB_BRIDGE_BRANCH: str = "claude/jarvis-cans-api-integration-ZThTD"
+
     # AWS (Phase 3 — SSM + S3 | Phase 6 — ECS production)
     USE_AWS: bool = False
     AWS_ACCESS_KEY_ID: Optional[str] = None

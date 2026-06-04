@@ -1,0 +1,1 @@
+{"_readme": "JARVIS Scout Network daily lead packages. Format: jarvis-data/daily/YYYY-MM-DD/leads.json", "bridge_schedule": "Scout writes at 01:30 UTC. EC2 connector_hub pulls at 14:30 UTC.", "scouts": ["SCOUT_SAAS","SCOUT_AGENCY","SCOUT_DEVOPS","SCOUT_SECURITY","SCOUT_STARTUP","SCOUT_ECOM","SCOUT_CREATOR","SCOUT_CONSULTING","SCOUT_FINTECH"]}

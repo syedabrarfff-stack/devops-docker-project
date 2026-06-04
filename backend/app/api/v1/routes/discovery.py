@@ -302,5 +302,48 @@ def _lead_quality(score: int) -> str:
     return "cold"
 
 
+# ── Scout Network ─────────────────────────────────────────────────────────────
+
+scouts_router = APIRouter(prefix="/scouts", tags=["Scout Agent Network"])
+
+
+@scouts_router.post("/run")
+async def run_scout_network():
+    """
+    Manually trigger all 9 scout agents. Discovers leads and pushes to GitHub.
+    Runs automatically daily at 01:30 UTC via scheduler.
+    """
+    from app.services.leads.scout_network import scout_network
+    result = await scout_network.run_all_scouts()
+    return result
+
+
+@scouts_router.get("/status")
+async def scout_network_status():
+    """Return scout agent profiles and next scheduled run."""
+    from app.services.leads.scout_network import SCOUT_PROFILES
+    from app.services.scheduler.engine import get_jobs
+    jobs = {j["id"]: j for j in get_jobs()}
+    scout_job = jobs.get("daily_scout_network", {})
+    return {
+        "scouts": [
+            {
+                "id": sid,
+                "name": p["name"],
+                "specialty": p["specialty"],
+                "target_countries": p["target_countries"],
+                "recommended_service": p["recommended_service"],
+            }
+            for sid, p in SCOUT_PROFILES.items()
+        ],
+        "total_scouts": len(SCOUT_PROFILES),
+        "schedule": "Daily at 01:30 UTC",
+        "next_run": scout_job.get("next_run"),
+        "github_bridge": "Pushes to jarvis-data/daily/YYYY-MM-DD/leads.json",
+        "ec2_pull": "Connector Hub pulls at 14:30 UTC",
+    }
+
+
 router.include_router(discover_router)
 router.include_router(legacy_router)
+router.include_router(scouts_router)
