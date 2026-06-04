@@ -55,7 +55,36 @@ from app.services.aionx.sentinel_layer import (
     register_threat,
 )
 
+from app.services.aionx.orchestration_cortex import (
+    compute_operational_iq,
+    fire_event,
+    situational_snapshot,
+)
+
 router = APIRouter(prefix="/aionx", tags=["AIONX"])
+
+
+# ─── ORCHESTRATION CORTEX ────────────────────────────────────────────────────
+
+@router.get("/cortex/operational-iq")
+async def operational_iq(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await compute_operational_iq(db)
+
+
+@router.get("/cortex/snapshot")
+async def cortex_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await situational_snapshot(db)
+
+
+@router.post("/cortex/event")
+async def cortex_fire_event(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    event_type = payload.get("event_type")
+    if not event_type:
+        raise HTTPException(status_code=400, detail="event_type required")
+    return await fire_event(db, event_type, payload)
 
 
 # ─── WISDOM INDEX ────────────────────────────────────────────────────────────

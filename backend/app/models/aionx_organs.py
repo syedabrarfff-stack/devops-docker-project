@@ -248,6 +248,7 @@ class WisdomIndexSnapshot(JarvisBase):
     __table_args__ = (UniqueConstraint("week_of"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     week_of: Mapped[date] = mapped_column(Date, nullable=False)
     wisdom_score: Mapped[float] = mapped_column(Float, nullable=False, default=500.0)
     previous_score: Mapped[float] = mapped_column(Float, nullable=False, default=500.0)
@@ -265,6 +266,7 @@ class WisdomIndexSnapshot(JarvisBase):
     narrative: Mapped[str | None] = mapped_column(Text, nullable=True)
     recommendations: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
 # ─── PROVIDER SOVEREIGN COUNCIL ──────────────────────────────────────────────

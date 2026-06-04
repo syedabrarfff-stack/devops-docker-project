@@ -252,7 +252,14 @@ async def _register_default_jobs() -> None:
     # Market intelligence generation — 04:00 UTC (09:30 IST) — feeds next day's jarvis-data/intelligence/
     add_cron_job("daily_market_intelligence", _job_market_intelligence_generation, hour=4, minute=0)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline)")
+    # ── AIONX Sovereign Organs — the heartbeat that makes the organs autonomous ──
+    try:
+        from app.services.aionx.aionx_scheduler import register_aionx_jobs
+        register_aionx_jobs(add_cron_job, add_interval_job)
+    except Exception as exc:
+        logger.warning("AIONX job registration failed: %s", exc)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs)")
 
 
 async def _job_morning_briefing() -> None:

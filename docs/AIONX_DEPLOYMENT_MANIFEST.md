@@ -165,9 +165,59 @@ curl http://localhost:8000/api/v1/council/status
 
 | Batch | Name | Status |
 |-------|------|--------|
-| Batch 1 | 33-Stage Client Journey Orchestrator | PENDING |
-| Batch 2 | 9 Sovereign Organs + Supreme Council Layer | **THIS DEPLOYMENT** |
+| Batch 1 | 33-Stage Client Journey Orchestrator | PARTIAL — Orchestration Cortex live |
+| Batch 2 | 9 Sovereign Organs + Supreme Council Layer | DEPLOYED |
+| Batch 2.5 | Orchestration Cortex + Scheduler Heartbeat | **THIS DEPLOYMENT** |
 | Batch 3 | Infrastructure, HIA System, Zero-SPOF, Governance | PENDING |
+
+---
+
+## BATCH 2.5 — ORCHESTRATION CORTEX + HEARTBEAT (makes organs autonomous)
+
+After pulling and restarting backend, the organs are no longer dormant.
+
+**New scheduler jobs (auto-registered on backend start):**
+
+| Job | Cadence | Purpose |
+|-----|---------|---------|
+| `aionx_sentinel_sweep` | every 2h | Layer 1 — world observation |
+| `aionx_escalation_processor` | every 30m | Layer 2 — escalate signals to councils |
+| `aionx_operational_iq` | every 1h | Live Operational IQ recompute |
+| `aionx_retro_30d` | daily 22:00 | 30-day decision retrospective |
+| `aionx_retro_90d` | daily 22:15 | 90-day decision retrospective |
+| `aionx_twin_predictions` | daily 03:00 | Refresh churn/upsell; fire churn alerts |
+| `aionx_wisdom_weekly` | Sun 19:00 | Institutional Wisdom Index |
+| `aionx_decision_retrospective` | Sun 19:30 | Weekly decision review |
+
+**New endpoints:**
+
+```bash
+# Live Operational IQ (0-100) — how the whole company is doing right now
+curl http://localhost:8000/api/v1/aionx/cortex/operational-iq
+
+# Full situational snapshot for Captain Glass Wall
+curl http://localhost:8000/api/v1/aionx/cortex/snapshot
+
+# Fire an Event Fabric cascade manually (e.g. test CLIENT_SIGNED)
+curl -X POST http://localhost:8000/api/v1/aionx/cortex/event \
+  -H "Content-Type: application/json" \
+  -d '{"event_type":"CLIENT_SIGNED","client_id":"<uuid>"}'
+```
+
+**Verify heartbeat is live:**
+
+```bash
+curl http://localhost:8000/api/v1/scheduler/jobs | grep aionx
+```
+
+Expected: 8 `aionx_*` jobs listed with next_run times.
+
+**Event Fabric cascades wired:**
+- `CLIENT_SIGNED` → twin + decision + delivery council + ownership + notify
+- `LEAD_REPLIED` → decision + twin interaction + speed-to-lead queue
+- `MISSION_FAILED` → autopsy + convergence council + decision + notify
+- `CHURN_RISK_DETECTED` → convergence council + decision + notify
+- `SENTINEL_STRONG_SIGNAL` → provider council + decision
 
 ---
 

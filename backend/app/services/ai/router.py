@@ -514,3 +514,35 @@ def _department_for_task(task_type: str) -> str:
 
 # Singleton instance
 ai_router = AIRouter()
+
+
+async def route_task(
+    task_type: TaskType | str = TaskType.GENERAL,
+    prompt: str = "",
+    *,
+    system_prompt: str | None = None,
+    max_tokens: int = 1024,
+) -> str:
+    """Convenience helper used by the AIONX sovereign organs.
+
+    Routes a single prompt through the multi-provider router and returns the
+    response text. Resilient: on any provider failure it returns a safe marker
+    string rather than raising, so council/sentinel loops never crash the system.
+    """
+    if isinstance(task_type, str):
+        try:
+            task_type = TaskType(task_type.lower())
+        except ValueError:
+            task_type = TaskType.GENERAL
+
+    messages = [Message(role="user", content=prompt)]
+    try:
+        kwargs = {"task_type": task_type, "max_tokens": max_tokens}
+        if system_prompt:
+            kwargs["system_prompt"] = system_prompt
+        response, _used = await ai_router.chat(messages, **kwargs)
+        return response.content if response and response.content else "NO_RESPONSE"
+    except Exception as exc:  # noqa: BLE001 — organs must never crash on AI failure
+        logger.warning("route_task failed for %s: %s", task_type, exc)
+        return "ROUTE_TASK_UNAVAILABLE"
+

@@ -246,6 +246,7 @@ def upgrade() -> None:
     op.execute("""
         CREATE TABLE IF NOT EXISTS wisdom_index_snapshots (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID,
             week_of DATE NOT NULL UNIQUE,
             wisdom_score FLOAT NOT NULL DEFAULT 500.0,
             previous_score FLOAT NOT NULL DEFAULT 500.0,
@@ -262,7 +263,8 @@ def upgrade() -> None:
             self_mod_success_score FLOAT NOT NULL DEFAULT 0.0,
             narrative TEXT,
             recommendations JSONB NOT NULL DEFAULT '[]',
-            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
     """)
 
