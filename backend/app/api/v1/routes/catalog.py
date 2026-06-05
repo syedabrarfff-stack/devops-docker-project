@@ -11,6 +11,7 @@ from app.services.catalog.catalog_service import (
     get_groups,
     update_division,
     get_catalog_stats,
+    get_capability_modules,
     seed_catalog,
 )
 
@@ -51,6 +52,12 @@ async def list_groups(db: AsyncSession = Depends(get_db)):
 async def catalog_stats(db: AsyncSession = Depends(get_db)):
     await seed_catalog(db)
     return await get_catalog_stats(db)
+
+
+@router.get("/capability-modules")
+async def capability_modules():
+    """Canonical AIONX service catalog: 25 capability modules with HIA ownership."""
+    return get_capability_modules()
 
 
 @router.post("/seed")

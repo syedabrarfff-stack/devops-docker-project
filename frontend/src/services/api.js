@@ -211,6 +211,7 @@ export const getCatalogDivisions = (params) => api.get('/api/v1/catalog/division
 export const getCatalogDivision = (code) => api.get(`/api/v1/catalog/divisions/${code}`).then(r => r.data)
 export const getCatalogGroups = () => api.get('/api/v1/catalog/groups').then(r => r.data)
 export const getCatalogStats = () => api.get('/api/v1/catalog/stats').then(r => r.data)
+export const getCatalogCapabilityModules = () => api.get('/api/v1/catalog/capability-modules').then(r => r.data)
 export const seedCatalog = () => api.post('/api/v1/catalog/seed').then(r => r.data)
 export const updateCatalogDivision = (code, data) => api.patch(`/api/v1/catalog/divisions/${code}`, data).then(r => r.data)
 

@@ -444,6 +444,263 @@ SEED_DIVISIONS = [
 ]
 
 
+CAPABILITY_MODULES = [
+    {
+        "code": "SCOUT",
+        "name": "Lead Intelligence",
+        "division": "Revenue Operations",
+        "human_interface_executive": "James Whitfield",
+        "agent_layer": ["Lead discovery", "ICP scoring", "market signal analysis"],
+        "kpi_targets": ["20 qualified discoveries/day", "lead quality trend", "source conversion"],
+        "description": "Finds, enriches, scores, and prioritizes prospects before outreach begins.",
+    },
+    {
+        "code": "HERALD",
+        "name": "Outreach",
+        "division": "Revenue Operations",
+        "human_interface_executive": "Darren Mitchell",
+        "agent_layer": ["Email sequencing", "reply handling", "personalization"],
+        "kpi_targets": ["48 emails/day max", "reply rate", "positive intent rate"],
+        "description": "Runs governed outreach with compliant sequencing, personalization, and response routing.",
+    },
+    {
+        "code": "NEXUS-R",
+        "name": "CRM Intelligence",
+        "division": "Revenue Operations",
+        "human_interface_executive": "Emma Collins",
+        "agent_layer": ["CRM hygiene", "pipeline intelligence", "contact history"],
+        "kpi_targets": ["clean lifecycle states", "deal velocity", "stale lead reduction"],
+        "description": "Maintains revenue truth across CRM, contacts, deals, lifecycle state, and client context.",
+    },
+    {
+        "code": "ORACLE-S",
+        "name": "Sales Forecasting",
+        "division": "Revenue Operations",
+        "human_interface_executive": "Emma Collins",
+        "agent_layer": ["forecast modeling", "probability scoring", "close-risk analysis"],
+        "kpi_targets": ["forecast accuracy", "close probability", "pipeline risk alerts"],
+        "description": "Predicts revenue outcomes, deal risk, and next-best commercial actions.",
+    },
+    {
+        "code": "PRISM",
+        "name": "Workflow Automation",
+        "division": "AI Automation",
+        "human_interface_executive": "Sophia Reynolds",
+        "agent_layer": ["process mapping", "workflow design", "automation deployment"],
+        "kpi_targets": ["manual hours removed", "automation uptime", "handoff accuracy"],
+        "description": "Turns repeatable business operations into governed automated workflows.",
+    },
+    {
+        "code": "ECHO",
+        "name": "Agent Deployment",
+        "division": "AI Automation",
+        "human_interface_executive": "Sophia Reynolds",
+        "agent_layer": ["agent design", "tool routing", "capability governance"],
+        "kpi_targets": ["agent success rate", "approval compliance", "fallback coverage"],
+        "description": "Deploys specialized AI agents with clear tools, memory, permissions, and boundaries.",
+    },
+    {
+        "code": "PULSE",
+        "name": "Voice Systems",
+        "division": "AI Automation",
+        "human_interface_executive": "Lucas Reed",
+        "agent_layer": ["voice intake", "call transcription", "speech synthesis"],
+        "kpi_targets": ["call coverage", "handoff accuracy", "voice response latency"],
+        "description": "Creates voice-first client and operations interfaces for calls, reception, and briefings.",
+    },
+    {
+        "code": "SIGNAL",
+        "name": "Communication",
+        "division": "AI Automation",
+        "human_interface_executive": "Lucas Reed",
+        "agent_layer": ["notifications", "message routing", "communication memory"],
+        "kpi_targets": ["response SLA", "message clarity", "missed-update prevention"],
+        "description": "Coordinates structured communication across Captain, clients, departments, and agents.",
+    },
+    {
+        "code": "BRIDGE",
+        "name": "Scheduling",
+        "division": "AI Automation",
+        "human_interface_executive": "Olivia Bennett",
+        "agent_layer": ["calendar orchestration", "call prep", "meeting follow-up"],
+        "kpi_targets": ["booking completion", "briefing readiness", "no-show reduction"],
+        "description": "Connects calendar events to briefings, client context, reminders, and post-call actions.",
+    },
+    {
+        "code": "ATLAS-CI",
+        "name": "AWS Architecture",
+        "division": "Cloud & DevOps",
+        "human_interface_executive": "David Carter",
+        "agent_layer": ["cloud topology", "runtime design", "AWS governance"],
+        "kpi_targets": ["uptime", "cost efficiency", "deployment readiness"],
+        "description": "Designs AWS runtime foundations, networking, compute, storage, and production governance.",
+    },
+    {
+        "code": "NEXUS-TF",
+        "name": "Terraform",
+        "division": "Cloud & DevOps",
+        "human_interface_executive": "Nathan Scott",
+        "agent_layer": ["IaC modules", "state governance", "environment reproducibility"],
+        "kpi_targets": ["drift prevention", "rebuild speed", "change auditability"],
+        "description": "Turns cloud infrastructure into repeatable, auditable, version-controlled IaC modules.",
+    },
+    {
+        "code": "SIGNAL-CD",
+        "name": "CI/CD",
+        "division": "Cloud & DevOps",
+        "human_interface_executive": "Nathan Scott",
+        "agent_layer": ["build pipelines", "deployment gates", "rollback paths"],
+        "kpi_targets": ["deploy success", "rollback time", "test gate coverage"],
+        "description": "Automates build, test, deployment, rollback, and release governance.",
+    },
+    {
+        "code": "HELM",
+        "name": "Kubernetes",
+        "division": "Cloud & DevOps",
+        "human_interface_executive": "Michael Hayes",
+        "agent_layer": ["cluster design", "workload orchestration", "autoscaling"],
+        "kpi_targets": ["cluster health", "resource efficiency", "resilience"],
+        "description": "Packages scalable workloads for Kubernetes and future cloud-native orchestration.",
+    },
+    {
+        "code": "RADAR",
+        "name": "Observability",
+        "division": "Cloud & DevOps",
+        "human_interface_executive": "Michael Hayes",
+        "agent_layer": ["metrics", "logs", "traces", "alerts"],
+        "kpi_targets": ["MTTD", "MTTR", "alert precision"],
+        "description": "Makes system health visible through telemetry, dashboards, alerts, and operational evidence.",
+    },
+    {
+        "code": "CIPHER",
+        "name": "Security Operations",
+        "division": "Security & Compliance",
+        "human_interface_executive": "Daniel Brooks",
+        "agent_layer": ["access review", "threat monitoring", "security posture"],
+        "kpi_targets": ["risk reduction", "IAM hygiene", "threat response"],
+        "description": "Protects cloud, application, and operational surfaces with continuous security discipline.",
+    },
+    {
+        "code": "GUARDIAN",
+        "name": "Vulnerability",
+        "division": "Security & Compliance",
+        "human_interface_executive": "Daniel Brooks",
+        "agent_layer": ["vulnerability scans", "risk ranking", "remediation tracking"],
+        "kpi_targets": ["critical findings closed", "scan coverage", "risk aging"],
+        "description": "Finds, prioritizes, and tracks security weaknesses before they become incidents.",
+    },
+    {
+        "code": "LEDGER",
+        "name": "Compliance",
+        "division": "Security & Compliance",
+        "human_interface_executive": "Daniel Brooks",
+        "agent_layer": ["audit trail", "policy mapping", "approval evidence"],
+        "kpi_targets": ["audit completeness", "policy coverage", "approval traceability"],
+        "description": "Maintains governance evidence, decision trails, approval logs, and compliance records.",
+    },
+    {
+        "code": "ORACLE-BI",
+        "name": "Business Intelligence",
+        "division": "Intelligence & Data",
+        "human_interface_executive": "Emma Collins",
+        "agent_layer": ["KPI modeling", "dashboard intelligence", "business reporting"],
+        "kpi_targets": ["insight freshness", "report accuracy", "decision usefulness"],
+        "description": "Turns operational data into executive reporting, KPI insight, and decision intelligence.",
+    },
+    {
+        "code": "MARKET",
+        "name": "Market Intelligence",
+        "division": "Intelligence & Data",
+        "human_interface_executive": "Sophia Reynolds",
+        "agent_layer": ["market scans", "competitor tracking", "opportunity mapping"],
+        "kpi_targets": ["opportunity quality", "trend detection", "market relevance"],
+        "description": "Studies markets, competitors, categories, and opportunity spaces for revenue advantage.",
+    },
+    {
+        "code": "QUANT",
+        "name": "Financial Forecasting",
+        "division": "Intelligence & Data",
+        "human_interface_executive": "Emma Collins",
+        "agent_layer": ["cash forecasting", "scenario modeling", "revenue simulation"],
+        "kpi_targets": ["forecast confidence", "scenario coverage", "financial risk visibility"],
+        "description": "Models financial outcomes, cash impact, revenue scenarios, and decision tradeoffs.",
+    },
+    {
+        "code": "QUILL",
+        "name": "Executive Briefings",
+        "division": "Intelligence & Data",
+        "human_interface_executive": "Sophia Reynolds",
+        "agent_layer": ["briefing synthesis", "meeting packs", "strategic narrative"],
+        "kpi_targets": ["briefing quality", "prep time saved", "context completeness"],
+        "description": "Packages complex operational context into clear Captain, client, and council briefings.",
+    },
+    {
+        "code": "PORTAL",
+        "name": "Client Portals",
+        "division": "Digital Products",
+        "human_interface_executive": "David Carter",
+        "agent_layer": ["client workspace", "project visibility", "secure delivery"],
+        "kpi_targets": ["client adoption", "ticket reduction", "delivery transparency"],
+        "description": "Builds secure client-facing portals for projects, deliverables, files, and communication.",
+    },
+    {
+        "code": "CANVAS",
+        "name": "Dashboards",
+        "division": "Digital Products",
+        "human_interface_executive": "Michael Hayes",
+        "agent_layer": ["dashboard UI", "live metrics", "decision screens"],
+        "kpi_targets": ["load speed", "metric accuracy", "executive usability"],
+        "description": "Creates operational dashboards that make system, client, and revenue state readable.",
+    },
+    {
+        "code": "VISION",
+        "name": "Data Visualization",
+        "division": "Digital Products",
+        "human_interface_executive": "Emma Collins",
+        "agent_layer": ["visual analytics", "charts", "storytelling"],
+        "kpi_targets": ["clarity", "signal density", "insight discovery"],
+        "description": "Transforms raw data into visual stories, charts, maps, and decision-ready interfaces.",
+    },
+    {
+        "code": "COUNCIL",
+        "name": "AIONX Strategic Intelligence",
+        "division": "Strategic Intelligence",
+        "human_interface_executive": "Sophia Reynolds",
+        "agent_layer": ["council synthesis", "strategic arbitration", "governance memory"],
+        "kpi_targets": ["decision quality", "council consensus", "governed autonomy"],
+        "description": "Coordinates AIONX strategic reasoning, executive decision support, and governance intelligence.",
+    },
+]
+
+
+def get_capability_modules() -> dict:
+    grouped: dict[str, list[dict]] = {}
+    hia_index: dict[str, int] = {}
+    for index, module in enumerate(CAPABILITY_MODULES, start=1):
+        item = {"sort_order": index, **module}
+        grouped.setdefault(module["division"], []).append(item)
+        hia = module["human_interface_executive"]
+        hia_index[hia] = hia_index.get(hia, 0) + 1
+
+    return {
+        "total": len(CAPABILITY_MODULES),
+        "division_count": len(grouped),
+        "hia_count": len(hia_index),
+        "modules": [{"sort_order": index, **module} for index, module in enumerate(CAPABILITY_MODULES, start=1)],
+        "groups": [
+            {"division": division, "count": len(modules), "modules": modules}
+            for division, modules in grouped.items()
+        ],
+        "governance_model": {
+            "internal_owner": "Department Intelligence Officer",
+            "client_voice": "Human Interface Executive",
+            "execution_layer": "AI agents",
+            "cadence": "Weekly Council cycle",
+            "visibility": "Real-time health dashboard",
+        },
+    }
+
+
 async def seed_catalog(db: AsyncSession) -> int:
     """Seed the catalog if empty. Returns count of records inserted."""
     result = await db.execute(select(ServiceDivision).limit(1))
