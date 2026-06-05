@@ -337,13 +337,13 @@ def _email_engine_status() -> dict[str, Any]:
     elif settings.OUTREACH_PAUSED:
         validation_error = "Outreach is paused by configuration."
     else:
-        validation_error = ""
+        validation_error = "SMTP runtime validation required at /api/v1/gmail/status before live send."
     return {
         "configured": configured,
         "credential_shape_valid": bool(shape_valid),
         "smtp_runtime_check": "available_at_/api/v1/gmail/status",
         "daily_cap": int(settings.OUTREACH_DAILY_SEND_CAP or 48),
-        "send_mode": "live" if shape_valid and not settings.OUTREACH_PAUSED else "blocked",
+        "send_mode": "runtime_validation_required" if shape_valid and not settings.OUTREACH_PAUSED else "blocked",
         "sender": sender if configured else None,
         "outreach_paused": bool(settings.OUTREACH_PAUSED),
         "validation_error": validation_error,
