@@ -7,7 +7,7 @@ POST /auth/gmail/revoke      — revoke and delete tokens
 GET  /auth/gmail/profile     — get connected Gmail profile
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.config import settings
@@ -38,6 +38,42 @@ def _default_redirect(request: Request | None = None) -> str:
 def _frontend_redirect(request: Request | None = None) -> str:
     base = _public_base_url(request)
     return f"{base}/outreach?gmail_connected=1"
+
+
+def _gmail_success_html(request: Request | None = None) -> str:
+    origin = _public_base_url(request)
+    fallback = _frontend_redirect(request)
+    return f"""<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Gmail connected</title>
+    <style>
+      body {{ background:#07111f; color:#e8f2ff; font-family:Arial,sans-serif; display:grid; place-items:center; min-height:100vh; margin:0; }}
+      main {{ max-width:520px; padding:32px; border:1px solid rgba(255,255,255,.12); border-radius:18px; background:rgba(255,255,255,.06); }}
+      h1 {{ margin:0 0 10px; font-size:24px; }}
+      p {{ color:rgba(232,242,255,.72); line-height:1.5; }}
+      a {{ color:#7dd3fc; }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Gmail connected</h1>
+      <p>JARVIS has stored the Gmail authorization. You can return to Outreach now.</p>
+      <p><a href="{fallback}">Open Outreach</a></p>
+    </main>
+    <script>
+      const message = {{ type: "jarvis:gmail-connected", connected: true }};
+      try {{
+        if (window.opener && !window.opener.closed) {{
+          window.opener.postMessage(message, "{origin}");
+          window.close();
+        }}
+      }} catch (error) {{}}
+      setTimeout(() => {{ window.location.href = "{fallback}"; }}, 1200);
+    </script>
+  </body>
+</html>"""
 
 
 @router.get("/gmail/status")
@@ -78,9 +114,9 @@ async def gmail_callback(
     if not _is_oauth_configured():
         raise HTTPException(400, "OAuth not configured")
     try:
-        data = await exchange_code(code, redirect_uri or _default_redirect(request), db)
+        await exchange_code(code, redirect_uri or _default_redirect(request), db)
         await db.commit()
-        return RedirectResponse(url=_frontend_redirect(request))
+        return HTMLResponse(_gmail_success_html(request))
     except Exception as e:
         raise HTTPException(400, f"Token exchange failed: {e}")
 

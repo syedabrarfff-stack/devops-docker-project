@@ -40,6 +40,16 @@ export default function OutreachDashboard() {
 
   useEffect(() => { loadAll(); }, []);
 
+  useEffect(() => {
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin || event.data?.type !== "jarvis:gmail-connected") return;
+      setLastRun({ gmail_connected: true });
+      loadAll();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   async function loadAll() {
     setLoading(true);
     try {
@@ -112,7 +122,21 @@ export default function OutreachDashboard() {
   async function connectGmail() {
     try {
       const r = await api.get("/api/v1/auth/gmail/initiate");
-      window.open(r.data.auth_url, "_blank", "width=720,height=760");
+      const popup = window.open(r.data.auth_url, "jarvis_gmail_oauth", "width=720,height=760");
+      setLastRun({ gmail_connecting: true });
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        const status = await api.get("/api/v1/outreach/engine-status").then(resp => resp.data).catch(() => null);
+        if (status) setEngine(status);
+        if (status?.gmail?.oauth_connected || status?.gmail?.send_mode === "live") {
+          setLastRun({ gmail_connected: true });
+          if (popup && !popup.closed) popup.close();
+          await loadAll();
+          return;
+        }
+        if (popup?.closed) break;
+      }
+      setLastRun({ gmail_connecting: false, note: "Gmail OAuth window closed or timed out. Refresh status after completing Google approval." });
     } catch (e) {
       setLastRun({ error: e?.response?.data?.detail || e.message || "Gmail OAuth start failed" });
     }
@@ -251,6 +275,12 @@ export default function OutreachDashboard() {
           <div className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100/80">
             {lastRun.error
               ? `Last action failed: ${lastRun.error}`
+              : lastRun.gmail_connected
+                ? "Gmail OAuth connected. Outreach status refreshed."
+                : lastRun.gmail_connecting
+                  ? "Waiting for Gmail OAuth approval..."
+                  : lastRun.note
+                    ? lastRun.note
               : lastRun.queued_leads !== undefined
                 ? `Prepared queue: ${lastRun.queued_leads} leads queued, ${lastRun.skipped?.length || 0} skipped.`
                 : `Last run: sent ${lastRun.sent ?? 0} emails for tenant ${lastRun.tenant_id || ""}`}
