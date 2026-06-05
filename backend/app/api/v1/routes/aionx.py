@@ -649,3 +649,140 @@ async def recovery_actions(
     from app.services.aionx.client_trust_index import recovery_protocol
     actions = await recovery_protocol(db, client_id)
     return {"client_id": str(client_id), "recovery_actions": actions}
+
+
+# ─── OPTIONAL SYSTEMS (Steps 26-30) ──────────────────────────────────────────
+
+# HIA Certification Engine (Step 26)
+@router.get("/hia/certification/{hia_agent_id}")
+async def get_hia_certification(
+    hia_agent_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.hia_certification_engine import compute_hia_certification
+    return await compute_hia_certification(db, hia_agent_id)
+
+
+@router.get("/hia/certification/{hia_agent_id}/renewal")
+async def check_hia_renewal(
+    hia_agent_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.hia_certification_engine import check_certification_renewal
+    return await check_certification_renewal(db, hia_agent_id)
+
+
+# Voice Integration (Step 27)
+@router.post("/voice/briefing")
+async def generate_briefing_audio(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.voice_integration import generate_briefing_voice
+    return await generate_briefing_voice(
+        payload.get("text", ""),
+        payload.get("voice_persona", "BRIEFING")
+    )
+
+
+@router.post("/voice/alert")
+async def generate_alert_audio(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.voice_integration import generate_alert_voice
+    return await generate_alert_voice(
+        payload.get("text", ""),
+        payload.get("severity", "HIGH")
+    )
+
+
+@router.post("/voice/council")
+async def generate_council_audio(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.voice_integration import generate_council_voice
+    return await generate_council_voice(
+        payload.get("text", ""),
+        payload.get("council_name", "Convergence Council")
+    )
+
+
+# Mission File System (Step 28)
+@router.post("/mission-file/archive")
+async def archive_mission_doc(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_file_system import archive_mission_document
+    return await archive_mission_document(
+        db,
+        uuid.UUID(payload["mission_id"]),
+        payload["document_type"],
+        payload["content"],
+        payload.get("author", "JARVIS"),
+        payload.get("metadata")
+    )
+
+
+@router.get("/mission-file/{mission_id}/archive")
+async def retrieve_mission_archive(
+    mission_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_file_system import retrieve_mission_archive
+    return await retrieve_mission_archive(db, mission_id)
+
+
+@router.post("/mission-file/{mission_id}/verify")
+async def verify_mission_integrity(
+    mission_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_file_system import verify_mission_integrity
+    return await verify_mission_integrity(db, mission_id)
+
+
+@router.get("/mission-file/{mission_id}/dossier")
+async def export_dossier(
+    mission_id: uuid.UUID,
+    format: str = Query("pdf"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_file_system import export_mission_dossier
+    return await export_mission_dossier(db, mission_id, format)
+
+
+# Validation Layer (Step 29)
+@router.post("/validation/decision/{decision_id}")
+async def validate_decision(
+    decision_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.validation_layer import validate_decision_before_execution
+    return await validate_decision_before_execution(db, decision_id)
+
+
+@router.post("/validation/preflight/{decision_id}")
+async def preflight_check(
+    decision_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.validation_layer import pre_flight_check
+    return await pre_flight_check(db, decision_id)
+
+
+# Final Integration & Captain Dashboard (Step 30)
+@router.get("/dashboard")
+async def captain_dashboard(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.final_integration import generate_captain_intelligence_dashboard
+    return await generate_captain_intelligence_dashboard(db)
+
+
+@router.get("/system-info")
+async def system_info() -> dict[str, Any]:
+    from app.services.aionx.final_integration import get_aionx_system_info
+    return await get_aionx_system_info()
