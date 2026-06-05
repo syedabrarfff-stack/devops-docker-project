@@ -1,6 +1,6 @@
 """AIONX Batch 1 client pipeline state.
 
-Revision ID: 0019_aionx_batch1_client_pipeline
+Revision ID: 0019_aionx_batch1_pipeline
 Revises: 0018_aionx_tenant_columns
 Create Date: 2026-06-05
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from alembic import op
 
-revision = "0019_aionx_batch1_client_pipeline"
+revision = "0019_aionx_batch1_pipeline"
 down_revision = "0018_aionx_tenant_columns"
 branch_labels = None
 depends_on = None
