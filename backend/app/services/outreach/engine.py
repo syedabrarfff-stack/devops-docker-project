@@ -240,6 +240,23 @@ class OutreachEngine:
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
+                from app.services.outreach.gmail import gmail_delivery_status
+
+                gmail_status = await gmail_delivery_status(session, validate_smtp=True)
+                if gmail_status.get("send_mode") != "live":
+                    await self._audit(
+                        session,
+                        tenant_uuid,
+                        "outreach_execute_blocked_gmail_not_live",
+                        None,
+                        {
+                            "send_mode": gmail_status.get("send_mode"),
+                            "blocker_code": gmail_status.get("blocker_code"),
+                            "required_action": gmail_status.get("required_action"),
+                        },
+                    )
+                    return 0
+
                 due_items = (
                     await session.execute(
                         select(FollowUpQueue)
@@ -538,7 +555,7 @@ class OutreachEngine:
             {"approval_title": approval.title, "sequence_step": item.sequence_step},
         )
 
-    async def _audit(self, session, tenant_id: uuid.UUID, action: str, lead_id: uuid.UUID, payload: dict) -> None:
+    async def _audit(self, session, tenant_id: uuid.UUID, action: str, lead_id: uuid.UUID | None, payload: dict) -> None:
         session.add(
             AuditLog(
                 tenant_id=tenant_id,

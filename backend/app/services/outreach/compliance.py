@@ -45,6 +45,14 @@ OPT_OUT_TERMS = (
     "no thanks",
 )
 
+BLOCKED_RECIPIENT_DOMAINS = {
+    "example.com",
+    "example.org",
+    "example.net",
+    "test.com",
+    "localhost",
+}
+
 
 class OutreachComplianceService:
     def unsubscribe_token(self, email: str) -> str:
@@ -141,6 +149,8 @@ class OutreachComplianceService:
         recipient_email = normalize_email(recipient_email)
         if not recipient_email:
             return {"allowed": False, "reason": "missing_email"}
+        if not self.is_production_recipient(recipient_email):
+            return {"allowed": False, "reason": "non_production_recipient"}
         if await self.is_outreach_paused(session, tenant_id):
             return {"allowed": False, "reason": "outreach_paused"}
         if await self.is_do_not_contact(session, tenant_id, recipient_email):
@@ -254,6 +264,19 @@ class OutreachComplianceService:
         if domain_age_days < 28:
             return min(configured_cap, 35)
         return min(configured_cap, 48)
+
+    def is_production_recipient(self, email: str | None) -> bool:
+        normalized = normalize_email(email)
+        if not normalized or "@" not in normalized:
+            return False
+        local, domain = normalized.rsplit("@", 1)
+        if not local or not domain:
+            return False
+        if domain.endswith(".local") or domain.endswith(".test") or domain in BLOCKED_RECIPIENT_DOMAINS:
+            return False
+        if local.startswith(("test", "demo", "sample", "prelaunch-validation")):
+            return False
+        return True
 
     async def is_outreach_paused(self, session, tenant_id: uuid.UUID) -> bool:
         if settings.OUTREACH_PAUSED:
