@@ -229,6 +229,8 @@ export const getAIOpsRoutingTable = () => api.get('/api/v1/ai-ops/routing-table'
 export const getAionxArchitecture = () => api.get('/api/v1/aionx/architecture').then(r => r.data)
 export const getAionxDashboard = () => api.get('/api/v1/aionx/dashboard').then(r => r.data)
 export const getAionxSystemInfo = () => api.get('/api/v1/aionx/system-info').then(r => r.data)
+export const getBatch1Workflow = () => api.get('/api/v1/batch1/workflow').then(r => r.data)
+export const getBatch1Board = () => api.get('/api/v1/batch1/board').then(r => r.data)
 
 // Phase 9 — Team Registry
 export const getTeamMembers = (params) => api.get('/api/v1/team/members', { params }).then(r => r.data)

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -76,39 +76,39 @@ class StageTransition:
     captain_approved: bool = False
 
 PIPELINE_STAGES: dict[int, dict[str, Any]] = {
-    1: {"name": "Lead source identified", "phase": "Lead discovery & qualification", "department": "Market Intelligence"},
-    2: {"name": "Lead enriched", "phase": "Lead discovery & qualification", "department": "Lead Intelligence"},
-    3: {"name": "ICP fit scored", "phase": "Lead discovery & qualification", "department": "Sales Intelligence"},
-    4: {"name": "Pain hypothesis formed", "phase": "Lead discovery & qualification", "department": "Strategy"},
-    5: {"name": "Qualified opportunity approved", "phase": "Lead discovery & qualification", "department": "Captain Bridge"},
-    6: {"name": "First outreach sent", "phase": "Outreach & engagement", "department": "Outreach"},
-    7: {"name": "Reply captured", "phase": "Outreach & engagement", "department": "Outreach"},
-    8: {"name": "Discovery conversation booked", "phase": "Outreach & engagement", "department": "Sales"},
-    9: {"name": "Discovery notes analyzed", "phase": "Outreach & engagement", "department": "Sales Intelligence"},
-    10: {"name": "Buying committee mapped", "phase": "Outreach & engagement", "department": "Relationship Intelligence"},
-    11: {"name": "Solution fit validated", "phase": "Outreach & engagement", "department": "Engineering"},
-    12: {"name": "Engagement readiness approved", "phase": "Outreach & engagement", "department": "Council"},
-    13: {"name": "Proposal scope drafted", "phase": "Proposal & negotiation", "department": "Proposal Intelligence"},
-    14: {"name": "Technical feasibility validated", "phase": "Proposal & negotiation", "department": "Engineering"},
-    15: {"name": "ROI model prepared", "phase": "Proposal & negotiation", "department": "Finance"},
-    16: {"name": "Proposal reviewed by council", "phase": "Proposal & negotiation", "department": "Council"},
-    17: {"name": "Negotiation objections resolved", "phase": "Proposal & negotiation", "department": "Sales"},
-    18: {"name": "Final offer approved", "phase": "Proposal & negotiation", "department": "Captain Bridge"},
-    19: {"name": "Deal terms accepted", "phase": "Deal closure & onboarding", "department": "Sales"},
-    20: {"name": "Contract generated", "phase": "Deal closure & onboarding", "department": "Operations"},
-    21: {"name": "Payment path confirmed", "phase": "Deal closure & onboarding", "department": "Finance"},
-    22: {"name": "Onboarding packet created", "phase": "Deal closure & onboarding", "department": "Client Success"},
-    23: {"name": "Kickoff scheduled", "phase": "Deal closure & onboarding", "department": "Client Success"},
-    24: {"name": "Delivery mission designed", "phase": "Deal closure & onboarding", "department": "Delivery"},
-    25: {"name": "Client signed and mission activated", "phase": "Deal closure & onboarding", "department": "Captain Bridge"},
-    26: {"name": "Delivery sprint opened", "phase": "Delivery & execution", "department": "Delivery"},
-    27: {"name": "Milestones decomposed", "phase": "Delivery & execution", "department": "Operations"},
-    28: {"name": "Quality checkpoint passed", "phase": "Delivery & execution", "department": "QA"},
-    29: {"name": "Client validation completed", "phase": "Delivery & execution", "department": "Client Success"},
-    30: {"name": "Production handoff completed", "phase": "Delivery & execution", "department": "Engineering"},
-    31: {"name": "Success metrics reviewed", "phase": "Success & renewal", "department": "Client Success"},
-    32: {"name": "Renewal or expansion path proposed", "phase": "Success & renewal", "department": "Growth"},
-    33: {"name": "Relationship doctrine captured", "phase": "Success & renewal", "department": "Wisdom"},
+    1: {"name": "World scan", "phase": "Discovery & diagnosis", "department": "SCOUT", "output": "50-100 new leads/month", "monitoring": "Lead quality score, API health, discovery velocity", "fallback": "Free-tier discovery if paid APIs fail", "preventive": "Alert if discovery rate drops >20% week-over-week"},
+    2: {"name": "Lead enrichment", "phase": "Discovery & diagnosis", "department": "SCOUT", "output": "Fully enriched lead profiles", "monitoring": "Enrichment accuracy, data freshness, API latency", "preventive": "Flag if more than 10% critical fields are missing"},
+    3: {"name": "Lead scoring", "phase": "Discovery & diagnosis", "department": "ORACLE-S", "output": "Qualified leads above score 65 advance", "monitoring": "Score distribution, conversion validation, signal accuracy", "preventive": "Recalibrate model weights if conversion rate drops"},
+    4: {"name": "Business diagnosis", "phase": "Discovery & diagnosis", "department": "HEART", "output": "Prospect psychology profile and digital twin", "monitoring": "Psychology accuracy, pain signal validation", "preventive": "Council cross-check when confidence is below 70"},
+    5: {"name": "Case study matching", "phase": "Discovery & diagnosis", "department": "RADAR", "output": "Top 3 proof assets ranked by relevance", "monitoring": "Case-study relevance and result accuracy", "preventive": "Knowledge synthesis if no matching proof exists"},
+    6: {"name": "Council outreach optimization", "phase": "Discovery & diagnosis", "department": "COUNCIL", "output": "Council improvement report", "monitoring": "Council session quality, recommendation implementation rate", "preventive": "Force closure after two loops or semantic delta below 15"},
+    7: {"name": "Outreach execution", "phase": "Discovery & diagnosis", "department": "HERALD", "output": "Three-step email sequence queued or sent", "monitoring": "Open rate, reply rate, unsubscribe rate", "fallback": "Queue system if Gmail is rate-limited", "preventive": "Alert on zero opens after 48 hours"},
+    8: {"name": "Reply monitoring and classification", "phase": "Engagement & negotiation", "department": "SIGNAL", "output": "Reply log and lead status updated", "monitoring": "Classification accuracy, response time", "preventive": "Council review if objection rate spikes"},
+    9: {"name": "Sentiment and context extraction", "phase": "Engagement & negotiation", "department": "HEART", "output": "Learning records and objection database updated", "monitoring": "Extraction accuracy, objection pattern frequency", "preventive": "Council review when new objection repeats three times"},
+    10: {"name": "Proposal generation and council review", "phase": "Engagement & negotiation", "department": "QUILL", "output": "Proposal created, optimized, and routed by authority tier", "monitoring": "Proposal-to-close rate, pricing variance", "preventive": "Conversion learning feeds back to Council"},
+    11: {"name": "Human negotiation and relationship deepening", "phase": "Engagement & negotiation", "department": "BRIDGE", "output": "Objection handling and relationship intelligence updated", "monitoring": "Call sentiment, objection resolution, acceptance likelihood", "preventive": "Escalate negative prospect sentiment to Captain"},
+    12: {"name": "Deal closing", "phase": "Engagement & negotiation", "department": "LEDGER", "output": "Contract signed and Mission File triggered", "monitoring": "Signature tracking, payment term validation", "preventive": "Reminder plus Captain escalation if signature stalls over 7 days"},
+    13: {"name": "Mission creation and context handshake", "phase": "Client onboarding", "department": "COUNCIL", "output": "Mission file and milestone plan generated", "monitoring": "Mission completeness, stakeholder alignment", "preventive": "Client Success reaches out on context gaps"},
+    14: {"name": "Client kickoff meeting", "phase": "Client onboarding", "department": "PORTAL", "output": "Preferences and communication schedule recorded", "monitoring": "Kickoff sentiment, client confidence, Q&A capture", "preventive": "Unresolved concerns escalate to JARVIS"},
+    15: {"name": "Success metrics and health-check definition", "phase": "Client onboarding", "department": "ORACLE-BI", "output": "Client health-check config and dashboard configured", "monitoring": "Metric clarity, client understanding, agreement", "preventive": "Council review before proceeding if metrics are vague"},
+    16: {"name": "Rapid setup and execution readiness", "phase": "Client onboarding", "department": "ECHO", "output": "Execution teams ready for Stage 17", "monitoring": "Readiness checks, fallback assignments", "preventive": "Unresolved technical questions escalate to JARVIS"},
+    17: {"name": "Milestone decomposition", "phase": "Execution & delivery", "department": "COUNCIL", "output": "5-15 milestones with owners, deadlines, dependencies, risks", "monitoring": "Milestone clarity, completeness, achievability", "preventive": "Council reviews milestone plans before execution"},
+    18: {"name": "Department planning", "phase": "Execution & delivery", "department": "DIO FABRIC", "output": "Department execution plan", "monitoring": "Plan quality, dependency clarity", "preventive": "Council gate if plan lacks success criteria"},
+    19: {"name": "Council review and improvement", "phase": "Execution & delivery", "department": "COUNCIL", "output": "Improvement report for the milestone plan", "monitoring": "Review quality, risk detection", "preventive": "Captain approval for blocked/high-risk milestones"},
+    20: {"name": "Department execution", "phase": "Execution & delivery", "department": "DIO FABRIC", "output": "Work completed per refined plan", "monitoring": "Execution progress, blocker age", "preventive": "Delay over 48h escalates"},
+    21: {"name": "Cross-department validation", "phase": "Execution & delivery", "department": "GUARDIAN", "output": "Integration validation result", "monitoring": "Cross-system compatibility, handoff failures", "preventive": "Repair loop if integration check fails"},
+    22: {"name": "Quality assurance", "phase": "Execution & delivery", "department": "GUARDIAN", "output": "QA pass or defect report", "monitoring": "QA pass rate, defect severity", "preventive": "Critical defects block client delivery"},
+    23: {"name": "Repair and recovery", "phase": "Execution & delivery", "department": "RADAR", "output": "Defects repaired with precise instructions", "monitoring": "Repair loop count, time to recovery", "fallback": "Backup DIO takes over if primary executor unavailable", "preventive": "Repeated defect pattern becomes doctrine"},
+    24: {"name": "Council final validation", "phase": "Execution & delivery", "department": "COUNCIL", "output": "Milestone approved for client delivery", "monitoring": "Final-validation quality, dissent signals", "preventive": "Hold delivery if confidence is low"},
+    25: {"name": "Client delivery and communication", "phase": "Execution & delivery", "department": "PORTAL", "output": "Delivered milestone and satisfaction score", "monitoring": "Client satisfaction, communication clarity", "preventive": "Dissatisfaction triggers Council review"},
+    26: {"name": "Continuous delivery and health tracking", "phase": "Execution & delivery", "department": "ORACLE-BI", "output": "Real-time client health dashboard", "monitoring": "Velocity, quality trend, cost efficiency", "preventive": "Alert JARVIS if metric drops more than 15%"},
+    27: {"name": "Support and feedback activation", "phase": "Customer success & relationship", "department": "ECHO", "output": "Support channels, SLA tracking, success cadence live", "monitoring": "Response time, resolution rate, satisfaction", "preventive": "Missed SLA triggers automated escalation"},
+    28: {"name": "Client feedback intelligence and VOC", "phase": "Customer success & relationship", "department": "VISION", "output": "VOC insights feeding knowledge and adaptive intelligence", "monitoring": "VOC accuracy, sentiment trend, feature-request frequency", "preventive": "Satisfaction drop over 5% escalates"},
+    29: {"name": "Client Trust Index monitoring", "phase": "Customer success & relationship", "department": "ORACLE-BI", "output": "CTI score and threshold alerts", "monitoring": "CTI trend, threshold breach, intervention outcomes", "preventive": "CTI drop over 10 points triggers immediate review"},
+    30: {"name": "Expansion and upsell detection", "phase": "Customer success & relationship", "department": "MARKET", "output": "Expansion revenue pipeline", "monitoring": "Expansion success rate, client receptiveness", "preventive": "Never propose expansion if CTI is below 70"},
+    31: {"name": "Reputation and review activation", "phase": "Reputation & advocacy", "department": "QUILL", "output": "Reviews, testimonials, case-study seed", "monitoring": "Review generation, sentiment, case-study completion", "preventive": "Never ask for reviews from CTI below 75"},
+    32: {"name": "Referral and advocate activation", "phase": "Reputation & advocacy", "department": "BRIDGE", "output": "Warm referral leads and deeper relationship", "monitoring": "Referral quality and conversion", "preventive": "Activate only after relationship stability is proven"},
+    33: {"name": "Project postmortem and knowledge extraction", "phase": "Learning & continuous evolution", "department": "WISDOM", "output": "Knowledge, civilization memory, case studies, outreach learning", "monitoring": "Learning quality, application rate", "preventive": "Same mistake repeated three times becomes systemic fix"},
 }
 
 COUNCIL_GATE_STAGES = {5, 12, 16, 18, 25, 28, 30, 33}
@@ -247,6 +247,74 @@ async def get_stage_history(
         }
         for row in result.scalars().all()
     ]
+
+
+async def get_pipeline_board(db: AsyncSession) -> dict[str, Any]:
+    """Return the Captain-facing board for every live client pipeline."""
+    states_result = await db.execute(
+        select(ClientPipelineState).order_by(ClientPipelineState.last_activity_at.desc()).limit(100)
+    )
+    states = states_result.scalars().all()
+
+    phase_counts_result = await db.execute(
+        select(ClientPipelineState.phase, func.count(ClientPipelineState.id))
+        .group_by(ClientPipelineState.phase)
+        .order_by(ClientPipelineState.phase)
+    )
+    stage_counts_result = await db.execute(
+        select(ClientPipelineState.current_stage, func.count(ClientPipelineState.id))
+        .group_by(ClientPipelineState.current_stage)
+        .order_by(ClientPipelineState.current_stage)
+    )
+    overdue_result = await db.execute(
+        select(func.count(ClientPipelineMilestone.id)).where(
+            ClientPipelineMilestone.status == "PENDING",
+            ClientPipelineMilestone.due_at < datetime.now(timezone.utc),
+        )
+    )
+
+    return {
+        "status": "operational",
+        "system": "AIONX 33-Stage Client Operating Engine",
+        "workflow": get_pipeline_workflow(),
+        "counts": {
+            "active_pipelines": len([state for state in states if state.status == "ACTIVE"]),
+            "complete_pipelines": len([state for state in states if state.status == "COMPLETE"]),
+            "total_visible_pipelines": len(states),
+            "overdue_milestones": int(overdue_result.scalar() or 0),
+        },
+        "phase_counts": {str(phase): int(count) for phase, count in phase_counts_result.fetchall()},
+        "stage_counts": {int(stage): int(count) for stage, count in stage_counts_result.fetchall()},
+        "pipelines": [_state_payload(state, []) for state in states],
+    }
+
+
+def get_pipeline_workflow() -> dict[str, Any]:
+    """Return the complete canonical 33-stage doctrine without requiring a client."""
+    phases: dict[str, list[dict[str, Any]]] = {}
+    for stage_number, stage in PIPELINE_STAGES.items():
+        phases.setdefault(stage["phase"], []).append(_stage_definition(stage_number, stage))
+    return {
+        "status": "operational",
+        "system": "AIONX 33-Stage Client Operating Engine",
+        "stage_count": len(PIPELINE_STAGES),
+        "phase_count": len(phases),
+        "phases": [
+            {
+                "name": phase,
+                "stage_count": len(stages),
+                "stages": stages,
+            }
+            for phase, stages in phases.items()
+        ],
+        "authority_boundaries": {
+            "autonomous": "Stages can advance only within validated rules and only 1-3 stages at a time.",
+            "captain_required": sorted(BLOCKED_STAGES_REQUIRE_CAPTAIN),
+            "council_gates": sorted(COUNCIL_GATE_STAGES),
+            "qa_gates": sorted(QA_STAGES),
+            "validation_gates": sorted(VALIDATION_STAGES),
+        },
+    }
 
 
 async def decompose_milestones(
@@ -443,11 +511,16 @@ async def _safe_fire(db: AsyncSession, event_type: str, payload: dict[str, Any])
 
 
 def _state_payload(state: ClientPipelineState, milestones: list[ClientPipelineMilestone]) -> dict[str, Any]:
+    stage = PIPELINE_STAGES.get(int(state.current_stage or 1), {})
     return {
         "client_id": str(state.client_id),
         "stage": state.current_stage,
         "stage_name": state.stage_name,
         "phase": state.phase,
+        "department": stage.get("department"),
+        "output": stage.get("output"),
+        "monitoring": stage.get("monitoring"),
+        "preventive": stage.get("preventive"),
         "status": state.status,
         "engagement_score": state.engagement_score,
         "mission_id": str(state.mission_id) if state.mission_id else None,
@@ -466,6 +539,23 @@ def _state_payload(state: ClientPipelineState, milestones: list[ClientPipelineMi
             }
             for milestone in milestones
         ],
+    }
+
+
+def _stage_definition(stage_number: int, stage: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "stage": stage_number,
+        "name": stage["name"],
+        "phase": stage["phase"],
+        "department": stage["department"],
+        "output": stage.get("output"),
+        "monitoring": stage.get("monitoring"),
+        "fallback": stage.get("fallback"),
+        "preventive": stage.get("preventive"),
+        "council_gate": stage_number in COUNCIL_GATE_STAGES,
+        "qa_required": stage_number in QA_STAGES,
+        "validation_required": stage_number in VALIDATION_STAGES,
+        "captain_approval_required": stage_number in BLOCKED_STAGES_REQUIRE_CAPTAIN,
     }
 
 

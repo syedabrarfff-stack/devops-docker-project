@@ -10,7 +10,7 @@ import {
   Network,
   ShieldCheck,
 } from 'lucide-react'
-import { getAionxArchitecture, getAionxDashboard, getAionxSystemInfo } from '../../services/api'
+import { getAionxArchitecture, getAionxDashboard, getAionxSystemInfo, getBatch1Board, getBatch1Workflow } from '../../services/api'
 
 const STATUS_STYLE = {
   LIVE: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
@@ -109,20 +109,22 @@ function ConnectionRow({ row }) {
 }
 
 export default function AionxArchitecture() {
-  const [state, setState] = useState({ loading: true, architecture: null, dashboard: null, system: null, error: null })
+  const [state, setState] = useState({ loading: true, architecture: null, dashboard: null, system: null, workflow: null, board: null, error: null })
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const [architecture, dashboard, system] = await Promise.all([
+        const [architecture, dashboard, system, workflow, board] = await Promise.all([
           getAionxArchitecture(),
           getAionxDashboard(),
           getAionxSystemInfo(),
+          getBatch1Workflow(),
+          getBatch1Board(),
         ])
-        if (!cancelled) setState({ loading: false, architecture, dashboard, system, error: null })
+        if (!cancelled) setState({ loading: false, architecture, dashboard, system, workflow, board, error: null })
       } catch (error) {
-        if (!cancelled) setState({ loading: false, architecture: null, dashboard: null, system: null, error })
+        if (!cancelled) setState({ loading: false, architecture: null, dashboard: null, system: null, workflow: null, board: null, error })
       }
     }
     load()
@@ -153,6 +155,8 @@ export default function AionxArchitecture() {
   const counts = architecture.counts || {}
   const iq = state.dashboard?.sections?.operational_iq?.operational_iq
   const wisdom = state.dashboard?.sections?.wisdom_index?.wisdom_score
+  const workflow = state.workflow || {}
+  const board = state.board || {}
 
   return (
     <div className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 text-white">
@@ -176,6 +180,46 @@ export default function AionxArchitecture() {
           <StatCard icon={Activity} label="Operational IQ" value={iq ?? '-'} sub="Live Cortex signal" />
           <StatCard icon={ShieldCheck} label="Wisdom Score" value={wisdom ?? '-'} sub="Institutional fitness signal" />
         </div>
+
+        <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-cyan-200/60">Batch 1 Revenue-To-Learning Engine</p>
+              <h2 className="mt-1 text-2xl font-black">33-Stage Client Operating Doctrine</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                The complete path is now represented as a live API surface: discovery, enrichment, scoring, psychology,
+                case-study matching, council optimization, outreach, negotiation, onboarding, delivery, success,
+                reputation, referral, and postmortem learning.
+              </p>
+            </div>
+            <StatusPill status={workflow.stage_count === 33 ? 'LIVE' : 'PARTIAL'} />
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={Layers3} label="Stages" value={`${workflow.stage_count || 0}/33`} sub={`${workflow.phase_count || 0} phases`} />
+            <StatCard icon={Activity} label="Active Pipelines" value={board.counts?.active_pipelines || 0} sub={`${board.counts?.total_visible_pipelines || 0} visible`} />
+            <StatCard icon={AlertTriangle} label="Overdue Milestones" value={board.counts?.overdue_milestones || 0} sub="Pending deadline breaches" />
+            <StatCard icon={ShieldCheck} label="Captain Gates" value={(workflow.authority_boundaries?.captain_required || []).length} sub={(workflow.authority_boundaries?.captain_required || []).join(', ') || 'None'} />
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {(workflow.phases || []).map((phase) => (
+              <div key={phase.name} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-black text-white">{phase.name}</h3>
+                  <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-xs font-bold text-cyan-100">
+                    {phase.stage_count} stages
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(phase.stages || []).map((stage) => (
+                    <span key={stage.stage} className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 text-[11px] text-white/65">
+                      {stage.stage}. {stage.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">

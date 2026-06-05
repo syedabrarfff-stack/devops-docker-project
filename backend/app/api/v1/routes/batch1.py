@@ -11,11 +11,23 @@ from app.core.database import get_db
 from app.services.aionx.batch1_client_pipeline import (
     advance_stage,
     create_pipeline,
+    get_pipeline_board,
+    get_pipeline_workflow,
     get_pipeline,
     get_stage_history,
 )
 
 router = APIRouter(prefix="/batch1", tags=["AIONX Batch 1"])
+
+
+@router.get("/workflow")
+async def workflow_definition() -> dict[str, Any]:
+    return get_pipeline_workflow()
+
+
+@router.get("/board")
+async def pipeline_board(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await get_pipeline_board(db)
 
 
 @router.post("/pipeline")

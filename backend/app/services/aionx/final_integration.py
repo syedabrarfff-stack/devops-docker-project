@@ -223,10 +223,12 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "client_pipeline_stage_logs table",
             "stage-transition API",
             "Cortex event firing",
+            "workflow doctrine API",
+            "pipeline board API",
+            "dashboard/AIONX map visibility",
         ],
         "pending_work": [
             "Connect every revenue route directly into stage transitions",
-            "Expose full stage board in frontend",
             "Add SLA timers per stage",
         ],
     },
@@ -405,8 +407,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "missing_tables": missing_tables,
         "live_signals": dashboard.get("sections", {}),
         "canonical_next_build_order": [
-            "Frontend AIONX architecture glass-wall dashboard",
-            "Stage board for the 33-stage client pipeline",
+            "Connect every revenue route directly into stage transitions",
             "Council conference-room UI with natural-language participant messages",
             "Revenue Heart ledger and cost-per-outcome reporting",
             "Self-modification safety membrane with shadow/canary approval workflow",
@@ -432,4 +433,3 @@ async def _existing_tables(db: AsyncSession) -> set[str]:
         )
     )
     return {str(row[0]) for row in result.fetchall()}
-

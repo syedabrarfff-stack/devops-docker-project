@@ -185,6 +185,8 @@ export default function Dashboard() {
     civilization: null,
     agentOps: null,
     scheduler: null,
+    batch1Workflow: null,
+    batch1Board: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -211,6 +213,8 @@ export default function Dashboard() {
       api.get('/api/v1/civilization/ledger'),
       api.get('/api/v1/agent-ops/status'),
       api.get('/api/v1/scheduler/jobs'),
+      api.get('/api/v1/batch1/workflow'),
+      api.get('/api/v1/batch1/board'),
     ])
 
     const value = (index, fallback = null) => (
@@ -240,6 +244,8 @@ export default function Dashboard() {
       civilization: value(16, null),
       agentOps: value(17, null),
       scheduler: value(18, null),
+      batch1Workflow: value(19, null),
+      batch1Board: value(20, null),
     })
 
     setLoading(false)
@@ -312,6 +318,9 @@ export default function Dashboard() {
   const operationalIq = data.aionx?.operational_iq ?? data.aionx?.score ?? data.aionx?.iq ?? 0
   const schedulerJobs = safeArray(data.scheduler, 'jobs')
   const aionxJobCount = schedulerJobs.filter((job) => String(job.id || job.name || '').includes('aionx')).length
+  const batch1StageCount = data.batch1Workflow?.stage_count || 0
+  const batch1PhaseCount = data.batch1Workflow?.phase_count || 0
+  const activePipelines = data.batch1Board?.counts?.active_pipelines || 0
 
   if (loading) {
     return (
@@ -417,6 +426,14 @@ export default function Dashboard() {
           tone={aionxJobCount ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
+        <MetricCard
+          icon={Zap}
+          label="Client Engine"
+          value={number(batch1StageCount)}
+          detail={`${batch1PhaseCount} phases · ${activePipelines} active pipelines`}
+          tone={batch1StageCount === 33 ? 'green' : 'red'}
+          onClick={() => setActiveView('aionxArchitecture')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
@@ -436,6 +453,39 @@ export default function Dashboard() {
               <HealthRow label="Civilization" ok={!!data.civilization} detail={`${safeArray(data.civilization, 'ledger').length} records`} />
               <HealthRow label="Agent Ops" ok={statusIsOk(data.agentOps)} detail={data.agentOps?.status || 'unknown'} />
               <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} />
+              <HealthRow label="Client Engine" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33 stages`} />
+            </div>
+          </Panel>
+
+          <Panel
+            title="33-Stage Client Engine"
+            subtitle="Discovery, outreach, proposal, onboarding, delivery, success, reputation, and learning"
+            icon={Zap}
+            action={<button onClick={() => setActiveView('aionxArchitecture')} className="text-xs text-jarvis-cyan hover:text-white">Open AIONX map</button>}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {(data.batch1Workflow?.phases || []).map((phase) => (
+                <div key={phase.name} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{phase.name}</p>
+                      <p className="mt-1 text-xs text-gray-500">{phase.stage_count} stages live in doctrine</p>
+                    </div>
+                    <span className="rounded-full border border-jarvis-cyan/30 bg-jarvis-cyan/10 px-2 py-1 text-xs text-jarvis-cyan">
+                      {phase.stages?.[0]?.stage}-{phase.stages?.[phase.stages.length - 1]?.stage}
+                    </span>
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-xs text-gray-400">
+                    {(phase.stages || []).slice(0, 3).map((stage) => stage.name).join(' · ')}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <HealthRow label="Stages" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33`} />
+              <HealthRow label="Pipelines" ok={!!data.batch1Board} detail={`${activePipelines} active`} />
+              <HealthRow label="Overdue" ok={(data.batch1Board?.counts?.overdue_milestones || 0) === 0} detail={`${data.batch1Board?.counts?.overdue_milestones || 0}`} />
+              <HealthRow label="Captain gates" ok={true} detail={(data.batch1Workflow?.authority_boundaries?.captain_required || []).join(', ') || 'none'} />
             </div>
           </Panel>
 
