@@ -287,6 +287,24 @@ class ClientPipelineMilestone(JarvisBase):
     evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
 
+class ClientPipelineStageLog(JarvisBase):
+    __tablename__ = "client_pipeline_stage_logs"
+    __table_args__ = (
+        Index("idx_client_pipeline_stage_logs_tenant_created", "tenant_id", "created_at"),
+        Index("idx_client_pipeline_stage_logs_client_created", "client_id", "created_at"),
+        Index("idx_client_pipeline_stage_logs_pipeline", "pipeline_state_id"),
+    )
+
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    pipeline_state_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    from_stage: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    to_stage: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor: Mapped[str] = mapped_column(Text, nullable=False, default="JARVIS")
+    events_fired: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
+    validation_result: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 class WisdomIndexSnapshot(JarvisBase):
     __tablename__ = "wisdom_index_snapshots"
     __table_args__ = (UniqueConstraint("week_of"),)

@@ -113,6 +113,9 @@ async def pipeline_stage_transition(
             engagement_score=payload.get("engagement_score"),
             mission_id=mission_id,
             metadata=payload.get("metadata") or {},
+            reason=payload.get("reason"),
+            actor=payload.get("actor", "JARVIS"),
+            captain_approved=bool(payload.get("captain_approved", False)),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
