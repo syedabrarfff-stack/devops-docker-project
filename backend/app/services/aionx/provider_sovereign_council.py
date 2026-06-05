@@ -6,6 +6,8 @@ Convergence gate prevents infinite debate.
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -49,6 +51,9 @@ PROVIDER_DOMAIN_STRENGTHS: dict[str, list[str]] = {
 }
 
 MAX_DEBATE_ROUNDS = 4
+AI_SYNTHESIS_TIMEOUT_SECONDS = 10.0
+
+logger = logging.getLogger(__name__)
 
 
 async def get_domain_authority(
@@ -146,21 +151,28 @@ async def convene_provider_council(
         if rounds >= MAX_DEBATE_ROUNDS:
             break
         try:
-            synthesis = await route_task(
-                task_type=TaskType.STRATEGY,
-                prompt=(
-                    f"Provider Council Agenda: {agenda_item}\n\n"
-                    f"Domain: {domain}\n"
-                    f"Participating providers: {', '.join(relevant_providers)}\n\n"
-                    "Synthesize a unified recommendation from the collective intelligence "
-                    "of these providers. Format: RECOMMENDATION | CONFIDENCE | KEY_RISKS"
+            synthesis = await asyncio.wait_for(
+                route_task(
+                    task_type=TaskType.STRATEGY,
+                    prompt=(
+                        f"Provider Council Agenda: {agenda_item}\n\n"
+                        f"Domain: {domain}\n"
+                        f"Participating providers: {', '.join(relevant_providers)}\n\n"
+                        "Synthesize a unified recommendation from the collective intelligence "
+                        "of these providers. Format: RECOMMENDATION | CONFIDENCE | KEY_RISKS"
+                    ),
+                    max_tokens=800,
                 ),
-                max_tokens=800,
+                timeout=AI_SYNTHESIS_TIMEOUT_SECONDS,
             )
             recommendations.append({"item": agenda_item, "synthesis": synthesis})
             rounds += 1
-        except Exception:
-            recommendations.append({"item": agenda_item, "synthesis": "DEFERRED"})
+        except asyncio.TimeoutError:
+            logger.warning("Provider Council synthesis timed out after %.1fs", AI_SYNTHESIS_TIMEOUT_SECONDS)
+            recommendations.append({"item": agenda_item, "synthesis": "DEFERRED_PROVIDER_SYNTHESIS_TIMEOUT"})
+        except Exception as exc:
+            logger.warning("Provider Council synthesis failed: %s", exc)
+            recommendations.append({"item": agenda_item, "synthesis": "DEFERRED_PROVIDER_SYNTHESIS_UNAVAILABLE"})
 
     session.recommendations = recommendations
     session.debate_rounds = rounds

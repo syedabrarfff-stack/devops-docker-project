@@ -6,6 +6,7 @@ keeps the organ layer wired into production-safe persistence.
 from __future__ import annotations
 
 import logging
+import asyncio
 import uuid
 from datetime import datetime
 from typing import Any
@@ -213,9 +214,7 @@ async def _execute_cascade_step(
             if existing:
                 return {"autopsy_id": str(existing.id), "mission_id": str(mission_id), "existing": True}
 
-            from app.services.ai.router import route_task
-
-            analysis = await route_task(
+            analysis = await _route_task_bounded(
                 task_type="reasoning",
                 prompt=(
                     f"Analyze why this mission failed. Mission ID: {mission_id}. "
@@ -223,6 +222,7 @@ async def _execute_cascade_step(
                     "Provide root causes, prevention strategies, and process improvements."
                 ),
                 max_tokens=800,
+                timeout_seconds=8.0,
             )
 
             autopsy = MissionAutopsy(
@@ -377,3 +377,25 @@ def _tenant_id() -> uuid.UUID:
         if parsed:
             return parsed
     return uuid.UUID("00000000-0000-0000-0000-000000000001")
+
+
+async def _route_task_bounded(
+    *,
+    task_type: str,
+    prompt: str,
+    max_tokens: int,
+    timeout_seconds: float,
+) -> str:
+    from app.services.ai.router import route_task
+
+    try:
+        return await asyncio.wait_for(
+            route_task(task_type=task_type, prompt=prompt, max_tokens=max_tokens),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("AIONX route_task timed out after %.1fs", timeout_seconds)
+        return "ROUTE_TASK_TIMEOUT"
+    except Exception as exc:
+        logger.warning("AIONX route_task failed: %s", exc)
+        return "ROUTE_TASK_UNAVAILABLE"
