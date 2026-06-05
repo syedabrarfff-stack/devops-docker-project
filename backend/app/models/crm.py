@@ -28,7 +28,6 @@ class Contact(Base):
 
     company  = relationship("Company", back_populates="contacts")
     deals    = relationship("Deal", back_populates="contact")
-    emails   = relationship("OutreachEmail", back_populates="contact")
 
 
 class Company(Base):
