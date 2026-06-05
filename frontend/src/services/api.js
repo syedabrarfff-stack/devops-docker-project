@@ -116,10 +116,12 @@ export const getLeadStats = () => api.get('/api/v1/leads/stats').then(r => r.dat
 
 // Outreach
 export const getSequenceStats = () => api.get('/api/v1/outreach/sequences/stats').then(r => r.data)
+export const getOutreachEngineStatus = () => api.get('/api/v1/outreach/engine-status').then(r => r.data)
 export const createSequence = (data) => api.post('/api/v1/outreach/sequences', data).then(r => r.data)
 export const getPendingEmails = () => api.get('/api/v1/outreach/emails/pending').then(r => r.data)
 export const sendOutreachEmail = (id) => api.post(`/api/v1/outreach/emails/${id}/send`).then(r => r.data)
 export const processDueEmails = () => api.post('/api/v1/outreach/emails/process-due').then(r => r.data)
+export const executeOutreachEngine = (limit = 48) => api.post('/api/v1/outreach/execute', { limit, autonomy_stage: 'outreach_emails' }).then(r => r.data)
 
 // Tasks
 export const getTasks = (params) => api.get('/api/v1/tasks/', { params }).then(r => r.data)

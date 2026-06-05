@@ -15,6 +15,15 @@ function asArray(value, key) {
   return [];
 }
 
+function Metric({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
 export default function OutreachDashboard() {
   const [tab, setTab] = useState("sequences");
   const [sequences, setSequences] = useState([]);
@@ -24,18 +33,23 @@ export default function OutreachDashboard() {
   const [newSeq, setNewSeq] = useState({ name: "", target_industry: "saas", target_country: "usa", service_offered: "AI automation" });
   const [sending, setSending] = useState({});
   const [processing, setProcessing] = useState(false);
+  const [engine, setEngine] = useState(null);
+  const [starting, setStarting] = useState(false);
+  const [lastRun, setLastRun] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [s, e] = await Promise.all([
+      const [s, e, engineStatus] = await Promise.all([
         api.get("/api/v1/outreach/sequences/stats").then(r => r.data),
         api.get("/api/v1/outreach/emails/pending?limit=50").then(r => r.data),
+        api.get("/api/v1/outreach/engine-status").then(r => r.data).catch(() => null),
       ]);
       setSequences(asArray(s, "sequences"));
       setPendingEmails(asArray(e, "emails"));
+      setEngine(engineStatus);
     } catch (e) { console.error(e); }
     setLoading(false);
   }
@@ -68,6 +82,25 @@ export default function OutreachDashboard() {
     setProcessing(false);
   }
 
+  async function startEngine() {
+    setStarting(true);
+    try {
+      const r = await api.post("/api/v1/outreach/execute", { limit: 48, autonomy_stage: "outreach_emails" });
+      setLastRun(r.data);
+      await loadAll();
+    } catch (e) {
+      setLastRun({ error: e?.response?.data?.detail || e.message || "Engine start failed" });
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const engineReady = engine?.status === "ready";
+  const engineBlocked = engine?.status === "blocked";
+  const engineTone = engineReady
+    ? "border-emerald-400/25 bg-emerald-500/[0.08] text-emerald-100"
+    : "border-amber-400/25 bg-amber-500/[0.08] text-amber-100";
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -90,6 +123,53 @@ export default function OutreachDashboard() {
             + New Sequence
           </button>
         </div>
+      </div>
+
+      {/* Engine Control */}
+      <div className={`rounded-2xl border p-5 ${engineTone}`}>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] opacity-70">Outreach Engine</p>
+            <h2 className="mt-1 text-xl font-black text-white">
+              {engineReady ? "Ready to send" : engineBlocked ? "Blocked before send" : "Reading live status"}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
+              {engine?.next_action || "JARVIS is checking Gmail, queue, lead availability, authority, and daily send cap."}
+            </p>
+          </div>
+          <button
+            onClick={startEngine}
+            disabled={!engineReady || starting}
+            className="rounded-xl border border-emerald-300/30 bg-emerald-500/15 px-5 py-2.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/35"
+          >
+            {starting ? "Starting..." : "Start Outreach Engine"}
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
+          <Metric label="Mode" value={(engine?.status || "unknown").toUpperCase()} />
+          <Metric label="Gmail" value={(engine?.gmail?.send_mode || "unknown").toUpperCase()} />
+          <Metric label="Pending" value={engine?.queue?.pending_followups ?? "-"} />
+          <Metric label="With Email" value={engine?.leads?.with_email ?? "-"} />
+          <Metric label="Remaining Today" value={engine?.queue?.remaining_today ?? "-"} />
+        </div>
+
+        {!!engine?.blockers?.length && (
+          <div className="mt-4 rounded-xl border border-amber-200/15 bg-black/20 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-100/70">Blockers</p>
+            <div className="mt-2 space-y-1">
+              {engine.blockers.map((blocker) => (
+                <p key={blocker} className="text-xs leading-5 text-white/70">{blocker}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {lastRun && (
+          <div className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100/80">
+            {lastRun.error ? `Last run failed: ${lastRun.error}` : `Last run: sent ${lastRun.sent ?? 0} emails for tenant ${lastRun.tenant_id || ""}`}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
