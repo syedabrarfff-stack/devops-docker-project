@@ -37,6 +37,7 @@ import ExpertCouncil from './components/frontier/ExpertCouncil'
 import Relationships from './components/frontier/Relationships'
 import IntelligenceHub from './components/frontier/IntelligenceHub'
 import ConsciousnessHub from './components/consciousness/ConsciousnessHub'
+import AionxArchitecture from './components/aionx/AionxArchitecture'
 import useJarvisStore from './store/useJarvisStore'
 
 export const VIEWS = {
@@ -74,6 +75,7 @@ export const VIEWS = {
   relationships: { path: '/relationships',  title: 'Relationships',         Component: Relationships },
   intelligenceHub:   { path: '/intelligence-hub',  title: 'Intelligence Hub',  Component: IntelligenceHub },
   consciousness:     { path: '/consciousness',      title: 'Consciousness Hub', Component: ConsciousnessHub },
+  aionxArchitecture: { path: '/aionx-architecture', title: 'AIONX Architecture', Component: AionxArchitecture },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

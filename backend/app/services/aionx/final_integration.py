@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.aionx.institutional_wisdom_index import get_current_wisdom
@@ -208,3 +209,227 @@ async def get_aionx_system_info() -> dict[str, Any]:
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
+
+
+CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
+    {
+        "id": "batch_1",
+        "name": "Batch 1: Client Journey Orchestrator",
+        "status": "LIVE",
+        "live_evidence": [
+            "33-stage pipeline service",
+            "client_pipeline_states table",
+            "client_pipeline_milestones table",
+            "client_pipeline_stage_logs table",
+            "stage-transition API",
+            "Cortex event firing",
+        ],
+        "pending_work": [
+            "Connect every revenue route directly into stage transitions",
+            "Expose full stage board in frontend",
+            "Add SLA timers per stage",
+        ],
+    },
+    {
+        "id": "batch_2",
+        "name": "Batch 2: Sovereign Organs + Supreme Council",
+        "status": "LIVE_WITH_DORMANT_ORGANS",
+        "live_evidence": [
+            "Decision Memory Engine",
+            "Counterfactual Engine",
+            "Decision Debt Engine",
+            "Client Digital Twin Engine",
+            "Institutional Wisdom Index",
+            "Provider Sovereign Council",
+            "Grand Convergence Council",
+            "Sentinel Layer",
+            "Executive Accountability Engine",
+            "Mission Autopsy Engine",
+            "12 AIONX scheduler jobs",
+        ],
+        "pending_work": [
+            "Cognitive Cortex provider debate is bounded, not full multi-provider parallel voting",
+            "Supreme Council chat UI is not yet a full conference-room experience",
+            "Provider calibration scoring needs real 30/90-day outcome volume",
+        ],
+    },
+    {
+        "id": "batch_3",
+        "name": "Batch 3: Constitutional Governance + Infrastructure",
+        "status": "PARTIAL",
+        "live_evidence": [
+            "Authority/approval routes",
+            "HIA certification endpoints",
+            "Mission file archive endpoints",
+            "Validation/preflight endpoints",
+            "Scheduler failure tracking",
+            "Emergency health routes",
+        ],
+        "pending_work": [
+            "Zero-SPOF multi-region resurrection is not implemented",
+            "Self-modification membrane has registry but no full shadow/canary pipeline",
+            "Tenant isolation exists in models/jobs but needs enforcement audit across all routes",
+        ],
+    },
+    {
+        "id": "revenue_first_10",
+        "name": "Revenue-Critical 10 Systems",
+        "status": "PARTIAL",
+        "live_evidence": [
+            "Speed-to-lead scheduler",
+            "Outreach sequence engine",
+            "Free lead discovery scheduler",
+            "Dynamic pricing / offer engine",
+            "CRM pipeline stats",
+            "Revenue intelligence dashboard pieces",
+        ],
+        "pending_work": [
+            "Proof-of-concept generator needs a dedicated workflow",
+            "Warm path finder needs LinkedIn/network graph data",
+            "Fast-close contract/payment automation needs production payment integration",
+            "Revenue-triggered agent activation needs live MRR thresholds wired to org chart",
+        ],
+    },
+    {
+        "id": "73_system_vision",
+        "name": "73-System Strategic Vision",
+        "status": "DESIGN_PARTIAL",
+        "live_evidence": [
+            "Many foundations exist: departments, agents, governance, memory, council, scheduler, CRM, outreach, intelligence",
+            "AIONX dashboard now reports canonical live-vs-pending status",
+        ],
+        "pending_work": [
+            "Data moat, gravity engine, IP builder, wellbeing monitor, anti-commoditization engine are strategy/design-only",
+            "Autonomous org restructuring must remain approval-governed before production autonomy",
+        ],
+    },
+]
+
+
+CANONICAL_AIONX_CONNECTIONS: list[dict[str, str]] = [
+    {
+        "event": "LEAD_REPLIED",
+        "connects": "Outreach -> Cortex -> Digital Twin -> Decision Memory -> Speed-to-Lead",
+        "status": "LIVE",
+    },
+    {
+        "event": "CLIENT_SIGNED",
+        "connects": "CRM/Contract -> Cortex -> Mission Ownership -> Pipeline -> Council",
+        "status": "LIVE_FOUNDATION",
+    },
+    {
+        "event": "MISSION_FAILED",
+        "connects": "Pipeline/Sentinel -> Autopsy -> Convergence Council -> Decision Memory",
+        "status": "LIVE_FOUNDATION",
+    },
+    {
+        "event": "CHURN_RISK_DETECTED",
+        "connects": "Digital Twin -> Trust Index -> Sentinel -> Recovery Protocol",
+        "status": "LIVE_FOUNDATION",
+    },
+    {
+        "event": "WEEKLY_LEARNING",
+        "connects": "Scheduler -> Retrospective -> Wisdom Index -> Provider Calibration",
+        "status": "LIVE",
+    },
+    {
+        "event": "SELF_MODIFICATION",
+        "connects": "Genesis Proposal -> Registry -> Shadow/Canary -> Captain Approval",
+        "status": "REGISTRY_ONLY",
+    },
+]
+
+
+async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, Any]:
+    """Return Captain-facing live-vs-designed architecture coverage.
+
+    This endpoint is intentionally explicit: it separates what is live,
+    what is wired but dormant, and what remains strategic design.
+    """
+
+    table_names = await _existing_tables(db)
+    route_count = 58
+
+    expected_tables = {
+        "decision_objects",
+        "decision_options",
+        "decision_outcomes",
+        "decision_patterns",
+        "decision_retrospectives",
+        "counterfactual_simulations",
+        "counterfactual_actualizations",
+        "decision_debt_assessments",
+        "institutional_debt_index",
+        "client_digital_twins",
+        "client_twin_interactions",
+        "client_twin_predictions",
+        "client_pipeline_states",
+        "client_pipeline_milestones",
+        "client_pipeline_stage_logs",
+        "wisdom_index_snapshots",
+        "provider_calibration_records",
+        "provider_council_sessions",
+        "shelved_discoveries",
+        "convergence_council_sessions",
+        "convergence_council_messages",
+        "mission_autopsies",
+        "sentinel_observations",
+        "sentinel_threat_registry",
+        "mission_ownership_records",
+        "self_modification_registry",
+    }
+
+    live_tables = sorted(expected_tables.intersection(table_names))
+    missing_tables = sorted(expected_tables.difference(table_names))
+    dashboard = await generate_captain_intelligence_dashboard(db)
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "verdict": (
+            "AIONX is deployed as a live foundation with active Batch 1/2 organs, "
+            "scheduler heartbeat, and Cortex event wiring. Several advanced vision "
+            "systems remain dormant or design-only until real revenue, clients, and "
+            "approval-governed autonomy are connected."
+        ),
+        "counts": {
+            "canonical_batches": len(CANONICAL_AIONX_BLUEPRINT),
+            "expected_aionx_tables": len(expected_tables),
+            "live_aionx_tables": len(live_tables),
+            "missing_aionx_tables": len(missing_tables),
+            "aionx_api_endpoints_expected": route_count,
+            "aionx_scheduler_jobs_expected": 12,
+        },
+        "blueprint": CANONICAL_AIONX_BLUEPRINT,
+        "connection_map": CANONICAL_AIONX_CONNECTIONS,
+        "live_tables": live_tables,
+        "missing_tables": missing_tables,
+        "live_signals": dashboard.get("sections", {}),
+        "canonical_next_build_order": [
+            "Frontend AIONX architecture glass-wall dashboard",
+            "Stage board for the 33-stage client pipeline",
+            "Council conference-room UI with natural-language participant messages",
+            "Revenue Heart ledger and cost-per-outcome reporting",
+            "Self-modification safety membrane with shadow/canary approval workflow",
+            "Resurrection/DR plan after core revenue workflows are stable",
+        ],
+        "authority_boundaries": [
+            "Captain remains final authority for Tier 3 and irreversible actions",
+            "Councils advise and memorialize; they do not execute production actions directly",
+            "Self-modifying code must open a reviewable change and cannot merge itself",
+            "Kill switch, Captain authority, and governance tiers are immutable core",
+        ],
+    }
+
+
+async def _existing_tables(db: AsyncSession) -> set[str]:
+    result = await db.execute(
+        text(
+            """
+            SELECT tablename
+            FROM pg_tables
+            WHERE schemaname = 'public'
+            """
+        )
+    )
+    return {str(row[0]) for row in result.fetchall()}
+

@@ -6,6 +6,7 @@ import {
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu,
+  Network,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -32,6 +33,7 @@ const NAV = [
   { id: 'intel',          path: '/intel',         label: 'Intel',         icon: Search },
   { id: 'intelligenceHub', path: '/intelligence-hub', label: 'Intel Hub',     icon: Search },
   { id: 'consciousness',   path: '/consciousness',    label: 'Consciousness', icon: Cpu },
+  { id: 'aionxArchitecture', path: '/aionx-architecture', label: 'AIONX Map', icon: Network },
   { id: 'discovery',      path: '/discovery',     label: 'Discovery',     icon: Target },
   { id: 'tasks',          path: '/tasks',         label: 'Tasks',         icon: ListTodo },
   { id: 'projects',       path: '/projects',      label: 'Projects',      icon: BriefcaseBusiness },

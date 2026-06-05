@@ -13,6 +13,7 @@ const API_RESOURCES = new Set([
   'agent-ops',
   'agents',
   'ai-ops',
+  'aionx',
   'approvals',
   'auth',
   'briefing',
@@ -222,6 +223,11 @@ export const getAIOpsCostSummary = (days = 7) => api.get('/api/v1/ai-ops/cost/su
 export const getAIOpsAudit = (limit = 50, provider) => api.get('/api/v1/ai-ops/audit', { params: { limit, provider } }).then(r => r.data)
 export const getAIOpsCredentials = () => api.get('/api/v1/ai-ops/credentials').then(r => r.data)
 export const getAIOpsRoutingTable = () => api.get('/api/v1/ai-ops/routing-table').then(r => r.data)
+
+// AIONX Architecture Glass Wall
+export const getAionxArchitecture = () => api.get('/api/v1/aionx/architecture').then(r => r.data)
+export const getAionxDashboard = () => api.get('/api/v1/aionx/dashboard').then(r => r.data)
+export const getAionxSystemInfo = () => api.get('/api/v1/aionx/system-info').then(r => r.data)
 
 // Phase 9 — Team Registry
 export const getTeamMembers = (params) => api.get('/api/v1/team/members', { params }).then(r => r.data)

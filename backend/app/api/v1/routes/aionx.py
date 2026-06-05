@@ -783,6 +783,14 @@ async def captain_dashboard(
     return await generate_captain_intelligence_dashboard(db)
 
 
+@router.get("/architecture")
+async def architecture_reconciliation(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.final_integration import get_aionx_architecture_reconciliation
+    return await get_aionx_architecture_reconciliation(db)
+
+
 @router.get("/system-info")
 async def system_info() -> dict[str, Any]:
     from app.services.aionx.final_integration import get_aionx_system_info
