@@ -599,7 +599,7 @@ Rules:
 - Sentence 1: one specific pain point relevant to the lead's industry.
 - Sentence 2: one quantified result for a comparable company.
 - Sentence 3: one question that makes the client think about their own situation.
-- Sentence 4: soft call to action, phrased as relevance, not booking a call.
+- Sentence 4: soft call to action that says the demo is ready and can be shared if the client is interested.
 - Sentence 5: sign-off with full name and title from Darren Mitchell.
 - Subject line: maximum 7 words, no "AI", no "automation", no "solution".
 - Zero attachments and no pricing.
@@ -624,7 +624,7 @@ def _fallback_steps(lead: Lead) -> list[dict]:
                 f"Hi {first_name} - {company} looks exposed to {pain}, which usually slows {industry} teams when volume rises. "
                 "For a comparable operator, our team removed 38% of manual follow-up work in 30 days and recovered about 11 hours per week. "
                 "How are you currently catching missed handoffs before they turn into lost revenue? "
-                "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                "The demo is ready, and if you're interested, we can share it with you. "
                 "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         },
@@ -731,7 +731,8 @@ def _body_is_valid(body: str) -> bool:
         return False
     if "?" not in sentences[2]:
         return False
-    if "would this be relevant" not in sentences[3].lower():
+    sentence_four = sentences[3].lower()
+    if "would this be relevant" not in sentence_four and "demo is ready" not in sentence_four and "share it with you" not in sentence_four:
         return False
     signoff = sentences[4].lower()
     return "darren mitchell" in signoff and "client acquisition specialist" in signoff

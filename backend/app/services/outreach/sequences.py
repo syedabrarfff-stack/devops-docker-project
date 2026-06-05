@@ -57,7 +57,7 @@ def _build_templates(sender_name: str, signature: str) -> dict:
                         "Hi {name} - {company} looks exposed to manual follow-up gaps, which usually slows {industry} teams when volume rises. "
                         "For a comparable operator, our team removed 38% of manual follow-up work in 30 days and recovered about 11 hours per week. "
                         "How are you currently catching missed handoffs before they turn into lost revenue? "
-                        "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                        "The demo is ready, and if you're interested, we can share it with you. "
                         f"{clean_signature}"
                     ),
                 },
@@ -97,7 +97,7 @@ def _build_templates(sender_name: str, signature: str) -> dict:
                         "Hi {name} - {company} may be losing staff time where guest requests, bookings, and follow-ups move between teams. "
                         "A comparable hospitality workflow cut response gaps by 41% and recovered 12 staff hours per week after the first operating map. "
                         "Where do guest handoffs most often slow your team down? "
-                        "Would this be relevant enough for Aliyar Solutions to share the demo path? "
+                        "The demo is ready, and if you're interested, we can share it with you. "
                         f"{clean_signature}"
                     ),
                 },
@@ -175,7 +175,7 @@ async def generate_sequence_with_ai(
         "- Sentence 1: one specific pain point relevant to their industry\n"
         "- Sentence 2: one quantified result for a comparable company\n"
         "- Sentence 3: one question that makes them think about their own situation\n"
-        "- Sentence 4: soft relevance CTA, never 'book a call'\n"
+        "- Sentence 4: soft relevance CTA that says the demo is ready and can be shared if they're interested\n"
         "- Sentence 5: sender full name and title from the team persona\n"
         "- Subject line maximum 7 words, no AI, no automation, no solution\n"
         "- Zero attachments, no pricing, no first-person singular language\n"

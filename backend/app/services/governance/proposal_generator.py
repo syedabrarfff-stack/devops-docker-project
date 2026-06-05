@@ -274,6 +274,7 @@ Rules:
 - Never mention AI, bots, Claude, prompts, or internal systems.
 - Be specific to the client's visible pain points.
 - Keep it premium, practical, and revenue-focused.
+- Include a direct line that the demo is ready and can be shared if the client is interested.
 """.strip()
 
 
@@ -337,7 +338,7 @@ def _fallback_sections(lead: Lead, tier: str, invoice_number: str) -> dict[str, 
             "Payment terms are 50% upfront and 50% on delivery, with monthly support billed in advance where applicable.",
         ],
         "next_steps": [
-            "Confirm the proposed scope and package tier.",
+            "The demo is ready, and if you're interested, we can share it with you right away.",
             "Schedule a short working call to validate operational assumptions.",
             "Approve the project start date and begin the Week 1 discovery process.",
         ],
@@ -527,6 +528,7 @@ def _proposal_email_html(proposal: Proposal) -> str:
         "<p>Hello,</p>"
         "<p>Thank you for the discussion so far. Our team has prepared the proposal and implementation path "
         "for your review.</p>"
+        "<p>The demo is ready, and if you're interested, we can share it with you right away.</p>"
         f"<p>Proposal reference: <strong>{proposal.invoice_number}</strong><br>PDF: {link}</p>"
         "<p>If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, "
         "and rollout sequence.</p>"
@@ -539,6 +541,7 @@ def _proposal_email_text(proposal: Proposal) -> str:
     return (
         "Hello,\n\n"
         "Thank you for the discussion so far. Our team has prepared the proposal and implementation path for your review.\n\n"
+        "The demo is ready, and if you're interested, we can share it with you right away.\n\n"
         f"Proposal reference: {proposal.invoice_number}\n"
         f"PDF: {link}\n\n"
         "If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, and rollout sequence.\n\n"

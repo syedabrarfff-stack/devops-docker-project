@@ -218,7 +218,7 @@ Rules:
 - No pricing.
 - No attachments.
 - Never mention AI, bots, Claude, prompts, or internal systems.
-- Ask one soft question about whether the demo path is relevant.
+- Include a direct line that the demo is ready and can be shared if the client is interested.
 """.strip()
         try:
             response, _ = await ai_router.chat(
@@ -240,7 +240,7 @@ Rules:
             "body": (
                 f"Hi {contact} - it looks like {company} may be reviewing the note about {pain}. "
                 "Our team can turn the likely bottleneck into a short demo path before any scope discussion. "
-                "Would this be relevant enough for Aliyar Solutions to share the next step? "
+                "The demo is ready, and if you're interested, we can share it with you. "
                 "Darren Mitchell, Client Acquisition Specialist, Aliyar Solutions."
             ),
         }
