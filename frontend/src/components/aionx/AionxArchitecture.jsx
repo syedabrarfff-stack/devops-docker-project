@@ -176,6 +176,11 @@ export default function AionxArchitecture() {
   const operationalPersistence = operating.operational_persistence || architecture.operational_persistence || {}
   const persistenceCounts = operationalPersistence.counts || {}
   const sovereign = operating.sovereign_organs || {}
+  const supremeCouncil = operating.supreme_council || architecture.supreme_council || {}
+  const calibration = supremeCouncil.calibration_health || {}
+  const convergence = supremeCouncil.convergence_health || {}
+  const membrane = supremeCouncil.membrane_status || {}
+  const metaLearning = supremeCouncil.meta_learning_status || {}
   const systemState = operating.system_state || {}
   const ultimateJourney = operating.ultimate_journey || {}
   const preventive = operating.preventive_monitoring || {}
@@ -205,6 +210,7 @@ export default function AionxArchitecture() {
           <StatCard icon={ShieldCheck} label="Integrity Teams" value={operationalIntegrity.team_count || 0} sub={`${operationalIntegrity.pipeline_stage_count || 0} full pipeline stages`} />
           <StatCard icon={CircuitBoard} label="Persistence Tables" value={operationalPersistence.table_count || 0} sub="Mission/QA/repair/event memory" />
           <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub={`${sovereign.cognitive_region_count || 0} cognitive regions`} />
+          <StatCard icon={ShieldCheck} label="Supreme Council" value={(supremeCouncil.rings || []).length || 0} sub="Calibration/convergence/membrane" />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -535,6 +541,75 @@ export default function AionxArchitecture() {
                   <p className="text-white/50">Next critical action</p>
                   <p className="mt-1 text-white/70">{systemState.next_critical_action || 'not reported'}</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-amber-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-amber-200/60">Supreme Council Layer</p>
+              <h2 className="mt-1 text-2xl font-black">Calibration + Convergence + Safety Membrane</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                The meta-intelligence organ now sits above Provider Council and Grand Convergence Council.
+                Councils advise only, JARVIS decides inside bounds, and Captain controls irreversible authority.
+              </p>
+            </div>
+            <StatusPill status={supremeCouncil.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <StatCard icon={Layers3} label="Authority Rings" value={(supremeCouncil.rings || []).length || 0} sub="Advisory / Executive / Membrane" />
+            <StatCard icon={Activity} label="Provider Claims" value={calibration.total_claims ?? 0} sub={`${calibration.resolved_claims ?? 0} resolved`} />
+            <StatCard icon={GitBranch} label="Council Phases" value={convergence.phase_count ?? 0} sub={`${convergence.grand_sessions ?? 0} grand sessions`} />
+            <StatCard icon={ShieldCheck} label="Safety Records" value={membrane.records ?? 0} sub={`${membrane.rolled_back ?? 0} rollbacks`} />
+            <StatCard icon={Network} label="Meta Learning" value={metaLearning.dimension_count ?? 0} sub="Weekly calibration loop" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            {(supremeCouncil.rings || []).map((ring) => (
+              <div key={ring.ring} className="rounded-2xl border border-amber-300/10 bg-amber-300/[0.05] p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-200/60">Ring {ring.ring}</p>
+                <h3 className="mt-1 font-black text-white">{ring.name}</h3>
+                <p className="mt-2 text-xs leading-5 text-white/60">Allowed: {(ring.allowed || []).join(', ')}</p>
+                <p className="mt-2 text-xs leading-5 text-red-100/65">Blocked: {(ring.blocked || []).join(', ')}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Convergence Gate</h3>
+              <p className="mt-2 text-xs text-white/55">Max rounds: {supremeCouncil.convergence_gate?.max_rounds}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(supremeCouncil.convergence_gate?.stop_conditions || []).map((condition) => (
+                  <span key={condition} className="rounded-full border border-amber-200/10 bg-amber-300/[0.06] px-2.5 py-1 text-[11px] text-amber-100">
+                    {condition}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Safety Membrane</h3>
+              <p className="mt-2 text-xs leading-5 text-white/60">{supremeCouncil.safety_membrane?.hard_rule}</p>
+              <div className="mt-3 space-y-1">
+                {(supremeCouncil.safety_membrane?.immutable_core || []).map((item) => (
+                  <p key={item} className="text-xs text-emerald-100/75">Locked: {item}</p>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Meta-Learning Loop</h3>
+              <div className="mt-3 space-y-2">
+                {(supremeCouncil.meta_learning_dimensions || []).map((dimension) => (
+                  <div key={dimension.dimension} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-white/80">{dimension.dimension.replaceAll('_', ' ')}</p>
+                    <p className="mt-1 text-white/50">{dimension.action}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

@@ -24,6 +24,7 @@ from app.services.aionx.client_trust_index import (
 )
 from app.services.aionx.executive_accountability_engine import track_maker_accuracy
 from app.services.aionx.operational_persistence import operational_persistence_status
+from app.services.aionx.supreme_council_layer import supreme_council_status
 
 logger = logging.getLogger(__name__)
 
@@ -203,12 +204,13 @@ async def get_aionx_system_info() -> dict[str, Any]:
             "validation_layer": "Active",
             "operational_persistence": "Active",
             "governed_autonomy": "Approval-gated",
+            "supreme_council_layer": "Active",
         },
         "organs": 9,
         "intelligence_engines": 5,
         "optional_systems": 5,
-        "total_endpoints": 99,
-        "scheduler_jobs": 16,
+        "total_endpoints": 107,
+        "scheduler_jobs": 17,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
@@ -377,6 +379,26 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Attach authenticated external crawling sources to the scan record system",
         ],
     },
+    {
+        "id": "supreme_council_layer",
+        "name": "Supreme Council Layer: Calibration + Convergence + Safety Membrane",
+        "status": "LIVE",
+        "live_evidence": [
+            "Three-ring authority architecture exposed",
+            "Provider calibration health endpoint",
+            "Grand convergence protocol endpoint",
+            "Self-modification safety membrane endpoint",
+            "Recommendation object endpoint persists to event spine",
+            "Self-modification evaluation endpoint blocks core changes",
+            "Meta-learning status endpoint",
+            "Weekly Supreme Council meta-learning scheduler job",
+        ],
+        "pending_work": [
+            "Increase resolved provider prediction volume for stronger domain authority weights",
+            "Add richer Captain conference-room UI for natural-language council stream",
+            "Connect more production outcomes into provider claim scoring",
+        ],
+    },
 ]
 
 
@@ -422,7 +444,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 99
+    route_count = 107
 
     expected_tables = {
         "decision_objects",
@@ -467,6 +489,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     missing_tables = sorted(expected_tables.difference(table_names))
     dashboard = await generate_captain_intelligence_dashboard(db)
     persistence = await operational_persistence_status(db)
+    supreme = await supreme_council_status(db)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -490,6 +513,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "missing_tables": missing_tables,
         "live_signals": dashboard.get("sections", {}),
         "operational_persistence": persistence,
+        "supreme_council": supreme,
         "canonical_next_build_order": [
             "Connect every revenue route directly into stage transitions",
             "Council conference-room UI with natural-language participant messages",

@@ -66,6 +66,9 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     # External Scan Record — governed radar placeholder until authenticated sources are configured (daily)
     add_cron_job("aionx_external_scan_record", _job_external_scan_record, hour=4, minute=15)
 
+    # Supreme Council — weekly meta-learning calibration loop
+    add_cron_job("aionx_supreme_meta_learning", _job_supreme_meta_learning, hour=21, minute=0, day_of_week="sun")
+
     logger.info("AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
 
 
@@ -411,3 +414,16 @@ async def _job_external_scan_record() -> None:
             )
     except Exception as exc:
         logger.warning("AIONX external scan record failed: %s", exc)
+
+
+async def _job_supreme_meta_learning() -> None:
+    logger.info("AIONX: running Supreme Council meta-learning cycle")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.supreme_council_layer import run_meta_learning_cycle
+
+        async with AsyncSessionLocal() as db:
+            result = await run_meta_learning_cycle(db)
+            logger.info("AIONX Supreme Council meta-learning recorded: %s", result.get("status"))
+    except Exception as exc:
+        logger.warning("AIONX Supreme Council meta-learning failed: %s", exc)

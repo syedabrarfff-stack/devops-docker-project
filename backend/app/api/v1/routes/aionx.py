@@ -99,6 +99,16 @@ from app.services.aionx.sovereign_organs import (
     sovereign_organs_status,
     system_state_snapshot,
 )
+from app.services.aionx.supreme_council_layer import (
+    calibration_health,
+    convergence_health,
+    create_recommendation_object,
+    evaluate_self_modification,
+    membrane_status,
+    meta_learning_status,
+    run_meta_learning_cycle,
+    supreme_council_status,
+)
 from app.services.aionx.ultimate_client_journey import (
     hie_briefing,
     post_call_extraction,
@@ -295,6 +305,52 @@ async def external_scan_record(
 @router.post("/governed-integrity-cycle")
 async def governed_integrity_cycle(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await run_governed_integrity_cycle(db)
+
+
+@router.get("/supreme-council")
+async def supreme_council(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await supreme_council_status(db)
+
+
+@router.get("/supreme-council/calibration")
+async def supreme_council_calibration(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await calibration_health(db)
+
+
+@router.get("/supreme-council/convergence")
+async def supreme_council_convergence(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await convergence_health(db)
+
+
+@router.get("/supreme-council/safety-membrane")
+async def supreme_council_safety_membrane(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await membrane_status(db)
+
+
+@router.get("/supreme-council/meta-learning")
+async def supreme_council_meta_learning(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await meta_learning_status(db)
+
+
+@router.post("/supreme-council/recommendation")
+async def supreme_council_recommendation(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await create_recommendation_object(db, payload)
+
+
+@router.post("/supreme-council/self-modification/evaluate")
+async def supreme_council_self_modification_evaluate(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await evaluate_self_modification(db, payload)
+
+
+@router.post("/supreme-council/meta-learning-cycle")
+async def supreme_council_meta_learning_cycle(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await run_meta_learning_cycle(db)
 
 
 @router.get("/sovereign-organs")

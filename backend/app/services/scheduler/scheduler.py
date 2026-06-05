@@ -109,6 +109,7 @@ AIONX_JOB_IDS = (
     "aionx_preventive_monitoring_snapshot",
     "aionx_governed_integrity_cycle",
     "aionx_external_scan_record",
+    "aionx_supreme_meta_learning",
 )
 
 JOB_LOCK_TTLS = {

@@ -21,6 +21,7 @@ from app.services.departments.axiom_operating_model import (
 from app.services.aionx.operational_integrity import operational_integrity_status
 from app.services.aionx.operational_persistence import operational_persistence_status
 from app.services.aionx.sovereign_organs import sovereign_organs_status, system_state_snapshot
+from app.services.aionx.supreme_council_layer import supreme_council_status
 from app.services.aionx.ultimate_client_journey import (
     preventive_monitoring_status,
     ultimate_journey_status,
@@ -296,6 +297,7 @@ async def full_operating_intelligence(db: AsyncSession) -> dict[str, Any]:
         "operational_integrity": operational_integrity_status(),
         "operational_persistence": await operational_persistence_status(db),
         "sovereign_organs": sovereign_organs_status(),
+        "supreme_council": await supreme_council_status(db),
         "system_state": system_state_snapshot(),
         "ultimate_journey": ultimate_journey_status(),
         "preventive_monitoring": preventive_monitoring_status(),
