@@ -6,6 +6,7 @@ canonical mission autopsy schema.
 from __future__ import annotations
 
 import logging
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -17,6 +18,7 @@ from app.models.aionx_organs import MissionAutopsy, MissionOwnershipRecord
 from app.services.ai.router import route_task
 
 logger = logging.getLogger(__name__)
+AI_AUTOPSY_TIMEOUT_SECONDS = 8.0
 
 
 async def analyze_mission_failure(
@@ -33,7 +35,7 @@ async def analyze_mission_failure(
     if not ownership:
         return {"error": "mission not found"}
 
-    analysis = await route_task(
+    analysis = await _route_task_bounded(
         task_type="reasoning",
         prompt=(
             f"Mission: {mission_id}\n"
@@ -143,3 +145,17 @@ async def recommend_process_improvement(db: AsyncSession, failure_type: str) -> 
         "Interview delivery team for insights",
         "Document lessons learned",
     ])
+
+
+async def _route_task_bounded(*, task_type: str, prompt: str, max_tokens: int) -> str:
+    try:
+        return await asyncio.wait_for(
+            route_task(task_type=task_type, prompt=prompt, max_tokens=max_tokens),
+            timeout=AI_AUTOPSY_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Mission autopsy route_task timed out after %.1fs", AI_AUTOPSY_TIMEOUT_SECONDS)
+        return "ROUTE_TASK_TIMEOUT"
+    except Exception as exc:
+        logger.warning("Mission autopsy route_task failed: %s", exc)
+        return "ROUTE_TASK_UNAVAILABLE"

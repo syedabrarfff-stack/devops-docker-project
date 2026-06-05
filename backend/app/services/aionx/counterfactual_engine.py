@@ -6,6 +6,7 @@ counterfactual organ tables.
 from __future__ import annotations
 
 import logging
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -22,6 +23,7 @@ from app.models.aionx_organs import (
 from app.services.ai.router import route_task
 
 logger = logging.getLogger(__name__)
+AI_SIMULATION_TIMEOUT_SECONDS = 8.0
 
 
 async def simulate_decision(
@@ -41,7 +43,7 @@ async def simulate_decision(
     )).scalars().first()
     option_id = option.id if option else uuid.uuid4()
 
-    analysis = await route_task(
+    analysis = await _route_task_bounded(
         task_type="reasoning",
         prompt=(
             f"Decision made: {decision.problem_statement}\n"
@@ -167,3 +169,17 @@ async def extract_learning(db: AsyncSession) -> dict[str, Any]:
         "success_rate": positive_outcomes / len(actualities),
         "avg_accuracy": avg_accuracy,
     }
+
+
+async def _route_task_bounded(*, task_type: str, prompt: str, max_tokens: int) -> str:
+    try:
+        return await asyncio.wait_for(
+            route_task(task_type=task_type, prompt=prompt, max_tokens=max_tokens),
+            timeout=AI_SIMULATION_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Counterfactual route_task timed out after %.1fs", AI_SIMULATION_TIMEOUT_SECONDS)
+        return "ROUTE_TASK_TIMEOUT"
+    except Exception as exc:
+        logger.warning("Counterfactual route_task failed: %s", exc)
+        return "ROUTE_TASK_UNAVAILABLE"

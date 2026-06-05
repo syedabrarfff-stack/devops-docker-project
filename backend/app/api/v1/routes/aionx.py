@@ -546,7 +546,8 @@ async def assess_debt(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 @router.get("/intelligence/debt/reduction-plan")
 async def debt_reduction_plan(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     from app.services.aionx.decision_debt_engine import recommend_debt_reduction
-    return await recommend_debt_reduction(db)
+    recommendations = await recommend_debt_reduction(db)
+    return {"recommendations": recommendations, "count": len(recommendations)}
 
 
 # Mission Autopsy Engine
