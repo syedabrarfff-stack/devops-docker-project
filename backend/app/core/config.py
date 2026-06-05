@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     # Gmail (Phase 2 SMTP / Phase 3 OAuth)
     GMAIL_ADDRESS: Optional[str] = None
     GMAIL_APP_PASSWORD: Optional[str] = None    # Phase 2 SMTP
+    GMAIL_USER: Optional[str] = None            # legacy alias
+    EMAIL_USER: Optional[str] = None            # legacy alias
+    EMAIL_PASS: Optional[str] = None            # legacy alias
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_SECURE: bool = False
+    OUTREACH_PERSONALIZE_ON_SEND: bool = True
     GMAIL_CLIENT_ID: Optional[str] = None       # Phase 3 OAuth
     GMAIL_CLIENT_SECRET: Optional[str] = None   # Phase 3 OAuth
 

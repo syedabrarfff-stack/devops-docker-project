@@ -14,6 +14,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+
 
 OMNI_TOTAL_SYSTEMS = 227
 
@@ -256,11 +258,14 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     jobs = await _scheduler_jobs(db)
     aionx_jobs = [job for job in jobs if job.startswith("aionx_")]
     counts = await _registry_counts(db)
+    email = _email_engine_status()
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
     if "aionx_omni_system_registry" not in tables:
         alerts.append({"severity": "CRITICAL", "message": "Omni registry table missing."})
+    if email["send_mode"] != "live":
+        alerts.append({"severity": "WARNING", "message": f"Email engine blocked: {email['validation_error']}"})
     health = {
         "backend": "green",
         "database": "green" if tables else "red",
@@ -269,6 +274,7 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
         "aionx": "green" if len(aionx_jobs) >= 23 else "amber",
         "frontier": "green" if "aionx_captain_decisions" in tables else "amber",
         "omni_registry": "green" if "aionx_omni_system_registry" in tables else "red",
+        "email_engine": "green" if email["send_mode"] == "live" else "amber",
     }
     payload = {
         "status": "system_hud_live",
@@ -280,6 +286,7 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
             "emails": "tracked_in_outreach_layer",
             "operational_iq": "tracked_in_aionx_cortex",
         },
+        "email_engine": email,
         "scheduler": {"total_jobs": len(jobs), "aionx_jobs": len(aionx_jobs), "aionx_expected": 24},
         "registry": counts,
         "alerts": alerts,
@@ -314,6 +321,40 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
         )
         await db.commit()
     return payload
+
+
+def _email_engine_status() -> dict[str, Any]:
+    sender = (settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER or "").strip()
+    password = (settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS or "").replace(" ", "").strip()
+    configured = bool(sender and password)
+    shape_valid = configured and password.isascii() and len(password) == 16
+    if not configured:
+        validation_error = "Gmail sender or app password is missing."
+    elif not password.isascii():
+        validation_error = "Gmail app password contains non-ASCII characters."
+    elif len(password) != 16:
+        validation_error = "Gmail app password must be the real 16-character Google app password."
+    elif settings.OUTREACH_PAUSED:
+        validation_error = "Outreach is paused by configuration."
+    else:
+        validation_error = ""
+    return {
+        "configured": configured,
+        "credential_shape_valid": bool(shape_valid),
+        "smtp_runtime_check": "available_at_/api/v1/gmail/status",
+        "daily_cap": int(settings.OUTREACH_DAILY_SEND_CAP or 48),
+        "send_mode": "live" if shape_valid and not settings.OUTREACH_PAUSED else "blocked",
+        "sender": sender if configured else None,
+        "outreach_paused": bool(settings.OUTREACH_PAUSED),
+        "validation_error": validation_error,
+        "safety": {
+            "unsubscribe_footer": True,
+            "do_not_contact_gate": True,
+            "business_hours_gate": True,
+            "daily_cap_gate": True,
+            "client_language_sanitizer": True,
+        },
+    }
 
 
 async def self_heal_diagnose(db: AsyncSession, payload: dict[str, Any]) -> dict[str, Any]:

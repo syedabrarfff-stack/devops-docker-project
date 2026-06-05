@@ -23,6 +23,7 @@ from app.models.outreach import (
 )
 from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
+from app.services.communication.client_language import sanitize_subject_body
 from app.services.intelligence.jarvis_authority import requires_captain_approval
 from app.services.notifications.gmail_sender import gmail_sender
 from app.services.outreach.compliance import outreach_compliance
@@ -340,10 +341,11 @@ class OutreachEngine:
                                 logger.warning("Daily cap notification skipped: %s", exc)
                         continue
 
-                    body_to_send = outreach_compliance.append_footer(email["body"], to_email)
+                    subject_to_send, clean_body = sanitize_subject_body(email["subject"], email["body"])
+                    body_to_send = outreach_compliance.append_footer(clean_body, to_email)
                     success = await gmail_sender.send_email(
                         to=to_email,
-                        subject=email["subject"],
+                        subject=subject_to_send,
                         body_html=_body_html(body_to_send),
                         from_name=PERSONAS["darren_mitchell"]["name"],
                         from_email=PERSONAS["darren_mitchell"]["email"],
@@ -364,7 +366,7 @@ class OutreachEngine:
                         tenant_id=tenant_uuid,
                         lead_id=lead.id,
                         channel=OutreachChannel.EMAIL,
-                        subject=email["subject"],
+                        subject=subject_to_send,
                         body_text=body_to_send,
                         sent_from_persona=PERSONAS["darren_mitchell"]["name"],
                         sent_at=now,
@@ -389,7 +391,7 @@ class OutreachEngine:
                         lead.id,
                         {
                             "sequence_step": item.sequence_step,
-                            "subject": email["subject"],
+                            "subject": subject_to_send,
                             "persona": PERSONAS["darren_mitchell"]["name"],
                         },
                     )
@@ -656,8 +658,10 @@ def _clean_steps(steps: list[dict], lead: Lead) -> list[dict]:
     for index in range(3):
         candidate = steps[index] if index < len(steps) else {}
         step = int(candidate.get("step") or index + 1)
-        subject = str(candidate.get("subject") or fallback[index]["subject"]).strip()
-        body = str(candidate.get("body") or fallback[index]["body"]).strip()
+        subject, body = sanitize_subject_body(
+            str(candidate.get("subject") or fallback[index]["subject"]).strip(),
+            str(candidate.get("body") or fallback[index]["body"]).strip(),
+        )
         if (
             not _subject_is_valid(subject)
             or not _body_is_valid(body)

@@ -187,6 +187,7 @@ export default function AionxArchitecture() {
   const omni = architecture.omni || state.dashboard?.sections?.mission_control?.omni || {}
   const missionControl = architecture.mission_control || state.dashboard?.sections?.mission_control || {}
   const hud = state.dashboard?.sections?.system_hud || missionControl.system_health || {}
+  const emailEngine = hud.email_engine || missionControl.email_engine || {}
   const calibration = supremeCouncil.calibration_health || {}
   const convergence = supremeCouncil.convergence_health || {}
   const membrane = supremeCouncil.membrane_status || {}
@@ -686,6 +687,30 @@ export default function AionxArchitecture() {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="mt-4 rounded-xl border border-amber-200/10 bg-amber-300/[0.06] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-100/70">Email Engine</p>
+                <div className="mt-2 grid gap-2 text-xs text-white/65">
+                  <div className="flex justify-between gap-3">
+                    <span>Mode</span>
+                    <span className={emailEngine.send_mode === 'live' ? 'text-emerald-200' : 'text-amber-200'}>
+                      {(emailEngine.send_mode || 'unknown').toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Daily cap</span>
+                    <span>{emailEngine.daily_cap ?? '-'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Sanitizer</span>
+                    <span>{emailEngine.safety?.client_language_sanitizer ? 'ON' : 'UNKNOWN'}</span>
+                  </div>
+                  {emailEngine.validation_error && (
+                    <p className="rounded-lg border border-amber-200/15 bg-black/20 p-2 text-amber-100/80">
+                      {emailEngine.validation_error}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="mt-4 rounded-xl border border-amber-200/10 bg-amber-300/[0.06] p-3">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-100/70">Captain Actions</p>
