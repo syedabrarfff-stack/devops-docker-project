@@ -69,6 +69,14 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     # Supreme Council — weekly meta-learning calibration loop
     add_cron_job("aionx_supreme_meta_learning", _job_supreme_meta_learning, hour=21, minute=0, day_of_week="sun")
 
+    # Frontier Intelligence — advanced governed operating systems
+    add_cron_job("aionx_founder_mirror_analysis", _job_founder_mirror_analysis, hour=1, minute=0)
+    add_cron_job("aionx_parallel_universe_analysis", _job_parallel_universe_analysis, hour=8, minute=0, day_of_week="mon")
+    add_cron_job("aionx_service_innovation_scan", _job_service_innovation_scan, hour=10, minute=0, day_of_week="sun")
+    add_interval_job("aionx_predictive_threat_scan", _job_predictive_threat_scan, hours=2)
+    add_interval_job("aionx_agent_capacity_check", _job_agent_capacity_check, hours=4)
+    add_interval_job("aionx_idle_intelligence_cycle", _job_idle_intelligence_cycle, hours=6)
+
     logger.info("AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
 
 
@@ -427,3 +435,101 @@ async def _job_supreme_meta_learning() -> None:
             logger.info("AIONX Supreme Council meta-learning recorded: %s", result.get("status"))
     except Exception as exc:
         logger.warning("AIONX Supreme Council meta-learning failed: %s", exc)
+
+
+async def _job_founder_mirror_analysis() -> None:
+    logger.info("AIONX Frontier: Founder Mirror pattern analysis")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import captain_mirror_profile
+
+        async with AsyncSessionLocal() as db:
+            profile = await captain_mirror_profile(db)
+            logger.info("AIONX Founder Mirror: %s decisions recorded", profile.get("decisions_recorded"))
+    except Exception as exc:
+        logger.warning("AIONX Founder Mirror analysis failed: %s", exc)
+
+
+async def _job_parallel_universe_analysis() -> None:
+    logger.info("AIONX Frontier: Parallel Universe experiment analysis")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import list_experiments
+
+        async with AsyncSessionLocal() as db:
+            experiments = await list_experiments(db)
+            logger.info("AIONX Parallel Universe: %s experiments tracked", len(experiments.get("experiments", [])))
+    except Exception as exc:
+        logger.warning("AIONX Parallel Universe analysis failed: %s", exc)
+
+
+async def _job_service_innovation_scan() -> None:
+    logger.info("AIONX Frontier: service innovation scan")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import generate_service_concept
+
+        async with AsyncSessionLocal() as db:
+            concept = await generate_service_concept(
+                db,
+                {
+                    "signals": [
+                        "Scheduled market scan found demand for AI operations pilots.",
+                        "Pilot-first packaging reduces commitment fear.",
+                    ],
+                    "industry": "founder-led operations",
+                },
+            )
+            logger.info("AIONX Service Innovation: concept %s ready for Captain review", concept.get("concept_id"))
+    except Exception as exc:
+        logger.warning("AIONX service innovation scan failed: %s", exc)
+
+
+async def _job_predictive_threat_scan() -> None:
+    logger.info("AIONX Frontier: predictive threat scan")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import scan_threats
+
+        async with AsyncSessionLocal() as db:
+            result = await scan_threats(db, {"signals": {}})
+            logger.info("AIONX Threat Scan: %s alerts created", result.get("alerts_created"))
+    except Exception as exc:
+        logger.warning("AIONX predictive threat scan failed: %s", exc)
+
+
+async def _job_agent_capacity_check() -> None:
+    logger.info("AIONX Frontier: agent capacity check")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import agent_capacity
+
+        async with AsyncSessionLocal() as db:
+            result = await agent_capacity(db)
+            logger.info("AIONX Agent Scaling: %s proposals", len(result.get("agent_proposals", [])))
+    except Exception as exc:
+        logger.warning("AIONX agent capacity check failed: %s", exc)
+
+
+async def _job_idle_intelligence_cycle() -> None:
+    logger.info("AIONX Frontier: idle intelligence cycle")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.frontier_intelligence import create_knowledge_artifact
+
+        async with AsyncSessionLocal() as db:
+            artifact = await create_knowledge_artifact(
+                db,
+                {
+                    "artifact_type": "idle_intelligence",
+                    "content": (
+                        "Idle cycle doctrine: when no mission is active, generate leads, "
+                        "service concepts, proposal angles, and risk scans for Captain review."
+                    ),
+                    "tags": ["idle_engine", "dream_layer", "captain_review"],
+                    "importance_score": 0.8,
+                },
+            )
+            logger.info("AIONX Idle Intelligence: artifact %s recorded", artifact.get("artifact_id"))
+    except Exception as exc:
+        logger.warning("AIONX idle intelligence cycle failed: %s", exc)

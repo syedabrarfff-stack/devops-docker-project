@@ -31,6 +31,7 @@ from app.api.v1.routes import connector_hub
 from app.api.v1.routes import consciousness
 from app.api.v1.routes import aionx
 from app.api.v1.routes import batch1
+from app.api.v1.routes import frontier
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -100,3 +101,4 @@ api_router.include_router(connector_hub.router)
 api_router.include_router(consciousness.router)
 api_router.include_router(aionx.router)
 api_router.include_router(batch1.router)
+api_router.include_router(frontier.router)

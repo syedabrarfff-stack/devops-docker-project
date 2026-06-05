@@ -26,6 +26,7 @@ from app.services.aionx.executive_accountability_engine import track_maker_accur
 from app.services.aionx.operational_persistence import operational_persistence_status
 from app.services.aionx.supreme_council_layer import supreme_council_status
 from app.services.aionx.completion_matrix import completion_matrix
+from app.services.aionx.frontier_intelligence import frontier_status
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,13 @@ async def generate_captain_intelligence_dashboard(
     # SECTION 6: SYSTEM RECOMMENDATIONS
     dashboard["sections"]["recommendations"] = await _generate_system_recommendations(db)
 
+    # SECTION 7: FRONTIER INTELLIGENCE
+    try:
+        dashboard["sections"]["frontier_intelligence"] = await frontier_status(db)
+    except Exception as e:
+        logger.error("Frontier Intelligence gathering failed: %s", e)
+        dashboard["sections"]["frontier_intelligence"] = {"error": str(e)}
+
     return dashboard
 
 
@@ -208,12 +216,20 @@ async def get_aionx_system_info() -> dict[str, Any]:
             "supreme_council_layer": "Active",
             "cross_department_validation": "Active",
             "completion_matrix": "Active",
+            "founder_mirror": "Active",
+            "parallel_universe_engine": "Active",
+            "service_innovation_engine": "Governed",
+            "client_psychology_engine": "Active",
+            "predictive_threat_intelligence": "Active",
+            "cascade_intelligence_network": "Active",
+            "immortal_company_brain": "Active",
+            "agent_scaling_engine": "Governed",
         },
         "organs": 9,
-        "intelligence_engines": 5,
+        "intelligence_engines": 13,
         "optional_systems": 5,
-        "total_endpoints": 121,
-        "scheduler_jobs": 17,
+        "total_endpoints": 154,
+        "scheduler_jobs": 23,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
@@ -419,6 +435,29 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Validation gates should be called from every production revenue workflow as traffic grows",
         ],
     },
+    {
+        "id": "frontier_intelligence",
+        "name": "Frontier Intelligence: Mirror, Universes, Threats, Brain, Agent Scaling",
+        "status": "LIVE_GOVERNED",
+        "live_evidence": [
+            "Founder Mirror prediction endpoints",
+            "Parallel Universe experiment endpoints",
+            "Autonomous service concept generator with Captain review",
+            "Client psychology profile and message personalization endpoints",
+            "Predictive threat scan and resolution endpoints",
+            "Cascade intelligence event propagation endpoint",
+            "Immortal company brain artifact and recall endpoints",
+            "Agent capacity and proposal endpoints",
+            "10 frontier persistence tables",
+            "6 frontier scheduler heartbeat jobs",
+        ],
+        "pending_work": [
+            "Train Founder Mirror confidence with real Captain decisions over time",
+            "Attach live CRM/outreach outcomes to experiment winner promotion",
+            "Keep service creation and agent replication Captain-approval gated",
+            "Add pgvector embeddings after production vector extension is confirmed",
+        ],
+    },
 ]
 
 
@@ -505,6 +544,16 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "aionx_external_scan_records",
         "aionx_mission_documents",
         "aionx_cross_validation_records",
+        "aionx_captain_decisions",
+        "aionx_experiments",
+        "aionx_experiment_outcomes",
+        "aionx_service_concepts",
+        "aionx_psychology_profiles",
+        "aionx_threat_alerts",
+        "aionx_intelligence_events",
+        "aionx_knowledge_artifacts",
+        "aionx_agent_capacity",
+        "aionx_agent_proposals",
     }
 
     live_tables = sorted(expected_tables.intersection(table_names))
@@ -527,8 +576,8 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
             "expected_aionx_tables": len(expected_tables),
             "live_aionx_tables": len(live_tables),
             "missing_aionx_tables": len(missing_tables),
-            "aionx_api_endpoints_expected": route_count,
-            "aionx_scheduler_jobs_expected": 12,
+            "aionx_api_endpoints_expected": route_count + 33,
+            "aionx_scheduler_jobs_expected": 23,
         },
         "blueprint": CANONICAL_AIONX_BLUEPRINT,
         "connection_map": CANONICAL_AIONX_CONNECTIONS,
@@ -538,8 +587,11 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "operational_persistence": persistence,
         "supreme_council": supreme,
         "completion_matrix": completion,
+        "frontier_intelligence": await frontier_status(db),
         "canonical_next_build_order": [
             "Connect every revenue route directly into stage transitions",
+            "Feed real outcomes into Founder Mirror and Parallel Universe scoring",
+            "Add Captain-facing conference-room UI for cascade and council events",
             "Council conference-room UI with natural-language participant messages",
             "Revenue Heart ledger and cost-per-outcome reporting",
             "Self-modification safety membrane with shadow/canary approval workflow",

@@ -182,6 +182,8 @@ export default function AionxArchitecture() {
   const sovereign = operating.sovereign_organs || {}
   const supremeCouncil = operating.supreme_council || architecture.supreme_council || {}
   const completionMatrix = architecture.completion_matrix || {}
+  const frontier = architecture.frontier_intelligence || state.dashboard?.sections?.frontier_intelligence || {}
+  const frontierCounts = frontier.counts || {}
   const calibration = supremeCouncil.calibration_health || {}
   const convergence = supremeCouncil.convergence_health || {}
   const membrane = supremeCouncil.membrane_status || {}
@@ -217,6 +219,7 @@ export default function AionxArchitecture() {
           <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub={`${sovereign.cognitive_region_count || 0} cognitive regions`} />
           <StatCard icon={ShieldCheck} label="Supreme Council" value={(supremeCouncil.rings || []).length || 0} sub="Calibration/convergence/membrane" />
           <StatCard icon={CheckCircle2} label="Completion Matrix" value={`${completionMatrix.live_or_live_foundation || 0}/${completionMatrix.systems_total || 0}`} sub="Old audit reconciled" />
+          <StatCard icon={Network} label="Frontier Systems" value={`${frontier.systems_total || 0}/8`} sub={`${frontier.table_count || 0} frontier tables`} />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -580,6 +583,51 @@ export default function AionxArchitecture() {
                   <StatusPill status={system.status} />
                 </div>
                 <p className="mt-2 text-xs leading-5 text-white/55">{system.evidence}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-sky-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-sky-200/60">Frontier Intelligence</p>
+              <h2 className="mt-1 text-2xl font-black">Founder Mirror + Parallel Universes + Immortal Brain</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                The new pasted frontier architecture is now live as governed systems: Captain prediction,
+                experiments, service concepts, client psychology, predictive threats, cascade intelligence,
+                permanent company brain, and agent scaling proposals.
+              </p>
+            </div>
+            <StatusPill status={frontier.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <StatCard icon={Network} label="Systems" value={`${frontier.systems_total || 0}/8`} sub="Advanced intelligence organs" />
+            <StatCard icon={CircuitBoard} label="Tables" value={frontier.table_count || 0} sub="Frontier persistence" />
+            <StatCard icon={ShieldCheck} label="Captain Decisions" value={frontierCounts.aionx_captain_decisions ?? '-'} sub="Founder Mirror memory" />
+            <StatCard icon={Activity} label="Threat Alerts" value={frontierCounts.aionx_threat_alerts ?? '-'} sub="Early warning records" />
+            <StatCard icon={Layers3} label="Knowledge" value={frontierCounts.aionx_knowledge_artifacts ?? '-'} sub="Immortal brain artifacts" />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {(frontier.systems || []).map((system) => (
+              <div key={system.id} className="rounded-2xl border border-sky-300/10 bg-sky-300/[0.05] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-black text-white">{system.name}</h3>
+                  <StatusPill status={system.status} />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-white/60">{system.purpose}</p>
+                <p className="mt-3 text-[11px] leading-5 text-amber-100/70">{system.boundary}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {Object.entries(frontierCounts).map(([table, count]) => (
+              <div key={table} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-200/60">{table.replaceAll('_', ' ')}</p>
+                <p className="mt-2 text-3xl font-black text-white">{count}</p>
               </div>
             ))}
           </div>

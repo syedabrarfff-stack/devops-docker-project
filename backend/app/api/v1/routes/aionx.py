@@ -1117,6 +1117,66 @@ async def system_info() -> dict[str, Any]:
     return await get_aionx_system_info()
 
 
+@router.get("/frontier")
+async def aionx_frontier_status(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import frontier_status
+    return await frontier_status(db)
+
+
+@router.post("/frontier/founder-mirror/predict")
+async def aionx_frontier_founder_mirror_predict(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import predict_captain_decision
+    return await predict_captain_decision(db, payload)
+
+
+@router.post("/frontier/service-concepts/generate")
+async def aionx_frontier_generate_service_concept(
+    payload: dict[str, Any] | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import generate_service_concept
+    return await generate_service_concept(db, payload)
+
+
+@router.post("/frontier/threats/scan")
+async def aionx_frontier_scan_threats(
+    payload: dict[str, Any] | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import scan_threats
+    return await scan_threats(db, payload)
+
+
+@router.post("/frontier/cascade/trigger")
+async def aionx_frontier_cascade(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import cascade_intelligence
+    return await cascade_intelligence(db, payload)
+
+
+@router.get("/frontier/brain/recall")
+async def aionx_frontier_brain_recall(
+    q: str = Query("what worked"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import recall_knowledge
+    return await recall_knowledge(db, q)
+
+
+@router.post("/frontier/agents/capacity")
+async def aionx_frontier_agent_capacity(
+    payload: dict[str, Any] | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.frontier_intelligence import agent_capacity
+    return await agent_capacity(db, payload)
+
+
 @router.get("/completion-matrix")
 async def aionx_completion_matrix(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await completion_matrix(db)
