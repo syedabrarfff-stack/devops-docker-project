@@ -101,6 +101,10 @@ AIONX_JOB_IDS = (
     "aionx_twin_predictions",
     "aionx_wisdom_weekly",
     "aionx_decision_retrospective",
+    "aionx_counterfactual_sync",
+    "aionx_debt_assessment",
+    "aionx_trust_erosion_check",
+    "aionx_authority_recalibration",
 )
 
 JOB_LOCK_TTLS = {

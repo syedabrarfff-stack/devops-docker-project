@@ -8,6 +8,7 @@ from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.crm import Contact  # noqa: F401 - registers relationship target for OutreachEmail.
 from app.models.base import JarvisBase
 
 
