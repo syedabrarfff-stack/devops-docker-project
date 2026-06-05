@@ -363,7 +363,7 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                         .select_from(ReplyLog)
                         .where(
                             ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.classification.in_(["INTERESTED", "WARM"]),
+                            ReplyLog.classification.in_(["INTERESTED", "QUESTION"]),
                             ReplyLog.created_at <= three_days_ago,
                         )
                     ) or 0
