@@ -486,3 +486,166 @@ async def get_ownership(
         "satisfaction": record.client_satisfaction_score,
         "repair_loops": record.repair_loops_count,
     }
+
+
+# ─── INTELLIGENCE ENGINES ────────────────────────────────────────────────────
+
+# Counterfactual Engine
+@router.post("/intelligence/counterfactual/simulate")
+async def simulate_decision(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.counterfactual_engine import simulate_decision as sim
+    return await sim(db, uuid.UUID(payload["decision_id"]))
+
+
+@router.post("/intelligence/counterfactual/actuality")
+async def record_actuality(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.counterfactual_engine import record_actuality as rec
+    return await rec(
+        db,
+        uuid.UUID(payload["decision_id"]),
+        payload["actual_outcome"],
+        payload.get("revenue_delta", 0.0),
+        payload.get("timeline_delta_days", 0),
+    )
+
+
+@router.get("/intelligence/counterfactual/learning")
+async def extract_counterfactual_learning(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.counterfactual_engine import extract_learning
+    return await extract_learning(db)
+
+
+# Decision Debt Engine
+@router.post("/intelligence/debt/compute")
+async def compute_debt(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.decision_debt_engine import compute_decision_debt
+    return await compute_decision_debt(
+        db,
+        uuid.UUID(payload["decision_id"]),
+        payload.get("lost_revenue_usd", 0.0),
+        payload.get("remediation_effort_hours", 0),
+        payload.get("opportunity_cost_usd", 0.0),
+    )
+
+
+@router.get("/intelligence/debt/assess")
+async def assess_debt(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.decision_debt_engine import assess_institutional_debt
+    return await assess_institutional_debt(db)
+
+
+@router.get("/intelligence/debt/reduction-plan")
+async def debt_reduction_plan(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.decision_debt_engine import recommend_debt_reduction
+    return await recommend_debt_reduction(db)
+
+
+# Mission Autopsy Engine
+@router.post("/intelligence/autopsy/analyze")
+async def analyze_failure(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_autopsy_engine import analyze_mission_failure
+    return await analyze_mission_failure(
+        db,
+        uuid.UUID(payload["mission_id"]),
+        payload.get("failure_type", "UNKNOWN"),
+        payload.get("failure_summary", ""),
+    )
+
+
+@router.get("/intelligence/autopsy/patterns")
+async def failure_patterns(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.mission_autopsy_engine import extract_failure_patterns
+    return await extract_failure_patterns(db)
+
+
+@router.get("/intelligence/autopsy/improvements/{failure_type}")
+async def improvement_recommendations(
+    failure_type: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.mission_autopsy_engine import recommend_process_improvement
+    improvements = await recommend_process_improvement(db, failure_type)
+    return {"failure_type": failure_type, "improvements": improvements}
+
+
+# Executive Accountability Engine
+@router.post("/intelligence/accountability/score-decision")
+async def score_decision(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.executive_accountability_engine import score_decision_quality
+    return await score_decision_quality(
+        db,
+        uuid.UUID(payload["decision_id"]),
+        payload.get("actual_outcome_quality", 0.5),
+    )
+
+
+@router.get("/intelligence/accountability/maker/{maker_id}")
+async def maker_accuracy(
+    maker_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.executive_accountability_engine import track_maker_accuracy
+    return await track_maker_accuracy(db, maker_id)
+
+
+@router.get("/intelligence/accountability/decay/{maker_id}")
+async def authority_decay_check(
+    maker_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.executive_accountability_engine import compute_authority_decay
+    return await compute_authority_decay(db, maker_id)
+
+
+@router.post("/intelligence/accountability/escalate")
+async def escalate_decision(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.executive_accountability_engine import escalate_for_captain_review
+    return await escalate_for_captain_review(db, uuid.UUID(payload["decision_id"]))
+
+
+# Client Trust Index Engine
+@router.post("/intelligence/trust/compute")
+async def compute_trust(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.client_trust_index import compute_trust_score
+    return await compute_trust_score(db, uuid.UUID(payload["client_id"]))
+
+
+@router.get("/intelligence/trust/erosion/{client_id}")
+async def trust_erosion_check(
+    client_id: uuid.UUID,
+    threshold: float = Query(20.0),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.client_trust_index import escalate_trust_erosion
+    return await escalate_trust_erosion(db, client_id, threshold)
+
+
+@router.get("/intelligence/trust/recovery/{client_id}")
+async def recovery_actions(
+    client_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.client_trust_index import recovery_protocol
+    actions = await recovery_protocol(db, client_id)
+    return {"client_id": str(client_id), "recovery_actions": actions}

@@ -60,6 +60,30 @@ async def compute_weekly_wisdom(
     accuracy_ratio = correct / total if total > 0 else 0.5
     decision_accuracy_score = accuracy_ratio * WEIGHTS["decision_accuracy"]
 
+    # Counterfactual precision (from intelligence engine)
+    counterfactual_precision = 0.5
+    try:
+        from app.services.aionx.counterfactual_engine import extract_learning
+        learning = await extract_learning(db)
+        counterfactual_precision = learning.get("success_rate", 0.5)
+    except Exception:
+        pass
+    counterfactual_precision_score = counterfactual_precision * WEIGHTS["counterfactual_precision"]
+
+    # Client retention (from trust engine)
+    client_retention_ratio = 0.75
+    try:
+        from sqlalchemy import func as sql_func
+        from app.models.aionx_organs import ClientDigitalTwin
+        trust_result = await db.execute(
+            select(sql_func.avg(ClientDigitalTwin.trust_score))
+        )
+        avg_trust = trust_result.scalar() or 70.0
+        client_retention_ratio = min(1.0, avg_trust / 100.0)
+    except Exception:
+        pass
+    client_retention_score = client_retention_ratio * WEIGHTS["client_retention"]
+
     # Decision debt burden
     debt_result = await db.execute(
         select(InstitutionalDebtIndex).order_by(InstitutionalDebtIndex.created_at.desc()).limit(1)
@@ -69,6 +93,35 @@ async def compute_weekly_wisdom(
         abs(WEIGHTS["debt_burden"]),
         (debt.total_debt_score / 10.0) if debt else 0.0,
     )
+    wisdom_penalty_from_debt = (debt.wisdom_index_penalty_points if debt else 0)
+
+    # Provider authority (from accountability engine)
+    provider_authority = 0.5
+    try:
+        from app.services.aionx.executive_accountability_engine import track_maker_accuracy
+        provider_result = await track_maker_accuracy(db, "Provider_Sovereign_Council")
+        provider_authority = provider_result.get("accuracy", 0.5)
+    except Exception:
+        pass
+    provider_authority_score = provider_authority * WEIGHTS["provider_authority"]
+
+    # Convergence efficiency (success rate of council sessions)
+    convergence_efficiency = 0.5
+    try:
+        from app.models.aionx_organs import ConvergenceCouncilSession
+        council_result = await db.execute(
+            select(ConvergenceCouncilSession).where(
+                ConvergenceCouncilSession.created_at.between(week_start, week_end),
+                ConvergenceCouncilSession.completed_at.is_not(None),
+            )
+        )
+        councils = council_result.scalars().all()
+        if councils:
+            successful = sum(1 for c in councils if c.recommendation and c.recommendation != "RECOMMENDATION_DEFERRED")
+            convergence_efficiency = successful / len(councils)
+    except Exception:
+        pass
+    convergence_efficiency_score = convergence_efficiency * WEIGHTS["convergence_efficiency"]
 
     # Previous score
     prev_result = await db.execute(
@@ -82,9 +135,13 @@ async def compute_weekly_wisdom(
         BASE_SCORE
         + decision_accuracy_score
         + WEIGHTS["calibration_quality"] * 0.5
+        + counterfactual_precision_score
+        + provider_authority_score
         + WEIGHTS["pattern_reuse"] * 0.4
-        + WEIGHTS["client_retention"] * 0.6
+        + client_retention_score
+        + convergence_efficiency_score
         - debt_burden_penalty
+        - wisdom_penalty_from_debt
         + WEIGHTS["knowledge_freshness"] * 0.3,
     )
 
@@ -95,16 +152,16 @@ async def compute_weekly_wisdom(
         delta=round(wisdom_score - previous_score, 1),
         decision_accuracy_score=round(decision_accuracy_score, 1),
         calibration_quality_score=round(WEIGHTS["calibration_quality"] * 0.5, 1),
-        counterfactual_precision_score=0.0,
-        provider_authority_score=round(WEIGHTS["provider_authority"] * 0.5, 1),
+        counterfactual_precision_score=round(counterfactual_precision_score, 1),
+        provider_authority_score=round(provider_authority_score, 1),
         pattern_reuse_score=round(WEIGHTS["pattern_reuse"] * 0.4, 1),
-        client_retention_score=round(WEIGHTS["client_retention"] * 0.6, 1),
-        debt_burden_penalty=round(debt_burden_penalty, 1),
+        client_retention_score=round(client_retention_score, 1),
+        debt_burden_penalty=round(debt_burden_penalty + wisdom_penalty_from_debt, 1),
         knowledge_freshness_score=round(WEIGHTS["knowledge_freshness"] * 0.3, 1),
-        convergence_efficiency_score=0.0,
+        convergence_efficiency_score=round(convergence_efficiency_score, 1),
         self_mod_success_score=0.0,
-        narrative=_generate_narrative(wisdom_score, previous_score, correct, total, debt),
-        recommendations=_generate_recommendations(wisdom_score, debt_burden_penalty),
+        narrative=_generate_narrative(wisdom_score, previous_score, correct, total, debt, counterfactual_precision, client_retention_ratio),
+        recommendations=_generate_recommendations(wisdom_score, debt_burden_penalty + wisdom_penalty_from_debt),
     )
     db.add(snapshot)
     await db.commit()
@@ -117,14 +174,20 @@ def _generate_narrative(
     correct: int,
     total: int,
     debt: Any,
+    counterfactual_precision: float = 0.5,
+    client_retention: float = 0.75,
 ) -> str:
     delta = score - previous
     direction = f"+{delta:.1f}" if delta >= 0 else f"{delta:.1f}"
     accuracy_pct = f"{(correct / total * 100):.0f}%" if total > 0 else "N/A"
     debt_score = f"{debt.total_debt_score:.0f}" if debt else "0"
+    cf_precision_pct = f"{(counterfactual_precision * 100):.0f}%"
+    retention_pct = f"{(client_retention * 100):.0f}%"
     return (
         f"AIONX Wisdom Index: {score:.0f} ({direction} this week). "
         f"Decision accuracy: {accuracy_pct} ({correct}/{total}). "
+        f"Counterfactual precision: {cf_precision_pct}. "
+        f"Client retention health: {retention_pct}. "
         f"Institutional debt: {debt_score}. "
         f"{'Wisdom growing — organism becoming wiser.' if delta >= 0 else 'Wisdom declining — investigate root causes.'}"
     )
