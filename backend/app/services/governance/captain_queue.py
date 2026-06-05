@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
@@ -112,6 +112,9 @@ class CaptainQueue:
                 )
                 data = _serialize(approval)
 
+        if action_result.get("type") == "outreach_enrollment_review_approved":
+            action_result = await _queue_outreach_after_approval(tenant_uuid, action_result)
+
         await _notify_decision(data, "approved", action_result)
         return {"status": "approved", "approval": data, "action_result": action_result}
 
@@ -206,7 +209,43 @@ async def _execute_queued_action(session, tenant_id: uuid.UUID, approval: Approv
             return {"executed": True, "type": "outreach_requeued", "follow_up_queue_id": str(follow_up.id)}
         return {"executed": False, "type": "outreach_requeued", "reason": "follow_up_not_found"}
 
+    if approval.action_type == "outreach_enrollment_review" and payload.get("lead_id"):
+        return {
+            "executed": False,
+            "type": "outreach_enrollment_review_approved",
+            "lead_id": str(payload["lead_id"]),
+            "reason": "queue_after_approval_commit",
+        }
+
     return {"executed": True, "type": "logged_approval"}
+
+
+async def _queue_outreach_after_approval(tenant_id: uuid.UUID, action_result: dict[str, Any]) -> dict[str, Any]:
+    from app.models.outreach import FollowUpQueue, FollowUpStatus
+    from app.services.outreach.engine import outreach_engine
+
+    lead_id = action_result.get("lead_id")
+    if not lead_id:
+        return {**action_result, "executed": False, "reason": "missing_lead_id"}
+
+    await outreach_engine.queue_sequence(lead_id, tenant_id)
+
+    async with AsyncSessionLocal() as session:
+        await set_tenant_context(session, str(tenant_id))
+        queued_count = await session.scalar(
+            select(func.count()).select_from(FollowUpQueue).where(
+                FollowUpQueue.tenant_id == tenant_id,
+                FollowUpQueue.lead_id == uuid.UUID(str(lead_id)),
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            )
+        )
+
+    return {
+        **action_result,
+        "executed": bool(queued_count),
+        "queued_followups": int(queued_count or 0),
+        "reason": "captain_approved_and_queued" if queued_count else "captain_approved_but_not_queued",
+    }
 
 
 async def _notify_new_item(data: dict) -> None:
