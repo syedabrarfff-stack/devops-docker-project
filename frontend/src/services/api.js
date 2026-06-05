@@ -301,6 +301,7 @@ export const getTargetIndustries = () => api.get('/api/v1/discovery/industries')
 export const getPricingEstimate = (payload) =>
   api.post('/api/v1/pricing/estimate', payload).then(r => r.data)
 export const getPricingMatrix = () => api.get('/api/v1/pricing/matrix').then(r => r.data)
+export const getIntelligencePricingCatalog = () => api.get('/api/v1/intelligence/pricing/catalog').then(r => r.data)
 
 // Department Intelligence — 6-Layer Autonomous System
 export const getDepartmentHealth       = () => api.get('/api/v1/departments/health').then(r => r.data)
