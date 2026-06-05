@@ -1,6 +1,6 @@
 """AIONX operational persistence and governed autonomy records.
 
-Revision ID: 0021_aionx_operational_persistence
+Revision ID: 0021_aionx_ops_persistence
 Revises: 0020_aionx_pipeline_history
 Create Date: 2026-06-05
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from alembic import op
 
-revision = "0021_aionx_operational_persistence"
+revision = "0021_aionx_ops_persistence"
 down_revision = "0020_aionx_pipeline_history"
 branch_labels = None
 depends_on = None
