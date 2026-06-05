@@ -5,7 +5,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, Date, DateTime, Float, Integer, SmallInteger, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, Index, Integer, SmallInteger, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -242,6 +242,50 @@ class ClientTwinPrediction(JarvisBase):
 
 
 # ─── INSTITUTIONAL WISDOM INDEX ──────────────────────────────────────────────
+
+class ClientPipelineState(JarvisBase):
+    __tablename__ = "client_pipeline_states"
+    __table_args__ = (
+        UniqueConstraint("client_id"),
+        Index("idx_client_pipeline_states_tenant_stage", "tenant_id", "current_stage"),
+        Index("idx_client_pipeline_states_created", "created_at"),
+    )
+
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    current_stage: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    stage_name: Mapped[str] = mapped_column(Text, nullable=False, default="Lead discovery")
+    phase: Mapped[str] = mapped_column(Text, nullable=False, default="Lead discovery & qualification")
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="ACTIVE")
+    engagement_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    previous_engagement_score: Mapped[float] = mapped_column(Float, nullable=False, default=50.0)
+    stage_entered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    mission_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    council_gate_status: Mapped[str] = mapped_column(Text, nullable=False, default="NOT_REQUIRED")
+    validation_status: Mapped[str] = mapped_column(Text, nullable=False, default="PENDING")
+    qa_status: Mapped[str] = mapped_column(Text, nullable=False, default="PENDING")
+    repair_loop_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class ClientPipelineMilestone(JarvisBase):
+    __tablename__ = "client_pipeline_milestones"
+    __table_args__ = (
+        Index("idx_client_pipeline_milestones_tenant_stage", "tenant_id", "stage_number"),
+        Index("idx_client_pipeline_milestones_client_status", "client_id", "status"),
+        Index("idx_client_pipeline_milestones_created", "created_at"),
+    )
+
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    pipeline_state_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    stage_number: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    milestone_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    department: Mapped[str] = mapped_column(Text, nullable=False, default="JARVIS")
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="PENDING")
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
 
 class WisdomIndexSnapshot(JarvisBase):
     __tablename__ = "wisdom_index_snapshots"

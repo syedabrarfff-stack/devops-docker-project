@@ -230,3 +230,48 @@ After successful deployment, Captain can access:
 3. **Council Feed:** `GET /api/v1/aionx/convergence/session/{id}/feed`
 4. **Digital Twins:** `GET /api/v1/aionx/digital-twin/{client_id}`
 5. **Threats:** `GET /api/v1/aionx/sentinel/threats`
+
+---
+
+## BATCH 1 — 33-STAGE CLIENT PIPELINE ORCHESTRATOR
+
+Batch 1 adds the persistent client journey wire that feeds Cortex events into
+the sovereign organs.
+
+**New migration:**
+
+- `backend/alembic/versions/0019_aionx_batch1_client_pipeline.py`
+
+**New tables:**
+
+- `client_pipeline_states` — one canonical stage record per client
+- `client_pipeline_milestones` — next execution checkpoints for the client
+
+**New service:**
+
+- `backend/app/services/aionx/batch1_client_pipeline.py`
+
+**New endpoints:**
+
+```bash
+curl http://localhost:8000/api/v1/aionx/pipeline/<client_id>
+
+curl -X POST http://localhost:8000/api/v1/aionx/pipeline/stage-transition \
+  -H "Content-Type: application/json" \
+  -d '{"client_id":"<uuid>","target_stage":6,"engagement_score":72}'
+```
+
+**Cortex event thresholds:**
+
+- Stage `>= 6` fires `LEAD_REPLIED`
+- Stage `>= 25` fires `CLIENT_SIGNED`
+- Engagement drop of `20+` points fires `CHURN_RISK_DETECTED`
+- Stalls over `30` days are modeled as `MISSION_FAILED`
+- Strong market signal metadata can fire `SENTINEL_STRONG_SIGNAL`
+
+**Verification:**
+
+```bash
+docker compose exec -T postgres psql -U jarvis -d jarvis -c "\dt client_pipeline*"
+curl -s http://localhost:8000/openapi.json | grep -o "/api/v1/aionx/pipeline[^\\\"]*"
+```

@@ -60,6 +60,10 @@ from app.services.aionx.orchestration_cortex import (
     fire_event,
     situational_snapshot,
 )
+from app.services.aionx.batch1_client_pipeline import (
+    advance_stage,
+    get_pipeline,
+)
 
 router = APIRouter(prefix="/aionx", tags=["AIONX"])
 
@@ -85,6 +89,41 @@ async def cortex_fire_event(
     if not event_type:
         raise HTTPException(status_code=400, detail="event_type required")
     return await fire_event(db, event_type, payload)
+
+
+# ─── BATCH 1 CLIENT PIPELINE ORCHESTRATOR ────────────────────────────────────
+
+@router.post("/pipeline/stage-transition")
+async def pipeline_stage_transition(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    try:
+        client_id = uuid.UUID(payload["client_id"])
+        target_stage = int(payload["target_stage"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="client_id and target_stage are required") from exc
+
+    try:
+        mission_id = uuid.UUID(payload["mission_id"]) if payload.get("mission_id") else None
+        return await advance_stage(
+            db,
+            client_id=client_id,
+            target_stage=target_stage,
+            engagement_score=payload.get("engagement_score"),
+            mission_id=mission_id,
+            metadata=payload.get("metadata") or {},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/pipeline/{client_id}")
+async def client_pipeline(
+    client_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await get_pipeline(db, client_id)
 
 
 # ─── WISDOM INDEX ────────────────────────────────────────────────────────────
