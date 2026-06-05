@@ -25,6 +25,7 @@ from app.services.aionx.client_trust_index import (
 from app.services.aionx.executive_accountability_engine import track_maker_accuracy
 from app.services.aionx.operational_persistence import operational_persistence_status
 from app.services.aionx.supreme_council_layer import supreme_council_status
+from app.services.aionx.completion_matrix import completion_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -205,11 +206,13 @@ async def get_aionx_system_info() -> dict[str, Any]:
             "operational_persistence": "Active",
             "governed_autonomy": "Approval-gated",
             "supreme_council_layer": "Active",
+            "cross_department_validation": "Active",
+            "completion_matrix": "Active",
         },
         "organs": 9,
         "intelligence_engines": 5,
         "optional_systems": 5,
-        "total_endpoints": 107,
+        "total_endpoints": 121,
         "scheduler_jobs": 17,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
@@ -399,6 +402,23 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Connect more production outcomes into provider claim scoring",
         ],
     },
+    {
+        "id": "mission_validation_completion",
+        "name": "Mission Files + Cross-Department Validation + Completion Matrix",
+        "status": "LIVE",
+        "live_evidence": [
+            "Mission document archive persists content and SHA-256 hash",
+            "Mission archive retrieval reads real database records",
+            "Mission integrity verification recomputes hashes",
+            "Cross-department validation records persist to database",
+            "Delivery readiness, sales accuracy, client fit, and stage transition gates exposed",
+            "Completion matrix reconciles old audit against current live systems",
+        ],
+        "pending_work": [
+            "S3 Object Lock can be attached later for external immutable storage",
+            "Validation gates should be called from every production revenue workflow as traffic grows",
+        ],
+    },
 ]
 
 
@@ -444,7 +464,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 107
+    route_count = 121
 
     expected_tables = {
         "decision_objects",
@@ -483,6 +503,8 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "aionx_event_spine",
         "aionx_autonomy_proposals",
         "aionx_external_scan_records",
+        "aionx_mission_documents",
+        "aionx_cross_validation_records",
     }
 
     live_tables = sorted(expected_tables.intersection(table_names))
@@ -490,6 +512,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     dashboard = await generate_captain_intelligence_dashboard(db)
     persistence = await operational_persistence_status(db)
     supreme = await supreme_council_status(db)
+    completion = await completion_matrix(db)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -514,6 +537,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "live_signals": dashboard.get("sections", {}),
         "operational_persistence": persistence,
         "supreme_council": supreme,
+        "completion_matrix": completion,
         "canonical_next_build_order": [
             "Connect every revenue route directly into stage transitions",
             "Council conference-room UI with natural-language participant messages",

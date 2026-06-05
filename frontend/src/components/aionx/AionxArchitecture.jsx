@@ -22,9 +22,13 @@ import {
 const STATUS_STYLE = {
   LIVE: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
   LIVE_FOUNDATION: 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200',
+  LIVE_PERSISTENT: 'border-lime-400/30 bg-lime-400/10 text-lime-200',
+  LIVE_CONFIGURED: 'border-teal-400/30 bg-teal-400/10 text-teal-200',
+  LIVE_GOVERNED: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
   LIVE_WITH_DORMANT_ORGANS: 'border-blue-400/30 bg-blue-400/10 text-blue-200',
   PARTIAL: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
   DESIGN_PARTIAL: 'border-orange-400/30 bg-orange-400/10 text-orange-200',
+  DESIGN_GOVERNED: 'border-orange-400/30 bg-orange-400/10 text-orange-200',
   REGISTRY_ONLY: 'border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200',
 }
 
@@ -177,6 +181,7 @@ export default function AionxArchitecture() {
   const persistenceCounts = operationalPersistence.counts || {}
   const sovereign = operating.sovereign_organs || {}
   const supremeCouncil = operating.supreme_council || architecture.supreme_council || {}
+  const completionMatrix = architecture.completion_matrix || {}
   const calibration = supremeCouncil.calibration_health || {}
   const convergence = supremeCouncil.convergence_health || {}
   const membrane = supremeCouncil.membrane_status || {}
@@ -211,6 +216,7 @@ export default function AionxArchitecture() {
           <StatCard icon={CircuitBoard} label="Persistence Tables" value={operationalPersistence.table_count || 0} sub="Mission/QA/repair/event memory" />
           <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub={`${sovereign.cognitive_region_count || 0} cognitive regions`} />
           <StatCard icon={ShieldCheck} label="Supreme Council" value={(supremeCouncil.rings || []).length || 0} sub="Calibration/convergence/membrane" />
+          <StatCard icon={CheckCircle2} label="Completion Matrix" value={`${completionMatrix.live_or_live_foundation || 0}/${completionMatrix.systems_total || 0}`} sub="Old audit reconciled" />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -543,6 +549,39 @@ export default function AionxArchitecture() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-lime-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-lime-200/60">Completion Matrix</p>
+              <h2 className="mt-1 text-2xl font-black">Old Audit Reconciled Against Live AIONX</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                The pasted missing-systems list is now mapped against the current production build:
+                live systems, live foundations, and intentionally governed future hardening.
+              </p>
+            </div>
+            <StatusPill status={completionMatrix.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={CheckCircle2} label="Live Systems" value={completionMatrix.live_or_live_foundation || 0} sub={`of ${completionMatrix.systems_total || 0} tracked systems`} />
+            <StatCard icon={ShieldCheck} label="Governed Future" value={completionMatrix.governed_future_hardening || 0} sub="Intentionally approval-gated" />
+            <StatCard icon={CircuitBoard} label="AIONX Tables" value={(completionMatrix.aionx_persistence_tables || []).length} sub="Persistence coverage" />
+            <StatCard icon={Network} label="Endpoint Estimate" value={completionMatrix.endpoint_estimate || '-'} sub="Live API surface" />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {(completionMatrix.systems || []).map((system) => (
+              <div key={system.system} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-black text-white">{system.system}</h3>
+                  <StatusPill status={system.status} />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-white/55">{system.evidence}</p>
+              </div>
+            ))}
           </div>
         </section>
 

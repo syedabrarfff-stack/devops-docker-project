@@ -64,6 +64,14 @@ from app.services.aionx.batch1_client_pipeline import (
     advance_stage,
     get_pipeline,
 )
+from app.services.aionx.completion_matrix import completion_matrix
+from app.services.aionx.cross_department_validation import (
+    validate_client_fit,
+    validate_delivery_readiness,
+    validate_sales_accuracy,
+    validate_stage_transition,
+    validation_status,
+)
 from app.services.aionx.living_operating_intelligence import (
     adaptive_intelligence_status,
     captain_interface_status,
@@ -1107,3 +1115,49 @@ async def architecture_reconciliation(
 async def system_info() -> dict[str, Any]:
     from app.services.aionx.final_integration import get_aionx_system_info
     return await get_aionx_system_info()
+
+
+@router.get("/completion-matrix")
+async def aionx_completion_matrix(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await completion_matrix(db)
+
+
+@router.get("/cross-validation")
+async def cross_validation_status(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await validation_status(db)
+
+
+@router.post("/cross-validation/delivery-readiness/{mission_id}")
+async def cross_validate_delivery_readiness(
+    mission_id: str,
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await validate_delivery_readiness(db, mission_id, payload)
+
+
+@router.post("/cross-validation/sales-accuracy/{proposal_id}")
+async def cross_validate_sales_accuracy(
+    proposal_id: str,
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await validate_sales_accuracy(db, proposal_id, payload)
+
+
+@router.post("/cross-validation/client-fit/{client_id}")
+async def cross_validate_client_fit(
+    client_id: str,
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await validate_client_fit(db, client_id, payload)
+
+
+@router.post("/cross-validation/stage-transition/{subject_id}")
+async def cross_validate_stage_transition(
+    subject_id: str,
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await validate_stage_transition(db, subject_id, payload)
