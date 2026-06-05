@@ -265,6 +265,137 @@ services:
         reservations:
           memory: 128M
 
+  alertmanager:
+    <<: *logging
+    image: prom/alertmanager:v0.27.0
+    container_name: jarvis_alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  postgres-exporter:
+    <<: *logging
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: jarvis_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${POSTGRES_DB:-jarvis}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  redis-exporter:
+    <<: *logging
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: jarvis_redis_exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.2"
+
+  node-exporter:
+    <<: *logging
+    image: prom/node-exporter:v1.8.2
+    container_name: jarvis_node_exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.2"
+
+  cadvisor:
+    <<: *logging
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: jarvis_cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.3"
+
+  loki:
+    <<: *logging
+    image: grafana/loki:3.2.1
+    container_name: jarvis_loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ../monitoring/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
+  promtail:
+    <<: *logging
+    image: grafana/promtail:3.2.1
+    container_name: jarvis_promtail
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ../monitoring/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
 volumes:
   postgres_data:
     name: jarvis_vnext_postgres_data
@@ -274,6 +405,8 @@ volumes:
     name: jarvis_prometheus_data
   grafana_data:
     name: jarvis_grafana_data
+  loki_data:
+    name: jarvis_loki_data
   backend_data:
     name: jarvis_backend_data
   backup_data:
