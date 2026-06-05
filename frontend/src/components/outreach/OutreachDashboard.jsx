@@ -207,6 +207,35 @@ export default function OutreachDashboard() {
           </div>
         )}
 
+        {engine?.gmail?.send_mode === "blocked" && (
+          <div className="mt-4 rounded-xl border border-orange-200/15 bg-orange-500/[0.07] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-100/70">Gmail Action Required</p>
+                <p className="mt-2 text-sm font-semibold text-white">{engine.gmail.human_message || "Gmail is not live yet."}</p>
+                <p className="mt-1 text-xs leading-5 text-white/65">{engine.gmail.required_action || "Connect Gmail OAuth before starting outreach."}</p>
+              </div>
+              {engine.gmail.oauth_configured && !engine.gmail.oauth_connected && (
+                <button
+                  onClick={connectGmail}
+                  className="rounded-lg border border-orange-300/25 bg-orange-400/10 px-3 py-1.5 text-xs font-bold text-orange-100 transition hover:bg-orange-400/20"
+                >
+                  Connect Gmail OAuth
+                </button>
+              )}
+            </div>
+            {!!engine.gmail.setup_steps?.length && (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {engine.gmail.setup_steps.map((step, index) => (
+                  <p key={`${index}-${step}`} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-white/65">
+                    {index + 1}. {step}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {!!engine?.blockers?.length && (
           <div className="mt-4 rounded-xl border border-amber-200/15 bg-black/20 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-100/70">Blockers</p>

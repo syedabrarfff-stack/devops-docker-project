@@ -36,6 +36,8 @@ def _is_gmail_configured() -> bool:
 def _smtp_error_message(exc: Exception) -> str:
     text = str(exc)
     lowered = text.lower()
+    if "webloginrequired" in lowered or "please log in with your web browser" in lowered:
+        return "Google requires browser re-authentication for SMTP. Connect Gmail OAuth from JARVIS or create a fresh Google app password after signing into the mailbox."
     if "5.7.8" in text or "badcredentials" in lowered or "username and password not accepted" in lowered:
         return "Google rejected the Gmail SMTP credentials. Generate a fresh app password or connect Gmail OAuth."
     if "timed out" in lowered or "timeout" in lowered:
@@ -267,6 +269,14 @@ async def gmail_delivery_status(db: AsyncSession, validate_smtp: bool = True) ->
         smtp_error = "Gmail SMTP sender or app password is missing."
 
     live = bool(oauth_connected or smtp_validated) and not settings.OUTREACH_PAUSED
+    blocker_code, human_message, required_action, setup_steps = _gmail_blocker_guidance(
+        live=live,
+        oauth_configured=_is_oauth_configured(),
+        oauth_connected=oauth_connected,
+        smtp_configured=smtp_configured,
+        smtp_validated=smtp_validated,
+        smtp_error=smtp_error,
+    )
     return {
         "engine": "gmail_outreach",
         "oauth_configured": _is_oauth_configured(),
@@ -280,6 +290,10 @@ async def gmail_delivery_status(db: AsyncSession, validate_smtp: bool = True) ->
         "send_mode": "live" if live else "blocked",
         "outreach_paused": settings.OUTREACH_PAUSED,
         "validation_error": "" if live else (smtp_error or "Connect Gmail OAuth or validate SMTP before live send."),
+        "blocker_code": blocker_code,
+        "human_message": human_message,
+        "required_action": required_action,
+        "setup_steps": setup_steps,
         "safety": {
             "unsubscribe_footer": True,
             "do_not_contact_gate": True,
@@ -322,3 +336,68 @@ async def send_client_email(
         gmail_password=gmail_password,
     )
     return success, error, "smtp"
+
+
+def _gmail_blocker_guidance(
+    *,
+    live: bool,
+    oauth_configured: bool,
+    oauth_connected: bool,
+    smtp_configured: bool,
+    smtp_validated: bool,
+    smtp_error: str,
+) -> tuple[str, str, str, list[str]]:
+    if live:
+        return (
+            "gmail_live",
+            "Gmail is live. JARVIS can send through Gmail under outreach safety gates.",
+            "Run the outreach engine when the queue is ready.",
+            [],
+        )
+
+    lowered = (smtp_error or "").lower()
+    if oauth_configured and not oauth_connected:
+        return (
+            "gmail_oauth_not_connected",
+            "Gmail OAuth is configured but not connected. SMTP is blocked, so JARVIS cannot send yet.",
+            "Click Connect Gmail OAuth and approve access for the Aliyar Solutions mailbox.",
+            [
+                "Open Outreach or Integrations in JARVIS.",
+                "Click Connect Gmail OAuth.",
+                "Sign into the sending mailbox and approve Gmail send access.",
+                "Return to Outreach and confirm Gmail mode changes to LIVE.",
+            ],
+        )
+    if "webloginrequired" in lowered or "browser re-authentication" in lowered:
+        return (
+            "gmail_smtp_weblogin_required",
+            "Google is blocking SMTP until the mailbox is signed in through a browser.",
+            "Prefer OAuth. If using SMTP, sign into the mailbox and generate a fresh app password.",
+            [
+                "Sign into the Google Workspace mailbox in a browser.",
+                "Complete any Google security challenge.",
+                "Generate a new 16-character app password or connect OAuth.",
+                "Restart validation from the Outreach dashboard.",
+            ],
+        )
+    if smtp_configured and not smtp_validated:
+        return (
+            "gmail_smtp_validation_failed",
+            "Gmail SMTP credentials are present but validation failed.",
+            "Connect Gmail OAuth or replace the SMTP app password.",
+            [
+                "Check the sending mailbox and Google Workspace security settings.",
+                "Create a fresh Google app password if SMTP will be used.",
+                "Prefer OAuth for production sending reliability.",
+            ],
+        )
+    return (
+        "gmail_not_configured",
+        "No live Gmail sending path is available.",
+        "Configure Gmail OAuth or Gmail SMTP app password before sending client outreach.",
+        [
+            "Add Gmail OAuth client credentials if missing.",
+            "Connect Gmail OAuth from the dashboard.",
+            "Verify the Outreach engine status returns LIVE.",
+        ],
+    )

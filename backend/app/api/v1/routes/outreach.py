@@ -185,7 +185,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
     action_type = "outreach_emails"
     blockers: list[str] = []
     if gmail["send_mode"] != "live":
-        blockers.append(gmail["validation_error"] or "Gmail is not live.")
+        blockers.append(gmail.get("human_message") or gmail["validation_error"] or "Gmail is not live.")
     if await outreach_compliance.is_outreach_paused(db, resolved_tenant_id):
         blockers.append("Outreach is paused.")
     if not cap["allowed"]:
@@ -218,7 +218,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
         },
         "blockers": blockers,
         "next_action": (
-            "Connect Gmail OAuth or clear Google WebLoginRequired, then run POST /api/v1/outreach/execute."
+            gmail.get("required_action") or "Connect Gmail OAuth, then run POST /api/v1/outreach/execute."
             if gmail["send_mode"] != "live"
             else "Run POST /api/v1/outreach/execute to send due outreach under the 48/day cap."
         ),
