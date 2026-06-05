@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.services.outreach.gmail import _is_gmail_configured, send_email_smtp, validate_smtp_credentials
+from app.services.outreach.gmail import gmail_delivery_status, send_client_email
 from app.services.outreach.gmail_inbox import fetch_new_emails, get_inbox, get_inbox_stats, mark_read
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
@@ -30,46 +30,28 @@ class ReplyRequest(BaseModel):
 
 
 @router.get("/status")
-async def gmail_status():
+async def gmail_status(db: AsyncSession = Depends(get_db)):
     """Is Gmail connected and ready?"""
-    configured = _is_gmail_configured()
-    valid = False
-    validation_error = ""
-    if configured:
-        valid, validation_error = validate_smtp_credentials()
+    status = await gmail_delivery_status(db, validate_smtp=True)
     return {
-        "connected": configured,
-        "smtp_validated": valid,
-        "address": settings.GMAIL_ADDRESS if configured else None,
+        "connected": status["send_mode"] == "live",
+        "oauth_configured": status["oauth_configured"],
+        "oauth_connected": status["oauth_connected"],
+        "smtp_configured": status["smtp_configured"],
+        "smtp_validated": status["smtp_validated"],
+        "address": status.get("oauth_email") or settings.GMAIL_ADDRESS,
         "smtp_host": settings.SMTP_HOST,
         "imap_host": "imap.gmail.com",
-        "message": "Gmail operational - SMTP credentials validated." if valid else (validation_error or "Gmail not configured. Add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env"),
+        "send_method": status["send_method"],
+        "send_mode": status["send_mode"],
+        "message": "Gmail operational." if status["send_mode"] == "live" else status["validation_error"],
     }
 
 
 @router.get("/engine-status")
 async def gmail_engine_status(db: AsyncSession = Depends(get_db)):
     """Dashboard-facing production readiness for the outreach email engine."""
-    from app.services.outreach.compliance import outreach_compliance
-
-    configured = _is_gmail_configured()
-    valid, validation_error = validate_smtp_credentials() if configured else (False, "Gmail not configured")
-    return {
-        "engine": "gmail_outreach",
-        "configured": configured,
-        "smtp_validated": valid,
-        "daily_cap": outreach_compliance.current_daily_cap(),
-        "send_mode": "live" if valid and not settings.OUTREACH_PAUSED else "blocked",
-        "outreach_paused": settings.OUTREACH_PAUSED,
-        "validation_error": "" if valid else validation_error,
-        "safety": {
-            "unsubscribe_footer": True,
-            "do_not_contact_gate": True,
-            "business_hours_gate": True,
-            "daily_cap_gate": True,
-            "client_language_sanitizer": True,
-        },
-    }
+    return await gmail_delivery_status(db, validate_smtp=True)
 
 
 @router.post("/fetch")
@@ -131,10 +113,8 @@ async def read_message(message_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/send")
 async def send_email(body: SendEmailRequest, db: AsyncSession = Depends(get_db)):
     """Send an email directly from the JARVIS dashboard."""
-    if not _is_gmail_configured():
-        raise HTTPException(status_code=503, detail="Gmail not configured")
-
-    success, error = send_email_smtp(
+    success, error, method = await send_client_email(
+        db,
         to=body.to,
         subject=body.subject,
         body=body.body,
@@ -160,4 +140,4 @@ async def send_email(body: SendEmailRequest, db: AsyncSession = Depends(get_db))
     db.add(record)
     await db.commit()
 
-    return {"sent": True, "to": body.to, "subject": body.subject}
+    return {"sent": True, "to": body.to, "subject": body.subject, "method": method}

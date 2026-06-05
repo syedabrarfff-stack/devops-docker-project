@@ -246,3 +246,79 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
         pass
 
     return success
+
+
+async def gmail_delivery_status(db: AsyncSession, validate_smtp: bool = True) -> dict:
+    """Unified Gmail readiness for dashboard, HUD, and orchestration checks."""
+    from app.services.auth.gmail_oauth import _is_oauth_configured, get_gmail_profile, is_oauth_connected
+    from app.services.storage.secure import get_oauth_token
+    from app.services.outreach.compliance import outreach_compliance
+
+    token_data = await get_oauth_token(db, "gmail", "primary")
+    oauth_connected = is_oauth_connected(token_data)
+    profile = await get_gmail_profile(db) if oauth_connected else None
+
+    smtp_configured = _is_gmail_configured()
+    smtp_validated = False
+    smtp_error = ""
+    if validate_smtp and smtp_configured and not oauth_connected:
+        smtp_validated, smtp_error = validate_smtp_credentials()
+    elif not smtp_configured:
+        smtp_error = "Gmail SMTP sender or app password is missing."
+
+    live = bool(oauth_connected or smtp_validated) and not settings.OUTREACH_PAUSED
+    return {
+        "engine": "gmail_outreach",
+        "oauth_configured": _is_oauth_configured(),
+        "oauth_connected": oauth_connected,
+        "oauth_email": profile.get("emailAddress") if profile else None,
+        "smtp_configured": smtp_configured,
+        "smtp_validated": smtp_validated,
+        "configured": bool(oauth_connected or smtp_configured),
+        "daily_cap": outreach_compliance.current_daily_cap(),
+        "send_method": "gmail_api" if oauth_connected else "smtp",
+        "send_mode": "live" if live else "blocked",
+        "outreach_paused": settings.OUTREACH_PAUSED,
+        "validation_error": "" if live else (smtp_error or "Connect Gmail OAuth or validate SMTP before live send."),
+        "safety": {
+            "unsubscribe_footer": True,
+            "do_not_contact_gate": True,
+            "business_hours_gate": True,
+            "daily_cap_gate": True,
+            "client_language_sanitizer": True,
+        },
+    }
+
+
+async def send_client_email(
+    db: AsyncSession,
+    to: str,
+    subject: str,
+    body: str,
+    to_name: str = "",
+) -> tuple[bool, str, str]:
+    """Send a client-facing email via Gmail API first, then SMTP fallback."""
+    subject, body = sanitize_subject_body(subject, body)
+
+    try:
+        from app.services.auth.gmail_oauth import send_via_gmail_api
+
+        success, error = await send_via_gmail_api(db, to, subject, body, to_name)
+        if success:
+            return True, "", "gmail_api"
+        if "No valid Gmail OAuth token" not in error:
+            logger.warning("Gmail API send failed; SMTP fallback will run: %s", error)
+    except Exception as exc:
+        logger.warning("Gmail API path unavailable; SMTP fallback will run: %s", exc)
+
+    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
+    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
+    success, error = send_email_smtp(
+        to,
+        subject,
+        body,
+        to_name,
+        gmail_address=gmail_address,
+        gmail_password=gmail_password,
+    )
+    return success, error, "smtp"

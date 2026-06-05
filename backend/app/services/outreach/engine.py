@@ -25,7 +25,7 @@ from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 from app.services.communication.client_language import sanitize_subject_body
 from app.services.intelligence.jarvis_authority import requires_captain_approval
-from app.services.notifications.gmail_sender import gmail_sender
+from app.services.outreach.gmail import send_client_email
 from app.services.outreach.compliance import outreach_compliance
 
 logger = logging.getLogger(__name__)
@@ -343,12 +343,12 @@ class OutreachEngine:
 
                     subject_to_send, clean_body = sanitize_subject_body(email["subject"], email["body"])
                     body_to_send = outreach_compliance.append_footer(clean_body, to_email)
-                    success = await gmail_sender.send_email(
+                    success, send_error, send_method = await send_client_email(
+                        session,
                         to=to_email,
                         subject=subject_to_send,
-                        body_html=_body_html(body_to_send),
-                        from_name=PERSONAS["darren_mitchell"]["name"],
-                        from_email=PERSONAS["darren_mitchell"]["email"],
+                        body=body_to_send,
+                        to_name=lead.contact_name or "",
                     )
                     if not success:
                         item.status = FollowUpStatus.FAILED
@@ -358,7 +358,7 @@ class OutreachEngine:
                             tenant_uuid,
                             "outreach_send_failed",
                             lead.id,
-                            {"sequence_step": item.sequence_step},
+                            {"sequence_step": item.sequence_step, "error": send_error, "method": send_method},
                         )
                         continue
 
@@ -393,6 +393,7 @@ class OutreachEngine:
                             "sequence_step": item.sequence_step,
                             "subject": subject_to_send,
                             "persona": PERSONAS["darren_mitchell"]["name"],
+                            "method": send_method,
                         },
                     )
                     from app.services.civilization import civilization_ledger

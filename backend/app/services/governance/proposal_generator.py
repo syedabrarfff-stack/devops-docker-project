@@ -128,17 +128,16 @@ class ProposalGenerator:
                 if not proposal.client_email:
                     raise ValueError("Proposal has no client email")
 
-                from app.services.notifications.gmail_sender import gmail_sender
+                from app.services.outreach.gmail import send_client_email
 
-                sent = await gmail_sender.send_email(
+                sent, error, method = await send_client_email(
+                    session,
                     to=proposal.client_email,
                     subject=f"Proposal for {proposal.client_company or proposal.client_name}",
-                    body_html=_proposal_email_html(proposal),
-                    from_name="Aliyar Solutions",
-                    from_email=settings.GMAIL_ADDRESS or "",
+                    body=_proposal_email_text(proposal),
                 )
                 if not sent:
-                    raise RuntimeError("Gmail send failed")
+                    raise RuntimeError(f"Gmail send failed: {error}")
                 proposal.status = "sent"
                 proposal.sent_at = datetime.now(UTC)
                 await self._audit(
@@ -146,7 +145,7 @@ class ProposalGenerator:
                     tenant_uuid,
                     "proposal_sent",
                     proposal.id,
-                    {"client_email": proposal.client_email, "pdf_url": proposal.pdf_url, "pdf_path": proposal.pdf_path},
+                    {"client_email": proposal.client_email, "pdf_url": proposal.pdf_url, "pdf_path": proposal.pdf_path, "method": method},
                 )
         return {"sent": True, "proposal_id": int(proposal_id)}
 
@@ -532,6 +531,19 @@ def _proposal_email_html(proposal: Proposal) -> str:
         "<p>If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, "
         "and rollout sequence.</p>"
         "<p>Darren Mitchell<br>Aliyar Solutions</p>"
+    )
+
+
+def _proposal_email_text(proposal: Proposal) -> str:
+    link = proposal.pdf_url or proposal.pdf_path or "the attached proposal"
+    return (
+        "Hello,\n\n"
+        "Thank you for the discussion so far. Our team has prepared the proposal and implementation path for your review.\n\n"
+        f"Proposal reference: {proposal.invoice_number}\n"
+        f"PDF: {link}\n\n"
+        "If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, and rollout sequence.\n\n"
+        "Darren Mitchell\n"
+        "Aliyar Solutions"
     )
 
 

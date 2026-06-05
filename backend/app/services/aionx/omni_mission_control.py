@@ -14,8 +14,6 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-
 
 OMNI_TOTAL_SYSTEMS = 227
 
@@ -258,7 +256,9 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     jobs = await _scheduler_jobs(db)
     aionx_jobs = [job for job in jobs if job.startswith("aionx_")]
     counts = await _registry_counts(db)
-    email = _email_engine_status()
+    from app.services.outreach.gmail import gmail_delivery_status
+
+    email = await gmail_delivery_status(db, validate_smtp=False)
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
@@ -323,38 +323,6 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     return payload
 
 
-def _email_engine_status() -> dict[str, Any]:
-    sender = (settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER or "").strip()
-    password = (settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS or "").replace(" ", "").strip()
-    configured = bool(sender and password)
-    shape_valid = configured and password.isascii() and len(password) == 16
-    if not configured:
-        validation_error = "Gmail sender or app password is missing."
-    elif not password.isascii():
-        validation_error = "Gmail app password contains non-ASCII characters."
-    elif len(password) != 16:
-        validation_error = "Gmail app password must be the real 16-character Google app password."
-    elif settings.OUTREACH_PAUSED:
-        validation_error = "Outreach is paused by configuration."
-    else:
-        validation_error = "SMTP runtime validation required at /api/v1/gmail/status before live send."
-    return {
-        "configured": configured,
-        "credential_shape_valid": bool(shape_valid),
-        "smtp_runtime_check": "available_at_/api/v1/gmail/status",
-        "daily_cap": int(settings.OUTREACH_DAILY_SEND_CAP or 48),
-        "send_mode": "runtime_validation_required" if shape_valid and not settings.OUTREACH_PAUSED else "blocked",
-        "sender": sender if configured else None,
-        "outreach_paused": bool(settings.OUTREACH_PAUSED),
-        "validation_error": validation_error,
-        "safety": {
-            "unsubscribe_footer": True,
-            "do_not_contact_gate": True,
-            "business_hours_gate": True,
-            "daily_cap_gate": True,
-            "client_language_sanitizer": True,
-        },
-    }
 
 
 async def self_heal_diagnose(db: AsyncSession, payload: dict[str, Any]) -> dict[str, Any]:
