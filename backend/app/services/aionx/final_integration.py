@@ -64,14 +64,15 @@ async def generate_captain_intelligence_dashboard(
     # SECTION 2: OPERATIONAL IQ (Execution Health)
     try:
         iq_data = await compute_operational_iq(db)
+        iq_components = iq_data.get("components", {})
         dashboard["sections"]["operational_iq"] = {
             "operational_iq": iq_data.get("operational_iq", 50),
             "interpretation": iq_data.get("interpretation"),
             "components": {
-                "wisdom_score": iq_data.get("wisdom_score"),
-                "decision_activity": iq_data.get("decision_activity"),
-                "client_health": iq_data.get("client_health"),
-                "system_health": iq_data.get("system_health"),
+                "wisdom": iq_components.get("wisdom"),
+                "decision_activity": iq_components.get("decision_activity"),
+                "client_health": iq_components.get("client_health"),
+                "system_health": iq_components.get("system_health"),
             },
         }
     except Exception as e:
@@ -99,11 +100,13 @@ async def generate_captain_intelligence_dashboard(
     # SECTION 4: SITUATIONAL SNAPSHOT (Real-time Context)
     try:
         snapshot_data = await situational_snapshot(db)
+        live_counts = snapshot_data.get("live_counts", {})
         dashboard["sections"]["situational"] = {
-            "active_missions": snapshot_data.get("active_missions_count", 0),
-            "pending_escalations": snapshot_data.get("pending_escalations", 0),
-            "alert_count": snapshot_data.get("alert_count", 0),
-            "council_sessions": snapshot_data.get("council_sessions_active", 0),
+            "decisions_recorded": live_counts.get("decisions_recorded", 0),
+            "client_digital_twins": live_counts.get("client_digital_twins", 0),
+            "sentinel_observations": live_counts.get("sentinel_observations", 0),
+            "active_threats": live_counts.get("active_threats", 0),
+            "organism_status": snapshot_data.get("organism_status"),
         }
     except Exception as e:
         logger.error("Situational Snapshot gathering failed: %s", e)

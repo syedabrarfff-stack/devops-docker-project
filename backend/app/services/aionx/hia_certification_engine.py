@@ -9,10 +9,14 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.aionx_organs import DecisionObject, CounterfactualActualization
+from app.models.aionx_organs import (
+    CounterfactualActualization,
+    CounterfactualSimulation,
+    DecisionObject,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +69,7 @@ async def compute_hia_certification(
     # Get all decisions by this HIA
     decisions_result = await db.execute(
         select(DecisionObject).where(
-            DecisionObject.created_by == hia_agent_id
+            DecisionObject.executor_role == hia_agent_id
         ).order_by(DecisionObject.created_at.desc()).limit(100)
     )
     decisions = decisions_result.scalars().all()
@@ -83,15 +87,7 @@ async def compute_hia_certification(
     # Calculate accuracy from outcomes
     accuracy_scores = []
     for decision in decisions:
-        actuality_result = await db.execute(
-            select(CounterfactualActualization).where(
-                CounterfactualActualization.decision_id == decision.id
-            )
-        )
-        actuality = actuality_result.scalars().first()
-        if actuality:
-            is_accurate = 1.0 if "positive" in actuality.actual_outcome.lower() else 0.0
-            accuracy_scores.append(is_accurate)
+        accuracy_scores.extend(await _actuality_scores_for_decision(db, decision.id))
 
     accuracy = sum(accuracy_scores) / len(accuracy_scores) if accuracy_scores else 0.0
 
@@ -140,7 +136,7 @@ async def check_certification_renewal(
     # Get recent decisions
     recent_result = await db.execute(
         select(DecisionObject).where(
-            DecisionObject.created_by == hia_agent_id,
+            DecisionObject.executor_role == hia_agent_id,
             DecisionObject.created_at >= last_certified_at,
         )
     )
@@ -156,15 +152,7 @@ async def check_certification_renewal(
     # Check accuracy on recent decisions
     recent_accuracy_scores = []
     for decision in recent_decisions:
-        actuality_result = await db.execute(
-            select(CounterfactualActualization).where(
-                CounterfactualActualization.decision_id == decision.id
-            )
-        )
-        actuality = actuality_result.scalars().first()
-        if actuality:
-            is_accurate = 1.0 if "positive" in actuality.actual_outcome.lower() else 0.0
-            recent_accuracy_scores.append(is_accurate)
+        recent_accuracy_scores.extend(await _actuality_scores_for_decision(db, decision.id))
 
     recent_accuracy = sum(recent_accuracy_scores) / len(recent_accuracy_scores) if recent_accuracy_scores else 0.5
 
@@ -253,3 +241,28 @@ async def revoke_hia_certification(
         "autonomy_level": 0.0,
         "action": "All decisions require Captain approval pending retraining",
     }
+
+
+async def _actuality_scores_for_decision(db: AsyncSession, decision_id) -> list[float]:
+    """Map a decision to counterfactual actualizations through simulations."""
+    simulation_ids = (await db.execute(
+        select(CounterfactualSimulation.id).where(CounterfactualSimulation.decision_id == decision_id)
+    )).scalars().all()
+    if not simulation_ids:
+        return []
+
+    actualities = (await db.execute(
+        select(CounterfactualActualization).where(
+            CounterfactualActualization.simulation_id.in_(simulation_ids)
+        )
+    )).scalars().all()
+
+    scores: list[float] = []
+    for actuality in actualities:
+        if actuality.overall_calibration is not None:
+            scores.append(float(actuality.overall_calibration))
+        elif actuality.day_30_accuracy_score is not None:
+            scores.append(float(actuality.day_30_accuracy_score))
+        elif actuality.day_30_actual:
+            scores.append(1.0 if "positive" in actuality.day_30_actual.lower() else 0.0)
+    return scores

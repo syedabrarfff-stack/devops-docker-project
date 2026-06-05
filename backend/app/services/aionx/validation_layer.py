@@ -14,10 +14,10 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.aionx_organs import DecisionObject
+from app.models.aionx_organs import DecisionObject, DecisionOption
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ async def validate_decision_before_execution(
     validations = {}
 
     # Check 1: Completeness
-    validations["completeness"] = await _check_completeness(decision)
+    validations["completeness"] = await _check_completeness(db, decision)
 
     # Check 2: Feasibility
     validations["feasibility"] = await _check_feasibility(db, decision)
@@ -71,7 +71,7 @@ async def validate_decision_before_execution(
     }
 
 
-async def _check_completeness(decision: DecisionObject) -> dict[str, Any]:
+async def _check_completeness(db: AsyncSession, decision: DecisionObject) -> dict[str, Any]:
     """Verify all required decision fields are populated."""
 
     issues = []
@@ -85,7 +85,13 @@ async def _check_completeness(decision: DecisionObject) -> dict[str, Any]:
     if not decision.confidence_score or decision.confidence_score < 0.3:
         issues.append("Confidence score too low or not set")
 
-    if not decision.options or len(decision.options) < 2:
+    option_count = (await db.execute(
+        select(func.count()).select_from(DecisionOption).where(
+            DecisionOption.decision_id == decision.id
+        )
+    )).scalar_one()
+
+    if option_count < 2:
         issues.append("At least 2 options must be considered")
 
     return {
@@ -170,7 +176,7 @@ async def _check_maker_authority(db: AsyncSession, decision: DecisionObject) -> 
     """Verify decision maker has sufficient certification to make this decision."""
 
     issues = []
-    maker_id = decision.created_by
+    maker_id = decision.executor_role
 
     # In production, would:
     # 1. Get HIA certification tier
