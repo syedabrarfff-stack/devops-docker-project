@@ -334,6 +334,8 @@ export default function Dashboard() {
   const liveTableCount = data.operatingIntelligence?.data_backbone?.total_live_tables || 0
   const integrityTeamCount = data.operatingIntelligence?.operational_integrity?.team_count || 0
   const integrityPipelineCount = data.operatingIntelligence?.operational_integrity?.pipeline_stage_count || 0
+  const sovereignOrganCount = data.operatingIntelligence?.sovereign_organs?.organ_count || 0
+  const ultimateJourneyCount = data.operatingIntelligence?.ultimate_journey?.stage_count || 0
 
   if (loading) {
     return (
@@ -463,6 +465,14 @@ export default function Dashboard() {
           tone={integrityTeamCount === 8 ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
+        <MetricCard
+          icon={Network}
+          label="Sovereign Organs"
+          value={number(sovereignOrganCount)}
+          detail={`${ultimateJourneyCount} monitored client journey stages`}
+          tone={sovereignOrganCount === 9 ? 'green' : 'red'}
+          onClick={() => setActiveView('aionxArchitecture')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
@@ -490,6 +500,8 @@ export default function Dashboard() {
               <HealthRow label="Data Backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
               <HealthRow label="Operational Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} />
               <HealthRow label="18-Stage Pipeline" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18 stages`} />
+              <HealthRow label="Sovereign Organs" ok={sovereignOrganCount === 9} detail={`${sovereignOrganCount}/9 organs`} />
+              <HealthRow label="Ultimate Journey" ok={ultimateJourneyCount === 33} detail={`${ultimateJourneyCount}/33 stages`} />
             </div>
           </Panel>
 
@@ -522,6 +534,8 @@ export default function Dashboard() {
               <HealthRow label="DB backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
               <HealthRow label="Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} />
               <HealthRow label="Full pipe" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18`} />
+              <HealthRow label="Organs" ok={sovereignOrganCount === 9} detail={`${sovereignOrganCount}/9`} />
+              <HealthRow label="Journey" ok={ultimateJourneyCount === 33} detail={`${ultimateJourneyCount}/33`} />
             </div>
           </Panel>
 

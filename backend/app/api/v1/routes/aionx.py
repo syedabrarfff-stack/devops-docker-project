@@ -82,6 +82,20 @@ from app.services.aionx.operational_integrity import (
     run_fallback_drill,
     synthesize_milestone_learning,
 )
+from app.services.aionx.sovereign_organs import (
+    cognitive_debate,
+    genesis_proposal,
+    immune_scan,
+    simulate_strategy,
+    sovereign_organs_status,
+    system_state_snapshot,
+)
+from app.services.aionx.ultimate_client_journey import (
+    hie_briefing,
+    post_call_extraction,
+    preventive_monitoring_status,
+    ultimate_journey_status,
+)
 
 router = APIRouter(prefix="/aionx", tags=["AIONX"])
 
@@ -213,6 +227,56 @@ async def fallback_drill(payload: dict[str, Any] | None = None) -> dict[str, Any
 @router.post("/operational-integrity/knowledge-synthesis")
 async def knowledge_synthesis(payload: dict[str, Any]) -> dict[str, Any]:
     return synthesize_milestone_learning(payload)
+
+
+@router.get("/sovereign-organs")
+async def sovereign_organs() -> dict[str, Any]:
+    return sovereign_organs_status()
+
+
+@router.get("/system-state")
+async def system_state() -> dict[str, Any]:
+    return system_state_snapshot()
+
+
+@router.post("/cognitive-cortex/debate")
+async def cognitive_cortex_debate(payload: dict[str, Any]) -> dict[str, Any]:
+    return cognitive_debate(payload)
+
+
+@router.post("/genesis/propose")
+async def genesis_create_proposal(payload: dict[str, Any]) -> dict[str, Any]:
+    return genesis_proposal(payload)
+
+
+@router.post("/immune-system/scan")
+async def immune_system_scan(payload: dict[str, Any]) -> dict[str, Any]:
+    return immune_scan(payload)
+
+
+@router.post("/simulation-twin/scenario")
+async def simulation_twin_scenario(payload: dict[str, Any]) -> dict[str, Any]:
+    return simulate_strategy(payload)
+
+
+@router.get("/ultimate-journey")
+async def ultimate_journey() -> dict[str, Any]:
+    return ultimate_journey_status()
+
+
+@router.get("/preventive-monitoring")
+async def preventive_monitoring() -> dict[str, Any]:
+    return preventive_monitoring_status()
+
+
+@router.post("/hie/briefing")
+async def create_hie_briefing(payload: dict[str, Any]) -> dict[str, Any]:
+    return hie_briefing(payload)
+
+
+@router.post("/hie/post-call-extraction")
+async def create_post_call_extraction(payload: dict[str, Any]) -> dict[str, Any]:
+    return post_call_extraction(payload)
 
 
 # ─── BATCH 1 CLIENT PIPELINE ORCHESTRATOR ────────────────────────────────────

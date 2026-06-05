@@ -348,6 +348,31 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Add full Operations Center interaction UI beyond architecture visibility",
         ],
     },
+    {
+        "id": "sovereign_organism",
+        "name": "Sovereign Organs + Ultimate Journey",
+        "status": "LIVE_FOUNDATION",
+        "live_evidence": [
+            "9 sovereign organs exposed",
+            "12 cognitive regions exposed",
+            "System State Model snapshot exposed",
+            "Cognitive Cortex debate endpoint",
+            "Genesis proposal endpoint",
+            "Immune scan endpoint",
+            "Simulation Twin scenario endpoint",
+            "Ultimate 33-stage monitored journey exposed",
+            "8 lifecycle divisions exposed",
+            "Preventive monitoring model exposed",
+            "HIE briefing and post-call extraction endpoints",
+        ],
+        "pending_work": [
+            "Persist event spine in Redis Streams or durable event table",
+            "Schedule 5-minute system state snapshots",
+            "Wire cognitive debate to live provider fan-out",
+            "Connect preventive monitoring thresholds to real incident automation",
+            "Implement Captain Control Plane interactive UI",
+        ],
+    },
 ]
 
 
@@ -393,7 +418,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 77
+    route_count = 88
 
     expected_tables = {
         "decision_objects",
@@ -456,6 +481,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
             "Self-modification safety membrane with shadow/canary approval workflow",
             "Adaptive intelligence scheduler wiring and real metric snapshots",
             "Operational integrity persistence tables and active milestone state machine",
+            "Sovereign organism event spine, provider fan-out, and Captain control UI",
             "Resurrection/DR plan after core revenue workflows are stable",
         ],
         "authority_boundaries": [

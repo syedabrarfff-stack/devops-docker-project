@@ -173,6 +173,10 @@ export default function AionxArchitecture() {
   const dataBackbone = operating.data_backbone || {}
   const gatewayExperience = operating.gateway_experience || {}
   const operationalIntegrity = operating.operational_integrity || {}
+  const sovereign = operating.sovereign_organs || {}
+  const systemState = operating.system_state || {}
+  const ultimateJourney = operating.ultimate_journey || {}
+  const preventive = operating.preventive_monitoring || {}
 
   return (
     <div className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 text-white">
@@ -197,6 +201,7 @@ export default function AionxArchitecture() {
           <StatCard icon={ShieldCheck} label="Wisdom Score" value={wisdom ?? '-'} sub="Institutional fitness signal" />
           <StatCard icon={CircuitBoard} label="Adaptive Cycles" value={`${adaptive.cycle_count || 0}/5`} sub={`${tech.source_count || 0} tech watchtower sources`} />
           <StatCard icon={ShieldCheck} label="Integrity Teams" value={operationalIntegrity.team_count || 0} sub={`${operationalIntegrity.pipeline_stage_count || 0} full pipeline stages`} />
+          <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub={`${sovereign.cognitive_region_count || 0} cognitive regions`} />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -423,6 +428,131 @@ export default function AionxArchitecture() {
                     <p className="font-bold text-white/80">{item.component}</p>
                     <p className="mt-1 text-red-100/65">{item.failure_mode}</p>
                     <p className="mt-1 text-emerald-100/65">{item.fallback}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-fuchsia-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-fuchsia-200/60">Sovereign Digital Organism</p>
+              <h2 className="mt-1 text-2xl font-black">9 Organs + System State + Preventive Monitoring</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                This is the higher control layer: Cognitive Cortex, Genesis, Revenue Heart, Captain Control Plane,
+                Nervous System, Immune System, Simulation Twin, Self-Scaling Spine, and Resurrection Protocol.
+              </p>
+            </div>
+            <StatusPill status={sovereign.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub="Higher organism layer" />
+            <StatCard icon={CircuitBoard} label="Cognitive Regions" value={sovereign.cognitive_region_count || 0} sub="12-brain cortex map" />
+            <StatCard icon={Activity} label="System Health" value={systemState.overall_health_score || '-'} sub={systemState.emotional_state || 'state pending'} />
+            <StatCard icon={ShieldCheck} label="Prevention" value={preventive.dimension_count || 0} sub="Monitored dimensions" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">9 Sovereign Organs</h3>
+              <div className="mt-3 space-y-2">
+                {(sovereign.organs || []).map((organ) => (
+                  <div key={organ.code} className="rounded-xl border border-fuchsia-300/10 bg-fuchsia-300/[0.05] p-3">
+                    <p className="text-sm font-bold text-fuchsia-100">{organ.name}</p>
+                    <p className="mt-1 text-xs text-white/55">{organ.purpose}</p>
+                    <p className="mt-2 text-[11px] text-amber-100/70">{organ.captain_boundary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Cognitive Cortex Regions</h3>
+              <div className="mt-3 space-y-2">
+                {(sovereign.cognitive_regions || []).map((region) => (
+                  <div key={region.region} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-cyan-100">{region.region}</p>
+                    <p className="mt-1 text-white/55">{region.provider_role} - {region.function}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Unified System State</h3>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="rounded-xl bg-white/[0.035] p-3">
+                  <p className="text-white/50">Emotional state</p>
+                  <p className="mt-1 font-bold text-white">{systemState.emotional_state || 'unknown'}</p>
+                </div>
+                <div className="rounded-xl bg-white/[0.035] p-3">
+                  <p className="text-white/50">Capacity available</p>
+                  <p className="mt-1 font-bold text-emerald-100">{systemState.system_capacity?.available ?? '-'}%</p>
+                </div>
+                <div className="rounded-xl bg-white/[0.035] p-3">
+                  <p className="text-white/50">Next critical action</p>
+                  <p className="mt-1 text-white/70">{systemState.next_critical_action || 'not reported'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-orange-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-orange-200/60">Ultimate Client Journey</p>
+              <h2 className="mt-1 text-2xl font-black">33 Monitored Stages + Lifecycle Divisions + HIE Workflow</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                Every stage now has owner, monitoring metadata, fallback path, and preventive trigger,
+                from world scan through referral, reputation, postmortem, and knowledge extraction.
+              </p>
+            </div>
+            <StatusPill status={ultimateJourney.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={Layers3} label="Journey Stages" value={`${ultimateJourney.stage_count || 0}/33`} sub={`${ultimateJourney.phase_count || 0} phases`} />
+            <StatCard icon={Network} label="Lifecycle Divisions" value={(ultimateJourney.lifecycle_divisions || []).length} sub="Onboarding to knowledge extraction" />
+            <StatCard icon={ShieldCheck} label="Prevention Dimensions" value={preventive.dimension_count || 0} sub="Real-time risk model" />
+            <StatCard icon={Activity} label="HIE Workflows" value={Object.keys(ultimateJourney.hie_workflow || {}).length} sub="pre/during/post call" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">33 Stages</h3>
+              <div className="mt-3 space-y-2">
+                {(ultimateJourney.stages || []).map((stage) => (
+                  <div key={stage.stage} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-orange-100">{stage.stage}. {stage.name}</p>
+                    <p className="mt-1 text-white/50">{stage.phase} - {stage.owner}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Lifecycle Divisions</h3>
+              <div className="mt-3 space-y-2">
+                {(ultimateJourney.lifecycle_divisions || []).map((division) => (
+                  <div key={division.code} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-white/80">{division.name}</p>
+                    <p className="mt-1 text-white/50">{division.purpose}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Preventive Monitoring</h3>
+              <div className="mt-3 space-y-2">
+                {(preventive.dimensions || []).map((dimension) => (
+                  <div key={dimension.dimension} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-emerald-100">{dimension.dimension.replaceAll('_', ' ')}</p>
+                    <p className="mt-1 text-white/50">{dimension.reflex}</p>
                   </div>
                 ))}
               </div>
