@@ -325,6 +325,29 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Add approval-governed execution for SELF_IMPROVE recommendations",
         ],
     },
+    {
+        "id": "operational_integrity",
+        "name": "Operational Integrity Teams + 18-Stage Pipeline",
+        "status": "LIVE_FOUNDATION",
+        "live_evidence": [
+            "8 Operational Integrity Teams exposed",
+            "18-stage full AIONX pipeline exposed",
+            "14-stage milestone governance protocol exposed",
+            "9 Human Interface Agent profiles exposed",
+            "Fallback continuity matrix exposed",
+            "Mission planning endpoint",
+            "QA certificate endpoint",
+            "Repair instruction endpoint",
+            "Fallback drill endpoint",
+            "Knowledge synthesis endpoint",
+        ],
+        "pending_work": [
+            "Persist mission files and QA certificates into dedicated tables",
+            "Wire every real client milestone through this governance state machine",
+            "Run scheduled fallback drills against live agents/jobs",
+            "Add full Operations Center interaction UI beyond architecture visibility",
+        ],
+    },
 ]
 
 
@@ -370,7 +393,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 66
+    route_count = 77
 
     expected_tables = {
         "decision_objects",
@@ -432,6 +455,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
             "Revenue Heart ledger and cost-per-outcome reporting",
             "Self-modification safety membrane with shadow/canary approval workflow",
             "Adaptive intelligence scheduler wiring and real metric snapshots",
+            "Operational integrity persistence tables and active milestone state machine",
             "Resurrection/DR plan after core revenue workflows are stable",
         ],
         "authority_boundaries": [

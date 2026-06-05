@@ -172,6 +172,7 @@ export default function AionxArchitecture() {
   const dependencies = operating.module_dependencies || {}
   const dataBackbone = operating.data_backbone || {}
   const gatewayExperience = operating.gateway_experience || {}
+  const operationalIntegrity = operating.operational_integrity || {}
 
   return (
     <div className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 text-white">
@@ -195,6 +196,7 @@ export default function AionxArchitecture() {
           <StatCard icon={Activity} label="Operational IQ" value={iq ?? '-'} sub="Live Cortex signal" />
           <StatCard icon={ShieldCheck} label="Wisdom Score" value={wisdom ?? '-'} sub="Institutional fitness signal" />
           <StatCard icon={CircuitBoard} label="Adaptive Cycles" value={`${adaptive.cycle_count || 0}/5`} sub={`${tech.source_count || 0} tech watchtower sources`} />
+          <StatCard icon={ShieldCheck} label="Integrity Teams" value={operationalIntegrity.team_count || 0} sub={`${operationalIntegrity.pipeline_stage_count || 0} full pipeline stages`} />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -328,6 +330,99 @@ export default function AionxArchitecture() {
                       <span className="text-cyan-100">{group.live}/{group.expected}</span>
                     </div>
                     {!!group.missing?.length && <p className="mt-1 text-amber-200/70">Missing: {group.missing.join(', ')}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-blue-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-blue-200/60">Operational Integrity Batch</p>
+              <h2 className="mt-1 text-2xl font-black">8 Teams + 18-Stage Pipeline + Milestone Governance</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                This is the execution safety layer: Mission Control, cross-review, QA, repair, fallback,
+                department health, knowledge synthesis, HIA governance, and the full client journey from world scan to flywheel acceleration.
+              </p>
+            </div>
+            <StatusPill status={operationalIntegrity.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={ShieldCheck} label="Integrity Teams" value={operationalIntegrity.team_count || 0} sub="Mission/QA/repair/fallback/health/knowledge/HIA" />
+            <StatCard icon={GitBranch} label="Full Pipeline" value={`${operationalIntegrity.pipeline_stage_count || 0}/18`} sub="Lead to flywheel" />
+            <StatCard icon={Layers3} label="Milestone Gates" value={operationalIntegrity.milestone_governance_stage_count || 0} sub="No client delivery without QA" />
+            <StatCard icon={Network} label="HIA Profiles" value={operationalIntegrity.hia_count || 0} sub="Certified client interface layer" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">8 Operational Integrity Teams</h3>
+              <div className="mt-3 grid gap-2">
+                {(operationalIntegrity.teams || []).map((team) => (
+                  <div key={team.code} className="rounded-xl border border-blue-300/10 bg-blue-300/[0.05] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-blue-100">{team.name}</p>
+                        <p className="mt-1 text-xs leading-5 text-white/60">{team.purpose}</p>
+                      </div>
+                      <span className="rounded-full border border-blue-300/20 bg-blue-300/10 px-2 py-1 text-[10px] font-bold text-blue-100">{team.code}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-100/70">{team.escalation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">18-Stage AIONX Pipeline</h3>
+              <div className="mt-3 space-y-2">
+                {(operationalIntegrity.pipeline || []).map((stage) => (
+                  <div key={stage.stage} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs text-white/70">
+                    <span className="font-black text-cyan-100">{stage.stage}. {stage.name}</span> - {stage.owner}
+                    <p className="mt-1 text-white/45">{stage.output}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Milestone Governance</h3>
+              <div className="mt-3 space-y-2">
+                {(operationalIntegrity.milestone_governance || []).map((stage) => (
+                  <div key={stage.stage} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-white/80">{stage.stage}. {stage.name}</p>
+                    <p className="mt-1 text-white/50">{stage.gate}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Human Interface Agents</h3>
+              <div className="mt-3 space-y-2">
+                {(operationalIntegrity.hia_profiles || []).map((hia) => (
+                  <div key={hia.code} className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+                    <p className="text-sm font-bold text-white">{hia.name}</p>
+                    <p className="mt-1 text-xs text-cyan-100">{hia.role} - {hia.gateway}</p>
+                    <p className="mt-1 text-xs text-white/50">{hia.voice}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Fallback Matrix</h3>
+              <div className="mt-3 space-y-2">
+                {(operationalIntegrity.fallback_matrix || []).map((item) => (
+                  <div key={item.component} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <p className="font-bold text-white/80">{item.component}</p>
+                    <p className="mt-1 text-red-100/65">{item.failure_mode}</p>
+                    <p className="mt-1 text-emerald-100/65">{item.fallback}</p>
                   </div>
                 ))}
               </div>

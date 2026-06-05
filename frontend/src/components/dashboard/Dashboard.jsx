@@ -332,6 +332,8 @@ export default function Dashboard() {
   const techSourceCount = data.operatingIntelligence?.technology_exploration?.source_count || 0
   const dependencyModuleCount = data.operatingIntelligence?.module_dependencies?.module_count || 0
   const liveTableCount = data.operatingIntelligence?.data_backbone?.total_live_tables || 0
+  const integrityTeamCount = data.operatingIntelligence?.operational_integrity?.team_count || 0
+  const integrityPipelineCount = data.operatingIntelligence?.operational_integrity?.pipeline_stage_count || 0
 
   if (loading) {
     return (
@@ -453,6 +455,14 @@ export default function Dashboard() {
           tone={adaptiveCycleCount === 5 ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
+        <MetricCard
+          icon={Shield}
+          label="Integrity Teams"
+          value={number(integrityTeamCount)}
+          detail={`${integrityPipelineCount} full pipeline stages guarded`}
+          tone={integrityTeamCount === 8 ? 'green' : 'red'}
+          onClick={() => setActiveView('aionxArchitecture')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
@@ -478,6 +488,8 @@ export default function Dashboard() {
               <HealthRow label="Tech Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} sources`} />
               <HealthRow label="Dependency Resolver" ok={dependencyModuleCount >= 25} detail={`${dependencyModuleCount} modules`} />
               <HealthRow label="Data Backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
+              <HealthRow label="Operational Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} />
+              <HealthRow label="18-Stage Pipeline" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18 stages`} />
             </div>
           </Panel>
 
@@ -508,6 +520,8 @@ export default function Dashboard() {
               <HealthRow label="Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} feeds`} />
               <HealthRow label="12-stage pipe" ok={(data.operatingIntelligence?.revenue_pipeline?.stage_count || 0) === 12} detail={`${data.operatingIntelligence?.revenue_pipeline?.stage_count || 0}/12`} />
               <HealthRow label="DB backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
+              <HealthRow label="Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} />
+              <HealthRow label="Full pipe" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18`} />
             </div>
           </Panel>
 

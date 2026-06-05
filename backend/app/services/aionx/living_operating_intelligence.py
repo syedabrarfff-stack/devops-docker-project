@@ -18,6 +18,7 @@ from app.services.departments.axiom_operating_model import (
     AXIOM_DEPARTMENTS,
     COMMERCIAL_GATEWAYS,
 )
+from app.services.aionx.operational_integrity import operational_integrity_status
 
 
 ADAPTIVE_CYCLES: list[dict[str, Any]] = [
@@ -286,6 +287,7 @@ async def full_operating_intelligence(db: AsyncSession) -> dict[str, Any]:
         "data_backbone": await data_backbone_status(db),
         "gateway_experience": gateway_experience_status(),
         "captain_interface": await captain_interface_status(db),
+        "operational_integrity": operational_integrity_status(),
     }
 
 

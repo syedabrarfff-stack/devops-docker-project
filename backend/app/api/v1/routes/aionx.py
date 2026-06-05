@@ -74,6 +74,14 @@ from app.services.aionx.living_operating_intelligence import (
     revenue_pipeline_status,
     technology_exploration_status,
 )
+from app.services.aionx.operational_integrity import (
+    create_mission_plan,
+    create_repair_instruction,
+    issue_qa_certificate,
+    operational_integrity_status,
+    run_fallback_drill,
+    synthesize_milestone_learning,
+)
 
 router = APIRouter(prefix="/aionx", tags=["AIONX"])
 
@@ -141,6 +149,70 @@ async def gateway_experience() -> dict[str, Any]:
 @router.get("/captain-interface")
 async def captain_interface(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await captain_interface_status(db)
+
+
+@router.get("/operational-integrity")
+async def operational_integrity() -> dict[str, Any]:
+    return operational_integrity_status()
+
+
+@router.get("/operational-integrity/teams")
+async def operational_integrity_teams() -> dict[str, Any]:
+    data = operational_integrity_status()
+    return {"status": data["status"], "total": data["team_count"], "teams": data["teams"]}
+
+
+@router.get("/operational-integrity/pipeline")
+async def full_operational_pipeline() -> dict[str, Any]:
+    data = operational_integrity_status()
+    return {"status": data["status"], "stage_count": data["pipeline_stage_count"], "stages": data["pipeline"]}
+
+
+@router.get("/operational-integrity/milestone-governance")
+async def milestone_governance() -> dict[str, Any]:
+    data = operational_integrity_status()
+    return {
+        "status": data["status"],
+        "stage_count": data["milestone_governance_stage_count"],
+        "workflow": data["milestone_governance"],
+    }
+
+
+@router.get("/operational-integrity/hia-profiles")
+async def hia_profiles() -> dict[str, Any]:
+    data = operational_integrity_status()
+    return {"status": data["status"], "total": data["hia_count"], "profiles": data["hia_profiles"]}
+
+
+@router.get("/operational-integrity/fallback-matrix")
+async def fallback_matrix() -> dict[str, Any]:
+    data = operational_integrity_status()
+    return {"status": data["status"], "total": data["fallback_rule_count"], "fallback_matrix": data["fallback_matrix"]}
+
+
+@router.post("/operational-integrity/mission-plan")
+async def mission_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    return create_mission_plan(payload)
+
+
+@router.post("/operational-integrity/qa-certificate")
+async def qa_certificate(payload: dict[str, Any]) -> dict[str, Any]:
+    return issue_qa_certificate(payload)
+
+
+@router.post("/operational-integrity/repair-instruction")
+async def repair_instruction(payload: dict[str, Any]) -> dict[str, Any]:
+    return create_repair_instruction(payload)
+
+
+@router.post("/operational-integrity/fallback-drill")
+async def fallback_drill(payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    return run_fallback_drill(payload)
+
+
+@router.post("/operational-integrity/knowledge-synthesis")
+async def knowledge_synthesis(payload: dict[str, Any]) -> dict[str, Any]:
+    return synthesize_milestone_learning(payload)
 
 
 # ─── BATCH 1 CLIENT PIPELINE ORCHESTRATOR ────────────────────────────────────
