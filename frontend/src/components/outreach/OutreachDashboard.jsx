@@ -184,13 +184,28 @@ export default function OutreachDashboard() {
           )}
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-5">
+        <div className="mt-5 grid gap-3 md:grid-cols-6">
           <Metric label="Mode" value={(engine?.status || "unknown").toUpperCase()} />
           <Metric label="Gmail" value={(engine?.gmail?.send_mode || "unknown").toUpperCase()} />
           <Metric label="Pending" value={engine?.queue?.pending_followups ?? "-"} />
+          <Metric label="Captain Review" value={engine?.queue?.pending_approvals ?? "-"} />
           <Metric label="With Email" value={engine?.leads?.with_email ?? "-"} />
           <Metric label="Remaining Today" value={engine?.queue?.remaining_today ?? "-"} />
         </div>
+
+        {(engine?.queue?.pending_approvals || 0) > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200/15 bg-sky-500/[0.07] p-3">
+            <p className="text-xs leading-5 text-sky-100/80">
+              {engine.queue.pending_approvals} lead or action is waiting for Captain review. Approved outreach enrollment reviews now auto-queue the lead.
+            </p>
+            <a
+              href="/approvals"
+              className="rounded-lg border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-100 transition hover:bg-sky-400/20"
+            >
+              Open Approvals
+            </a>
+          </div>
+        )}
 
         {!!engine?.blockers?.length && (
           <div className="mt-4 rounded-xl border border-amber-200/15 bg-black/20 p-3">
