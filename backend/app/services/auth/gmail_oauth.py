@@ -26,8 +26,20 @@ GOOGLE_TOKEN_URL  = "https://oauth2.googleapis.com/token"
 GMAIL_SEND_URL    = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 
 
+def _has_real_oauth_value(value: str | None) -> bool:
+    candidate = (value or "").strip()
+    if not candidate:
+        return False
+    lowered = candidate.lower()
+    if candidate.startswith("#") or "from google cloud console" in lowered:
+        return False
+    if lowered in {"changeme", "change_me", "todo", "none", "null", "your_client_id", "your_client_secret"}:
+        return False
+    return True
+
+
 def _is_oauth_configured() -> bool:
-    return bool(settings.GMAIL_CLIENT_ID and settings.GMAIL_CLIENT_SECRET)
+    return _has_real_oauth_value(settings.GMAIL_CLIENT_ID) and _has_real_oauth_value(settings.GMAIL_CLIENT_SECRET)
 
 
 def get_oauth_url(state: str = "jarvis", redirect_uri: Optional[str] = None) -> str:
