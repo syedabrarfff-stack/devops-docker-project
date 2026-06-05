@@ -23,6 +23,7 @@ from app.services.aionx.client_trust_index import (
     compute_trust_score as get_trust_score,
 )
 from app.services.aionx.executive_accountability_engine import track_maker_accuracy
+from app.services.aionx.operational_persistence import operational_persistence_status
 
 logger = logging.getLogger(__name__)
 
@@ -200,12 +201,14 @@ async def get_aionx_system_info() -> dict[str, Any]:
             "voice_integration": "Configured",
             "mission_file_system": "Active",
             "validation_layer": "Active",
+            "operational_persistence": "Active",
+            "governed_autonomy": "Approval-gated",
         },
-        "organs": 8,
+        "organs": 9,
         "intelligence_engines": 5,
         "optional_systems": 5,
-        "total_endpoints": 57,
-        "scheduler_jobs": 12,
+        "total_endpoints": 99,
+        "scheduler_jobs": 16,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
@@ -335,16 +338,14 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "14-stage milestone governance protocol exposed",
             "9 Human Interface Agent profiles exposed",
             "Fallback continuity matrix exposed",
-            "Mission planning endpoint",
-            "QA certificate endpoint",
-            "Repair instruction endpoint",
-            "Fallback drill endpoint",
-            "Knowledge synthesis endpoint",
+            "Mission planning endpoint persists mission_files and milestone_plans",
+            "QA certificate endpoint persists quality certificates",
+            "Repair instruction endpoint persists repair records",
+            "Fallback drill endpoint persists continuity records",
+            "Knowledge synthesis endpoint persists institutional learning records",
         ],
         "pending_work": [
-            "Persist mission files and QA certificates into dedicated tables",
             "Wire every real client milestone through this governance state machine",
-            "Run scheduled fallback drills against live agents/jobs",
             "Add full Operations Center interaction UI beyond architecture visibility",
         ],
     },
@@ -356,21 +357,24 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "9 sovereign organs exposed",
             "12 cognitive regions exposed",
             "System State Model snapshot exposed",
+            "System State snapshots persisted every 5 minutes",
             "Cognitive Cortex debate endpoint",
             "Genesis proposal endpoint",
+            "Genesis autonomy proposals persist for Captain review",
             "Immune scan endpoint",
             "Simulation Twin scenario endpoint",
             "Ultimate 33-stage monitored journey exposed",
             "8 lifecycle divisions exposed",
             "Preventive monitoring model exposed",
+            "Preventive monitoring events persisted every 15 minutes",
             "HIE briefing and post-call extraction endpoints",
+            "Event spine table records operational events",
+            "Daily governed external scan records are scheduled",
         ],
         "pending_work": [
-            "Persist event spine in Redis Streams or durable event table",
-            "Schedule 5-minute system state snapshots",
             "Wire cognitive debate to live provider fan-out",
-            "Connect preventive monitoring thresholds to real incident automation",
             "Implement Captain Control Plane interactive UI",
+            "Attach authenticated external crawling sources to the scan record system",
         ],
     },
 ]
@@ -418,7 +422,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 88
+    route_count = 99
 
     expected_tables = {
         "decision_objects",
@@ -447,11 +451,22 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "sentinel_threat_registry",
         "mission_ownership_records",
         "self_modification_registry",
+        "aionx_mission_files",
+        "aionx_milestone_plans",
+        "aionx_qa_certificates",
+        "aionx_repair_records",
+        "aionx_fallback_drill_records",
+        "aionx_knowledge_synthesis_records",
+        "aionx_system_state_snapshots",
+        "aionx_event_spine",
+        "aionx_autonomy_proposals",
+        "aionx_external_scan_records",
     }
 
     live_tables = sorted(expected_tables.intersection(table_names))
     missing_tables = sorted(expected_tables.difference(table_names))
     dashboard = await generate_captain_intelligence_dashboard(db)
+    persistence = await operational_persistence_status(db)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -474,14 +489,15 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "live_tables": live_tables,
         "missing_tables": missing_tables,
         "live_signals": dashboard.get("sections", {}),
+        "operational_persistence": persistence,
         "canonical_next_build_order": [
             "Connect every revenue route directly into stage transitions",
             "Council conference-room UI with natural-language participant messages",
             "Revenue Heart ledger and cost-per-outcome reporting",
             "Self-modification safety membrane with shadow/canary approval workflow",
-            "Adaptive intelligence scheduler wiring and real metric snapshots",
-            "Operational integrity persistence tables and active milestone state machine",
-            "Sovereign organism event spine, provider fan-out, and Captain control UI",
+            "Provider fan-out for Cognitive Cortex debate",
+            "Real authenticated external crawling sources for the Sentinel watchtower",
+            "Captain Control Plane interaction UI",
             "Resurrection/DR plan after core revenue workflows are stable",
         ],
         "authority_boundaries": [

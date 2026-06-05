@@ -75,12 +75,21 @@ from app.services.aionx.living_operating_intelligence import (
     technology_exploration_status,
 )
 from app.services.aionx.operational_integrity import (
-    create_mission_plan,
-    create_repair_instruction,
-    issue_qa_certificate,
     operational_integrity_status,
-    run_fallback_drill,
-    synthesize_milestone_learning,
+)
+from app.services.aionx.operational_persistence import (
+    capture_preventive_monitoring_snapshot,
+    capture_system_state_snapshot,
+    create_autonomy_proposal,
+    latest_persisted_records,
+    operational_persistence_status,
+    persist_fallback_drill,
+    persist_knowledge_synthesis,
+    persist_mission_plan,
+    persist_qa_certificate,
+    persist_repair_instruction,
+    record_external_scan,
+    run_governed_integrity_cycle,
 )
 from app.services.aionx.sovereign_organs import (
     cognitive_debate,
@@ -205,28 +214,87 @@ async def fallback_matrix() -> dict[str, Any]:
 
 
 @router.post("/operational-integrity/mission-plan")
-async def mission_plan(payload: dict[str, Any]) -> dict[str, Any]:
-    return create_mission_plan(payload)
+async def mission_plan(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await persist_mission_plan(db, payload)
 
 
 @router.post("/operational-integrity/qa-certificate")
-async def qa_certificate(payload: dict[str, Any]) -> dict[str, Any]:
-    return issue_qa_certificate(payload)
+async def qa_certificate(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await persist_qa_certificate(db, payload)
 
 
 @router.post("/operational-integrity/repair-instruction")
-async def repair_instruction(payload: dict[str, Any]) -> dict[str, Any]:
-    return create_repair_instruction(payload)
+async def repair_instruction(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await persist_repair_instruction(db, payload)
 
 
 @router.post("/operational-integrity/fallback-drill")
-async def fallback_drill(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    return run_fallback_drill(payload)
+async def fallback_drill(
+    payload: dict[str, Any] | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await persist_fallback_drill(db, payload)
 
 
 @router.post("/operational-integrity/knowledge-synthesis")
-async def knowledge_synthesis(payload: dict[str, Any]) -> dict[str, Any]:
-    return synthesize_milestone_learning(payload)
+async def knowledge_synthesis(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await persist_knowledge_synthesis(db, payload)
+
+
+@router.get("/operational-persistence")
+async def operational_persistence(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await operational_persistence_status(db)
+
+
+@router.get("/operational-persistence/latest")
+async def operational_persistence_latest(
+    limit: int = Query(10, le=50),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await latest_persisted_records(db, limit)
+
+
+@router.post("/system-state/snapshot")
+async def create_system_state_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await capture_system_state_snapshot(db, captured_by="CAPTAIN_API")
+
+
+@router.post("/preventive-monitoring/snapshot")
+async def create_preventive_monitoring_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await capture_preventive_monitoring_snapshot(db)
+
+
+@router.post("/autonomy/proposal")
+async def autonomy_proposal(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await create_autonomy_proposal(db, payload)
+
+
+@router.post("/external-scan/record")
+async def external_scan_record(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    return await record_external_scan(db, payload)
+
+
+@router.post("/governed-integrity-cycle")
+async def governed_integrity_cycle(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await run_governed_integrity_cycle(db)
 
 
 @router.get("/sovereign-organs")

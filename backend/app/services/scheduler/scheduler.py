@@ -105,6 +105,10 @@ AIONX_JOB_IDS = (
     "aionx_debt_assessment",
     "aionx_trust_erosion_check",
     "aionx_authority_recalibration",
+    "aionx_system_state_snapshot",
+    "aionx_preventive_monitoring_snapshot",
+    "aionx_governed_integrity_cycle",
+    "aionx_external_scan_record",
 )
 
 JOB_LOCK_TTLS = {

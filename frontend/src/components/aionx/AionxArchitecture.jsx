@@ -173,6 +173,8 @@ export default function AionxArchitecture() {
   const dataBackbone = operating.data_backbone || {}
   const gatewayExperience = operating.gateway_experience || {}
   const operationalIntegrity = operating.operational_integrity || {}
+  const operationalPersistence = operating.operational_persistence || architecture.operational_persistence || {}
+  const persistenceCounts = operationalPersistence.counts || {}
   const sovereign = operating.sovereign_organs || {}
   const systemState = operating.system_state || {}
   const ultimateJourney = operating.ultimate_journey || {}
@@ -201,6 +203,7 @@ export default function AionxArchitecture() {
           <StatCard icon={ShieldCheck} label="Wisdom Score" value={wisdom ?? '-'} sub="Institutional fitness signal" />
           <StatCard icon={CircuitBoard} label="Adaptive Cycles" value={`${adaptive.cycle_count || 0}/5`} sub={`${tech.source_count || 0} tech watchtower sources`} />
           <StatCard icon={ShieldCheck} label="Integrity Teams" value={operationalIntegrity.team_count || 0} sub={`${operationalIntegrity.pipeline_stage_count || 0} full pipeline stages`} />
+          <StatCard icon={CircuitBoard} label="Persistence Tables" value={operationalPersistence.table_count || 0} sub="Mission/QA/repair/event memory" />
           <StatCard icon={Network} label="Sovereign Organs" value={sovereign.organ_count || 0} sub={`${sovereign.cognitive_region_count || 0} cognitive regions`} />
         </div>
 
@@ -432,6 +435,42 @@ export default function AionxArchitecture() {
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-teal-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-teal-200/60">Production Memory Layer</p>
+              <h2 className="mt-1 text-2xl font-black">Operational Persistence + Governed Autonomy</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                Mission files, QA certificates, repair records, fallback drills, knowledge synthesis,
+                system snapshots, event spine records, autonomy proposals, and external scan records now have dedicated database persistence.
+              </p>
+            </div>
+            <StatusPill status={operationalPersistence.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <StatCard icon={CircuitBoard} label="Persistence Tables" value={operationalPersistence.table_count || 0} sub="Dedicated production memory" />
+            <StatCard icon={Layers3} label="Mission Files" value={persistenceCounts.aionx_mission_files ?? '-'} sub="Mission Control records" />
+            <StatCard icon={ShieldCheck} label="QA Certificates" value={persistenceCounts.aionx_qa_certificates ?? '-'} sub="Delivery gates" />
+            <StatCard icon={AlertTriangle} label="Repair Records" value={persistenceCounts.aionx_repair_records ?? '-'} sub="Recovery memory" />
+            <StatCard icon={Activity} label="Event Spine" value={persistenceCounts.aionx_event_spine ?? '-'} sub="Operational events" />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Object.entries(persistenceCounts).map(([table, count]) => (
+              <div key={table} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-200/60">{table.replaceAll('_', ' ')}</p>
+                <p className="mt-2 text-3xl font-black text-white">{count}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <h3 className="font-black text-white">Governance Boundary</h3>
+            <p className="mt-2 text-sm leading-6 text-white/65">{operationalPersistence.governance_boundary}</p>
           </div>
         </section>
 

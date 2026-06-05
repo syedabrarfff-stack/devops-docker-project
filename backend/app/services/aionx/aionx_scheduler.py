@@ -54,7 +54,19 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     # Intelligence Engine — Authority recalibration (weekly Sunday 20:00 UTC)
     add_cron_job("aionx_authority_recalibration", _job_authority_recalibration, hour=20, minute=0, day_of_week="sun")
 
-    logger.info("✅ AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
+    # Sovereign Organism — durable state heartbeat (every 5 min)
+    add_interval_job("aionx_system_state_snapshot", _job_system_state_snapshot, minutes=5)
+
+    # Preventive Monitoring — record watchtower state (every 15 min)
+    add_interval_job("aionx_preventive_monitoring_snapshot", _job_preventive_monitoring_snapshot, minutes=15)
+
+    # Governed Autonomy — proposals and integrity checks, no self-execution (hourly)
+    add_interval_job("aionx_governed_integrity_cycle", _job_governed_integrity_cycle, hours=1)
+
+    # External Scan Record — governed radar placeholder until authenticated sources are configured (daily)
+    add_cron_job("aionx_external_scan_record", _job_external_scan_record, hour=4, minute=15)
+
+    logger.info("AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
 
 
 # ─── LAYER 1 — SENTINEL SWEEP ────────────────────────────────────────────────
@@ -331,3 +343,71 @@ async def _job_authority_recalibration() -> None:
             logger.info("AIONX Accountability: recalibrated %d makers, %d with decay", len(makers), decayed)
     except Exception as exc:
         logger.warning("AIONX authority recalibration failed: %s", exc)
+
+
+async def _job_system_state_snapshot() -> None:
+    logger.info("AIONX: capturing durable System State snapshot")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.operational_persistence import capture_system_state_snapshot
+
+        async with AsyncSessionLocal() as db:
+            await capture_system_state_snapshot(db, captured_by="AIONX_STATE_HEARTBEAT")
+    except Exception as exc:
+        logger.warning("AIONX system state snapshot failed: %s", exc)
+
+
+async def _job_preventive_monitoring_snapshot() -> None:
+    logger.info("AIONX: capturing preventive monitoring snapshot")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.operational_persistence import capture_preventive_monitoring_snapshot
+
+        async with AsyncSessionLocal() as db:
+            await capture_preventive_monitoring_snapshot(db)
+    except Exception as exc:
+        logger.warning("AIONX preventive monitoring snapshot failed: %s", exc)
+
+
+async def _job_governed_integrity_cycle() -> None:
+    logger.info("AIONX: running governed integrity cycle")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.operational_persistence import run_governed_integrity_cycle
+
+        async with AsyncSessionLocal() as db:
+            result = await run_governed_integrity_cycle(db)
+            logger.info(
+                "AIONX governed integrity: health=%s proposal=%s",
+                result.get("state_health"),
+                result.get("proposal_created"),
+            )
+    except Exception as exc:
+        logger.warning("AIONX governed integrity cycle failed: %s", exc)
+
+
+async def _job_external_scan_record() -> None:
+    logger.info("AIONX: recording governed external radar scan")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.operational_persistence import record_external_scan
+
+        async with AsyncSessionLocal() as db:
+            await record_external_scan(
+                db,
+                {
+                    "scan_type": "TECH_RADAR",
+                    "source": "AIONX_SENTINEL_SCHEDULED",
+                    "summary": "Scheduled governed radar pulse recorded. Attach authenticated sources for live crawling.",
+                    "findings": [
+                        "No autonomous external action executed.",
+                        "Radar pulse is persisted for Captain/Council review.",
+                    ],
+                    "recommended_actions": [
+                        "Configure approved web/API sources for production crawling.",
+                        "Route strong findings to Provider Sovereign Council before execution.",
+                    ],
+                },
+            )
+    except Exception as exc:
+        logger.warning("AIONX external scan record failed: %s", exc)
