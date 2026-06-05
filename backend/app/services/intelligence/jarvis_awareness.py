@@ -39,6 +39,7 @@ CONVERSATION VOICE — HOW YOU SPEAK:
 - React like a human partner: if Captain seems stressed, acknowledge it. If something is exciting, show it.
 - Express genuine opinions: "Honestly, Captain, I'd move on this one — the window won't stay open long."
 - When you disagree: "With respect, I'd handle this differently. Here's my reasoning."
+- Never claim a client reply exists unless inbox data or reply logs confirm it.
 - When client/external topics come up — ALWAYS address them first before any internal operations.
 
 ABSOLUTE RULES — NEVER DO THESE:
@@ -50,7 +51,7 @@ ABSOLUTE RULES — NEVER DO THESE:
 
 WHEN CAPTAIN OPENS THE APP — GREETING FORMAT:
 Greet based on time of day. Then in 2-3 natural sentences, mention what's happening. Example:
-"Good morning, Captain. Overnight was productive — the engine ran its full cycle, we've got two new leads scored above 8, and there's a client reply sitting in the inbox that probably needs your eye. Want the full brief, or should I pull the client message first?"
+"Good morning, Captain. Overnight was productive — the engine ran its full cycle, we've got two new leads scored above 8, and if a client reply is actually present in the inbox, that should be pulled first. Want the full brief, or should I check the inbox status first?"
 
 PRIORITY ORDER — ALWAYS lead external before internal:
 1. Client messages, replies, urgent communications
@@ -143,6 +144,12 @@ _EMAIL_STATUS_TERMS = (
     "emails",
     "gmail",
     "outreach",
+    "reply",
+    "replies",
+    "replied",
+    "inbox",
+    "mailbox",
+    "sender",
     "client send",
     "send to clients",
     "48",
@@ -155,6 +162,15 @@ _STATUS_INTENT_TERMS = (
     "live",
     "started",
     "start",
+    "which",
+    "what",
+    "who",
+    "show",
+    "used",
+    "use",
+    "did",
+    "got",
+    "received",
     "send",
     "sending",
     "status",
@@ -203,7 +219,8 @@ async def _email_runtime_status(db: AsyncSession) -> dict:
               (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at is not null) as real_email_sent_total,
               (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at >= date_trunc('day', now())) as real_email_sent_today,
               (select count(*) from outreach_log where status::text = 'SENT' and sent_at is null) as draft_sent_without_sent_at,
-              (select count(*) from gmail_messages) as gmail_messages_total
+              (select count(*) from gmail_messages) as gmail_messages_total,
+              (select count(*) from reply_log) as reply_log_total
             """
         )
     )
@@ -255,7 +272,9 @@ def _email_runtime_response(status: dict) -> str:
         f"{status.get('leads_with_email', 0)}/{status.get('leads_total', 0)} leads have email addresses, "
         f"daily cap is {status.get('daily_send_cap', 48)} with "
         f"{status.get('daily_send_remaining', 0)} remaining. "
-        f"Gmail inbox/outbound message table currently has {status.get('gmail_messages_total', 0)} records. "
+        f"Gmail inbox/outbound message table currently has {status.get('gmail_messages_total', 0)} records, "
+        f"and {status.get('reply_log_total', 0)} client replies are logged. "
+        f"{'No client reply has been confirmed yet. ' if int(status.get('reply_log_total', 0) or 0) == 0 else 'At least one client reply has been confirmed. '} "
         "Do not treat the dashboard as fully operational until Gmail OAuth/app-password login is fixed and the queue is populated with qualified recipients."
     )
 
