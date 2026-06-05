@@ -439,6 +439,7 @@ class DepartmentAgentService:
         result = await db.execute(
             select(DepartmentIntelligenceOfficer)
             .where(DepartmentIntelligenceOfficer.tenant_id == tenant_uuid)
+            .where(DepartmentIntelligenceOfficer.is_active.is_(True))
             .order_by(DepartmentIntelligenceOfficer.department_code)
         )
         dios = result.scalars().all()

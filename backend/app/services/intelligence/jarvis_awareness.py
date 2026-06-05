@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.services.ai.router import ai_router
+from app.services.ai.base_provider import Message
 from app.services.memory import manager as mem
 from app.services.intelligence.jarvis_authority import JARVIS_AUTHORITY_PROMPT
 from app.services.notifications.gmail_sender import gmail_sender
