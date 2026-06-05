@@ -6,7 +6,7 @@ GET  /auth/gmail/callback    — exchange code for tokens (redirect target)
 POST /auth/gmail/revoke      — revoke and delete tokens
 GET  /auth/gmail/profile     — get connected Gmail profile
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -19,7 +19,25 @@ from app.services.storage.secure import get_oauth_token, delete_credential
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-_DEFAULT_REDIRECT = lambda: f"{settings.APP_BASE_URL}/api/v1/auth/gmail/callback"
+def _public_base_url(request: Request | None = None) -> str:
+    configured = (settings.APP_BASE_URL or "").rstrip("/")
+    if configured and "localhost" not in configured and "127.0.0.1" not in configured:
+        return configured
+    if request is not None:
+        proto = request.headers.get("X-Forwarded-Proto") or request.url.scheme
+        host = request.headers.get("X-Forwarded-Host") or request.headers.get("Host")
+        if host:
+            return f"{proto}://{host}".rstrip("/")
+    return configured or "https://aliyarsolutions.com"
+
+
+def _default_redirect(request: Request | None = None) -> str:
+    return f"{_public_base_url(request)}/api/v1/auth/gmail/callback"
+
+
+def _frontend_redirect(request: Request | None = None) -> str:
+    base = _public_base_url(request)
+    return f"{base}/outreach?gmail_connected=1"
 
 
 @router.get("/gmail/status")
@@ -37,17 +55,20 @@ async def gmail_status(db: AsyncSession = Depends(get_db)):
 
 @router.get("/gmail/initiate")
 async def gmail_initiate(
+    request: Request,
     redirect_uri: str = Query(None),
     state: str = Query("jarvis"),
 ):
     if not _is_oauth_configured():
         raise HTTPException(400, "GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET not configured")
-    url = get_oauth_url(state=state, redirect_uri=redirect_uri or _DEFAULT_REDIRECT())
-    return {"auth_url": url}
+    final_redirect_uri = redirect_uri or _default_redirect(request)
+    url = get_oauth_url(state=state, redirect_uri=final_redirect_uri)
+    return {"auth_url": url, "redirect_uri": final_redirect_uri}
 
 
 @router.get("/gmail/callback")
 async def gmail_callback(
+    request: Request,
     code: str = Query(...),
     state: str = Query(""),
     redirect_uri: str = Query(None),
@@ -57,11 +78,9 @@ async def gmail_callback(
     if not _is_oauth_configured():
         raise HTTPException(400, "OAuth not configured")
     try:
-        data = await exchange_code(code, redirect_uri or _DEFAULT_REDIRECT(), db)
+        data = await exchange_code(code, redirect_uri or _default_redirect(request), db)
         await db.commit()
-        # Redirect to dashboard with success indicator
-        frontend_url = settings.CORS_ORIGINS.split(",")[0].strip()
-        return RedirectResponse(url=f"{frontend_url}?gmail_connected=1")
+        return RedirectResponse(url=_frontend_redirect(request))
     except Exception as e:
         raise HTTPException(400, f"Token exchange failed: {e}")
 

@@ -95,6 +95,15 @@ export default function OutreachDashboard() {
     }
   }
 
+  async function connectGmail() {
+    try {
+      const r = await api.get("/api/v1/auth/gmail/initiate");
+      window.open(r.data.auth_url, "_blank", "width=720,height=760");
+    } catch (e) {
+      setLastRun({ error: e?.response?.data?.detail || e.message || "Gmail OAuth start failed" });
+    }
+  }
+
   const engineReady = engine?.status === "ready";
   const engineBlocked = engine?.status === "blocked";
   const engineTone = engineReady
@@ -144,6 +153,14 @@ export default function OutreachDashboard() {
           >
             {starting ? "Starting..." : "Start Outreach Engine"}
           </button>
+          {engine?.gmail?.oauth_configured && !engine?.gmail?.oauth_connected && (
+            <button
+              onClick={connectGmail}
+              className="rounded-xl border border-blue-300/30 bg-blue-500/15 px-5 py-2.5 text-sm font-bold text-blue-100 transition hover:bg-blue-500/25"
+            >
+              Connect Gmail OAuth
+            </button>
+          )}
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">

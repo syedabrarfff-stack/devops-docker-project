@@ -6,6 +6,7 @@ Gmail OAuth2 integration.
 """
 import logging
 import base64
+from urllib.parse import urlencode
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
@@ -41,7 +42,7 @@ def get_oauth_url(state: str = "jarvis", redirect_uri: Optional[str] = None) -> 
         "prompt":        "consent",
         "state":         state,
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
+    query = urlencode(params)
     return f"{GOOGLE_AUTH_URL}?{query}"
 
 
