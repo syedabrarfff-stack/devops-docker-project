@@ -203,8 +203,8 @@ async def get_aionx_system_info() -> dict[str, Any]:
         "organs": 8,
         "intelligence_engines": 5,
         "optional_systems": 5,
-        "total_endpoints": 50,
-        "scheduler_jobs": 17,
+        "total_endpoints": 57,
+        "scheduler_jobs": 12,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
