@@ -149,9 +149,81 @@ async def _execute_cascade_step(
         )
         return {"provider_session_id": str(session.id)}
 
-    elif step in ("notify_captain", "speed_to_lead_queue", "record_ownership", "create_autopsy"):
-        # These hook into existing notification / queue systems — logged for now.
-        logger.info("Orchestration Cortex: step %s queued with payload keys %s", step, list(payload.keys()))
+    elif step == "record_ownership":
+        mission_id = _as_uuid(payload.get("mission_id"))
+        client_id = _as_uuid(payload.get("client_id"))
+        if mission_id:
+            from app.models.aionx_organs import MissionOwnershipRecord
+            ownership = MissionOwnershipRecord(
+                mission_id=mission_id,
+                client_id=client_id,
+                executive_owner="JARVIS",
+                mission_status="ACTIVE",
+            )
+            db.add(ownership)
+            await db.flush()
+            logger.info("Orchestration Cortex: ownership recorded for mission %s client %s", mission_id, client_id)
+            return {"ownership_id": str(ownership.id), "mission_id": str(mission_id)}
+
+    elif step == "notify_captain":
+        # Send async notification to Captain via Slack + Telegram
+        try:
+            from app.services.notifications.slack import send_slack_message
+            from app.services.notifications.telegram import send_telegram_message
+
+            event_type = payload.get("event_type", "EVENT")
+            client_id = payload.get("client_id", "unknown")
+            stage_name = payload.get("stage_name", "Unknown stage")
+
+            message = f"🔔 **{event_type}** — Client {client_id} at stage: {stage_name}"
+
+            # Fire and forget — don't block cascade if notifications fail
+            try:
+                await send_slack_message(message)
+            except Exception as e:
+                logger.warning("Slack notification failed: %s", e)
+
+            try:
+                await send_telegram_message(message)
+            except Exception as e:
+                logger.warning("Telegram notification failed: %s", e)
+
+            logger.info("Orchestration Cortex: Captain notified of %s", event_type)
+            return {"notified": True, "event": event_type}
+        except Exception as e:
+            logger.warning("Captain notification failed: %s", e)
+            return {"notified": False, "error": str(e)}
+
+    elif step == "create_autopsy":
+        mission_id = _as_uuid(payload.get("mission_id"))
+        if mission_id:
+            from app.models.aionx_organs import MissionAutopsy
+            from app.services.ai.router import route_task
+
+            # AI-powered failure analysis
+            analysis = await route_task(
+                task_type="reasoning",
+                prompt=f"Analyze why this mission failed. Mission ID: {mission_id}. "
+                       f"Problem: {payload.get('problem', 'Mission failure detected')}. "
+                       f"Provide root causes, prevention strategies, and process improvements.",
+                max_tokens=800,
+            )
+
+            autopsy = MissionAutopsy(
+                mission_id=mission_id,
+                failure_type=payload.get("failure_type", "UNKNOWN"),
+                root_cause_analysis=analysis if analysis != "ROUTE_TASK_UNAVAILABLE" else "Analysis unavailable",
+                prevention_strategies=[],
+                status="COMPLETED",
+            )
+            db.add(autopsy)
+            await db.flush()
+            logger.info("Orchestration Cortex: autopsy created for mission %s", mission_id)
+            return {"autopsy_id": str(autopsy.id), "analysis": analysis}
+
+    elif step in ("speed_to_lead_queue",):
+        # Queue task for speed-to-lead engine
+        logger.info("Orchestration Cortex: speed-to-lead task queued with payload keys %s", list(payload.keys()))
         return {"queued": step}
 
     return {"noop": step}
