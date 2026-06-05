@@ -27,6 +27,31 @@ from app.services.intelligence.captain_profile_engine import captain_profile
 router = APIRouter(prefix="/consciousness", tags=["JARVIS Consciousness"])
 
 
+@router.get("/snapshot")
+async def consciousness_snapshot():
+    """Single dashboard snapshot for JARVIS heart, soul, brain, vision, and council layers."""
+    from app.services.intelligence.heart_engine import EMOTIONAL_DRIVERS
+
+    tiers = offer_engine.get_all_tiers()
+    return {
+        "status": "operational",
+        "system": "JARVIS Consciousness",
+        "layers": {
+            "soul": "identity, values, non-negotiables, culture guardrails",
+            "heart": "prospect psychology, emotional drivers, relationship health",
+            "brain": "council of giants, strategic reasoning, competitive stance",
+            "vision": "trajectory map, compounding assets, future milestones",
+            "offer": "proposal construction, tier selection, objection handling",
+            "upgrade": "weekly self-improvement, failure learning, benchmarks",
+            "captain": "authority profile, priorities, blind-spot checks",
+        },
+        "giants_online": len(council_of_giants.list_all_giants()),
+        "offer_tiers": list(tiers.keys()),
+        "non_negotiables": soul_engine.get_non_negotiables(),
+        "emotional_drivers": list(EMOTIONAL_DRIVERS.keys()) if hasattr(EMOTIONAL_DRIVERS, "keys") else EMOTIONAL_DRIVERS,
+    }
+
+
 # ── Emotional Core ────────────────────────────────────────────────────────────
 
 class PipelineDataRequest(BaseModel):

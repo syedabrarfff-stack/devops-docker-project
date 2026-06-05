@@ -164,7 +164,7 @@ function DiosTab({ dios, onInitialize, loading }) {
       </div>
 
       {list.length === 0
-        ? <EmptyState message="No DIOs initialized yet. Click Initialize to deploy all 15 Department Intelligence Officers." />
+        ? <EmptyState message="No DIOs initialized yet. Click Initialize to deploy all 25 Department Intelligence Officers." />
         : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {list.map((dio, i) => (
@@ -494,11 +494,11 @@ export default function DepartmentsView() {
     setActionLoading(false)
   }
 
-  const initializeDios    = withAction(() => api.post('/api/v1/departments/dios/initialize', { tenant_id: 'default' }))
-  const runBulkReview     = withAction(() => api.post('/api/v1/departments/milestones/bulk-review', { tenant_id: 'default' }))
-  const runDiscovery      = withAction(() => api.post('/api/v1/departments/tech/discover', { tenant_id: 'default' }))
-  const runDailyStrategy  = withAction(() => api.post('/api/v1/departments/strategy/daily-report', { tenant_id: 'default' }))
-  const runWeeklyStrategy = withAction(() => api.post('/api/v1/departments/strategy/weekly-report', { tenant_id: 'default' }))
+  const initializeDios    = withAction(() => api.post('/api/v1/departments/dios/initialize'))
+  const runBulkReview     = withAction(() => api.post('/api/v1/departments/milestones/bulk-review'))
+  const runDiscovery      = withAction(() => api.post('/api/v1/departments/tech/discover'))
+  const runDailyStrategy  = withAction(() => api.post('/api/v1/departments/strategy/daily-report'))
+  const runWeeklyStrategy = withAction(() => api.post('/api/v1/departments/strategy/weekly-report'))
 
   const busyLoading = loading || actionLoading
 
@@ -510,7 +510,7 @@ export default function DepartmentsView() {
           <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">Autonomous Intelligence</p>
           <h1 className="mt-2 text-3xl font-bold text-white">Department Intelligence</h1>
           <p className="mt-2 max-w-3xl text-sm text-gray-400">
-            6-Layer autonomous intelligence system — 15 DIOs, Council milestone loop, 24/7 tech evolution, client call intelligence, and strategy oversight.
+            25-module autonomous intelligence system — DIOs, Council milestone loop, 24/7 tech evolution, client call intelligence, and strategy oversight.
           </p>
         </div>
         <button onClick={load} disabled={busyLoading}

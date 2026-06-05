@@ -346,6 +346,34 @@ DIO_DEFINITIONS = [
 ]
 
 
+def _canonical_dio_definitions() -> list[dict[str, Any]]:
+    """Build the current DIO roster from the finalized 25-module catalog."""
+    from app.services.catalog.catalog_service import CAPABILITY_MODULES
+
+    return [
+        {
+            "department_code": module["code"].lower(),
+            "department_name": f"{module['name']} Department",
+            "division": module["division"],
+            "agent_name": f"{module['code']}-DIO",
+            "agent_persona": f"{module['name']} Department Intelligence Officer",
+            "agent_email": f"{module['code'].lower().replace('-', '.')}@aliyarsolutions.com",
+            "monitored_systems": module.get("agent_layer", []),
+            "kpi_targets": {target: "tracked" for target in module.get("kpi_targets", [])},
+            "escalation_rules": {
+                "critical_blocker": "captain_review",
+                "governance_boundary": "approval_required",
+                "performance_drift": "council_review",
+            },
+        }
+        for module in CAPABILITY_MODULES
+    ]
+
+
+def _department_code_value(code: Any) -> str:
+    return getattr(code, "value", str(code))
+
+
 class DepartmentAgentService:
     """Manages all Department Intelligence Officers across the organization."""
 
@@ -357,14 +385,22 @@ class DepartmentAgentService:
         async with AsyncSessionLocal() as db:
             await set_tenant_context(db, str(tenant_uuid))
 
-            for defn in DIO_DEFINITIONS:
+            definitions = _canonical_dio_definitions()
+            canonical_codes = {d["department_code"] for d in definitions}
+
+            for defn in definitions:
                 existing = await db.scalar(
                     select(DepartmentIntelligenceOfficer).where(
                         DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
-                        DepartmentIntelligenceOfficer.department_code == defn["department_code"].value,
+                        DepartmentIntelligenceOfficer.department_code == _department_code_value(defn["department_code"]),
                     )
                 )
                 if existing:
+                    existing.department_name = defn["department_name"]
+                    existing.division = defn["division"]
+                    existing.agent_name = defn["agent_name"]
+                    existing.agent_persona = defn["agent_persona"]
+                    existing.agent_email = defn["agent_email"]
                     existing.monitored_systems = defn["monitored_systems"]
                     existing.kpi_targets = defn["kpi_targets"]
                     existing.escalation_rules = defn["escalation_rules"]
@@ -372,7 +408,7 @@ class DepartmentAgentService:
                 else:
                     dio = DepartmentIntelligenceOfficer(
                         tenant_id=tenant_uuid,
-                        department_code=defn["department_code"].value,
+                        department_code=_department_code_value(defn["department_code"]),
                         department_name=defn["department_name"],
                         division=defn["division"],
                         agent_name=defn["agent_name"],
@@ -385,9 +421,17 @@ class DepartmentAgentService:
                     db.add(dio)
                     created.append(dio)
 
+            await db.execute(
+                update(DepartmentIntelligenceOfficer)
+                .where(
+                    DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
+                    DepartmentIntelligenceOfficer.department_code.notin_(canonical_codes),
+                )
+                .values(is_active=False)
+            )
             await db.commit()
 
-        logger.info("DIO initialization: %d departments configured", len(DIO_DEFINITIONS))
+        logger.info("DIO initialization: %d canonical departments configured", len(_canonical_dio_definitions()))
         return created
 
     async def get_all_dios(self, db: AsyncSession, tenant_id: str) -> list[dict]:
@@ -416,9 +460,11 @@ class DepartmentAgentService:
         """Collect current operational metrics across all departments."""
         tenant_uuid = uuid.UUID(str(tenant_id))
 
+        definitions = _canonical_dio_definitions()
+
         metrics_prompt = f"""You are JARVIS, the operational intelligence core of Aliyar Solutions.
 
-Analyze the current operational state across all {len(DIO_DEFINITIONS)} departments and generate
+Analyze the current operational state across all {len(definitions)} canonical AIONX departments and generate
 a comprehensive metrics snapshot for today: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}.
 
 For each department, assess:
@@ -428,7 +474,7 @@ For each department, assess:
 4. Most critical blocker or risk
 5. Recommended priority action
 
-Departments to assess: {', '.join(d['department_name'] for d in DIO_DEFINITIONS)}
+Departments to assess: {', '.join(d['department_name'] for d in definitions)}
 
 Return a JSON object with department_code as keys and metric objects as values.
 Each metric object: {{"health": 85, "kpi_status": "on-track", "achievement": "...", "blocker": "...", "action": "..."}}
@@ -449,7 +495,7 @@ Return only valid JSON, no markdown."""
             "tenant_id": str(tenant_uuid),
             "collected_at": datetime.now(timezone.utc).isoformat(),
             "department_metrics": metrics,
-            "departments_assessed": len(DIO_DEFINITIONS),
+            "departments_assessed": len(definitions),
         }
 
     async def submit_milestone(

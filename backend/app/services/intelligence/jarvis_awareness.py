@@ -63,7 +63,7 @@ PRIORITY ORDER — ALWAYS lead external before internal:
 COMPANY CONTEXT:
 Company: Aliyar Solutions — global AI-powered technology company.
 CEO: Syed Abrar ("Captain") — final authority on payments, contracts, production go-live.
-JARVIS: Supreme Operational Manager — runs all 40 agents across 10 teams.
+JARVIS: Supreme Operational Manager — governs the canonical 25-module AIONX operating system across seven execution divisions.
 Team: 9 named human-identity team members (Darren Mitchell, David Carter, Sophia Reynolds, Nathan Scott, Emma Collins, Daniel Brooks, Michael Hayes, Lucas Reed, Olivia Bennett).
 Services: Cloud infrastructure, AI automation, DevOps, web apps, digital operations.
 Pricing: Small deployment $250–$500 | Medium project $1,500–$5,000 | Full infrastructure/migration $6,000–$15,000 — always based on company revenue and size, never cheap-sounding.
@@ -171,6 +171,22 @@ def _is_email_runtime_status_question(message: str) -> bool:
     )
 
 
+def _ai_response_payload(result) -> dict:
+    """Support both the modern (AIResponse, task_type) router return and older dict callers."""
+    response = result[0] if isinstance(result, tuple) else result
+    if isinstance(response, dict):
+        return response
+    return {
+        "content": getattr(response, "content", "") or "",
+        "model": getattr(response, "model", "") or "",
+        "provider": getattr(response, "provider", "") or "",
+        "task_type": getattr(response, "task_type", "") or "",
+        "tokens_used": getattr(response, "tokens_used", 0) or 0,
+        "demo": getattr(response, "demo", False) or False,
+        "error": getattr(response, "error", None),
+    }
+
+
 async def _email_runtime_status(db: AsyncSession) -> dict:
     configured = bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
     connected = await gmail_sender.test_connection() if configured else False
@@ -257,7 +273,8 @@ async def generate_morning_briefing(db: AsyncSession) -> dict:
             max_tokens=2000
         )
 
-        briefing_text = response.get("content", "JARVIS briefing unavailable — AI providers offline.")
+        payload = _ai_response_payload(response)
+        briefing_text = payload.get("content", "JARVIS briefing unavailable — AI providers offline.")
 
         return {
             "date": date_str,
@@ -286,8 +303,9 @@ async def self_improvement_report(db: AsyncSession) -> dict:
             task_type="RESEARCH",
             max_tokens=1500
         )
+        payload = _ai_response_payload(response)
         return {
-            "report": response.get("content", ""),
+            "report": payload.get("content", ""),
             "generated_at": datetime.now().isoformat()
         }
     except Exception as e:
@@ -313,7 +331,8 @@ async def enhance_idea(db: AsyncSession, idea: str) -> dict:
             task_type="STRATEGY",
             max_tokens=2500
         )
-        analysis = response.get("content", "")
+        payload = _ai_response_payload(response)
+        analysis = payload.get("content", "")
 
         # Save this idea enhancement as a memory for future reference
         try:
@@ -353,7 +372,7 @@ async def spawn_agent_team(db: AsyncSession, task: str) -> dict:
         )
         return {
             "task": task,
-            "agent_team": response.get("content", ""),
+            "agent_team": _ai_response_payload(response).get("content", ""),
             "spawned_at": datetime.now().isoformat()
         }
     except Exception as e:
@@ -387,12 +406,18 @@ async def jarvis_chat(
         if memory_context:
             system_prompt = f"{JARVIS_AWARENESS_PROMPT}\n\n--- JARVIS MEMORY ---\n{memory_context}\n---"
 
-        messages = [{"role": "system", "content": system_prompt}]
+        messages = [Message(role="system", content=system_prompt)]
 
         if history:
-            messages.extend(history[-10:])
+            messages.extend(
+                item if isinstance(item, Message) else Message(
+                    role=str(item.get("role", "user")),
+                    content=str(item.get("content", "")),
+                )
+                for item in history[-10:]
+            )
 
-        messages.append({"role": "user", "content": message})
+        messages.append(Message(role="user", content=message))
 
         response = await ai_router.chat(
             messages=messages,
@@ -400,7 +425,8 @@ async def jarvis_chat(
             max_tokens=1500
         )
 
-        jarvis_response = response.get("content", "")
+        payload = _ai_response_payload(response)
+        jarvis_response = payload.get("content", "")
 
         # Auto-save this exchange to memory (background — don't block response)
         try:
@@ -416,8 +442,8 @@ async def jarvis_chat(
 
         return {
             "response": jarvis_response,
-            "model": response.get("model", ""),
-            "provider": response.get("provider", ""),
+            "model": payload.get("model", ""),
+            "provider": payload.get("provider", ""),
             "task_type": task_type,
             "memory_active": bool(memory_context),
         }

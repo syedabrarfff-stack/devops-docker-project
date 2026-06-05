@@ -49,6 +49,19 @@ async def council_health(request: Request, tenant_id: Optional[UUID] = None):
     return await intelligence_council.health(resolved_tenant_id)
 
 
+@router.get("/status")
+async def council_status(request: Request, tenant_id: Optional[UUID] = None):
+    """Compatibility status endpoint for dashboard and operating-system health checks."""
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id, required=False)
+    health = await intelligence_council.health(resolved_tenant_id)
+    return {
+        **health,
+        "status": health.get("status", "operational"),
+        "endpoint": "council/status",
+        "council_live": True,
+    }
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID], required: bool = True) -> UUID | None:
     from app.core.config import settings
 

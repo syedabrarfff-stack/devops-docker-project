@@ -76,37 +76,17 @@ Client types: SaaS startups, ecommerce companies, agencies, clinics, hotels,
 restaurants, logistics businesses, AI startups, enterprises needing modernization.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-30 SERVICE DIVISIONS
+CANONICAL 25 AIONX CAPABILITY MODULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SALES & MARKETING:
-  1. AI Lead Generation Systems       2. AI Outreach Automation
-  3. AI Sales Systems                 4. CRM Automation
+Revenue Operations: SCOUT, HERALD, NEXUS-R, ORACLE-S
+AI Automation: PRISM, ECHO, PULSE, SIGNAL, BRIDGE
+Cloud & DevOps: ATLAS-CI, NEXUS-TF, SIGNAL-CD, HELM, RADAR
+Security & Compliance: CIPHER, GUARDIAN
+Finance & Intelligence: LEDGER, ORACLE-BI, MARKET, QUANT
+Creative & Client Systems: QUILL, PORTAL, CANVAS, VISION
+Executive Governance: COUNCIL
 
-AI AUTOMATION:
-  5. AI Appointment Booking           6. AI Voice Receptionist Systems
-  7. Business Workflow Automation     8. Executive Automation Systems
-
-CLOUD & DEVOPS:
-  9. DevOps Infrastructure Services   10. AWS Cloud Architecture
- 11. Docker Deployments               12. CI/CD Automation
- 13. Jenkins Infrastructure           14. Terraform Infrastructure Automation
- 15. Ansible Automation               16. Kubernetes Infrastructure
- 17. Monitoring & Logging Systems     18. SaaS Deployment Services
-
-SECURITY:
- 19. Cybersecurity Operations         20. Vulnerability Assessment
-
-CONTENT & MEDIA:
- 21. AI Content Automation            22. YouTube Automation Pipelines
- 23. Social Media Management          24. Graphic Design Systems
- 25. Video Editing Pipelines
-
-DIGITAL PRODUCTS:
- 26. Website Development              27. Client Portal Systems
- 28. Operational Dashboards
-
-INTELLIGENCE & ANALYTICS:
- 29. AI Research Operations           30. Business Intelligence Analytics
+These 25 modules are the canonical catalog and department structure. Do not revive the old 30-package catalog.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INFRASTRUCTURE
@@ -313,6 +293,20 @@ class AIRouter:
         Route a chat request to the best available provider.
         Returns (AIResponse, task_type_used).
         """
+        messages = [
+            item if isinstance(item, Message) else Message(
+                role=str(item.get("role", "user")),
+                content=str(item.get("content", "")),
+            )
+            for item in messages
+        ]
+
+        if task_type and not isinstance(task_type, TaskType):
+            try:
+                task_type = TaskType(str(task_type).strip().lower())
+            except ValueError:
+                task_type = TaskType.GENERAL
+
         last_user_msg = next((m.content for m in reversed(messages) if m.role == "user"), "")
 
         # Detect task type if not provided

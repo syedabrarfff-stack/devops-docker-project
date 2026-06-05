@@ -96,7 +96,7 @@ async def get_team_detail(team_id: str):
 
 @router.get("/agents")
 async def list_all_agents():
-    """All 40 agents flat — searchable, filterable."""
+    """All operational agents flat - searchable, filterable."""
     agents = get_all_agents_flat()
     return {
         "total_agents": len(agents),
@@ -329,6 +329,6 @@ async def agent_ops_status():
             "agent_task_assignment",
             "cross_team_coordination"
         ],
-        "message": "Captain, all 10 teams operational. 40 agents standing by.",
+        "message": "Captain, Agent Ops is operational and aligned behind the canonical 25-module AIONX department fabric.",
         "generated_at": datetime.now().isoformat()
     }

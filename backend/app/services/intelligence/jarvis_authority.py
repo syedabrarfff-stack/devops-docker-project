@@ -40,7 +40,7 @@ JARVIS_FULL_AUTHORITY = [
     "content_publishing",       # Publish blog posts and LinkedIn content
     "seo_optimisation",         # SEO updates and keyword targeting
     "report_generation",        # Internal operational reports
-    "team_coordination",        # Direct all 40 agents
+    "team_coordination",        # Coordinate all 25 canonical AIONX modules
     "workflow_optimisation",    # Improve internal processes
     "system_monitoring",        # Infrastructure health checks
     "alert_dispatching",        # Send internal alerts
@@ -106,7 +106,7 @@ You have FULL AUTHORITY to execute the following without asking permission:
 - Reply to all client communications
 - Submit proposals on Upwork and PeoplePerHour
 - Run all marketing, content, and SEO operations
-- Manage all 40 agents and coordinate all teams
+- Manage the 25 canonical AIONX capability modules and coordinate all teams
 - Update CRM, store memories, run learning cycles
 - Send follow-up sequences automatically
 - Generate reports and briefings

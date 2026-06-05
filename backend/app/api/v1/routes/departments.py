@@ -47,7 +47,7 @@ async def initialize_dios(
     tenant_id: Optional[UUID] = None,
 ):
     """
-    Initialize or refresh all 15 Department Intelligence Officers.
+    Initialize or refresh all 25 canonical Department Intelligence Officers.
     Creates DIO records for all departments. Idempotent — safe to re-run.
     """
     from app.services.departments.department_agent_service import department_agent_service
@@ -57,7 +57,7 @@ async def initialize_dios(
         return {
             "status": "initialized",
             "tenant_id": tid,
-            "dios_configured": 15,
+            "dios_configured": 25,
             "new_created": len(created),
         }
     except Exception as exc:
@@ -550,7 +550,7 @@ async def departments_health():
             "layer_5_call_intelligence": "active",
             "layer_6_strategy_oversight": "active",
         },
-        "departments_monitored": 15,
+        "departments_monitored": 25,
         "council_members": 8,
-        "system": "JARVIS 6-Layer Autonomous Intelligence",
+        "system": "JARVIS 25-Module Department Intelligence",
     }

@@ -3,19 +3,24 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
   BarChart3,
+  Brain,
   BriefcaseBusiness,
   CheckCircle2,
   CheckSquare,
   ChevronDown,
   Clock,
+  Cpu,
   Database,
   DollarSign,
   FileText,
+  Layers,
   Loader2,
+  Network,
   RefreshCw,
   Shield,
   Target,
   Users,
+  Zap,
 } from 'lucide-react'
 import {
   Bar,
@@ -172,6 +177,14 @@ export default function Dashboard() {
     aiHealth: null,
     aiCost: null,
     audit: [],
+    catalog: null,
+    departments: null,
+    council: null,
+    aionx: null,
+    consciousness: null,
+    civilization: null,
+    agentOps: null,
+    scheduler: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -190,6 +203,14 @@ export default function Dashboard() {
       api.get('/api/v1/ai-ops/health'),
       api.get('/api/v1/ai-ops/cost/summary', { params: { days: 7 } }),
       api.get('/api/v1/ai-ops/audit', { params: { limit: 10 } }),
+      api.get('/api/v1/catalog/capability-modules'),
+      api.get('/api/v1/departments/health'),
+      api.get('/api/v1/council/status'),
+      api.get('/api/v1/aionx/cortex/operational-iq'),
+      api.get('/api/v1/consciousness/snapshot'),
+      api.get('/api/v1/civilization/ledger'),
+      api.get('/api/v1/agent-ops/status'),
+      api.get('/api/v1/scheduler/jobs'),
     ])
 
     const value = (index, fallback = null) => (
@@ -211,6 +232,14 @@ export default function Dashboard() {
       aiHealth: value(8, null),
       aiCost: value(9, null),
       audit: safeArray(value(10, {}), 'logs'),
+      catalog: value(11, null),
+      departments: value(12, null),
+      council: value(13, null),
+      aionx: value(14, null),
+      consciousness: value(15, null),
+      civilization: value(16, null),
+      agentOps: value(17, null),
+      scheduler: value(18, null),
     })
 
     setLoading(false)
@@ -278,6 +307,11 @@ export default function Dashboard() {
   const redisOk = statusIsOk(checks.redis) || statusIsOk(systemHealth?.redis) || false
   const aiOk = statusIsOk(checks.ai_providers) || Number(data.aiHealth?.available || 0) > 0
   const queueCount = pendingApprovals || data.approvals.length || captainQueue.length
+  const moduleCount = data.catalog?.modules?.length || data.catalog?.capability_modules?.length || data.catalog?.total_modules || 0
+  const osLayerCount = data.catalog?.operating_system?.operational_integrity_layers?.length || 0
+  const operationalIq = data.aionx?.operational_iq ?? data.aionx?.score ?? data.aionx?.iq ?? 0
+  const schedulerJobs = safeArray(data.scheduler, 'jobs')
+  const aionxJobCount = schedulerJobs.filter((job) => String(job.id || job.name || '').includes('aionx')).length
 
   if (loading) {
     return (
@@ -367,10 +401,44 @@ export default function Dashboard() {
           tone={queueCount ? 'red' : 'green'}
           onClick={() => setActiveView('approvals')}
         />
+        <MetricCard
+          icon={Layers}
+          label="AIONX Modules"
+          value={number(moduleCount)}
+          detail={`${osLayerCount} operating layers mapped`}
+          tone={moduleCount === 25 ? 'green' : 'red'}
+          onClick={() => setActiveView('catalog')}
+        />
+        <MetricCard
+          icon={Brain}
+          label="Operational IQ"
+          value={Number(operationalIq || 0).toFixed(1)}
+          detail={`${aionxJobCount} AIONX heartbeat jobs visible`}
+          tone={aionxJobCount ? 'green' : 'red'}
+          onClick={() => setActiveView('aionxArchitecture')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
         <div className="space-y-6">
+          <Panel
+            title="JARVIS Operating System"
+            subtitle="Canonical 25 modules, departments, councils, consciousness, and automation surfaces"
+            icon={Network}
+            action={<button onClick={() => setActiveView('catalog')} className="text-xs text-jarvis-cyan hover:text-white">Open catalog</button>}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <HealthRow label="Catalog" ok={moduleCount === 25} detail={`${moduleCount}/25 modules`} />
+              <HealthRow label="Departments" ok={statusIsOk(data.departments)} detail={`${data.departments?.departments_monitored || 0} DIOs`} />
+              <HealthRow label="Council" ok={statusIsOk(data.council)} detail={data.council?.status || 'unknown'} />
+              <HealthRow label="AIONX Cortex" ok={Number(operationalIq) >= 0 && data.aionx} detail={`IQ ${Number(operationalIq || 0).toFixed(1)}`} />
+              <HealthRow label="Consciousness" ok={statusIsOk(data.consciousness)} detail={`${data.consciousness?.giants_online || 0} giants`} />
+              <HealthRow label="Civilization" ok={!!data.civilization} detail={`${safeArray(data.civilization, 'ledger').length} records`} />
+              <HealthRow label="Agent Ops" ok={statusIsOk(data.agentOps)} detail={data.agentOps?.status || 'unknown'} />
+              <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} />
+            </div>
+          </Panel>
+
           <Panel
             title="Today's Pipeline"
             subtitle="Top 5 leads by score with quick actions"
