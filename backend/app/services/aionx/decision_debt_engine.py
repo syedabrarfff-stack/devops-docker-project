@@ -1,19 +1,19 @@
-"""AIONX Decision Debt Engine — quantify the cost of bad decisions.
+"""AIONX Decision Debt Engine.
 
-Every wrong decision carries debt: lost revenue, remediation cost, opportunity cost.
-Aggregates into institutional debt penalty on Wisdom Index.
+Quantifies operational debt from decisions using the canonical debt assessment
+and institutional debt index tables.
 """
 from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date
 from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.aionx_organs import DecisionDebtAssessment, InstitutionalDebtIndex, DecisionObject
+from app.models.aionx_organs import DecisionDebtAssessment, DecisionObject, InstitutionalDebtIndex
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,7 @@ async def compute_decision_debt(
     remediation_effort_hours: float = 0.0,
     opportunity_cost_usd: float = 0.0,
 ) -> dict[str, Any]:
-    """Compute total debt for a single bad decision.
-
-    Formula: debt = (lost_revenue * 0.4) + (remediation_hours * 150 * 0.3) + (opportunity * 0.3)
-    """
-
+    """Compute debt for a single decision and persist a schema-valid assessment."""
     decision = (await db.execute(
         select(DecisionObject).where(DecisionObject.id == decision_id)
     )).scalars().first()
@@ -37,34 +33,35 @@ async def compute_decision_debt(
     if not decision:
         return {"error": "decision not found"}
 
-    # Compute weighted debt
     revenue_component = lost_revenue_usd * 0.4
-    remediation_component = (remediation_effort_hours * 150) * 0.3  # $150/hour engineering rate
+    remediation_component = remediation_effort_hours * 150 * 0.3
     opportunity_component = opportunity_cost_usd * 0.3
-
     total_debt = revenue_component + remediation_component + opportunity_component
+    debt_score = min(100.0, total_debt / 1000.0)
+    priority = "CRITICAL" if debt_score >= 90 else "HIGH" if debt_score >= 70 else "MEDIUM"
 
-    # Store debt assessment
     assessment = DecisionDebtAssessment(
         decision_id=decision_id,
-        lost_revenue_usd=lost_revenue_usd,
-        remediation_effort_hours=remediation_effort_hours,
-        opportunity_cost_usd=opportunity_cost_usd,
-        total_debt_usd=total_debt,
-        debt_status="ACTIVE",
+        debt_category=decision.decision_category or "OPERATIONAL",
+        debt_score=debt_score,
+        description=(
+            f"Estimated debt from lost revenue={lost_revenue_usd}, "
+            f"remediation_hours={remediation_effort_hours}, "
+            f"opportunity_cost={opportunity_cost_usd}"
+        ),
+        repayment_cost_estimate=total_debt,
+        repayment_priority=priority,
+        is_paid_off=False,
     )
     db.add(assessment)
     await db.flush()
 
-    logger.info(
-        "Decision Debt: decision %s debt=$%.2f (revenue=$%.2f + remediation=$%.2f + opportunity=$%.2f)",
-        decision_id, total_debt, revenue_component, remediation_component, opportunity_component
-    )
-
+    logger.info("Decision Debt: decision %s debt=$%.2f", decision_id, total_debt)
     return {
         "assessment_id": str(assessment.id),
         "decision_id": str(decision_id),
         "total_debt_usd": total_debt,
+        "debt_score": debt_score,
         "components": {
             "revenue": revenue_component,
             "remediation": remediation_component,
@@ -74,88 +71,76 @@ async def compute_decision_debt(
 
 
 async def assess_institutional_debt(db: AsyncSession) -> dict[str, Any]:
-    """Aggregate all active debt across all decisions."""
-
-    # Sum all active debt
+    """Aggregate open decision debt into the weekly institutional index."""
     total_debt = (await db.execute(
-        select(func.sum(DecisionDebtAssessment.total_debt_usd)).where(
-            DecisionDebtAssessment.debt_status == "ACTIVE"
+        select(func.sum(DecisionDebtAssessment.repayment_cost_estimate)).where(
+            DecisionDebtAssessment.is_paid_off.is_(False)
         )
-    )).scalar_one()
+    )).scalar_one() or 0.0
 
-    total_debt = total_debt or 0.0
-
-    # Count high-debt decisions
-    high_debt_decisions = (await db.execute(
+    high_count = (await db.execute(
         select(func.count()).select_from(DecisionDebtAssessment).where(
-            DecisionDebtAssessment.debt_status == "ACTIVE",
-            DecisionDebtAssessment.total_debt_usd > 50000,
+            DecisionDebtAssessment.is_paid_off.is_(False),
+            DecisionDebtAssessment.debt_score >= 70,
         )
     )).scalar_one()
 
-    # Average debt per decision
+    critical_count = (await db.execute(
+        select(func.count()).select_from(DecisionDebtAssessment).where(
+            DecisionDebtAssessment.is_paid_off.is_(False),
+            DecisionDebtAssessment.debt_score >= 90,
+        )
+    )).scalar_one()
+
     avg_debt = (await db.execute(
-        select(func.avg(DecisionDebtAssessment.total_debt_usd)).where(
-            DecisionDebtAssessment.debt_status == "ACTIVE"
+        select(func.avg(DecisionDebtAssessment.repayment_cost_estimate)).where(
+            DecisionDebtAssessment.is_paid_off.is_(False)
         )
-    )).scalar_one()
+    )).scalar_one() or 0.0
 
-    avg_debt = avg_debt or 0.0
+    week_of = date.today()
+    index = (await db.execute(
+        select(InstitutionalDebtIndex).where(InstitutionalDebtIndex.week_of == week_of)
+    )).scalars().first()
+    if not index:
+        index = InstitutionalDebtIndex(week_of=week_of)
+        db.add(index)
 
-    # Store institutional index
-    index = InstitutionalDebtIndex(
-        total_debt_usd=total_debt,
-        high_debt_decision_count=high_debt_decisions,
-        average_decision_debt_usd=avg_debt,
-        debt_trajectory="STABLE",  # or RISING, FALLING
-    )
-    db.add(index)
+    index.total_debt_score = min(100.0, total_debt / 1000.0)
+    index.operational_debt = total_debt
+    index.critical_count = critical_count
+    index.high_count = high_count
+    index.estimated_repayment_weeks = round(total_debt / 10000.0, 1) if total_debt else 0.0
+    index.trend = "RISING" if total_debt > 0 else "STABLE"
     await db.flush()
 
-    # Compute debt penalty for Wisdom Index (0-20 points)
-    # $100k debt = -5 points, $500k = -20 points
     debt_penalty = min(20.0, (total_debt / 100000) * 5)
-
-    logger.info(
-        "Institutional Debt: total=$%.2f, high-debt decisions=%d, penalty=%.1f pts",
-        total_debt, high_debt_decisions, debt_penalty
-    )
-
+    logger.info("Institutional Debt: total=$%.2f high=%d critical=%d", total_debt, high_count, critical_count)
     return {
         "index_id": str(index.id),
         "total_institutional_debt_usd": total_debt,
-        "high_debt_decision_count": high_debt_decisions,
+        "high_debt_decision_count": high_count,
+        "critical_debt_decision_count": critical_count,
         "average_decision_debt_usd": avg_debt,
         "wisdom_index_penalty_points": debt_penalty,
     }
 
 
 async def recommend_debt_reduction(db: AsyncSession) -> list[str]:
-    """Recommend actions to reduce institutional debt."""
-
-    # Get highest-debt decisions
+    """Recommend actions for the highest open debt assessments."""
     high_debts = (await db.execute(
         select(DecisionDebtAssessment).where(
-            DecisionDebtAssessment.debt_status == "ACTIVE"
-        ).order_by(DecisionDebtAssessment.total_debt_usd.desc()).limit(5)
+            DecisionDebtAssessment.is_paid_off.is_(False)
+        ).order_by(DecisionDebtAssessment.debt_score.desc()).limit(5)
     )).scalars().all()
 
     recommendations = []
-
     for debt in high_debts:
-        if debt.lost_revenue_usd > 50000:
-            recommendations.append(
-                f"Decision {debt.decision_id}: Reverse or pivot this decision (${debt.lost_revenue_usd:,.0f} revenue loss)"
-            )
-        if debt.remediation_effort_hours > 100:
-            recommendations.append(
-                f"Decision {debt.decision_id}: Allocate engineering team to remediation (${debt.remediation_effort_hours * 150:,.0f} cost)"
-            )
-        if debt.opportunity_cost_usd > 50000:
-            recommendations.append(
-                f"Decision {debt.decision_id}: Consider strategic pivot ({debt.opportunity_cost_usd:,.0f} missed opportunity)"
-            )
+        recommendations.append(
+            f"Decision {debt.decision_id}: repay {debt.repayment_priority.lower()} "
+            f"{debt.debt_category.lower()} debt (${debt.repayment_cost_estimate:,.0f}) - "
+            f"{debt.description or 'no description'}"
+        )
 
     logger.info("Decision Debt: %d recommendations generated", len(recommendations))
-
     return recommendations

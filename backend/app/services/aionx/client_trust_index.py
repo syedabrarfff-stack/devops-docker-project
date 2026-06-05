@@ -108,7 +108,9 @@ async def escalate_trust_erosion(
         return {"error": "client twin not found"}
 
     current_score = twin.trust_score or 70
-    previous_score = twin.previous_trust_score or current_score  # Default to current
+    # The live twin schema stores current trust only. Historical trust deltas
+    # come from interactions, so absence of history should not create a false alert.
+    previous_score = current_score
 
     score_change = previous_score - current_score
     pct_change = (score_change / previous_score * 100) if previous_score > 0 else 0
