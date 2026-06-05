@@ -1,5 +1,5 @@
 """
-Aliyar Solutions Service Catalog API — 30 service divisions.
+Aliyar Solutions Service Catalog API - canonical 25 AIONX capability modules.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,6 +13,7 @@ from app.services.catalog.catalog_service import (
     get_catalog_stats,
     get_capability_modules,
     seed_catalog,
+    sync_canonical_catalog,
 )
 
 router = APIRouter(prefix="/catalog", tags=["Service Catalog"])
@@ -63,8 +64,13 @@ async def capability_modules():
 @router.post("/seed")
 async def trigger_seed(db: AsyncSession = Depends(get_db)):
     """Force re-seed if catalog is empty. Idempotent — skips if already seeded."""
-    count = await seed_catalog(db)
-    return {"seeded": count, "message": f"Seeded {count} service divisions" if count else "Already seeded"}
+    return await sync_canonical_catalog(db)
+
+
+@router.post("/sync-canonical")
+async def trigger_canonical_sync(db: AsyncSession = Depends(get_db)):
+    """Delete legacy catalog rows and repopulate the finalized 25 capability modules."""
+    return await sync_canonical_catalog(db)
 
 
 @router.patch("/divisions/{code}")

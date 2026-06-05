@@ -1,448 +1,17 @@
 """
-Aliyar Solutions Service Catalog — 30 service divisions seeded and queryable.
+Aliyar Solutions Service Catalog - canonical 25 AIONX capability modules.
 """
 import logging
 import uuid
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
 from app.models.service_catalog import ServiceDivision
 
 logger = logging.getLogger(__name__)
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-# ─── Seed data ────────────────────────────────────────────────────────────────
-
-SEED_DIVISIONS = [
-    # ── Sales & Marketing ──────────────────────────────────────────────────────
-    {
-        "code": "AI_LEAD_GEN",
-        "name": "AI Lead Generation Systems",
-        "division_group": "Sales & Marketing",
-        "description": "Fully automated lead discovery and qualification pipelines that identify high-intent prospects across LinkedIn, Apollo, and web sources. Our team delivers pre-qualified, enriched lead lists with contact intelligence.",
-        "deliverables": ["Enriched lead database", "ICP scoring system", "Weekly lead pipeline", "CRM integration", "Lead quality reports"],
-        "technologies": ["Apollo.io", "LinkedIn Sales Navigator", "Python scraping", "PostgreSQL", "AI scoring models"],
-        "target_industries": ["SaaS", "Agencies", "Consulting", "B2B Services", "Tech Startups"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 800, "max": 3000},
-        "duration_estimate": "Ongoing monthly",
-        "is_featured": True,
-        "sort_order": 1,
-    },
-    {
-        "code": "AI_OUTREACH",
-        "name": "AI Outreach Automation",
-        "division_group": "Sales & Marketing",
-        "description": "Intelligent, personalized cold outreach sequences across email and LinkedIn. Automated follow-ups, A/B testing, and reply detection ensure maximum deliverability and response rates without the spam risk.",
-        "deliverables": ["Email sequence design", "LinkedIn automation", "A/B testing setup", "Inbox warm-up", "Reply handling workflow", "Analytics dashboard"],
-        "technologies": ["Instantly.ai", "Lemlist", "LinkedIn APIs", "SMTP automation", "OpenAI personalization"],
-        "target_industries": ["SaaS", "Agencies", "Recruiting", "Real Estate", "Professional Services"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 600, "max": 2500},
-        "duration_estimate": "Ongoing monthly",
-        "is_featured": True,
-        "sort_order": 2,
-    },
-    {
-        "code": "AI_SALES_SYSTEMS",
-        "name": "AI Sales Systems",
-        "division_group": "Sales & Marketing",
-        "description": "End-to-end intelligent sales infrastructure: from ICP discovery to proposal automation, follow-up sequences, objection handling playbooks, and pipeline intelligence reporting.",
-        "deliverables": ["Sales funnel design", "Proposal templates", "Objection playbooks", "Pipeline analytics", "AI follow-up engine"],
-        "technologies": ["HubSpot", "CRM integrations", "Claude AI", "OpenAI", "PostgreSQL analytics"],
-        "target_industries": ["Agencies", "Consultancies", "SaaS", "Professional Services", "Enterprise"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 8000},
-        "duration_estimate": "3–6 weeks",
-        "is_featured": False,
-        "sort_order": 3,
-    },
-    {
-        "code": "CRM_AUTOMATION",
-        "name": "CRM Automation",
-        "division_group": "Sales & Marketing",
-        "description": "Custom CRM configuration, workflow automation, and data pipeline setup. We transform your CRM from a contact database into an active revenue operations engine with automated scoring and lifecycle triggers.",
-        "deliverables": ["CRM workflow setup", "Lead scoring rules", "Automation triggers", "Data cleanup", "Custom dashboards", "Team training"],
-        "technologies": ["HubSpot", "Salesforce", "Zoho", "Apollo.io", "Zapier", "Custom APIs"],
-        "target_industries": ["SaaS", "E-commerce", "Agencies", "Real Estate", "Healthcare"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1000, "max": 5000},
-        "duration_estimate": "2–4 weeks",
-        "is_featured": False,
-        "sort_order": 4,
-    },
-    # ── AI Automation ──────────────────────────────────────────────────────────
-    {
-        "code": "AI_APPT_BOOKING",
-        "name": "AI Appointment Booking",
-        "division_group": "AI Automation",
-        "description": "Fully automated appointment scheduling systems that qualify leads, check availability, send confirmations, handle rescheduling, and send intelligent reminders — all without human intervention.",
-        "deliverables": ["Booking flow design", "Calendar integration", "SMS/email confirmations", "Rescheduling logic", "CRM sync", "Analytics"],
-        "technologies": ["Calendly API", "Google Calendar", "Twilio SMS", "n8n", "OpenAI NLP"],
-        "target_industries": ["Clinics", "Consultancies", "Coaches", "Law Firms", "Hotels", "Restaurants"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 800, "max": 3500},
-        "duration_estimate": "1–3 weeks",
-        "is_featured": True,
-        "sort_order": 5,
-    },
-    {
-        "code": "AI_VOICE_RECEPTIONIST",
-        "name": "AI Voice Receptionist Systems",
-        "division_group": "AI Automation",
-        "description": "24/7 intelligent voice receptionist that answers calls, qualifies inquiries, books appointments, handles FAQs, and escalates complex issues to human staff — all with a natural, professional voice.",
-        "deliverables": ["Voice agent design", "FAQ knowledge base", "Call routing logic", "CRM integration", "Call recordings & transcripts", "Weekly reports"],
-        "technologies": ["ElevenLabs", "Twilio Voice", "OpenAI GPT", "Whisper STT", "Custom NLP pipelines"],
-        "target_industries": ["Clinics", "Hotels", "Restaurants", "Law Firms", "Real Estate", "Service Businesses"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 1200, "max": 5000},
-        "duration_estimate": "2–4 weeks setup",
-        "is_featured": True,
-        "sort_order": 6,
-    },
-    {
-        "code": "BIZ_WORKFLOW_AUTO",
-        "name": "Business Workflow Automation",
-        "division_group": "AI Automation",
-        "description": "Systematic elimination of manual, repetitive business processes. We audit your operations, map workflows, and deploy automated systems that reduce operational overhead and human error.",
-        "deliverables": ["Process audit", "Workflow maps", "Automation deployment", "Documentation", "Team handoff training"],
-        "technologies": ["n8n", "Zapier", "Make.com", "Python", "REST APIs", "Webhooks"],
-        "target_industries": ["E-commerce", "Agencies", "SaaS", "Logistics", "Healthcare", "Finance"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 10000},
-        "duration_estimate": "3–8 weeks",
-        "is_featured": False,
-        "sort_order": 7,
-    },
-    {
-        "code": "EXEC_AUTOMATION",
-        "name": "Executive Automation Systems",
-        "division_group": "AI Automation",
-        "description": "High-level autonomous operational infrastructure for executive teams: automated reporting, decision support systems, strategic briefings, KPI monitoring, and intelligent alert management.",
-        "deliverables": ["Executive dashboard", "Automated reporting", "KPI alert system", "Decision briefings", "Operational SOPs"],
-        "technologies": ["FastAPI", "PostgreSQL", "Claude AI", "Grafana", "CloudWatch", "Slack integrations"],
-        "target_industries": ["Enterprise", "SaaS", "Agencies", "Investment Firms", "Tech Companies"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 3000, "max": 15000},
-        "duration_estimate": "4–8 weeks setup",
-        "is_featured": True,
-        "sort_order": 8,
-    },
-    # ── Cloud & DevOps ─────────────────────────────────────────────────────────
-    {
-        "code": "DEVOPS_INFRA",
-        "name": "DevOps Infrastructure Services",
-        "division_group": "Cloud & DevOps",
-        "description": "Complete DevOps transformation: culture, tooling, pipeline design, environment standardization, and monitoring. We establish engineering best practices that scale with your organization.",
-        "deliverables": ["DevOps assessment", "Pipeline design", "Environment setup", "Runbooks", "Team training"],
-        "technologies": ["Docker", "GitHub Actions", "Jenkins", "Prometheus", "Grafana", "ELK Stack"],
-        "target_industries": ["SaaS", "FinTech", "HealthTech", "E-commerce", "Startups"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 2000, "max": 12000},
-        "duration_estimate": "4–10 weeks",
-        "is_featured": False,
-        "sort_order": 9,
-    },
-    {
-        "code": "AWS_ARCHITECTURE",
-        "name": "AWS Cloud Architecture",
-        "division_group": "Cloud & DevOps",
-        "description": "Production-grade AWS infrastructure design and implementation: VPC architecture, ECS/EKS workloads, RDS, Redis, S3, Secrets Manager, Route53, ACM, and multi-region resilience planning.",
-        "deliverables": ["Architecture diagram", "Terraform IaC", "VPC + networking", "ECS/EKS setup", "RDS + Redis", "CloudWatch monitoring", "Runbooks"],
-        "technologies": ["AWS ECS", "Terraform", "RDS PostgreSQL", "ElastiCache", "ALB", "Route53", "Secrets Manager"],
-        "target_industries": ["SaaS", "FinTech", "HealthTech", "E-commerce", "Enterprise"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 3000, "max": 20000},
-        "duration_estimate": "3–8 weeks",
-        "is_featured": True,
-        "sort_order": 10,
-    },
-    {
-        "code": "DOCKER_DEPLOY",
-        "name": "Docker Deployments",
-        "division_group": "Cloud & DevOps",
-        "description": "Containerization of applications and services using Docker best practices: multi-stage builds, optimized images, docker-compose environments, and production-ready container orchestration.",
-        "deliverables": ["Dockerfiles", "docker-compose configs", "Multi-stage build optimization", "Registry setup", "Deployment documentation"],
-        "technologies": ["Docker", "Docker Compose", "ECR", "DockerHub", "Nginx", "Alpine Linux"],
-        "target_industries": ["SaaS", "Startups", "Agencies", "Any Software Company"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 800, "max": 4000},
-        "duration_estimate": "1–3 weeks",
-        "is_featured": False,
-        "sort_order": 11,
-    },
-    {
-        "code": "CICD_AUTO",
-        "name": "CI/CD Automation",
-        "division_group": "Cloud & DevOps",
-        "description": "Automated build, test, and deployment pipelines that eliminate manual deployments. Every code push triggers automated testing, security scanning, image building, and deployment with rollback capability.",
-        "deliverables": ["Pipeline design", "GitHub Actions / Jenkins config", "Test automation hooks", "Deployment gates", "Notification setup"],
-        "technologies": ["GitHub Actions", "Jenkins", "Docker", "ECR/DockerHub", "Terraform", "Slack webhooks"],
-        "target_industries": ["SaaS", "FinTech", "Startups", "Enterprise", "E-commerce"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1000, "max": 5000},
-        "duration_estimate": "1–3 weeks",
-        "is_featured": True,
-        "sort_order": 12,
-    },
-    {
-        "code": "JENKINS_INFRA",
-        "name": "Jenkins Infrastructure",
-        "division_group": "Cloud & DevOps",
-        "description": "Enterprise Jenkins setup: master-agent architecture, shared libraries, declarative pipelines, plugin management, security hardening, and integration with source control and deployment targets.",
-        "deliverables": ["Jenkins server setup", "Pipeline templates", "Shared library", "Agent configuration", "Plugin audit", "Security hardening"],
-        "technologies": ["Jenkins", "Docker agents", "Groovy DSL", "GitHub", "AWS", "Kubernetes"],
-        "target_industries": ["Enterprise", "FinTech", "Large Engineering Teams"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 7000},
-        "duration_estimate": "2–4 weeks",
-        "is_featured": False,
-        "sort_order": 13,
-    },
-    {
-        "code": "TERRAFORM_AUTO",
-        "name": "Terraform Infrastructure Automation",
-        "division_group": "Cloud & DevOps",
-        "description": "Infrastructure as Code using Terraform: modular, reusable configurations for AWS/GCP/Azure. State management, remote backends, workspace strategies, and GitOps-aligned deployment workflows.",
-        "deliverables": ["Terraform modules", "State backend setup", "Variable management", "Workspace strategy", "Documentation"],
-        "technologies": ["Terraform", "AWS", "S3 remote state", "Terraform Cloud", "GitHub Actions"],
-        "target_industries": ["SaaS", "Enterprise", "FinTech", "Cloud-Native Companies"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 2000, "max": 10000},
-        "duration_estimate": "2–6 weeks",
-        "is_featured": True,
-        "sort_order": 14,
-    },
-    {
-        "code": "ANSIBLE_AUTO",
-        "name": "Ansible Automation",
-        "division_group": "Cloud & DevOps",
-        "description": "Server configuration management and deployment automation using Ansible: playbooks, roles, inventory management, secrets handling, and idempotent provisioning for consistent environments.",
-        "deliverables": ["Ansible playbooks", "Role library", "Inventory structure", "Secrets management", "Documentation"],
-        "technologies": ["Ansible", "Ansible Vault", "AWS EC2", "Linux", "Python"],
-        "target_industries": ["Enterprise", "FinTech", "Traditional IT", "Data Centers"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 6000},
-        "duration_estimate": "2–4 weeks",
-        "is_featured": False,
-        "sort_order": 15,
-    },
-    {
-        "code": "KUBERNETES_INFRA",
-        "name": "Kubernetes Infrastructure",
-        "division_group": "Cloud & DevOps",
-        "description": "Production Kubernetes clusters on AWS EKS or self-managed: namespace design, RBAC, Helm chart authoring, autoscaling, persistent storage, ingress controllers, and GitOps with ArgoCD.",
-        "deliverables": ["Cluster setup", "Namespace/RBAC design", "Helm charts", "Autoscaling config", "Monitoring stack", "Runbooks"],
-        "technologies": ["Kubernetes", "AWS EKS", "Helm", "ArgoCD", "Prometheus", "Grafana", "Istio"],
-        "target_industries": ["Enterprise", "SaaS", "FinTech", "HealthTech", "Scale-ups"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 5000, "max": 25000},
-        "duration_estimate": "4–10 weeks",
-        "is_featured": True,
-        "sort_order": 16,
-    },
-    {
-        "code": "MONITORING_LOGGING",
-        "name": "Monitoring & Logging Systems",
-        "division_group": "Cloud & DevOps",
-        "description": "Full-stack observability: metrics, logs, traces, and alerting. We deploy Prometheus + Grafana dashboards, centralized logging with ELK/CloudWatch, distributed tracing, and intelligent alerting that pages the right team.",
-        "deliverables": ["Monitoring stack", "Custom dashboards", "Alert rules", "Log aggregation", "SLA reports", "Runbooks"],
-        "technologies": ["Prometheus", "Grafana", "CloudWatch", "ELK Stack", "OpenTelemetry", "PagerDuty"],
-        "target_industries": ["SaaS", "Enterprise", "FinTech", "E-commerce", "Healthcare"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 2000, "max": 10000},
-        "duration_estimate": "2–5 weeks",
-        "is_featured": False,
-        "sort_order": 17,
-    },
-    {
-        "code": "SAAS_DEPLOY",
-        "name": "SaaS Deployment Services",
-        "division_group": "Cloud & DevOps",
-        "description": "Complete SaaS product infrastructure: multi-tenant architecture, deployment automation, database provisioning, SSL/TLS, CDN, autoscaling, and production readiness review before every launch.",
-        "deliverables": ["Architecture design", "Multi-tenant setup", "Deployment pipeline", "SSL/CDN config", "Load testing", "Launch checklist"],
-        "technologies": ["AWS", "Docker", "PostgreSQL", "Redis", "CloudFront", "Route53", "Terraform"],
-        "target_industries": ["SaaS Startups", "Product Companies", "Tech Agencies"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 3000, "max": 18000},
-        "duration_estimate": "4–8 weeks",
-        "is_featured": True,
-        "sort_order": 18,
-    },
-    # ── Security ───────────────────────────────────────────────────────────────
-    {
-        "code": "CYBERSEC_OPS",
-        "name": "Cybersecurity Operations",
-        "division_group": "Security",
-        "description": "Proactive security operations: infrastructure hardening, IAM optimization, access control auditing, threat detection setup, security monitoring, and incident response planning for cloud and application environments.",
-        "deliverables": ["Security audit report", "Hardening checklist", "IAM review", "Threat detection rules", "Incident response playbook"],
-        "technologies": ["AWS Security Hub", "GuardDuty", "IAM", "VPC security groups", "WAF", "CloudTrail"],
-        "target_industries": ["FinTech", "HealthTech", "E-commerce", "Enterprise", "SaaS"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 2000, "max": 12000},
-        "duration_estimate": "2–6 weeks",
-        "is_featured": True,
-        "sort_order": 19,
-    },
-    {
-        "code": "VULN_ASSESSMENT",
-        "name": "Vulnerability Assessment",
-        "division_group": "Security",
-        "description": "Systematic identification and prioritization of security vulnerabilities in applications, infrastructure, and APIs. Detailed remediation roadmap with risk-ranked findings and executive summary report.",
-        "deliverables": ["Vulnerability report", "Risk matrix", "Remediation roadmap", "Executive summary", "Re-test validation"],
-        "technologies": ["OWASP tools", "Nmap", "Trivy", "Snyk", "Semgrep", "AWS Inspector"],
-        "target_industries": ["FinTech", "HealthTech", "E-commerce", "Enterprise", "Any Cloud Business"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 8000},
-        "duration_estimate": "1–3 weeks",
-        "is_featured": False,
-        "sort_order": 20,
-    },
-    # ── Content & Media ────────────────────────────────────────────────────────
-    {
-        "code": "AI_CONTENT_AUTO",
-        "name": "AI Content Automation",
-        "division_group": "Content & Media",
-        "description": "Scalable content production pipelines: blog articles, LinkedIn posts, email newsletters, and thought leadership content produced at volume with consistent brand voice and SEO optimization.",
-        "deliverables": ["Content calendar", "Article templates", "Brand voice guide", "SEO optimization", "Publishing automation", "Analytics"],
-        "technologies": ["Claude AI", "OpenAI", "WordPress APIs", "Ghost CMS", "Notion", "Zapier"],
-        "target_industries": ["SaaS", "Agencies", "Consulting", "E-commerce", "Personal Brands"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 500, "max": 3000},
-        "duration_estimate": "Ongoing monthly",
-        "is_featured": False,
-        "sort_order": 21,
-    },
-    {
-        "code": "YOUTUBE_AUTO",
-        "name": "YouTube Automation Pipelines",
-        "division_group": "Content & Media",
-        "description": "End-to-end YouTube channel automation: niche research, AI script writing, voiceover production, thumbnail generation, video editing pipelines, SEO optimization, scheduling, and performance analytics.",
-        "deliverables": ["Channel strategy", "Script templates", "Voiceover pipeline", "Thumbnail system", "Upload automation", "Analytics dashboard"],
-        "technologies": ["OpenAI", "ElevenLabs", "Runway ML", "YouTube API", "Canva API", "Python pipelines"],
-        "target_industries": ["Content Creators", "Agencies", "E-commerce Brands", "SaaS Marketing"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 800, "max": 4000},
-        "duration_estimate": "2 weeks setup + ongoing",
-        "is_featured": True,
-        "sort_order": 22,
-    },
-    {
-        "code": "SOCIAL_MEDIA_MGMT",
-        "name": "Social Media Management",
-        "division_group": "Content & Media",
-        "description": "AI-powered social media management: content creation, scheduling, engagement monitoring, growth analytics, and multi-platform publishing across LinkedIn, Twitter/X, Instagram, and Facebook.",
-        "deliverables": ["Content calendar", "Post templates", "Scheduling setup", "Engagement reports", "Growth analytics"],
-        "technologies": ["Buffer", "Hootsuite", "OpenAI", "Canva", "Analytics APIs"],
-        "target_industries": ["E-commerce", "Agencies", "Personal Brands", "SaaS", "Retail"],
-        "pricing_model": "retainer",
-        "price_range_usd": {"min": 400, "max": 2000},
-        "duration_estimate": "Ongoing monthly",
-        "is_featured": False,
-        "sort_order": 23,
-    },
-    {
-        "code": "GRAPHIC_DESIGN",
-        "name": "Graphic Design Systems",
-        "division_group": "Content & Media",
-        "description": "AI-assisted graphic design production: brand identity systems, social media creatives, marketing assets, presentation templates, infographics, and scalable design pipelines for ongoing content needs.",
-        "deliverables": ["Brand style guide", "Social media templates", "Marketing collateral", "Presentation deck", "Design asset library"],
-        "technologies": ["Figma", "Adobe Creative Suite", "Midjourney", "DALL-E", "Canva Pro"],
-        "target_industries": ["Startups", "E-commerce", "Agencies", "Personal Brands", "SaaS"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 500, "max": 4000},
-        "duration_estimate": "1–4 weeks",
-        "is_featured": False,
-        "sort_order": 24,
-    },
-    {
-        "code": "VIDEO_EDITING",
-        "name": "Video Editing Pipelines",
-        "division_group": "Content & Media",
-        "description": "Automated and semi-automated video production workflows: editing, captioning, color grading, intro/outro automation, format conversion, and multi-platform export pipelines.",
-        "deliverables": ["Editing workflow setup", "Caption automation", "Template library", "Export pipeline", "Multi-platform formats"],
-        "technologies": ["Premiere Pro", "DaVinci Resolve", "Runway ML", "Python automation", "FFmpeg"],
-        "target_industries": ["Content Creators", "Agencies", "E-commerce", "Corporate Training"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 400, "max": 3000},
-        "duration_estimate": "1–2 weeks per project",
-        "is_featured": False,
-        "sort_order": 25,
-    },
-    # ── Digital Products ───────────────────────────────────────────────────────
-    {
-        "code": "WEBSITE_DEV",
-        "name": "Website Development",
-        "division_group": "Digital Products",
-        "description": "High-performance, conversion-optimized websites and landing pages. Modern stack (React/Next.js), fast load times, mobile-first design, CMS integration, and SEO foundation.",
-        "deliverables": ["Design mockups", "Frontend development", "CMS integration", "SEO setup", "Performance optimization", "Deployment"],
-        "technologies": ["Next.js", "React", "Tailwind CSS", "Vercel", "Contentful", "Sanity"],
-        "target_industries": ["Any Business Needing Web Presence"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 10000},
-        "duration_estimate": "3–6 weeks",
-        "is_featured": False,
-        "sort_order": 26,
-    },
-    {
-        "code": "CLIENT_PORTAL",
-        "name": "Client Portal Systems",
-        "division_group": "Digital Products",
-        "description": "Custom client portal development: project tracking, deliverable management, invoice viewing, communication threads, document sharing, and reporting dashboards — all under your brand.",
-        "deliverables": ["Portal design", "Auth system", "Project tracking", "Document system", "Client dashboards", "Deployment"],
-        "technologies": ["React", "FastAPI", "PostgreSQL", "AWS S3", "Stripe billing", "WebSockets"],
-        "target_industries": ["Agencies", "Consulting Firms", "Law Firms", "Accounting Firms"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 3000, "max": 15000},
-        "duration_estimate": "4–8 weeks",
-        "is_featured": True,
-        "sort_order": 27,
-    },
-    {
-        "code": "OPS_DASHBOARDS",
-        "name": "Operational Dashboards",
-        "division_group": "Digital Products",
-        "description": "Real-time operational intelligence dashboards: live KPI monitoring, infrastructure health, sales pipeline visibility, financial metrics, and custom reporting — all in a premium, cinematic interface.",
-        "deliverables": ["Dashboard design", "Data pipeline", "Live metrics", "Alert system", "Export reports", "Deployment"],
-        "technologies": ["React", "Grafana", "PostgreSQL", "WebSockets", "CloudWatch", "Recharts"],
-        "target_industries": ["SaaS", "Enterprise", "E-commerce", "Logistics", "FinTech"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 2000, "max": 12000},
-        "duration_estimate": "3–6 weeks",
-        "is_featured": False,
-        "sort_order": 28,
-    },
-    # ── Intelligence & Analytics ───────────────────────────────────────────────
-    {
-        "code": "AI_RESEARCH_OPS",
-        "name": "AI Research Operations",
-        "division_group": "Intelligence & Analytics",
-        "description": "Autonomous market intelligence operations: competitor analysis, niche opportunity mapping, technology landscape reports, pricing intelligence, and strategic asymmetric opportunity discovery.",
-        "deliverables": ["Market analysis reports", "Competitor profiles", "Opportunity maps", "Technology radar", "Strategic recommendations"],
-        "technologies": ["Claude AI", "GPT-4o", "Web scraping", "Crunchbase", "SimilarWeb", "Google Trends"],
-        "target_industries": ["Investment Firms", "Enterprise Strategy", "Startups", "Agencies", "SaaS"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 1500, "max": 8000},
-        "duration_estimate": "1–3 weeks",
-        "is_featured": True,
-        "sort_order": 29,
-    },
-    {
-        "code": "BI_ANALYTICS",
-        "name": "Business Intelligence Analytics",
-        "division_group": "Intelligence & Analytics",
-        "description": "Custom business intelligence infrastructure: data warehouse design, ETL pipelines, predictive analytics, revenue forecasting, churn prediction, and executive reporting systems.",
-        "deliverables": ["BI architecture", "Data pipelines", "Analytics dashboards", "Forecast models", "Executive reports", "Data documentation"],
-        "technologies": ["PostgreSQL", "dbt", "Metabase", "Grafana", "Python pandas", "scikit-learn"],
-        "target_industries": ["SaaS", "E-commerce", "FinTech", "Logistics", "Healthcare", "Enterprise"],
-        "pricing_model": "project",
-        "price_range_usd": {"min": 3000, "max": 20000},
-        "duration_estimate": "4–10 weeks",
-        "is_featured": False,
-        "sort_order": 30,
-    },
-]
-
+# Canonical 25-module product architecture.
 
 CAPABILITY_MODULES = [
     {
@@ -698,11 +267,136 @@ def get_capability_modules() -> dict:
             "cadence": "Weekly Council cycle",
             "visibility": "Real-time health dashboard",
         },
+        "operating_system": {
+            "operational_integrity_layers": OPERATIONAL_INTEGRITY_LAYERS,
+            "client_lifecycle_divisions": CLIENT_LIFECYCLE_DIVISIONS,
+            "sovereign_organs": SOVEREIGN_ORGANS,
+            "constitutional_systems": CONSTITUTIONAL_SYSTEMS,
+            "adaptive_learning_loop": ADAPTIVE_LEARNING_LOOP,
+            "authority_boundaries": AUTHORITY_BOUNDARIES,
+            "integration_spine": INTEGRATION_SPINE,
+        },
     }
 
 
+OPERATIONAL_INTEGRITY_LAYERS = [
+    {"layer": 1, "name": "Mission Control", "function": "Creates Mission Files, decomposes projects, maps dependencies, tracks timelines."},
+    {"layer": 2, "name": "Cross-Department Review Board", "function": "Runs external validation, integration checks, and gap detection across modules."},
+    {"layer": 3, "name": "Quality Assurance Team", "function": "Provides independent validation, defect detection, and certification authority."},
+    {"layer": 4, "name": "Repair & Recovery Team", "function": "Diagnoses defects precisely, issues repair instructions, verifies recovery loops."},
+    {"layer": 5, "name": "Fallback & Continuity Team", "function": "Detects agent failure and activates backup execution within 120 seconds."},
+    {"layer": 6, "name": "Department Health Monitoring", "function": "Scores all 25 modules, trends performance, catches structural issues early."},
+    {"layer": 7, "name": "Knowledge Synthesis Team", "function": "Extracts lessons, SOPs, case studies, and reusable delivery doctrine."},
+    {"layer": 8, "name": "Preventive Monitoring Engine", "function": "Predicts failures, alerts before SLA breach, and triggers proactive scaling."},
+]
+
+
+CLIENT_LIFECYCLE_DIVISIONS = [
+    {"name": "Onboarding", "function": "Converts signed clients into mission files, stakeholders, timelines, and success metrics."},
+    {"name": "Success", "function": "Tracks value realization, health, expansion opportunities, and relationship depth."},
+    {"name": "Support", "function": "Handles issues, SLA response, escalations, and client-care continuity."},
+    {"name": "Feedback & VOC", "function": "Extracts client voice, sentiment, objections, product demand, and improvement signals."},
+    {"name": "Reputation", "function": "Transforms delivered value into proof, testimonials, reviews, and case studies."},
+    {"name": "Referral", "function": "Identifies warm introduction paths and referral expansion after relationship maturity."},
+    {"name": "Postmortem", "function": "Runs structured retrospectives after project completion or major milestones."},
+    {"name": "Knowledge Extraction", "function": "Feeds learnings into SOPs, memory, outreach intelligence, and adaptive evolution."},
+]
+
+
+SOVEREIGN_ORGANS = [
+    "Decision Memory Engine",
+    "Counterfactual Engine",
+    "Decision Debt Engine",
+    "Client Digital Twin Engine",
+    "Cognitive Cortex",
+    "Council of Giants",
+    "Executive Accountability Engine",
+    "Mission Autopsy Engine",
+    "Institutional Wisdom Index",
+]
+
+
+CONSTITUTIONAL_SYSTEMS = [
+    "Human Interface Agent System",
+    "Zero Single Point of Failure Redundancy",
+    "Constitutional Governance Enforcement",
+    "Knowledge Synthesis Layer",
+    "Adaptive Learning Loop",
+    "Client Trust Index",
+    "Technology Exploration Engine",
+    "Repair & Recovery Automation",
+    "Department Intelligence Officers",
+    "Multi-Tenant Isolation & Security",
+]
+
+
+ADAPTIVE_LEARNING_LOOP = [
+    "Self-Observe",
+    "Self-Learn",
+    "Self-Improve",
+    "Self-Expand",
+    "Self-Adapt",
+]
+
+
+AUTHORITY_BOUNDARIES = {
+    "captain": "Final authority over irreversible actions, major contracts, go-live approval, strategic pivots, refunds, and new service launches.",
+    "jarvis_tier_1": "May execute routine internal optimization, monitoring, low-risk improvements, and information synthesis autonomously.",
+    "jarvis_tier_2": "May execute material but reversible actions with Captain notification and full audit logging.",
+    "jarvis_tier_3": "Must request Captain approval before irreversible, financial, public, security-sensitive, or strategic actions.",
+    "immutable_membrane": "JARVIS cannot modify its own safety membrane, governance tiers, kill switch, or Captain authority.",
+}
+
+
+INTEGRATION_SPINE = [
+    "Captain Control Plane",
+    "JARVIS Executive Orchestrator",
+    "Emotional Core",
+    "Governance Tiers",
+    "AI Council",
+    "Adaptive Intelligence",
+    "Technology Exploration",
+    "Operational Integrity Teams",
+    "25 Capability Modules",
+    "Client Lifecycle Divisions",
+    "Preventive Monitoring",
+]
+
+
+def _module_to_service_division(module: dict, sort_order: int) -> dict:
+    return {
+        "code": module["code"],
+        "name": module["name"],
+        "division_group": module["division"],
+        "description": module["description"],
+        "deliverables": [
+            f"DIO monitoring for {module['name']}",
+            f"HIA client interface via {module['human_interface_executive']}",
+            "AI execution team",
+            "Weekly Council cycle",
+            "Real-time health dashboard",
+        ],
+        "technologies": module["agent_layer"],
+        "target_industries": ["B2B Services", "SaaS", "Operations-led SMB", "Enterprise"],
+        "pricing_model": "module",
+        "price_range_usd": {},
+        "duration_estimate": "Scoped by mission file",
+        "is_featured": sort_order <= 8 or module["code"] == "COUNCIL",
+        "sort_order": sort_order,
+    }
+
+
+CANONICAL_SERVICE_DIVISIONS = [
+    _module_to_service_division(module, index)
+    for index, module in enumerate(CAPABILITY_MODULES, start=1)
+]
+
+# Keep this name for older import paths, but it now points to the 25 finalized modules.
+SEED_DIVISIONS = CANONICAL_SERVICE_DIVISIONS
+
+
 async def seed_catalog(db: AsyncSession) -> int:
-    """Seed the catalog if empty. Returns count of records inserted."""
+    """Seed the canonical 25-module catalog if empty. Returns inserted count."""
     result = await db.execute(select(ServiceDivision).limit(1))
     if result.scalar_one_or_none():
         return 0
@@ -711,6 +405,21 @@ async def seed_catalog(db: AsyncSession) -> int:
         db.add(ServiceDivision(tenant_id=SYSTEM_TENANT_ID, **item))
     await db.commit()
     return len(SEED_DIVISIONS)
+
+
+async def sync_canonical_catalog(db: AsyncSession) -> dict:
+    """Replace any legacy catalog rows with the finalized 25 capability modules."""
+    before = await db.scalar(select(func.count()).select_from(ServiceDivision))
+    await db.execute(delete(ServiceDivision))
+    for item in CANONICAL_SERVICE_DIVISIONS:
+        db.add(ServiceDivision(tenant_id=SYSTEM_TENANT_ID, **item))
+    await db.commit()
+    return {
+        "status": "canonical_synced",
+        "removed": int(before or 0),
+        "inserted": len(CANONICAL_SERVICE_DIVISIONS),
+        "canonical_total": len(CANONICAL_SERVICE_DIVISIONS),
+    }
 
 
 async def get_all_divisions(
