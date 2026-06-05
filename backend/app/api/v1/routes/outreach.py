@@ -52,7 +52,7 @@ class RegeneratePendingIn(BaseModel):
 class PrepareCampaignIn(BaseModel):
     tenant_id: Optional[UUID] = None
     limit: int = 25
-    min_score: float = 65
+    min_score: float = 80
 
 
 class SpeedToLeadTriggerIn(BaseModel):
@@ -260,7 +260,7 @@ async def prepare_campaign(
                 Lead.outreach_eligible.is_(True),
                 Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE]),
                 ((Lead.email.is_not(None)) | (Lead.contact_email.is_not(None))),
-                Lead.score >= float(body.min_score or 65),
+                Lead.score >= float(body.min_score or 80),
             )
             .order_by(Lead.score.desc(), Lead.created_at.asc())
             .limit(limit)
@@ -310,7 +310,7 @@ async def prepare_campaign(
         "candidates_seen": len(rows),
         "queued_leads": queued,
         "skipped": skipped,
-        "next_action": "Connect Gmail OAuth, then run /api/v1/outreach/execute when engine-status is ready.",
+        "next_action": "Connect Gmail OAuth, then run /api/v1/outreach/execute when engine-status is ready. Leads below 80 stay behind Captain review.",
     }
 
 

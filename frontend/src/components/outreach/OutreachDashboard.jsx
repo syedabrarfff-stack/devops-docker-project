@@ -99,7 +99,7 @@ export default function OutreachDashboard() {
   async function prepareCampaign() {
     setPreparing(true);
     try {
-      const r = await api.post("/api/v1/outreach/prepare-campaign", { limit: 25, min_score: 65 });
+      const r = await api.post("/api/v1/outreach/prepare-campaign", { limit: 25, min_score: 80 });
       setLastRun(r.data);
       await loadAll();
     } catch (e) {
