@@ -114,7 +114,7 @@ export default function ConsciousnessHub() {
           })} />
         </ActionCard>
         <ActionCard title="Validate Action" description="Check whether an action violates our soul.">
-          <Textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder="Describe the proposed action..." />
+          <Textarea value={inputText} onChange={setInputText} placeholder="Describe the proposed action..." />
           <RunButton label="Validate" loading={loading} onClick={() => run(async () => {
             const r = await api.post('/api/v1/consciousness/soul/validate', { proposed_action: inputText })
             return r.data
@@ -135,7 +135,7 @@ export default function ConsciousnessHub() {
             placeholder="Decision type: pricing, strategy, offer, competition..."
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none mb-2"
           />
-          <Textarea value={inputText2} onChange={e => setInputText2(e.target.value)} placeholder="Describe the decision context..." />
+          <Textarea value={inputText2} onChange={setInputText2} placeholder="Describe the decision context..." />
           <RunButton label="Convene" loading={loading} onClick={() => run(async () => {
             const r = await api.post('/api/v1/consciousness/council-of-giants/convene', {
               decision_type: inputText || 'strategy',
@@ -152,7 +152,7 @@ export default function ConsciousnessHub() {
             placeholder="Giant key: MUSK, BEZOS, HORMOZI, JOBS..."
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none mb-2"
           />
-          <Textarea value={inputText2} onChange={e => setInputText2(e.target.value)} placeholder="The question..." />
+          <Textarea value={inputText2} onChange={setInputText2} placeholder="The question..." />
           <RunButton label="Ask" loading={loading} onClick={() => run(async () => {
             const r = await api.get(`/api/v1/consciousness/council-of-giants/giant/${inputText || 'HORMOZI'}`, {
               params: { question: inputText2 || 'How do we make our offer irresistible?' }
@@ -335,7 +335,7 @@ export default function ConsciousnessHub() {
             placeholder="Failure type..."
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none mb-2"
           />
-          <Textarea value={inputText2} onChange={e => setInputText2(e.target.value)} placeholder="Root cause and prevention principle (JSON: {failure_detail, root_cause, prevention_principle})" />
+          <Textarea value={inputText2} onChange={setInputText2} placeholder="Root cause and prevention principle (JSON: {failure_detail, root_cause, prevention_principle})" />
           <RunButton label="Log & Learn" loading={loading} onClick={() => {
             let parsed = {}
             try { parsed = JSON.parse(inputText2) } catch {}
@@ -377,7 +377,7 @@ export default function ConsciousnessHub() {
           })} />
         </ActionCard>
         <ActionCard title="Detect Captain State" description="Read recent messages to detect Captain's current operating mode.">
-          <Textarea value={inputText} onChange={e => setInputText(e.target.value)} placeholder='Recent messages (one per line)...' />
+          <Textarea value={inputText} onChange={setInputText} placeholder='Recent messages (one per line)...' />
           <RunButton label="Detect State" loading={loading} onClick={() => run(async () => {
             const messages = inputText.split('\n').filter(Boolean)
             const r = await api.post('/api/v1/consciousness/captain/detect-state', { recent_messages: messages })
@@ -385,7 +385,7 @@ export default function ConsciousnessHub() {
           })} />
         </ActionCard>
         <ActionCard title="Blind Spot Check" description="Check a decision for Captain's known blind spots.">
-          <Textarea value={inputText2} onChange={e => setInputText2(e.target.value)} placeholder='Describe the decision context...' />
+          <Textarea value={inputText2} onChange={setInputText2} placeholder='Describe the decision context...' />
           <RunButton label="Check" loading={loading} onClick={() => run(async () => {
             const r = await api.post('/api/v1/consciousness/captain/blind-spot-check', { decision_context: inputText2 })
             return r.data

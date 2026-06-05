@@ -68,16 +68,21 @@ export function useEndpointBundle(endpoints = []) {
   return { results, loading, load, summary }
 }
 
-export function FrontierShell({ eyebrow, title, description, endpoints, children }) {
+export function FrontierShell({ eyebrow, title, description, subtitle, endpoints = [], children }) {
   const { results, loading, load, summary } = useEndpointBundle(endpoints)
+  const childContent = typeof children === 'function'
+    ? children({ results, loading, refresh: load })
+    : children
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="min-h-full p-6 space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">{eyebrow}</p>
+          {eyebrow && <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">{eyebrow}</p>}
           <h1 className="mt-2 text-3xl font-bold text-white">{title}</h1>
-          <p className="mt-2 max-w-4xl text-sm text-gray-400">{description}</p>
+          {(description || subtitle) && (
+            <p className="mt-2 max-w-4xl text-sm text-gray-400">{description || subtitle}</p>
+          )}
         </div>
         <button
           type="button"
@@ -96,7 +101,7 @@ export function FrontierShell({ eyebrow, title, description, endpoints, children
         { label: 'Blocked paths', value: summary.blocked, tone: summary.blocked ? 'red' : 'green' },
       ]} />
 
-      {children?.({ results, loading, refresh: load })}
+      {childContent}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {endpoints.map((endpoint) => (
@@ -221,15 +226,16 @@ export function Input({ value, onChange, placeholder }) {
   )
 }
 
-export function RunButton({ loading, disabled, children }) {
+export function RunButton({ loading, disabled, children, label, onClick, type = 'submit' }) {
   return (
     <button
-      type="submit"
+      type={type}
+      onClick={onClick}
       disabled={loading || disabled}
       className="btn-primary inline-flex min-w-36 items-center justify-center gap-2"
     >
       {loading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-      {children}
+      {children || label}
     </button>
   )
 }

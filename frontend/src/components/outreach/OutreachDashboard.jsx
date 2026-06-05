@@ -149,7 +149,7 @@ export default function OutreachDashboard() {
     : "border-amber-400/25 bg-amber-500/[0.08] text-amber-100";
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-full p-6 pb-24 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Outreach</h1>
@@ -223,7 +223,7 @@ export default function OutreachDashboard() {
               {engine.queue.pending_approvals} lead or action is waiting for Captain review. Approved outreach enrollment reviews now auto-queue the lead.
             </p>
             <a
-              href="/approvals"
+              href="/control-room/approvals"
               className="rounded-lg border border-sky-300/25 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-100 transition hover:bg-sky-400/20"
             >
               Open Approvals
