@@ -27,6 +27,7 @@ from app.services.aionx.operational_persistence import operational_persistence_s
 from app.services.aionx.supreme_council_layer import supreme_council_status
 from app.services.aionx.completion_matrix import completion_matrix
 from app.services.aionx.frontier_intelligence import frontier_status
+from app.services.aionx.omni_mission_control import mission_control, omni_status, system_hud
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,13 @@ async def generate_captain_intelligence_dashboard(
         logger.error("Frontier Intelligence gathering failed: %s", e)
         dashboard["sections"]["frontier_intelligence"] = {"error": str(e)}
 
+    try:
+        dashboard["sections"]["mission_control"] = await mission_control(db)
+        dashboard["sections"]["system_hud"] = await system_hud(db)
+    except Exception as e:
+        logger.error("Mission Control gathering failed: %s", e)
+        dashboard["sections"]["mission_control"] = {"error": str(e)}
+
     return dashboard
 
 
@@ -224,12 +232,17 @@ async def get_aionx_system_info() -> dict[str, Any]:
             "cascade_intelligence_network": "Active",
             "immortal_company_brain": "Active",
             "agent_scaling_engine": "Governed",
+            "omni_system_registry": "Active",
+            "mission_control_dashboard": "Active",
+            "system_health_hud": "Active",
+            "stability_runbooks": "Active",
+            "self_healing_diagnostics": "Governed",
         },
         "organs": 9,
         "intelligence_engines": 13,
         "optional_systems": 5,
-        "total_endpoints": 154,
-        "scheduler_jobs": 23,
+        "total_endpoints": 160,
+        "scheduler_jobs": 24,
         "launched": datetime.now(timezone.utc).isoformat(),
         "phase": "PRODUCTION",
     }
@@ -458,6 +471,24 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Add pgvector embeddings after production vector extension is confirmed",
         ],
     },
+    {
+        "id": "omni_mission_control",
+        "name": "Omni Mission Control: 227-System Registry + Live HUD",
+        "status": "LIVE",
+        "live_evidence": [
+            "227-system registry persists canonical live/governed/design status",
+            "Mission Control endpoint shows live agent/action feed",
+            "System HUD endpoint returns backend/database/redis/scheduler/AIONX status",
+            "Stability runbooks persist six production risk controls",
+            "Self-healing diagnostics record non-destructive remediation plans",
+            "10-minute Mission Control snapshot scheduler job",
+        ],
+        "pending_work": [
+            "Convert design-governed systems into execution systems only when data, integrations, and approval gates are ready",
+            "Test disaster recovery restore drill before enabling destructive self-healing",
+            "Attach client portal, Stripe, WhatsApp, and reputation connectors as separate production integrations",
+        ],
+    },
 ]
 
 
@@ -554,6 +585,11 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "aionx_knowledge_artifacts",
         "aionx_agent_capacity",
         "aionx_agent_proposals",
+        "aionx_omni_system_registry",
+        "aionx_mission_control_events",
+        "aionx_system_hud_snapshots",
+        "aionx_stability_runbooks",
+        "aionx_self_healing_records",
     }
 
     live_tables = sorted(expected_tables.intersection(table_names))
@@ -576,8 +612,8 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
             "expected_aionx_tables": len(expected_tables),
             "live_aionx_tables": len(live_tables),
             "missing_aionx_tables": len(missing_tables),
-            "aionx_api_endpoints_expected": route_count + 33,
-            "aionx_scheduler_jobs_expected": 23,
+            "aionx_api_endpoints_expected": route_count + 39,
+            "aionx_scheduler_jobs_expected": 24,
         },
         "blueprint": CANONICAL_AIONX_BLUEPRINT,
         "connection_map": CANONICAL_AIONX_CONNECTIONS,
@@ -588,6 +624,8 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
         "supreme_council": supreme,
         "completion_matrix": completion,
         "frontier_intelligence": await frontier_status(db),
+        "omni": await omni_status(db),
+        "mission_control": await mission_control(db),
         "canonical_next_build_order": [
             "Connect every revenue route directly into stage transitions",
             "Feed real outcomes into Founder Mirror and Parallel Universe scoring",

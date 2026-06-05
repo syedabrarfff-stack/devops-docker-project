@@ -116,6 +116,7 @@ AIONX_JOB_IDS = (
     "aionx_predictive_threat_scan",
     "aionx_agent_capacity_check",
     "aionx_idle_intelligence_cycle",
+    "aionx_mission_control_snapshot",
 )
 
 JOB_LOCK_TTLS = {

@@ -76,6 +76,7 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     add_interval_job("aionx_predictive_threat_scan", _job_predictive_threat_scan, hours=2)
     add_interval_job("aionx_agent_capacity_check", _job_agent_capacity_check, hours=4)
     add_interval_job("aionx_idle_intelligence_cycle", _job_idle_intelligence_cycle, hours=6)
+    add_interval_job("aionx_mission_control_snapshot", _job_mission_control_snapshot, minutes=10)
 
     logger.info("AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
 
@@ -533,3 +534,21 @@ async def _job_idle_intelligence_cycle() -> None:
             logger.info("AIONX Idle Intelligence: artifact %s recorded", artifact.get("artifact_id"))
     except Exception as exc:
         logger.warning("AIONX idle intelligence cycle failed: %s", exc)
+
+
+async def _job_mission_control_snapshot() -> None:
+    logger.info("AIONX Omni: capturing Mission Control HUD snapshot")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.omni_mission_control import seed_omni_registry, system_hud
+
+        async with AsyncSessionLocal() as db:
+            await seed_omni_registry(db)
+            snapshot = await system_hud(db, persist=True)
+            logger.info(
+                "AIONX Mission Control: jobs=%s systems=%s",
+                snapshot.get("scheduler", {}).get("aionx_jobs"),
+                snapshot.get("registry", {}).get("total"),
+            )
+    except Exception as exc:
+        logger.warning("AIONX Mission Control snapshot failed: %s", exc)

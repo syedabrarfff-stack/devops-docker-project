@@ -184,6 +184,9 @@ export default function AionxArchitecture() {
   const completionMatrix = architecture.completion_matrix || {}
   const frontier = architecture.frontier_intelligence || state.dashboard?.sections?.frontier_intelligence || {}
   const frontierCounts = frontier.counts || {}
+  const omni = architecture.omni || state.dashboard?.sections?.mission_control?.omni || {}
+  const missionControl = architecture.mission_control || state.dashboard?.sections?.mission_control || {}
+  const hud = state.dashboard?.sections?.system_hud || missionControl.system_health || {}
   const calibration = supremeCouncil.calibration_health || {}
   const convergence = supremeCouncil.convergence_health || {}
   const membrane = supremeCouncil.membrane_status || {}
@@ -220,6 +223,7 @@ export default function AionxArchitecture() {
           <StatCard icon={ShieldCheck} label="Supreme Council" value={(supremeCouncil.rings || []).length || 0} sub="Calibration/convergence/membrane" />
           <StatCard icon={CheckCircle2} label="Completion Matrix" value={`${completionMatrix.live_or_live_foundation || 0}/${completionMatrix.systems_total || 0}`} sub="Old audit reconciled" />
           <StatCard icon={Network} label="Frontier Systems" value={`${frontier.systems_total || 0}/8`} sub={`${frontier.table_count || 0} frontier tables`} />
+          <StatCard icon={Activity} label="Omni Registry" value={omni.declared_total_systems || 227} sub="Canonical systems tracked" />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -628,6 +632,81 @@ export default function AionxArchitecture() {
               <div key={table} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-200/60">{table.replaceAll('_', ' ')}</p>
                 <p className="mt-2 text-3xl font-black text-white">{count}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-cyan-200/60">Mission Control</p>
+              <h2 className="mt-1 text-2xl font-black">227-System Omni Registry + Live HUD</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                This is the conductor layer for the full architecture: what is live, what is governed,
+                what remains doctrine, what JARVIS is doing right now, and what must stay approval-gated.
+              </p>
+            </div>
+            <StatusPill status={missionControl.status || omni.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            <StatCard icon={Layers3} label="Declared Systems" value={omni.declared_total_systems || 227} sub="Architecture captured" />
+            <StatCard icon={CheckCircle2} label="Registry Live" value={omni.registry_counts?.live ?? '-'} sub="Runtime/foundation systems" />
+            <StatCard icon={ShieldCheck} label="Governed" value={omni.registry_counts?.governed ?? '-'} sub="Approval bounded" />
+            <StatCard icon={Activity} label="AIONX Jobs" value={missionControl.aionx_jobs ?? '-'} sub="Mission heartbeat" />
+            <StatCard icon={CircuitBoard} label="Tables Seen" value={missionControl.tables_seen ?? '-'} sub="Database visibility" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Live Right Now</h3>
+              <div className="mt-3 space-y-3">
+                {(missionControl.live_right_now || []).map((event) => (
+                  <div key={`${event.agent}-${event.action}`} className="rounded-xl border border-cyan-300/10 bg-cyan-300/[0.05] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-black text-cyan-100">{event.agent}</p>
+                      <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[10px] text-white/65">{event.status}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-white/65">{event.action}</p>
+                    <p className="mt-1 text-[11px] text-emerald-100/70">Result: {event.result}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">HUD Grid</h3>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {Object.entries(hud.system_health || hud || {}).map(([name, status]) => (
+                  <div key={name} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-white/75">{name.replaceAll('_', ' ')}</span>
+                      <span className={status === 'green' ? 'text-emerald-200' : status === 'red' ? 'text-red-200' : 'text-amber-200'}>{String(status).toUpperCase()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-xl border border-amber-200/10 bg-amber-300/[0.06] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-100/70">Captain Actions</p>
+                <div className="mt-2 space-y-1">
+                  {(missionControl.captain_actions || []).map((action) => (
+                    <p key={action} className="text-xs text-white/65">{action}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {(omni.blocks || []).map((block) => (
+              <div key={block.block} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-black text-white">{block.block}</h3>
+                  <StatusPill status={block.status} />
+                </div>
+                <p className="mt-2 text-2xl font-black text-cyan-100">{block.count}</p>
+                <p className="mt-2 text-xs leading-5 text-white/55">{block.summary}</p>
               </div>
             ))}
           </div>

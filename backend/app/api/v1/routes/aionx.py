@@ -1123,6 +1123,39 @@ async def aionx_frontier_status(db: AsyncSession = Depends(get_db)) -> dict[str,
     return await frontier_status(db)
 
 
+@router.get("/omni")
+async def aionx_omni_status(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.omni_mission_control import omni_status
+    return await omni_status(db)
+
+
+@router.get("/mission-control")
+async def aionx_mission_control(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.omni_mission_control import mission_control
+    return await mission_control(db)
+
+
+@router.get("/system-hud")
+async def aionx_system_hud(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.omni_mission_control import system_hud
+    return await system_hud(db, persist=False)
+
+
+@router.get("/stability")
+async def aionx_stability(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    from app.services.aionx.omni_mission_control import stability_status
+    return await stability_status(db)
+
+
+@router.post("/self-heal/diagnose")
+async def aionx_self_heal_diagnose(
+    payload: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    from app.services.aionx.omni_mission_control import self_heal_diagnose
+    return await self_heal_diagnose(db, payload)
+
+
 @router.post("/frontier/founder-mirror/predict")
 async def aionx_frontier_founder_mirror_predict(
     payload: dict[str, Any],
