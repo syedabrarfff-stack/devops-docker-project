@@ -83,6 +83,7 @@ export const VIEWS = {
 
 const VIEW_ENTRIES = Object.entries(VIEWS)
 const PATH_TO_VIEW = VIEW_ENTRIES.reduce((acc, [id, view]) => ({ ...acc, [view.path]: id }), {})
+const toControlRoomRoute = (path) => path.replace(`${CONTROL_ROOM_BASE}/`, '')
 
 function PublicWebsite() {
   return (
@@ -207,7 +208,7 @@ function AppShell() {
               {VIEW_ENTRIES.map(([id, { path, Component }]) => (
                 <Route
                   key={id}
-                  path={path}
+                  path={toControlRoomRoute(path)}
                   element={
                     <motion.div
                       key={id}
@@ -222,7 +223,7 @@ function AppShell() {
                   }
                 />
               ))}
-              <Route path="*" element={<Navigate to={VIEWS.dashboard.path} replace />} />
+              <Route path="*" element={<Navigate to={toControlRoomRoute(VIEWS.dashboard.path)} replace />} />
             </Routes>
           </AnimatePresence>
         </main>
