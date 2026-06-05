@@ -132,6 +132,93 @@ async def execute_outreach(request: Request, body: ExecuteOutreachIn = Body(defa
     return {"sent": sent, "tenant_id": str(resolved_tenant_id)}
 
 
+@router.get("/engine-status")
+async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func, select
+    from app.core.database import set_tenant_context
+    from app.models.approval import ApprovalRequest, ApprovalStatus
+    from app.models.lead import Lead
+    from app.models.outreach import FollowUpQueue, FollowUpStatus, OutreachLog, OutreachStatus
+    from app.services.intelligence.jarvis_authority import get_authority_level, requires_captain_approval
+    from app.services.outreach.compliance import outreach_compliance
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    gmail = await gmail_service.gmail_delivery_status(db, validate_smtp=True)
+    cap = await outreach_compliance.daily_send_cap_status(db, resolved_tenant_id)
+
+    total_leads = await db.scalar(
+        select(func.count()).select_from(Lead).where(Lead.tenant_id == resolved_tenant_id)
+    ) or 0
+    leads_with_email = await db.scalar(
+        select(func.count()).select_from(Lead).where(
+            Lead.tenant_id == resolved_tenant_id,
+            (Lead.email.is_not(None)) | (Lead.contact_email.is_not(None)),
+        )
+    ) or 0
+    pending_followups = await db.scalar(
+        select(func.count()).select_from(FollowUpQueue).where(
+            FollowUpQueue.tenant_id == resolved_tenant_id,
+            FollowUpQueue.status == FollowUpStatus.PENDING,
+        )
+    ) or 0
+    sent_today = int(cap.get("sent_today") or 0)
+    sent_total = await db.scalar(
+        select(func.count()).select_from(OutreachLog).where(
+            OutreachLog.tenant_id == resolved_tenant_id,
+            OutreachLog.status == OutreachStatus.SENT,
+        )
+    ) or 0
+    pending_approvals = await db.scalar(
+        select(func.count()).select_from(ApprovalRequest).where(
+            ApprovalRequest.tenant_id == resolved_tenant_id,
+            ApprovalRequest.status == ApprovalStatus.PENDING,
+        )
+    ) or 0
+
+    action_type = "outreach_emails"
+    blockers: list[str] = []
+    if gmail["send_mode"] != "live":
+        blockers.append(gmail["validation_error"] or "Gmail is not live.")
+    if await outreach_compliance.is_outreach_paused(db, resolved_tenant_id):
+        blockers.append("Outreach is paused.")
+    if not cap["allowed"]:
+        blockers.append("Daily send cap reached.")
+    if int(pending_followups) <= 0:
+        blockers.append("No pending follow-up emails are queued.")
+    if int(leads_with_email) <= 0:
+        blockers.append("No leads with email addresses are available.")
+
+    return {
+        "status": "ready" if not blockers else "blocked",
+        "tenant_id": str(resolved_tenant_id),
+        "authority": {
+            "action_type": action_type,
+            "level": get_authority_level(action_type),
+            "requires_captain_approval": requires_captain_approval(action_type),
+        },
+        "gmail": gmail,
+        "daily_cap": cap,
+        "queue": {
+            "pending_followups": int(pending_followups),
+            "sent_today": sent_today,
+            "remaining_today": max(0, int(cap.get("cap") or 0) - sent_today),
+            "sent_total": int(sent_total),
+            "pending_approvals": int(pending_approvals),
+        },
+        "leads": {
+            "total": int(total_leads),
+            "with_email": int(leads_with_email),
+        },
+        "blockers": blockers,
+        "next_action": (
+            "Connect Gmail OAuth or clear Google WebLoginRequired, then run POST /api/v1/outreach/execute."
+            if gmail["send_mode"] != "live"
+            else "Run POST /api/v1/outreach/execute to send due outreach under the 48/day cap."
+        ),
+    }
+
+
 @router.post("/regenerate-pending")
 async def regenerate_pending_outreach(
     request: Request,
@@ -390,7 +477,8 @@ async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSessio
     if not cap["allowed"]:
         raise HTTPException(status_code=409, detail={"reason": "daily_send_cap_reached", **cap})
     body_with_footer = outreach_compliance.append_footer(body.body, body.to_email)
-    success, error = gmail_service.send_email_smtp(
+    success, error, method = await gmail_service.send_client_email(
+        db,
         body.to_email,
         body.subject,
         body_with_footer,
@@ -398,7 +486,7 @@ async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSessio
     )
     if not success:
         raise HTTPException(503, f"Email failed: {error}")
-    return {"sent": True, "to": body.to_email}
+    return {"sent": True, "to": body.to_email, "method": method}
 
 
 @router.get("/emails/pending")
