@@ -52,7 +52,7 @@ class RegeneratePendingIn(BaseModel):
 class PrepareCampaignIn(BaseModel):
     tenant_id: Optional[UUID] = None
     limit: int = 25
-    min_score: float = 0
+    min_score: float = 65
 
 
 class SpeedToLeadTriggerIn(BaseModel):
@@ -260,7 +260,7 @@ async def prepare_campaign(
                 Lead.outreach_eligible.is_(True),
                 Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE]),
                 ((Lead.email.is_not(None)) | (Lead.contact_email.is_not(None))),
-                Lead.score >= float(body.min_score or 0),
+                Lead.score >= float(body.min_score or 65),
             )
             .order_by(Lead.score.desc(), Lead.created_at.asc())
             .limit(limit)
@@ -284,7 +284,23 @@ async def prepare_campaign(
             continue
         try:
             await outreach_engine.queue_sequence(lead.id, resolved_tenant_id)
-            queued += 1
+            queued_now = await db.scalar(
+                select(FollowUpQueue.id)
+                .where(
+                    FollowUpQueue.tenant_id == resolved_tenant_id,
+                    FollowUpQueue.lead_id == lead.id,
+                    FollowUpQueue.status == FollowUpStatus.PENDING,
+                )
+                .limit(1)
+            )
+            if queued_now:
+                queued += 1
+            else:
+                skipped.append({
+                    "lead_id": str(lead.id),
+                    "company": lead.company_name or lead.company,
+                    "reason": "not_qualified_or_not_queued",
+                })
         except Exception as exc:
             skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": str(exc)[:180]})
 
