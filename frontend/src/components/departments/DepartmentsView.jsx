@@ -7,6 +7,7 @@ import {
 import api from '../../services/api'
 
 const TABS = [
+  { id: 'axiom',      label: 'AXIOM OS',         icon: Shield },
   { id: 'overview',   label: 'Overview',         icon: Activity },
   { id: 'dios',       label: 'Intelligence Officers', icon: Users },
   { id: 'milestones', label: 'Milestones',        icon: CheckCircle2 },
@@ -78,6 +79,77 @@ function EmptyState({ message }) {
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <Shield size={32} className="text-gray-600 mb-3" />
       <p className="text-sm text-gray-500">{message}</p>
+    </div>
+  )
+}
+
+function AxiomTab({ axiom }) {
+  const model = axiom?.model || {}
+  const pulse = axiom?.pulse || {}
+  const departments = model.departments || []
+  const gateways = model.gateways || []
+  const summary = pulse.summary || {}
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <StatCard label="Brand" value={model.brand?.commercial_name || 'AXIOM'} sub="Commercial operating system" delay={0} />
+        <StatCard label="Departments" value={model.counts?.departments || departments.length} sub="One manager + consultant each" color="text-emerald-400" delay={0.04} />
+        <StatCard label="Gateways" value={model.counts?.gateways || gateways.length} sub="Outreach, CloudOps, Council" color="text-jarvis-gold" delay={0.08} />
+        <StatCard label="Pulse" value={`${pulse.pulse_interval_minutes || 15}m`} sub="Health monitoring cadence" color="text-blue-400" delay={0.12} />
+        <StatCard label="Operational" value={summary.operational ?? departments.length} sub="Departments above alert threshold" color="text-green-400" delay={0.16} />
+      </div>
+
+      <div className="glass p-5">
+        <p className="text-xs uppercase tracking-widest text-jarvis-cyan/70 mb-3">Commercial Gateways</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {gateways.map((gateway) => (
+            <div key={gateway.code} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-sm font-semibold text-white">{gateway.name}</p>
+              <p className="mt-2 text-xs text-gray-400 leading-relaxed">{gateway.entry_point}</p>
+              <p className="mt-3 text-xs text-jarvis-gold">{gateway.retainer_range}</p>
+              <p className="mt-1 text-[11px] text-gray-500">Success: {gateway.success_metric}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="glass p-5">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-jarvis-cyan/70">25 Departments</p>
+            <p className="mt-1 text-xs text-gray-500">Internal capabilities stay invisible to clients; AXIOM sells diagnosis and outcomes.</p>
+          </div>
+          <StatusBadge status="operational" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {departments.map((department) => {
+            const live = (pulse.departments || []).find((item) => item.code === department.code)
+            return (
+              <div key={department.code} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{department.name}</p>
+                    <p className="text-xs text-gray-500">{department.group}</p>
+                  </div>
+                  <span className="rounded-full border border-jarvis-cyan/30 bg-jarvis-cyan/10 px-2 py-0.5 text-[10px] text-jarvis-cyan">
+                    {department.number}/25
+                  </span>
+                </div>
+                <p className="mt-3 text-xs text-gray-400 leading-relaxed">{department.service}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
+                  <span>Manager: <b className="text-gray-300">{department.manager}</b></span>
+                  <span>Consultant: <b className="text-gray-300">{department.consultant}</b></span>
+                </div>
+                <div className="mt-3">
+                  <p className="text-[11px] text-gray-500 mb-1">Health</p>
+                  <ScoreBar value={live?.health_score || 0} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -460,19 +532,21 @@ function StrategyTab({ strategy, onDailyReport, onWeeklyReport, loading }) {
 // ── Main View ─────────────────────────────────────────────────────────────────
 export default function DepartmentsView() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [data, setData] = useState({ health: null, dios: null, milestones: null, tech: null, calls: null, strategy: null })
+  const [data, setData] = useState({ health: null, dios: null, milestones: null, tech: null, calls: null, strategy: null, axiom: null })
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [health, dios, milestones, tech, calls, strategy] = await Promise.allSettled([
+    const [health, dios, milestones, tech, calls, strategy, axiomModel, axiomPulse] = await Promise.allSettled([
       api.get('/api/v1/departments/health').then(r => r.data),
       api.get('/api/v1/departments/dios').then(r => r.data),
       api.get('/api/v1/departments/milestones').then(r => r.data),
       api.get('/api/v1/departments/tech/discoveries').then(r => r.data),
       api.get('/api/v1/departments/calls').then(r => r.data),
       api.get('/api/v1/departments/strategy/reports').then(r => r.data),
+      api.get('/api/v1/departments/axiom/operating-model').then(r => r.data),
+      api.get('/api/v1/departments/axiom/pulse').then(r => r.data),
     ])
     setData({
       health:     health.status    === 'fulfilled' ? health.value    : null,
@@ -481,6 +555,10 @@ export default function DepartmentsView() {
       tech:       tech.status      === 'fulfilled' ? tech.value      : null,
       calls:      calls.status     === 'fulfilled' ? calls.value     : null,
       strategy:   strategy.status  === 'fulfilled' ? strategy.value  : null,
+      axiom: {
+        model: axiomModel.status === 'fulfilled' ? axiomModel.value : null,
+        pulse: axiomPulse.status === 'fulfilled' ? axiomPulse.value : null,
+      },
     })
     setLoading(false)
   }, [])
@@ -537,6 +615,7 @@ export default function DepartmentsView() {
 
       {/* Tab Content */}
       <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+        {activeTab === 'axiom'      && <AxiomTab      axiom={data.axiom} />}
         {activeTab === 'overview'   && <OverviewTab   {...data} />}
         {activeTab === 'dios'       && <DiosTab       dios={data.dios} onInitialize={initializeDios} loading={busyLoading} />}
         {activeTab === 'milestones' && <MilestonesTab milestones={data.milestones} onBulkReview={runBulkReview} loading={busyLoading} />}

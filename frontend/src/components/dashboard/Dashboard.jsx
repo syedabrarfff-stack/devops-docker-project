@@ -187,6 +187,7 @@ export default function Dashboard() {
     scheduler: null,
     batch1Workflow: null,
     batch1Board: null,
+    axiom: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -215,6 +216,7 @@ export default function Dashboard() {
       api.get('/api/v1/scheduler/jobs'),
       api.get('/api/v1/batch1/workflow'),
       api.get('/api/v1/batch1/board'),
+      api.get('/api/v1/departments/axiom/operating-model'),
     ])
 
     const value = (index, fallback = null) => (
@@ -246,6 +248,7 @@ export default function Dashboard() {
       scheduler: value(18, null),
       batch1Workflow: value(19, null),
       batch1Board: value(20, null),
+      axiom: value(21, null),
     })
 
     setLoading(false)
@@ -321,6 +324,7 @@ export default function Dashboard() {
   const batch1StageCount = data.batch1Workflow?.stage_count || 0
   const batch1PhaseCount = data.batch1Workflow?.phase_count || 0
   const activePipelines = data.batch1Board?.counts?.active_pipelines || 0
+  const axiomDepartmentCount = data.axiom?.counts?.departments || 0
 
   if (loading) {
     return (
@@ -454,6 +458,7 @@ export default function Dashboard() {
               <HealthRow label="Agent Ops" ok={statusIsOk(data.agentOps)} detail={data.agentOps?.status || 'unknown'} />
               <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} />
               <HealthRow label="Client Engine" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33 stages`} />
+              <HealthRow label="AXIOM" ok={axiomDepartmentCount === 25} detail={`${axiomDepartmentCount}/25 departments`} />
             </div>
           </Panel>
 

@@ -537,6 +537,53 @@ async def strategy_dashboard(
 # SYSTEM HEALTH & STATUS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ============================================================================
+# AXIOM COMMERCIAL OPERATING MODEL
+# ============================================================================
+
+@router.get("/axiom/operating-model")
+async def axiom_operating_model():
+    """AXIOM commercial brand layer: 25 departments, managers, consultants, gateways."""
+    from app.services.departments.axiom_operating_model import operating_model
+    return operating_model()
+
+
+@router.get("/axiom/departments")
+async def axiom_departments():
+    """The canonical 25 AXIOM departments with manager and consultant ownership."""
+    from app.services.departments.axiom_operating_model import AXIOM_DEPARTMENTS
+    return {"status": "operational", "total": len(AXIOM_DEPARTMENTS), "departments": AXIOM_DEPARTMENTS}
+
+
+@router.get("/axiom/pulse")
+async def axiom_pulse():
+    """15-minute department pulse model with health and escalation thresholds."""
+    from app.services.departments.axiom_operating_model import pulse_snapshot
+    return pulse_snapshot()
+
+
+@router.post("/axiom/diagnose")
+async def axiom_diagnose(payload: dict):
+    """Diagnosis-first commercial engine: profile -> gateways -> prescribed departments."""
+    from app.services.departments.axiom_operating_model import diagnose_client
+    return diagnose_client(payload)
+
+
+@router.get("/axiom/consultants")
+async def axiom_consultants():
+    """Specialized consultant prompts and reporting doctrine for all 25 departments."""
+    from app.services.departments.axiom_operating_model import consultant_prompts
+    prompts = consultant_prompts()
+    return {"status": "operational", "total": len(prompts), "consultants": prompts}
+
+
+@router.post("/axiom/milestone-report")
+async def axiom_milestone_report(payload: dict):
+    """Consultant -> Council direct milestone reporting path."""
+    from app.services.departments.axiom_operating_model import milestone_report
+    return milestone_report(payload)
+
+
 @router.get("/health")
 async def departments_health():
     """6-Layer Intelligence System health check."""
