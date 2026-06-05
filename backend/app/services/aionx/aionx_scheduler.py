@@ -42,6 +42,18 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     # Decision Memory — weekly retrospective report (Sunday 19:30 UTC)
     add_cron_job("aionx_decision_retrospective", _job_weekly_decision_retro, hour=19, minute=30, day_of_week="sun")
 
+    # Intelligence Engine — Counterfactual sync (daily 01:00 UTC)
+    add_cron_job("aionx_counterfactual_sync", _job_counterfactual_sync, hour=1, minute=0)
+
+    # Intelligence Engine — Decision debt assessment (daily 02:00 UTC)
+    add_cron_job("aionx_debt_assessment", _job_debt_assessment, hour=2, minute=0)
+
+    # Intelligence Engine — Trust erosion check (daily 03:30 UTC)
+    add_cron_job("aionx_trust_erosion_check", _job_trust_erosion_check, hour=3, minute=30)
+
+    # Intelligence Engine — Authority recalibration (weekly Sunday 20:00 UTC)
+    add_cron_job("aionx_authority_recalibration", _job_authority_recalibration, hour=20, minute=0, day_of_week="sun")
+
     logger.info("✅ AIONX Sovereign Organ jobs registered (Adaptive Cadence active)")
 
 
@@ -228,3 +240,94 @@ async def _job_weekly_decision_retro() -> None:
             )
     except Exception as exc:
         logger.warning("AIONX weekly decision retro failed: %s", exc)
+
+
+# ─── INTELLIGENCE ENGINES ────────────────────────────────────────────────────
+
+async def _job_counterfactual_sync() -> None:
+    logger.info("AIONX: counterfactual sync — simulate mature decisions")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.counterfactual_engine import extract_learning
+        from sqlalchemy import select
+        from app.models.aionx_organs import DecisionObject
+        from datetime import timedelta
+
+        async with AsyncSessionLocal() as db:
+            # Simulate decisions older than 30 days
+            thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30))
+            mature_decisions = (await db.execute(
+                select(DecisionObject).where(DecisionObject.created_at <= thirty_days_ago)
+            )).scalars().all()
+
+            learning = await extract_learning(db)
+            logger.info("AIONX Counterfactual: %d decisions reviewed, %.0f%% success",
+                       learning["decisions_reviewed"], learning["success_rate"] * 100)
+    except Exception as exc:
+        logger.warning("AIONX counterfactual sync failed: %s", exc)
+
+
+async def _job_debt_assessment() -> None:
+    logger.info("AIONX: institutional debt assessment")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.decision_debt_engine import assess_institutional_debt
+
+        async with AsyncSessionLocal() as db:
+            debt_index = await assess_institutional_debt(db)
+            logger.info("AIONX Debt: $%.2f institutional, %d high-debt decisions, penalty %.1f pts",
+                       debt_index["total_institutional_debt_usd"],
+                       debt_index["high_debt_decision_count"],
+                       debt_index["wisdom_index_penalty_points"])
+    except Exception as exc:
+        logger.warning("AIONX debt assessment failed: %s", exc)
+
+
+async def _job_trust_erosion_check() -> None:
+    logger.info("AIONX: client trust erosion detection")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.client_trust_index import escalate_trust_erosion
+        from sqlalchemy import select
+        from app.models.aionx_organs import ClientDigitalTwin
+
+        async with AsyncSessionLocal() as db:
+            twins = (await db.execute(select(ClientDigitalTwin))).scalars().all()
+
+            escalations = 0
+            for twin in twins:
+                result = await escalate_trust_erosion(db, twin.client_id)
+                if result.get("escalated"):
+                    escalations += 1
+
+            logger.info("AIONX Trust: checked %d clients, %d erosion alerts", len(twins), escalations)
+    except Exception as exc:
+        logger.warning("AIONX trust erosion check failed: %s", exc)
+
+
+async def _job_authority_recalibration() -> None:
+    logger.info("AIONX: decision maker authority recalibration")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.aionx.executive_accountability_engine import compute_authority_decay
+        from sqlalchemy import select, distinct
+        from app.models.aionx_organs import DecisionObject
+
+        async with AsyncSessionLocal() as db:
+            # Get all unique decision makers
+            makers = (await db.execute(
+                select(distinct(DecisionObject.created_by))
+            )).scalars().all()
+
+            decayed = 0
+            for maker in makers:
+                if maker:
+                    result = await compute_authority_decay(db, maker)
+                    if result.get("authority_decay", 0) > 0:
+                        decayed += 1
+                        logger.info("AIONX Accountability: %s authority decay %.1f pts",
+                                   maker, result["authority_decay"])
+
+            logger.info("AIONX Accountability: recalibrated %d makers, %d with decay", len(makers), decayed)
+    except Exception as exc:
+        logger.warning("AIONX authority recalibration failed: %s", exc)

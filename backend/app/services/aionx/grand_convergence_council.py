@@ -107,13 +107,34 @@ async def run_convergence_session(
     )
     session = result.scalar_one()
 
-    # CONTEXT_LOAD — inject Decision Memory patterns
+    # CONTEXT_LOAD — inject Decision Memory patterns + engine intelligence
     session.session_phase = "CONTEXT_LOAD"
+    context_data = {}
+
     if inject_patterns:
         patterns = await pattern_injection_for_council(
             db, decision_category, []
         )
-        session.context_loaded = {"historical_patterns": patterns}
+        context_data["historical_patterns"] = patterns
+
+    # Inject counterfactual analysis
+    try:
+        from app.services.aionx.counterfactual_engine import extract_learning
+        learning = await extract_learning(db)
+        context_data["counterfactual_accuracy"] = learning.get("success_rate", 0.5)
+    except Exception:
+        context_data["counterfactual_accuracy"] = None
+
+    # Inject institutional debt
+    try:
+        from app.services.aionx.decision_debt_engine import assess_institutional_debt
+        debt = await assess_institutional_debt(db)
+        context_data["institutional_debt"] = debt.get("total_institutional_debt_usd", 0)
+        context_data["debt_penalty"] = debt.get("wisdom_index_penalty_points", 0)
+    except Exception:
+        context_data["institutional_debt"] = None
+
+    session.context_loaded = context_data
     await db.commit()
 
     # POSITION — each participant states their position
@@ -152,15 +173,33 @@ async def run_convergence_session(
     session.session_phase = "CONVERGE"
     await db.commit()
 
-    # RECOMMEND — single recommendation with dissent preserved
+    # RECOMMEND — single recommendation with engine intelligence + trust data
     session.session_phase = "RECOMMEND"
+
+    # Gather trust & accountability data
+    trust_context = ""
+    try:
+        from sqlalchemy import select
+        from app.models.aionx_organs import ClientDigitalTwin
+        from app.services.aionx.client_trust_index import compute_trust_score
+
+        twins = (await db.execute(select(ClientDigitalTwin))).scalars().all()
+        if twins:
+            avg_trust = sum(t.trust_score or 70 for t in twins) / len(twins)
+            trust_context = f"\nAverage client trust: {avg_trust:.0f}/100"
+    except Exception:
+        pass
+
     try:
         recommendation = await route_task(
             task_type=TaskType.REASONING,
             prompt=(
                 f"Convergence Council Final Recommendation for: {session.trigger_event}\n"
-                f"Council positions: {positions}\n\n"
+                f"Council positions: {positions}\n"
+                f"Context: Debt=${context_data.get('institutional_debt', 'unknown')} "
+                f"Accuracy={(context_data.get('counterfactual_accuracy', 0)*100):.0f}%{trust_context}\n\n"
                 "Produce a single clear recommendation. Preserve all dissenting opinions separately. "
+                "Consider debt, accuracy, and trust factors in decision quality. "
                 "Format: RECOMMENDATION | DISSENT | CONFIDENCE | NEXT_ACTION"
             ),
             max_tokens=800,
