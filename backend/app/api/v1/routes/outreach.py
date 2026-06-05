@@ -49,6 +49,12 @@ class RegeneratePendingIn(BaseModel):
     limit: int = 100
 
 
+class PrepareCampaignIn(BaseModel):
+    tenant_id: Optional[UUID] = None
+    limit: int = 25
+    min_score: float = 0
+
+
 class SpeedToLeadTriggerIn(BaseModel):
     tenant_id: Optional[UUID] = None
     lookback_minutes: int = 5
@@ -230,6 +236,66 @@ async def regenerate_pending_outreach(
         limit=body.limit,
     )
     return {**result, "tenant_id": str(resolved_tenant_id)}
+
+
+@router.post("/prepare-campaign")
+async def prepare_campaign(
+    request: Request,
+    body: PrepareCampaignIn = Body(default_factory=PrepareCampaignIn),
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import select
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead, LeadStatus
+    from app.models.outreach import FollowUpQueue, FollowUpStatus
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+    limit = max(1, min(int(body.limit or 25), 100))
+    rows = (
+        await db.execute(
+            select(Lead)
+            .where(
+                Lead.tenant_id == resolved_tenant_id,
+                Lead.outreach_eligible.is_(True),
+                Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE]),
+                ((Lead.email.is_not(None)) | (Lead.contact_email.is_not(None))),
+                Lead.score >= float(body.min_score or 0),
+            )
+            .order_by(Lead.score.desc(), Lead.created_at.asc())
+            .limit(limit)
+        )
+    ).scalars().all()
+
+    queued = 0
+    skipped: list[dict] = []
+    for lead in rows:
+        existing = await db.scalar(
+            select(FollowUpQueue.id)
+            .where(
+                FollowUpQueue.tenant_id == resolved_tenant_id,
+                FollowUpQueue.lead_id == lead.id,
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            )
+            .limit(1)
+        )
+        if existing:
+            skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": "already_pending"})
+            continue
+        try:
+            await outreach_engine.queue_sequence(lead.id, resolved_tenant_id)
+            queued += 1
+        except Exception as exc:
+            skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": str(exc)[:180]})
+
+    await db.commit()
+    return {
+        "tenant_id": str(resolved_tenant_id),
+        "candidates_seen": len(rows),
+        "queued_leads": queued,
+        "skipped": skipped,
+        "next_action": "Connect Gmail OAuth, then run /api/v1/outreach/execute when engine-status is ready.",
+    }
 
 
 @router.post("/speed-to-lead/trigger")

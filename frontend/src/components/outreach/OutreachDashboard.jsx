@@ -35,6 +35,7 @@ export default function OutreachDashboard() {
   const [processing, setProcessing] = useState(false);
   const [engine, setEngine] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [lastRun, setLastRun] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
@@ -92,6 +93,19 @@ export default function OutreachDashboard() {
       setLastRun({ error: e?.response?.data?.detail || e.message || "Engine start failed" });
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function prepareCampaign() {
+    setPreparing(true);
+    try {
+      const r = await api.post("/api/v1/outreach/prepare-campaign", { limit: 25, min_score: 0 });
+      setLastRun(r.data);
+      await loadAll();
+    } catch (e) {
+      setLastRun({ error: e?.response?.data?.detail || e.message || "Campaign preparation failed" });
+    } finally {
+      setPreparing(false);
     }
   }
 
@@ -153,6 +167,13 @@ export default function OutreachDashboard() {
           >
             {starting ? "Starting..." : "Start Outreach Engine"}
           </button>
+          <button
+            onClick={prepareCampaign}
+            disabled={preparing}
+            className="rounded-xl border border-cyan-300/30 bg-cyan-500/15 px-5 py-2.5 text-sm font-bold text-cyan-100 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {preparing ? "Preparing..." : "Prepare Campaign Queue"}
+          </button>
           {engine?.gmail?.oauth_configured && !engine?.gmail?.oauth_connected && (
             <button
               onClick={connectGmail}
@@ -184,7 +205,11 @@ export default function OutreachDashboard() {
 
         {lastRun && (
           <div className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100/80">
-            {lastRun.error ? `Last run failed: ${lastRun.error}` : `Last run: sent ${lastRun.sent ?? 0} emails for tenant ${lastRun.tenant_id || ""}`}
+            {lastRun.error
+              ? `Last action failed: ${lastRun.error}`
+              : lastRun.queued_leads !== undefined
+                ? `Prepared queue: ${lastRun.queued_leads} leads queued, ${lastRun.skipped?.length || 0} skipped.`
+                : `Last run: sent ${lastRun.sent ?? 0} emails for tenant ${lastRun.tenant_id || ""}`}
           </div>
         )}
       </div>
