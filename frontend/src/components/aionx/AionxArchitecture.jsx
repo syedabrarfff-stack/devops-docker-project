@@ -10,7 +10,14 @@ import {
   Network,
   ShieldCheck,
 } from 'lucide-react'
-import { getAionxArchitecture, getAionxDashboard, getAionxSystemInfo, getBatch1Board, getBatch1Workflow } from '../../services/api'
+import {
+  getAionxArchitecture,
+  getAionxDashboard,
+  getAionxOperatingIntelligence,
+  getAionxSystemInfo,
+  getBatch1Board,
+  getBatch1Workflow,
+} from '../../services/api'
 
 const STATUS_STYLE = {
   LIVE: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
@@ -109,22 +116,23 @@ function ConnectionRow({ row }) {
 }
 
 export default function AionxArchitecture() {
-  const [state, setState] = useState({ loading: true, architecture: null, dashboard: null, system: null, workflow: null, board: null, error: null })
+  const [state, setState] = useState({ loading: true, architecture: null, dashboard: null, system: null, workflow: null, board: null, operating: null, error: null })
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const [architecture, dashboard, system, workflow, board] = await Promise.all([
+        const [architecture, dashboard, system, workflow, board, operating] = await Promise.all([
           getAionxArchitecture(),
           getAionxDashboard(),
           getAionxSystemInfo(),
           getBatch1Workflow(),
           getBatch1Board(),
+          getAionxOperatingIntelligence(),
         ])
-        if (!cancelled) setState({ loading: false, architecture, dashboard, system, workflow, board, error: null })
+        if (!cancelled) setState({ loading: false, architecture, dashboard, system, workflow, board, operating, error: null })
       } catch (error) {
-        if (!cancelled) setState({ loading: false, architecture: null, dashboard: null, system: null, workflow: null, board: null, error })
+        if (!cancelled) setState({ loading: false, architecture: null, dashboard: null, system: null, workflow: null, board: null, operating: null, error })
       }
     }
     load()
@@ -157,6 +165,13 @@ export default function AionxArchitecture() {
   const wisdom = state.dashboard?.sections?.wisdom_index?.wisdom_score
   const workflow = state.workflow || {}
   const board = state.board || {}
+  const operating = state.operating || {}
+  const adaptive = operating.adaptive_intelligence || {}
+  const tech = operating.technology_exploration || {}
+  const pipeline12 = operating.revenue_pipeline || {}
+  const dependencies = operating.module_dependencies || {}
+  const dataBackbone = operating.data_backbone || {}
+  const gatewayExperience = operating.gateway_experience || {}
 
   return (
     <div className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 text-white">
@@ -179,6 +194,7 @@ export default function AionxArchitecture() {
           <StatCard icon={Network} label="AIONX Routes" value={counts.aionx_api_endpoints_expected || 0} sub="Registered backend surface" />
           <StatCard icon={Activity} label="Operational IQ" value={iq ?? '-'} sub="Live Cortex signal" />
           <StatCard icon={ShieldCheck} label="Wisdom Score" value={wisdom ?? '-'} sub="Institutional fitness signal" />
+          <StatCard icon={CircuitBoard} label="Adaptive Cycles" value={`${adaptive.cycle_count || 0}/5`} sub={`${tech.source_count || 0} tech watchtower sources`} />
         </div>
 
         <section className="rounded-3xl border border-cyan-200/15 bg-white/[0.045] p-5">
@@ -218,6 +234,104 @@ export default function AionxArchitecture() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-emerald-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-emerald-200/60">Living Operating Intelligence</p>
+              <h2 className="mt-1 text-2xl font-black">Adaptive Layer + Watchtower + Data Backbone</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                This is the missing organism layer from the recovered architecture: five self-evolution cycles,
+                technology exploration, module dependencies, the compact 12-stage revenue pipeline, and Captain-governed boundaries.
+              </p>
+            </div>
+            <StatusPill status={operating.status || 'PARTIAL'} />
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <StatCard icon={Activity} label="Adaptive Cycles" value={`${adaptive.cycle_count || 0}/5`} sub={adaptive.status || 'not reported'} />
+            <StatCard icon={Network} label="Tech Sources" value={tech.source_count || 0} sub="Exploration watchtower" />
+            <StatCard icon={GitBranch} label="Dependency Rules" value={dependencies.module_count || 0} sub="Module resolver coverage" />
+            <StatCard icon={CircuitBoard} label="Live Tables" value={dataBackbone.total_live_tables || 0} sub="Database backbone inspected" />
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Five Adaptive Cycles</h3>
+              <div className="mt-3 grid gap-2">
+                {(adaptive.cycles || []).map((cycle) => (
+                  <div key={cycle.code} className="rounded-xl border border-emerald-300/10 bg-emerald-300/[0.05] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-emerald-100">{cycle.name}</p>
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-emerald-200/55">{cycle.cadence}</p>
+                      </div>
+                      <StatusPill status={cycle.status} />
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-white/60">{cycle.purpose}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Technology Exploration Division</h3>
+              <p className="mt-2 text-xs leading-5 text-white/60">{tech.adoption_rule}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(tech.sources || []).map((source) => (
+                  <span key={source.source} className="rounded-full border border-cyan-200/10 bg-cyan-300/[0.06] px-2.5 py-1 text-[11px] text-cyan-100">
+                    {source.source}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.035] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200/60">Classification Flow</p>
+                <p className="mt-2 text-sm text-white/70">{(tech.classification_flow || []).join(' -> ')}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">12-Stage Revenue Pipeline</h3>
+              <div className="mt-3 space-y-2">
+                {(pipeline12.stages || []).map((stage) => (
+                  <div key={stage.stage} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs text-white/70">
+                    <span className="font-black text-cyan-100">{stage.stage}. {stage.name}</span> - {stage.owner}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Three Gateway UX</h3>
+              <div className="mt-3 space-y-3">
+                {(gatewayExperience.gateways || []).map((gateway) => (
+                  <div key={gateway.code} className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
+                    <p className="text-sm font-bold text-white">{gateway.name}</p>
+                    <p className="mt-1 text-xs text-white/55">{gateway.entry_point}</p>
+                    <p className="mt-2 text-xs text-emerald-200">{gateway.retainer_range}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h3 className="font-black text-white">Data Backbone Groups</h3>
+              <div className="mt-3 space-y-2">
+                {Object.entries(dataBackbone.groups || {}).map(([name, group]) => (
+                  <div key={name} className="rounded-xl bg-white/[0.035] px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-white/75">{name.replaceAll('_', ' ')}</span>
+                      <span className="text-cyan-100">{group.live}/{group.expected}</span>
+                    </div>
+                    {!!group.missing?.length && <p className="mt-1 text-amber-200/70">Missing: {group.missing.join(', ')}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 

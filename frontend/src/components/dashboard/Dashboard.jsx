@@ -188,6 +188,7 @@ export default function Dashboard() {
     batch1Workflow: null,
     batch1Board: null,
     axiom: null,
+    operatingIntelligence: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -217,6 +218,7 @@ export default function Dashboard() {
       api.get('/api/v1/batch1/workflow'),
       api.get('/api/v1/batch1/board'),
       api.get('/api/v1/departments/axiom/operating-model'),
+      api.get('/api/v1/aionx/operating-intelligence'),
     ])
 
     const value = (index, fallback = null) => (
@@ -249,6 +251,7 @@ export default function Dashboard() {
       batch1Workflow: value(19, null),
       batch1Board: value(20, null),
       axiom: value(21, null),
+      operatingIntelligence: value(22, null),
     })
 
     setLoading(false)
@@ -325,6 +328,10 @@ export default function Dashboard() {
   const batch1PhaseCount = data.batch1Workflow?.phase_count || 0
   const activePipelines = data.batch1Board?.counts?.active_pipelines || 0
   const axiomDepartmentCount = data.axiom?.counts?.departments || 0
+  const adaptiveCycleCount = data.operatingIntelligence?.adaptive_intelligence?.cycle_count || 0
+  const techSourceCount = data.operatingIntelligence?.technology_exploration?.source_count || 0
+  const dependencyModuleCount = data.operatingIntelligence?.module_dependencies?.module_count || 0
+  const liveTableCount = data.operatingIntelligence?.data_backbone?.total_live_tables || 0
 
   if (loading) {
     return (
@@ -438,6 +445,14 @@ export default function Dashboard() {
           tone={batch1StageCount === 33 ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
+        <MetricCard
+          icon={Cpu}
+          label="Adaptive Layer"
+          value={`${adaptiveCycleCount}/5`}
+          detail={`${techSourceCount} watchtower sources | ${dependencyModuleCount} dependency rules`}
+          tone={adaptiveCycleCount === 5 ? 'green' : 'red'}
+          onClick={() => setActiveView('aionxArchitecture')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
@@ -459,6 +474,40 @@ export default function Dashboard() {
               <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} />
               <HealthRow label="Client Engine" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33 stages`} />
               <HealthRow label="AXIOM" ok={axiomDepartmentCount === 25} detail={`${axiomDepartmentCount}/25 departments`} />
+              <HealthRow label="Adaptive Intelligence" ok={adaptiveCycleCount === 5} detail={`${adaptiveCycleCount}/5 cycles`} />
+              <HealthRow label="Tech Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} sources`} />
+              <HealthRow label="Dependency Resolver" ok={dependencyModuleCount >= 25} detail={`${dependencyModuleCount} modules`} />
+              <HealthRow label="Data Backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
+            </div>
+          </Panel>
+
+          <Panel
+            title="Living Operating Intelligence"
+            subtitle="Adaptive layer, technology watchtower, data backbone, gateway UX, and Captain boundary"
+            icon={Cpu}
+            action={<button onClick={() => setActiveView('aionxArchitecture')} className="text-xs text-jarvis-cyan hover:text-white">Open full map</button>}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {(data.operatingIntelligence?.adaptive_intelligence?.cycles || []).map((cycle) => (
+                <div key={cycle.code} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{cycle.name}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-jarvis-cyan/70">{cycle.cadence}</p>
+                    </div>
+                    <span className="rounded-full border border-green-400/30 bg-green-400/10 px-2 py-1 text-xs text-green-300">
+                      {cycle.authority}
+                    </span>
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-xs text-gray-400">{cycle.purpose}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <HealthRow label="Cycles" ok={adaptiveCycleCount === 5} detail={`${adaptiveCycleCount}/5`} />
+              <HealthRow label="Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} feeds`} />
+              <HealthRow label="12-stage pipe" ok={(data.operatingIntelligence?.revenue_pipeline?.stage_count || 0) === 12} detail={`${data.operatingIntelligence?.revenue_pipeline?.stage_count || 0}/12`} />
+              <HealthRow label="DB backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
             </div>
           </Panel>
 

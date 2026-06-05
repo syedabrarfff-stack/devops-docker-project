@@ -305,6 +305,26 @@ CANONICAL_AIONX_BLUEPRINT: list[dict[str, Any]] = [
             "Autonomous org restructuring must remain approval-governed before production autonomy",
         ],
     },
+    {
+        "id": "living_operating_intelligence",
+        "name": "Living Operating Intelligence Layer",
+        "status": "LIVE_FOUNDATION",
+        "live_evidence": [
+            "Five adaptive cycles defined",
+            "Technology exploration watchtower defined",
+            "12-stage compact revenue pipeline exposed",
+            "Module dependency resolver exposed",
+            "Data backbone inspection endpoint",
+            "Three gateway UX doctrine exposed",
+            "Captain interface boundary exposed",
+        ],
+        "pending_work": [
+            "Connect SELF_OBSERVE to real 15-minute metric snapshots",
+            "Connect Technology Exploration to authenticated external crawlers/APIs",
+            "Convert dependency resolver rules into active orchestration gates",
+            "Add approval-governed execution for SELF_IMPROVE recommendations",
+        ],
+    },
 ]
 
 
@@ -350,7 +370,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
     """
 
     table_names = await _existing_tables(db)
-    route_count = 58
+    route_count = 66
 
     expected_tables = {
         "decision_objects",
@@ -411,6 +431,7 @@ async def get_aionx_architecture_reconciliation(db: AsyncSession) -> dict[str, A
             "Council conference-room UI with natural-language participant messages",
             "Revenue Heart ledger and cost-per-outcome reporting",
             "Self-modification safety membrane with shadow/canary approval workflow",
+            "Adaptive intelligence scheduler wiring and real metric snapshots",
             "Resurrection/DR plan after core revenue workflows are stable",
         ],
         "authority_boundaries": [

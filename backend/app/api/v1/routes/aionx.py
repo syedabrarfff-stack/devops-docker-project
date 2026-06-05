@@ -64,6 +64,16 @@ from app.services.aionx.batch1_client_pipeline import (
     advance_stage,
     get_pipeline,
 )
+from app.services.aionx.living_operating_intelligence import (
+    adaptive_intelligence_status,
+    captain_interface_status,
+    data_backbone_status,
+    full_operating_intelligence,
+    gateway_experience_status,
+    module_dependency_status,
+    revenue_pipeline_status,
+    technology_exploration_status,
+)
 
 router = APIRouter(prefix="/aionx", tags=["AIONX"])
 
@@ -89,6 +99,48 @@ async def cortex_fire_event(
     if not event_type:
         raise HTTPException(status_code=400, detail="event_type required")
     return await fire_event(db, event_type, payload)
+
+
+# CANONICAL LIVING OPERATING INTELLIGENCE
+
+@router.get("/operating-intelligence")
+async def operating_intelligence(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await full_operating_intelligence(db)
+
+
+@router.get("/adaptive-intelligence")
+async def adaptive_intelligence(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await adaptive_intelligence_status(db)
+
+
+@router.get("/technology-exploration")
+async def technology_exploration() -> dict[str, Any]:
+    return technology_exploration_status()
+
+
+@router.get("/revenue-pipeline")
+async def revenue_pipeline() -> dict[str, Any]:
+    return revenue_pipeline_status()
+
+
+@router.get("/module-dependencies")
+async def module_dependencies() -> dict[str, Any]:
+    return module_dependency_status()
+
+
+@router.get("/data-backbone")
+async def data_backbone(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await data_backbone_status(db)
+
+
+@router.get("/gateway-experience")
+async def gateway_experience() -> dict[str, Any]:
+    return gateway_experience_status()
+
+
+@router.get("/captain-interface")
+async def captain_interface(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    return await captain_interface_status(db)
 
 
 # ─── BATCH 1 CLIENT PIPELINE ORCHESTRATOR ────────────────────────────────────
