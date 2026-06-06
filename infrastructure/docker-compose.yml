@@ -125,15 +125,34 @@ services:
   # AIONX WhatsApp transport layer - Evolution API only, no duplicate CRM/memory logic.
   evolution:
     <<: *logging
-    image: atendai/evolution-api:latest
+    image: atendai/evolution-api:v2.1.1
     container_name: evolution-api
     restart: unless-stopped
     env_file:
       - ../.env
     environment:
       SERVER_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
+      DEL_INSTANCE: "false"
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-jarvis-master-key}
       LOG_LEVEL: ${EVOLUTION_LOG_LEVEL:-ERROR}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${EVOLUTION_POSTGRES_DB:-evolution}
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_api
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_LABELS: "true"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/1
+      CACHE_REDIS_PREFIX_KEY: evolution_api
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      RABBITMQ_ENABLED: "false"
+      S3_ENABLED: "false"
     volumes:
       - evolution_instances:/evolution/instances
     ports:
