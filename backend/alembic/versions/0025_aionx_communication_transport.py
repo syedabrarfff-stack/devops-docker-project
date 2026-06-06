@@ -1,6 +1,6 @@
 """AIONX communication transport ledger.
 
-Revision ID: 0025_aionx_communication_transport
+Revision ID: 0025_aionx_comm_transport
 Revises: 0024_aionx_omni
 Create Date: 2026-06-06
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from alembic import op
 
-revision = "0025_aionx_communication_transport"
+revision = "0025_aionx_comm_transport"
 down_revision = "0024_aionx_omni"
 branch_labels = None
 depends_on = None
