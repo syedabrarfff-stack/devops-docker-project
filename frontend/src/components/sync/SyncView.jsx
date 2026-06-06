@@ -81,15 +81,15 @@ export default function SyncView() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Integrations &amp; Sync</h1>
-        <p className="text-gray-400 text-sm">OAuth connections, contact sync, Telegram webhook</p>
+        <p className="text-gray-400 text-sm">SES identity, contact sync, Telegram webhook</p>
       </div>
 
-      {/* Gmail OAuth */}
+      {/* Executive Email */}
       <div className="glass rounded-xl p-5 border border-white/5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="font-semibold text-white">Gmail OAuth</h2>
-            <p className="text-xs text-gray-500">Send emails via Gmail API (more reliable than SMTP)</p>
+            <h2 className="font-semibold text-white">Executive Email Identity</h2>
+            <p className="text-xs text-gray-500">AWS SES is the outbound backbone for Joseph David</p>
           </div>
           <div className={`text-xs px-3 py-1 rounded-full border ${
             gmailStatus?.connected
@@ -109,23 +109,20 @@ export default function SyncView() {
                 <p className="text-xs text-gray-500">Send method: {gmailStatus.send_method}</p>
               </div>
             </div>
-            <button onClick={revokeGmail}
-              className="px-4 py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-lg text-sm transition-colors">
-              Revoke Access
+            <button onClick={loadAll}
+              className="px-4 py-2 border border-white/10 text-gray-300 hover:bg-white/5 rounded-lg text-sm transition-colors">
+              Refresh Status
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            {!gmailStatus?.oauth_configured ? (
-              <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
-                Add <code className="font-mono">GMAIL_CLIENT_ID</code> and <code className="font-mono">GMAIL_CLIENT_SECRET</code> to .env to enable OAuth.
-              </p>
-            ) : (
-              <button onClick={connectGmail}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
-                Connect Gmail
-              </button>
-            )}
+            <p className="text-xs text-yellow-400 bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
+              AWS SES needs production access and a verified sender identity before client email delivery can begin.
+            </p>
+            <button onClick={loadAll}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
+              Refresh Status
+            </button>
           </div>
         )}
       </div>

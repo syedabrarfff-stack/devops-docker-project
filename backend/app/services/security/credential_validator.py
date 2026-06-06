@@ -53,8 +53,10 @@ def run_credential_audit() -> dict:
         CredentialCheck("SLACK_WEBHOOK_URL", "Notifications", bool(settings.SLACK_WEBHOOK_URL), SEVERITY_HIGH, "Slack — Captain alerts and emergency notifications", _mask(settings.SLACK_WEBHOOK_URL)),
         CredentialCheck("TELEGRAM_BOT_TOKEN", "Notifications", bool(settings.TELEGRAM_BOT_TOKEN), SEVERITY_MEDIUM, "Telegram — mobile approval push notifications", _mask(settings.TELEGRAM_BOT_TOKEN)),
         # ── Email ───────────────────────────────────────────────────────────────
-        CredentialCheck("GMAIL_ADDRESS", "Email", bool(settings.GMAIL_ADDRESS), SEVERITY_MEDIUM, "Gmail address for outreach system"),
-        CredentialCheck("GMAIL_CLIENT_ID", "Email — OAuth", bool(settings.GMAIL_CLIENT_ID), SEVERITY_MEDIUM, "Gmail OAuth 2.0 — required for outreach automation"),
+        CredentialCheck("OUTBOUND_EMAIL_PROVIDER", "Email", bool(settings.OUTBOUND_EMAIL_PROVIDER), SEVERITY_HIGH, "Outbound email provider selector"),
+        CredentialCheck("EXECUTIVE_EMAIL_ADDRESS", "Email", bool(settings.EXECUTIVE_EMAIL_ADDRESS), SEVERITY_HIGH, "Executive sender address for outreach and proposals"),
+        CredentialCheck("SES_FROM_EMAIL", "Email — SES", bool(settings.SES_FROM_EMAIL or settings.EXECUTIVE_EMAIL_ADDRESS), SEVERITY_HIGH, "AWS SES verified sender identity"),
+        CredentialCheck("AWS_ACCESS_KEY_ID", "AWS — SES", bool(settings.AWS_ACCESS_KEY_ID or settings.USE_AWS), SEVERITY_HIGH if settings.USE_AWS else SEVERITY_LOW, "AWS credentials for SES sending"),
         # ── Connectors ──────────────────────────────────────────────────────────
         CredentialCheck("APOLLO_API_KEY", "CRM Connectors", bool(settings.APOLLO_API_KEY), SEVERITY_MEDIUM, "Apollo.io — lead enrichment and contact sync", _mask(settings.APOLLO_API_KEY)),
         CredentialCheck("HUBSPOT_API_KEY", "CRM Connectors", bool(settings.HUBSPOT_API_KEY), SEVERITY_LOW, "HubSpot CRM integration", _mask(settings.HUBSPOT_API_KEY)),

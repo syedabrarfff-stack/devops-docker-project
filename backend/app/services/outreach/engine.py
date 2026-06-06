@@ -240,19 +240,19 @@ class OutreachEngine:
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
-                from app.services.outreach.gmail import gmail_delivery_status
+                from app.services.outreach.gmail import email_delivery_status
 
-                gmail_status = await gmail_delivery_status(session, validate_smtp=True)
-                if gmail_status.get("send_mode") != "live":
+                email_status = await email_delivery_status(session, validate_provider=True)
+                if email_status.get("send_mode") != "live":
                     await self._audit(
                         session,
                         tenant_uuid,
-                        "outreach_execute_blocked_gmail_not_live",
+                        "outreach_execute_blocked_email_not_live",
                         None,
                         {
-                            "send_mode": gmail_status.get("send_mode"),
-                            "blocker_code": gmail_status.get("blocker_code"),
-                            "required_action": gmail_status.get("required_action"),
+                            "send_mode": email_status.get("send_mode"),
+                            "blocker_code": email_status.get("blocker_code"),
+                            "required_action": email_status.get("required_action"),
                         },
                     )
                     return 0

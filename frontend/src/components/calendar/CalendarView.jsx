@@ -101,7 +101,7 @@ export default function CalendarView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
-          <p className="text-gray-400 text-sm">Google Calendar integration</p>
+          <p className="text-gray-400 text-sm">Calendar integration</p>
         </div>
         <div className="flex gap-2 items-center">
           <select value={daysAhead} onChange={e => setDaysAhead(Number(e.target.value))}
@@ -119,14 +119,14 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {/* OAuth Status Banner */}
+      {/* Calendar Status Banner */}
       {oauthStatus && !oauthStatus.connected && (
         <div className="glass rounded-xl p-4 border border-yellow-500/30 bg-yellow-500/5">
-          <p className="text-yellow-400 text-sm font-medium">Google Calendar not connected</p>
+          <p className="text-yellow-400 text-sm font-medium">Calendar provider not connected</p>
           <p className="text-gray-400 text-xs mt-1">
             {oauthStatus.oauth_configured
-              ? "Complete Gmail OAuth to enable Calendar — go to Settings and click Connect Gmail."
-              : "Add GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET to .env to enable OAuth."}
+              ? "Complete the calendar provider connection in Settings to enable scheduling."
+              : "Add the calendar provider credentials to .env to enable sync."}
           </p>
         </div>
       )}
@@ -154,7 +154,7 @@ export default function CalendarView() {
         <div className="text-center text-gray-500 py-12">
           <p>No events in the next {daysAhead} days.</p>
           <p className="text-sm mt-1">
-            {oauthStatus?.connected ? "Your calendar is empty." : "Connect Google Calendar to see events."}
+            {oauthStatus?.connected ? "Your calendar is empty." : "Connect your calendar provider to see events."}
           </p>
         </div>
       ) : (

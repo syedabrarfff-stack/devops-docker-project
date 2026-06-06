@@ -150,7 +150,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     await set_tenant_context(db, str(resolved_tenant_id))
-    gmail = await gmail_service.gmail_delivery_status(db, validate_smtp=True)
+    email = await gmail_service.email_delivery_status(db, validate_provider=True)
     cap = await outreach_compliance.daily_send_cap_status(db, resolved_tenant_id)
 
     total_leads = await db.scalar(
@@ -184,8 +184,8 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
 
     action_type = "outreach_emails"
     blockers: list[str] = []
-    if gmail["send_mode"] != "live":
-        blockers.append(gmail.get("human_message") or gmail["validation_error"] or "Gmail is not live.")
+    if email["send_mode"] != "live":
+        blockers.append(email.get("human_message") or email["validation_error"] or "Executive email is not live.")
     if await outreach_compliance.is_outreach_paused(db, resolved_tenant_id):
         blockers.append("Outreach is paused.")
     if not cap["allowed"]:
@@ -203,7 +203,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
             "level": get_authority_level(action_type),
             "requires_captain_approval": requires_captain_approval(action_type),
         },
-        "gmail": gmail,
+        "email": email,
         "daily_cap": cap,
         "queue": {
             "pending_followups": int(pending_followups),
@@ -218,8 +218,8 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
         },
         "blockers": blockers,
         "next_action": (
-            gmail.get("required_action") or "Connect Gmail OAuth, then run POST /api/v1/outreach/execute."
-            if gmail["send_mode"] != "live"
+            email.get("required_action") or "Connect SES and verify the executive identity, then run POST /api/v1/outreach/execute."
+            if email["send_mode"] != "live"
             else "Run POST /api/v1/outreach/execute to send due outreach under the 48/day cap."
         ),
     }
@@ -310,7 +310,7 @@ async def prepare_campaign(
         "candidates_seen": len(rows),
         "queued_leads": queued,
         "skipped": skipped,
-        "next_action": "Connect Gmail OAuth, then run /api/v1/outreach/execute when engine-status is ready. Leads below 80 stay behind Captain review.",
+        "next_action": "Verify AWS SES production access and the executive identity, then run /api/v1/outreach/execute when engine-status is ready. Leads below 80 stay behind Captain review.",
     }
 
 

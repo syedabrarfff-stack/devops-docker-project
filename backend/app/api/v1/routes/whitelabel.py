@@ -86,14 +86,14 @@ async def onboarding_step2(tenant_id: UUID, body: PersonasRequest):
 
 
 class EmailConfigRequest(BaseModel):
-    gmail_address: str = Field(min_length=5, max_length=255)
-    gmail_app_password: str = Field(min_length=8, max_length=100)
+    executive_email: str = Field(min_length=5, max_length=255)
+    executive_name: str = Field(default="Joseph David", min_length=2, max_length=120)
     reply_to_name: str = ""
 
 @router.post("/onboarding/{tenant_id}/step3-email")
 async def onboarding_step3(tenant_id: UUID, body: EmailConfigRequest):
     return await onboarding.step3_email(
-        tenant_id, body.gmail_address, body.gmail_app_password, body.reply_to_name
+        tenant_id, body.executive_email, body.executive_name, body.reply_to_name
     )
 
 

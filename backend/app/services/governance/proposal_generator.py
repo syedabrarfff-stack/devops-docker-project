@@ -137,7 +137,7 @@ class ProposalGenerator:
                     body=_proposal_email_text(proposal),
                 )
                 if not sent:
-                    raise RuntimeError(f"Gmail send failed: {error}")
+                    raise RuntimeError(f"Executive email send failed: {error}")
                 proposal.status = "sent"
                 proposal.sent_at = datetime.now(UTC)
                 await self._audit(
@@ -532,7 +532,7 @@ def _proposal_email_html(proposal: Proposal) -> str:
         f"<p>Proposal reference: <strong>{proposal.invoice_number}</strong><br>PDF: {link}</p>"
         "<p>If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, "
         "and rollout sequence.</p>"
-        "<p>Darren Mitchell<br>Aliyar Solutions</p>"
+        "<p>Joseph David<br>Executive Director<br>Aliyar Solutions</p>"
     )
 
 
@@ -545,7 +545,8 @@ def _proposal_email_text(proposal: Proposal) -> str:
         f"Proposal reference: {proposal.invoice_number}\n"
         f"PDF: {link}\n\n"
         "If the scope looks aligned, the next step is a short call to confirm timeline, responsibilities, and rollout sequence.\n\n"
-        "Darren Mitchell\n"
+        "Joseph David\n"
+        "Executive Director\n"
         "Aliyar Solutions"
     )
 

@@ -29,7 +29,7 @@ const VIEW_PATHS = {
   projects: '/control-room/projects',
   scheduler: '/control-room/scheduler',
   notifications: '/control-room/notifications',
-  gmail: '/control-room/gmail',
+  gmail: '/control-room/email',
   voice: '/control-room/voice',
   knowledge: '/control-room/knowledge',
   research: '/control-room/research',

@@ -28,7 +28,7 @@ export default function TopBar() {
 
     const checkRuntime = async () => {
       try {
-        const [ready, gmail, outreach] = await Promise.all([
+        const [ready, email, outreach] = await Promise.all([
           api.get('/readyz'),
           api.get('/api/v1/gmail/status'),
           api.get('/api/v1/outreach/compliance/status'),
@@ -45,11 +45,11 @@ export default function TopBar() {
           return
         }
 
-        if (!gmail.data?.connected) {
+        if (!email.data?.connected) {
           setRuntimeStatus({
             level: 'degraded',
             label: 'EMAIL BLOCKED',
-            detail: gmail.data?.message || 'Gmail sender is configured but not connected',
+            detail: email.data?.message || 'Executive email is configured but not connected',
           })
           return
         }
@@ -66,7 +66,7 @@ export default function TopBar() {
         setRuntimeStatus({
           level: 'operational',
           label: 'OPERATIONAL',
-          detail: 'Core runtime, Gmail, and outreach controls are ready',
+          detail: 'Core runtime, executive email, and outreach controls are ready',
         })
       } catch {
         if (!active) return
@@ -120,7 +120,7 @@ export default function TopBar() {
     projects: 'Project Tracker',
     scheduler: 'Scheduler',
     notifications: 'Notifications',
-    gmail: 'Gmail Monitor',
+    gmail: 'Email Monitor',
     voice: 'Voice Briefings',
     knowledge: 'Knowledge Base',
     research: 'Research Reports',

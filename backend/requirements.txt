@@ -35,7 +35,7 @@ psycopg2-binary==2.9.9
 cryptography>=41.0.0
 boto3==1.35.0
 
-# Phase 3 — Google OAuth + Calendar
+# Phase 3 — Calendar integrations + legacy auth compatibility
 google-auth==2.51.0
 google-auth-oauthlib==1.2.1
 google-api-python-client==2.151.0

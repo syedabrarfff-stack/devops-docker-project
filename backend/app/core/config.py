@@ -56,18 +56,28 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
 
-    # Gmail (Phase 2 SMTP / Phase 3 OAuth)
+    # Executive email / SES
+    OUTBOUND_EMAIL_PROVIDER: str = "ses"
+    EXECUTIVE_EMAIL_NAME: str = "Joseph David"
+    EXECUTIVE_EMAIL_TITLE: str = "Executive Director"
+    EXECUTIVE_EMAIL_ADDRESS: str = "joseph.david@aliyarsolutions.com"
+    SES_FROM_NAME: Optional[str] = None
+    SES_FROM_EMAIL: Optional[str] = None
+    SES_CONFIGURATION_SET: Optional[str] = None
+    SES_REGION: Optional[str] = None
+    OUTREACH_PERSONALIZE_ON_SEND: bool = True
+    EMAIL_REPLY_TO_NAME: Optional[str] = None
+    # Legacy mailbox fields retained only for retired compatibility paths
     GMAIL_ADDRESS: Optional[str] = None
-    GMAIL_APP_PASSWORD: Optional[str] = None    # Phase 2 SMTP
-    GMAIL_USER: Optional[str] = None            # legacy alias
-    EMAIL_USER: Optional[str] = None            # legacy alias
-    EMAIL_PASS: Optional[str] = None            # legacy alias
-    SMTP_HOST: str = "smtp.gmail.com"
+    GMAIL_APP_PASSWORD: Optional[str] = None
+    GMAIL_USER: Optional[str] = None
+    EMAIL_USER: Optional[str] = None
+    EMAIL_PASS: Optional[str] = None
+    SMTP_HOST: str = "email-smtp.ap-south-2.amazonaws.com"
     SMTP_PORT: int = 587
     SMTP_SECURE: bool = False
-    OUTREACH_PERSONALIZE_ON_SEND: bool = True
-    GMAIL_CLIENT_ID: Optional[str] = None       # Phase 3 OAuth
-    GMAIL_CLIENT_SECRET: Optional[str] = None   # Phase 3 OAuth
+    GMAIL_CLIENT_ID: Optional[str] = None
+    GMAIL_CLIENT_SECRET: Optional[str] = None
 
     # Connectors
     HUBSPOT_API_KEY: Optional[str] = None

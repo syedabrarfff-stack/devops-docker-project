@@ -42,6 +42,7 @@ import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
 const controlPath = (path) => `${CONTROL_ROOM_BASE}${path === '/' ? '/dashboard' : path}`
+const EmailRedirect = () => <Navigate to={controlPath('/email')} replace />
 
 export const VIEWS = {
   dashboard:     { path: controlPath('/'),              title: 'Executive Dashboard',    Component: Dashboard },
@@ -62,7 +63,8 @@ export const VIEWS = {
   projects:      { path: controlPath('/projects'),      title: 'Project Tracker',        Component: ProjectsView },
   scheduler:     { path: controlPath('/scheduler'),     title: 'Scheduler',              Component: SchedulerView },
   notifications: { path: controlPath('/notifications'), title: 'Notifications',          Component: NotificationCenter },
-  gmail:         { path: controlPath('/gmail'),         title: 'Gmail Monitor',          Component: GmailCenter },
+  gmail:         { path: controlPath('/email'),         title: 'Executive Email Center', Component: GmailCenter },
+  gmailLegacy:   { path: controlPath('/gmail'),         title: 'Executive Email Center', Component: EmailRedirect },
   voice:         { path: controlPath('/voice'),         title: 'Voice Briefings',        Component: VoiceView },
   knowledge:     { path: controlPath('/knowledge'),     title: 'Knowledge Base',         Component: KnowledgeView },
   research:      { path: controlPath('/research'),      title: 'Research Reports',       Component: ResearchView },
@@ -202,7 +204,7 @@ function AppShell() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar />
-        <main className="flex-1 min-h-0 overflow-y-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-smooth">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               {VIEW_ENTRIES.map(([id, { path, Component }]) => (
@@ -216,7 +218,7 @@ function AppShell() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
                       transition={{ duration: 0.15 }}
-                      className="min-h-full"
+                      className="min-h-[calc(100vh-3.5rem)] pb-8"
                     >
                       <Component />
                     </motion.div>

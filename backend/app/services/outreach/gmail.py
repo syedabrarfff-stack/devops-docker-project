@@ -1,154 +1,27 @@
-"""Gmail integration: SMTP sending plus optional AI personalisation."""
+"""Executive email transport for outreach and proposals.
+
+This module preserves the legacy import path used across the codebase while the
+runtime is migrated to AWS SES as the sovereign outbound provider.
+"""
 from __future__ import annotations
 
 import logging
-import smtplib
+import uuid
 from datetime import datetime, timezone
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.outreach import OutreachEmail
-from app.services.communication.client_language import sanitize_client_text, sanitize_subject_body
-from app.services.storage.secure import get_credential
+from app.services.communication.client_language import sanitize_client_text
+from app.services.outreach.compliance import outreach_compliance
+from app.services.outreach.email_transport import (
+    get_outbound_email_status,
+    send_outbound_email,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _gmail_sender(address: Optional[str] = None) -> str:
-    return (address or settings.GMAIL_ADDRESS or settings.GMAIL_USER or settings.EMAIL_USER or "").strip()
-
-
-def _gmail_app_password(password: Optional[str] = None) -> str:
-    """Gmail app passwords are often copied with spaces; SMTP expects plain text."""
-    return (password or settings.GMAIL_APP_PASSWORD or settings.EMAIL_PASS or "").replace(" ", "").strip()
-
-
-def _is_gmail_configured() -> bool:
-    return bool(_gmail_sender() and _gmail_app_password())
-
-
-def _smtp_error_message(exc: Exception) -> str:
-    text = str(exc)
-    lowered = text.lower()
-    if "webloginrequired" in lowered or "please log in with your web browser" in lowered:
-        return "Google requires browser re-authentication for SMTP. Connect Gmail OAuth from JARVIS or create a fresh Google app password after signing into the mailbox."
-    if "5.7.8" in text or "badcredentials" in lowered or "username and password not accepted" in lowered:
-        return "Google rejected the Gmail SMTP credentials. Generate a fresh app password or connect Gmail OAuth."
-    if "timed out" in lowered or "timeout" in lowered:
-        return "Gmail SMTP connection timed out."
-    if "authentication" in lowered or "auth" in lowered:
-        return "Gmail SMTP authentication failed."
-    return text.splitlines()[0][:240]
-
-
-def _validate_password_shape(password: str) -> tuple[bool, str]:
-    if not password:
-        return False, "Gmail app password is missing."
-    try:
-        password.encode("ascii")
-    except UnicodeEncodeError:
-        return False, "Gmail app password contains non-ASCII characters."
-    if len(password) != 16:
-        return False, "Gmail app password must be the real 16-character Google app password."
-    return True, ""
-
-
-def validate_smtp_credentials(
-    gmail_address: Optional[str] = None,
-    gmail_password: Optional[str] = None,
-) -> tuple[bool, str]:
-    """Verify SMTP handshake plus auth without sending a message."""
-    sender = _gmail_sender(gmail_address)
-    password = _gmail_app_password(gmail_password)
-    if not sender:
-        return False, "Gmail sender is missing."
-    valid_shape, shape_error = _validate_password_shape(password)
-    if not valid_shape:
-        return False, shape_error
-    try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=12) as server:
-            server.ehlo()
-            if not settings.SMTP_SECURE:
-                server.starttls()
-                server.ehlo()
-            server.login(sender, password)
-        return True, ""
-    except Exception as exc:
-        return False, _smtp_error_message(exc)
-
-
-def send_email_smtp(
-    to: str,
-    subject: str,
-    body: str,
-    to_name: str = "",
-    gmail_address: Optional[str] = None,
-    gmail_password: Optional[str] = None,
-    attachments: Optional[list[dict]] = None,
-) -> tuple[bool, str]:
-    """Send via Gmail SMTP using an app password. Returns (success, error)."""
-    sender = _gmail_sender(gmail_address)
-    password = _gmail_app_password(gmail_password)
-    if not sender:
-        return False, "Gmail not configured - add GMAIL_ADDRESS and GMAIL_APP_PASSWORD."
-    valid_shape, shape_error = _validate_password_shape(password)
-    if not valid_shape:
-        return False, shape_error
-
-    try:
-        subject, body = sanitize_subject_body(subject, body)
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"Aliyar Solutions <{sender}>"
-        msg["To"] = f"{to_name} <{to}>" if to_name else to
-        msg.attach(MIMEText(body, "plain"))
-        msg.attach(MIMEText(_wrap_html(body), "html"))
-
-        for attachment in attachments or []:
-            filename = (attachment.get("filename") or "attachment").strip()
-            payload = attachment.get("content") or b""
-            if isinstance(payload, str):
-                payload = payload.encode("utf-8")
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(payload)
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment", filename=filename)
-            msg.attach(part)
-
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
-            server.ehlo()
-            if not settings.SMTP_SECURE:
-                server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, to, msg.as_string())
-
-        logger.info("Email sent to %s: %s", to, subject)
-        return True, ""
-    except Exception as exc:
-        error = _smtp_error_message(exc)
-        logger.error("SMTP error sending to %s: %s", to, error)
-        return False, error
-
-
-def _wrap_html(body: str) -> str:
-    body_html = sanitize_client_text(body).replace("\n", "<br>")
-    return f"""
-<html><body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
-  <div style="background:#f8f9fa;padding:24px;border-radius:8px">
-    <p>{body_html}</p>
-    <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0">
-    <p style="color:#888;font-size:12px">
-      Aliyar Solutions - Operations Consulting &amp; Cloud Services<br>
-      <a href="https://aliyarsolutions.com" style="color:#0066cc">aliyarsolutions.com</a>
-    </p>
-  </div>
-</body></html>"""
 
 
 async def personalise_email(template: str, contact_data: dict) -> str:
@@ -171,6 +44,48 @@ async def personalise_email(template: str, contact_data: dict) -> str:
     return sanitize_client_text(resp.content if not resp.error else template)
 
 
+async def validate_smtp_credentials(
+    gmail_address: Optional[str] = None,
+    gmail_password: Optional[str] = None,
+) -> tuple[bool, str]:
+    """Compatibility wrapper for legacy callers.
+
+    The runtime now validates AWS SES instead of legacy SMTP.
+    """
+    status = await get_outbound_email_status(validate_provider=True)
+    return bool(status.get("connected")), status.get("validation_error", "")
+
+
+async def send_email_smtp(
+    to: str,
+    subject: str,
+    body: str,
+    to_name: str = "",
+    gmail_address: Optional[str] = None,
+    gmail_password: Optional[str] = None,
+    attachments: Optional[list[dict]] = None,
+) -> tuple[bool, str]:
+    """Compatibility wrapper that now sends via AWS SES."""
+    success, error, _ = await send_outbound_email(
+        to,
+        subject,
+        body,
+        to_name=to_name,
+        attachments=attachments,
+    )
+    return success, error
+
+
+async def send_outbound_message(
+    to: str,
+    subject: str,
+    body: str,
+    to_name: str = "",
+    attachments: Optional[list[dict]] = None,
+) -> tuple[bool, str, str]:
+    return await send_outbound_email(to, subject, body, to_name=to_name, attachments=attachments)
+
+
 async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     """Fetch OutreachEmail record, personalise, send, and update status."""
     from sqlalchemy import select
@@ -178,8 +93,6 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     row = (await db.execute(select(OutreachEmail).where(OutreachEmail.id == email_id))).scalar_one_or_none()
     if not row or row.status not in ("scheduled", "queued"):
         return False
-
-    from app.services.outreach.compliance import outreach_compliance
 
     if await outreach_compliance.is_outreach_paused(db, row.tenant_id):
         row.status = "skipped"
@@ -200,8 +113,10 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
         await db.flush()
         return False
 
-    subject, body = sanitize_subject_body(row.subject or "", row.body or "")
-    if settings.OUTREACH_PERSONALIZE_ON_SEND and row.contact_id and not row.personalized:
+    subject = row.subject or ""
+    body = row.body or ""
+    if row.contact_id and not row.personalized:
+        from sqlalchemy import select
         from app.models.crm import Contact
 
         contact = (await db.execute(select(Contact).where(Contact.id == row.contact_id))).scalar_one_or_none()
@@ -218,15 +133,11 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
             row.personalized = True
 
     body = outreach_compliance.append_footer(body, row.to_email)
-    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
-    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
-    success, error = send_email_smtp(
+    success, error, method = await send_outbound_email(
         row.to_email,
         subject,
         body,
         row.to_name or "",
-        gmail_address=gmail_address,
-        gmail_password=gmail_password,
     )
     if success:
         row.status = "sent"
@@ -251,153 +162,27 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
 
 
 async def gmail_delivery_status(db: AsyncSession, validate_smtp: bool = True) -> dict:
-    """Unified Gmail readiness for dashboard, HUD, and orchestration checks."""
-    from app.services.auth.gmail_oauth import _is_oauth_configured, get_gmail_profile, is_oauth_connected
-    from app.services.storage.secure import get_oauth_token
-    from app.services.outreach.compliance import outreach_compliance
+    """Legacy status endpoint kept for compatibility.
 
-    token_data = await get_oauth_token(db, "gmail", "primary")
-    oauth_connected = is_oauth_connected(token_data)
-    profile = await get_gmail_profile(db) if oauth_connected else None
-
-    smtp_configured = _is_gmail_configured()
-    smtp_validated = False
-    smtp_error = ""
-    if validate_smtp and smtp_configured and not oauth_connected:
-        smtp_validated, smtp_error = validate_smtp_credentials()
-    elif not smtp_configured:
-        smtp_error = "Gmail SMTP sender or app password is missing."
-
-    live = bool(oauth_connected or smtp_validated) and not settings.OUTREACH_PAUSED
-    blocker_code, human_message, required_action, setup_steps = _gmail_blocker_guidance(
-        live=live,
-        oauth_configured=_is_oauth_configured(),
-        oauth_connected=oauth_connected,
-        smtp_configured=smtp_configured,
-        smtp_validated=smtp_validated,
-        smtp_error=smtp_error,
-    )
+    The response now reflects AWS SES rather than Gmail.
+    """
+    status = await get_outbound_email_status(validate_provider=validate_smtp)
+    cap = {"sent_today": 0, "cap": outreach_compliance.current_daily_cap()}
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            cap = await outreach_compliance.daily_send_cap_status(db, uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID)))
+        except Exception:
+            pass
     return {
-        "engine": "gmail_outreach",
-        "oauth_configured": _is_oauth_configured(),
-        "oauth_connected": oauth_connected,
-        "oauth_email": profile.get("emailAddress") if profile else None,
-        "smtp_configured": smtp_configured,
-        "smtp_validated": smtp_validated,
-        "configured": bool(oauth_connected or smtp_configured),
+        **status,
         "daily_cap": outreach_compliance.current_daily_cap(),
-        "send_method": "gmail_api" if oauth_connected else "smtp",
-        "send_mode": "live" if live else "blocked",
-        "outreach_paused": settings.OUTREACH_PAUSED,
-        "validation_error": "" if live else (smtp_error or "Connect Gmail OAuth or validate SMTP before live send."),
-        "blocker_code": blocker_code,
-        "human_message": human_message,
-        "required_action": required_action,
-        "setup_steps": setup_steps,
-        "safety": {
-            "unsubscribe_footer": True,
-            "do_not_contact_gate": True,
-            "business_hours_gate": True,
-            "daily_cap_gate": True,
-            "client_language_sanitizer": True,
-        },
+        "outreach_paused": bool(status.get("outreach_paused")),
+        "configured": bool(status.get("configured")),
+        "validation_error": status.get("validation_error", ""),
+        "daily_cap_remaining": max(0, int(cap.get("cap") or 0) - int(cap.get("sent_today") or 0)),
     }
 
 
-async def send_client_email(
-    db: AsyncSession,
-    to: str,
-    subject: str,
-    body: str,
-    to_name: str = "",
-) -> tuple[bool, str, str]:
-    """Send a client-facing email via Gmail API first, then SMTP fallback."""
-    subject, body = sanitize_subject_body(subject, body)
-
-    try:
-        from app.services.auth.gmail_oauth import send_via_gmail_api
-
-        success, error = await send_via_gmail_api(db, to, subject, body, to_name)
-        if success:
-            return True, "", "gmail_api"
-        if "No valid Gmail OAuth token" not in error:
-            logger.warning("Gmail API send failed; SMTP fallback will run: %s", error)
-    except Exception as exc:
-        logger.warning("Gmail API path unavailable; SMTP fallback will run: %s", exc)
-
-    gmail_address = await get_credential(db, "GMAIL_ADDRESS") or await get_credential(db, "GMAIL_USER") or await get_credential(db, "EMAIL_USER")
-    gmail_password = await get_credential(db, "GMAIL_APP_PASSWORD") or await get_credential(db, "EMAIL_PASS")
-    success, error = send_email_smtp(
-        to,
-        subject,
-        body,
-        to_name,
-        gmail_address=gmail_address,
-        gmail_password=gmail_password,
-    )
-    return success, error, "smtp"
-
-
-def _gmail_blocker_guidance(
-    *,
-    live: bool,
-    oauth_configured: bool,
-    oauth_connected: bool,
-    smtp_configured: bool,
-    smtp_validated: bool,
-    smtp_error: str,
-) -> tuple[str, str, str, list[str]]:
-    if live:
-        return (
-            "gmail_live",
-            "Gmail is live. JARVIS can send through Gmail under outreach safety gates.",
-            "Run the outreach engine when the queue is ready.",
-            [],
-        )
-
-    lowered = (smtp_error or "").lower()
-    if oauth_configured and not oauth_connected:
-        return (
-            "gmail_oauth_not_connected",
-            "Gmail OAuth is configured but not connected. SMTP is blocked, so JARVIS cannot send yet.",
-            "Click Connect Gmail OAuth and approve access for the Aliyar Solutions mailbox.",
-            [
-                "Open Outreach or Integrations in JARVIS.",
-                "Click Connect Gmail OAuth.",
-                "Sign into the sending mailbox and approve Gmail send access.",
-                "Return to Outreach and confirm Gmail mode changes to LIVE.",
-            ],
-        )
-    if "webloginrequired" in lowered or "browser re-authentication" in lowered:
-        return (
-            "gmail_smtp_weblogin_required",
-            "Google is blocking SMTP until the mailbox is signed in through a browser.",
-            "Prefer OAuth. If using SMTP, sign into the mailbox and generate a fresh app password.",
-            [
-                "Sign into the Google Workspace mailbox in a browser.",
-                "Complete any Google security challenge.",
-                "Generate a new 16-character app password or connect OAuth.",
-                "Restart validation from the Outreach dashboard.",
-            ],
-        )
-    if smtp_configured and not smtp_validated:
-        return (
-            "gmail_smtp_validation_failed",
-            "Gmail SMTP credentials are present but validation failed.",
-            "Connect Gmail OAuth or replace the SMTP app password.",
-            [
-                "Check the sending mailbox and Google Workspace security settings.",
-                "Create a fresh Google app password if SMTP will be used.",
-                "Prefer OAuth for production sending reliability.",
-            ],
-        )
-    return (
-        "gmail_not_configured",
-        "No live Gmail sending path is available.",
-        "Configure Gmail OAuth or Gmail SMTP app password before sending client outreach.",
-        [
-            "Add Gmail OAuth client credentials if missing.",
-            "Connect Gmail OAuth from the dashboard.",
-            "Verify the Outreach engine status returns LIVE.",
-        ],
-    )
+async def email_delivery_status(db: AsyncSession, validate_provider: bool = True) -> dict:
+    """Preferred name for callers moving off the legacy Gmail wording."""
+    return await gmail_delivery_status(db, validate_smtp=validate_provider)

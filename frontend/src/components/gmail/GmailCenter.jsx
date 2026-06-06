@@ -89,9 +89,9 @@ export default function GmailCenter() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Gmail Operations Center</h1>
+          <h1 className="text-2xl font-bold text-white">Executive Email Center</h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            {status?.address || 'Not configured'} · JARVIS monitors every email
+            {status?.address || 'Not configured'} · JARVIS monitors every executive email
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -159,7 +159,7 @@ export default function GmailCenter() {
             </div>
             <button onClick={handleSend} disabled={sending || !compose.to || !compose.subject || !compose.body}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors">
-              {sending ? 'Sending...' : sendSuccess ? 'Sent ✓' : 'Send from aliyarsolutions@gmail.com'}
+              {sending ? 'Sending...' : sendSuccess ? 'Sent ✓' : 'Send from Joseph David'}
             </button>
           </div>
         </div>

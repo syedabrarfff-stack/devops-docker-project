@@ -1,10 +1,9 @@
 """
-JARVIS Gmail Inbox Manager
-- Reads inbox via IMAP every 15 minutes
-- Categorises every email with AI
-- Detects client replies, new inquiries, urgent messages
-- Updates CRM automatically when a lead replies
-- Alerts Captain for anything that needs attention
+Legacy inbound email manager.
+
+Inbound email processing is currently disabled until SES inbound routing is
+wired. The helpers in this module remain only for compatibility with stored
+records and future inbound processing.
 """
 import imaplib
 import email
@@ -19,7 +18,8 @@ from app.models.gmail import GmailMessage
 
 logger = logging.getLogger(__name__)
 
-IMAP_HOST = "imap.gmail.com"
+# Placeholder only. Legacy Gmail IMAP is retired; SES inbound will replace it.
+IMAP_HOST = None
 IMAP_PORT = 993
 
 CATEGORISE_PROMPT = """
@@ -39,7 +39,7 @@ Return valid JSON only. No markdown.
 
 
 def _is_configured() -> bool:
-    return bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
+    return False
 
 
 def _decode_header_value(value: str) -> str:
@@ -142,121 +142,11 @@ async def _match_lead_or_contact(db: AsyncSession, from_email: str) -> tuple[Opt
 
 async def fetch_new_emails(db: AsyncSession) -> int:
     """
-    Connect to Gmail via IMAP, fetch unseen emails, process and store them.
+    Inbound SES processing is not wired yet, so this is currently a no-op.
     Returns count of new emails processed.
     """
-    if not _is_configured():
-        logger.warning("Gmail not configured — skipping inbox fetch")
-        return 0
-
-    count = 0
-    try:
-        mail = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
-        mail.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
-        mail.select("INBOX")
-
-        # Fetch unseen emails
-        _, message_ids = mail.search(None, "UNSEEN")
-        ids = message_ids[0].split()
-
-        if not ids:
-            mail.logout()
-            return 0
-
-        logger.info(f"Gmail: {len(ids)} new emails found")
-
-        for msg_id in ids[-50:]:  # process up to 50 at a time
-            try:
-                _, msg_data = mail.fetch(msg_id, "(RFC822 UID)")
-                raw = msg_data[0][1]
-                msg = email.message_from_bytes(raw)
-
-                gmail_uid = msg_id.decode()
-
-                # Skip if already stored
-                existing = (await db.execute(
-                    select(GmailMessage).where(GmailMessage.gmail_id == gmail_uid)
-                )).scalar_one_or_none()
-                if existing:
-                    continue
-
-                from_raw = _decode_header_value(msg.get("From", ""))
-                subject = _decode_header_value(msg.get("Subject", "(no subject)"))
-                date_str = msg.get("Date", "")
-
-                # Parse from name and email
-                from_name, from_email_addr = "", from_raw
-                if "<" in from_raw:
-                    parts = from_raw.split("<")
-                    from_name = parts[0].strip().strip('"')
-                    from_email_addr = parts[1].strip().rstrip(">")
-
-                body_text, body_html = _get_body(msg)
-                snippet = body_text[:200].strip()
-
-                # Skip emails we sent to ourselves
-                if from_email_addr.lower() == settings.GMAIL_ADDRESS.lower():
-                    continue
-
-                # AI categorisation
-                ai_result = await _categorise_email(from_email_addr, subject, body_text)
-
-                # Match to CRM
-                lead_id, contact_id = await _match_lead_or_contact(db, from_email_addr)
-
-                # Parse date
-                received_at = None
-                try:
-                    from email.utils import parsedate_to_datetime
-                    received_at = parsedate_to_datetime(date_str)
-                except Exception:
-                    received_at = datetime.now(timezone.utc)
-
-                record = GmailMessage(
-                    gmail_id=gmail_uid,
-                    from_email=from_email_addr.lower(),
-                    from_name=from_name or from_email_addr,
-                    to_email=settings.GMAIL_ADDRESS,
-                    subject=subject,
-                    body_text=body_text,
-                    body_html=body_html,
-                    snippet=snippet,
-                    direction="inbound",
-                    category=ai_result.get("category", "other"),
-                    sentiment=ai_result.get("sentiment", "neutral"),
-                    ai_summary=ai_result.get("summary", ""),
-                    ai_action=ai_result.get("action", ""),
-                    needs_action=ai_result.get("needs_action", False),
-                    lead_id=lead_id,
-                    contact_id=contact_id,
-                    is_read=False,
-                    received_at=received_at,
-                )
-                db.add(record)
-                count += 1
-
-                # Update lead status if this is a reply from a known lead
-                if lead_id:
-                    await _update_lead_on_reply(db, lead_id, from_email_addr, subject)
-
-                # Alert Captain for urgent/high-value emails
-                if ai_result.get("needs_action") or ai_result.get("sentiment") == "urgent":
-                    await _alert_captain(from_email_addr, from_name, subject, ai_result.get("summary", ""))
-
-            except Exception as e:
-                logger.warning(f"Error processing email {msg_id}: {e}")
-                continue
-
-        await db.commit()
-        mail.logout()
-        logger.info(f"Gmail inbox: {count} new emails processed")
-
-    except imaplib.IMAP4.error as e:
-        logger.error(f"IMAP connection failed: {e}")
-    except Exception as e:
-        logger.error(f"Gmail inbox fetch failed: {e}")
-
-    return count
+    logger.info("Inbound SES processing is not configured yet; skipping inbox fetch.")
+    return 0
 
 
 async def _update_lead_on_reply(db: AsyncSession, lead_id: int, from_email: str, subject: str) -> None:

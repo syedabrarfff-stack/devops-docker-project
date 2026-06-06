@@ -75,7 +75,7 @@ export function FrontierShell({ eyebrow, title, description, subtitle, endpoints
     : children
 
   return (
-    <div className="min-h-full p-6 space-y-6">
+    <div className="min-h-[calc(100vh-3.5rem)] p-6 pb-10 space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           {eyebrow && <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">{eyebrow}</p>}
@@ -193,11 +193,11 @@ export function StatusPill({ result }) {
   )
 }
 
-export function ActionCard({ title, subtitle, children }) {
+export function ActionCard({ title, subtitle, description, children }) {
   return (
     <section className="glass p-5">
       <h2 className="text-sm font-semibold text-white">{title}</h2>
-      {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
+      {(subtitle || description) && <p className="mt-1 text-xs text-gray-500">{subtitle || description}</p>}
       <div className="mt-4 space-y-3">{children}</div>
     </section>
   )

@@ -39,7 +39,7 @@ const NAV = [
   { id: 'projects',       path: '/control-room/projects', label: 'Projects',      icon: BriefcaseBusiness },
   { id: 'scheduler',      path: '/control-room/scheduler', label: 'Scheduler',     icon: Clock },
   { id: 'notifications',  path: '/control-room/notifications', label: 'Alerts',        icon: Bell },
-  { id: 'gmail',          path: '/control-room/gmail', label: 'Gmail',         icon: Inbox },
+  { id: 'gmail',          path: '/control-room/email', label: 'Email',         icon: Inbox },
   { id: 'voice',          path: '/control-room/voice', label: 'Voice',         icon: Volume2 },
   { id: 'knowledge',      path: '/control-room/knowledge', label: 'Knowledge',     icon: BookOpen },
   { id: 'research',       path: '/control-room/research', label: 'Research',      icon: Microscope },

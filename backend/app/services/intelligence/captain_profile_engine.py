@@ -154,7 +154,7 @@ CAPTAIN_PROFILE = {
         "System reliability — everything must work when Captain needs it",
         "Outreach volume — 48 emails/day without fail",
         "ElevenLabs voice (pending purchase — 2-3 days)",
-        "Gmail credentials to EC2 (one remaining action to unlock email sending)",
+        "SES sender identity to EC2 (one remaining action to unlock email sending)",
     ],
 
     # What JARVIS should never do to Captain

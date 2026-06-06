@@ -6,8 +6,6 @@ import os
 import re
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from email.message import EmailMessage
-from email.utils import formataddr
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -20,6 +18,7 @@ from app.models.approval import AuditLog
 from app.models.revenue import Client, ClientStatus, Invoice, InvoiceStatus, RevenueSnapshot
 from app.services.notifications.slack import notify_slack
 from app.services.notifications.telegram import notify_telegram
+from app.services.outreach.email_transport import send_outbound_email
 
 logger = logging.getLogger(__name__)
 
@@ -429,13 +428,9 @@ async def _upload_to_s3_if_enabled(pdf_path: Path, invoice_number: str) -> str:
 
 
 async def _send_invoice_email(invoice: Invoice) -> bool:
-    if not (settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD):
+    if not invoice.client_email:
         return False
 
-    message = EmailMessage()
-    message["From"] = formataddr(("Aliyar Solutions", settings.GMAIL_ADDRESS))
-    message["To"] = invoice.client_email
-    message["Subject"] = f"Invoice {invoice.invoice_number} from Aliyar Solutions"
     html = (
         "<p>Hello,</p>"
         f"<p>Our team has prepared invoice <strong>{escape(invoice.invoice_number)}</strong> "
@@ -444,44 +439,37 @@ async def _send_invoice_email(invoice: Invoice) -> bool:
         "<p>The invoice PDF is attached when available. Payment instructions are included on the invoice.</p>"
         "<p>Aliyar Solutions Team</p>"
     )
-    message.set_content(_html_to_text(html))
-    message.add_alternative(html, subtype="html")
 
     attachment = _local_pdf_path(invoice.pdf_url)
+    attachments = []
     if attachment:
-        message.add_attachment(
-            attachment.read_bytes(),
-            maintype="application",
-            subtype="pdf",
-            filename=attachment.name,
+        attachments.append(
+            {
+                "filename": attachment.name,
+                "content": attachment.read_bytes(),
+            }
         )
 
     try:
-        import aiosmtplib
-
-        await aiosmtplib.send(
-            message,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=settings.GMAIL_ADDRESS,
-            password=settings.GMAIL_APP_PASSWORD,
-            timeout=20,
+        success, error, _ = await send_outbound_email(
+            to=invoice.client_email,
+            subject=f"Invoice {invoice.invoice_number} from Aliyar Solutions",
+            body=_html_to_text(html),
+            to_name=invoice.client_name or "",
+            attachments=attachments or None,
         )
-        return True
+        if not success:
+            logger.warning("Invoice email send failed for %s: %s", invoice.client_email, error)
+        return success
     except Exception as exc:
         logger.warning("Invoice email send failed for %s: %s", invoice.client_email, exc)
         return False
 
 
 async def _send_invoice_reminder(invoice: Invoice) -> bool:
-    if not (settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD and invoice.client_email):
+    if not invoice.client_email:
         return False
 
-    message = EmailMessage()
-    message["From"] = formataddr(("Aliyar Solutions", settings.GMAIL_ADDRESS))
-    message["To"] = invoice.client_email
-    message["Subject"] = f"Reminder: Invoice {invoice.invoice_number}"
     html = (
         "<p>Hello,</p>"
         f"<p>This is a reminder that invoice <strong>{escape(invoice.invoice_number)}</strong> "
@@ -489,22 +477,17 @@ async def _send_invoice_reminder(invoice: Invoice) -> bool:
         "<p>Please use the invoice number as the payment reference. Our team is available if anything needs clarification.</p>"
         "<p>Aliyar Solutions Team</p>"
     )
-    message.set_content(_html_to_text(html))
-    message.add_alternative(html, subtype="html")
 
     try:
-        import aiosmtplib
-
-        await aiosmtplib.send(
-            message,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=settings.GMAIL_ADDRESS,
-            password=settings.GMAIL_APP_PASSWORD,
-            timeout=20,
+        success, error, _ = await send_outbound_email(
+            to=invoice.client_email,
+            subject=f"Reminder: Invoice {invoice.invoice_number}",
+            body=_html_to_text(html),
+            to_name=invoice.client_name or "",
         )
-        return True
+        if not success:
+            logger.warning("Invoice reminder failed for %s: %s", invoice.client_email, error)
+        return success
     except Exception as exc:
         logger.warning("Invoice reminder failed for %s: %s", invoice.client_email, exc)
         return False

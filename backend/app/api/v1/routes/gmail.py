@@ -1,4 +1,4 @@
-"""JARVIS Gmail Operations Center."""
+"""JARVIS executive email operations center."""
 from __future__ import annotations
 
 import hashlib
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.services.outreach.gmail import gmail_delivery_status, send_client_email
+from app.services.outreach.gmail import email_delivery_status, send_client_email
 from app.services.outreach.gmail_inbox import fetch_new_emails, get_inbox, get_inbox_stats, mark_read
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
@@ -31,34 +31,35 @@ class ReplyRequest(BaseModel):
 
 @router.get("/status")
 async def gmail_status(db: AsyncSession = Depends(get_db)):
-    """Is Gmail connected and ready?"""
-    status = await gmail_delivery_status(db, validate_smtp=True)
+    """Is the executive email stack connected and ready?"""
+    status = await email_delivery_status(db, validate_provider=True)
     return {
         "connected": status["send_mode"] == "live",
-        "oauth_configured": status["oauth_configured"],
-        "oauth_connected": status["oauth_connected"],
-        "smtp_configured": status["smtp_configured"],
-        "smtp_validated": status["smtp_validated"],
-        "address": status.get("oauth_email") or settings.GMAIL_ADDRESS,
-        "smtp_host": settings.SMTP_HOST,
-        "imap_host": "imap.gmail.com",
+        "provider": status.get("provider", "ses"),
+        "configured": status.get("configured", False),
+        "production_access_enabled": status.get("production_access_enabled", False),
+        "identity_verified": status.get("identity_verified", False),
+        "address": status.get("from_email") or settings.EXECUTIVE_EMAIL_ADDRESS,
+        "identity_name": status.get("from_name") or settings.EXECUTIVE_EMAIL_NAME,
+        "identity_title": status.get("from_title") or settings.EXECUTIVE_EMAIL_TITLE,
+        "ses_region": settings.SES_REGION or settings.AWS_REGION,
         "send_method": status["send_method"],
         "send_mode": status["send_mode"],
-        "message": "Gmail operational." if status["send_mode"] == "live" else status["validation_error"],
+        "message": "Executive email operational." if status["send_mode"] == "live" else status["validation_error"],
     }
 
 
 @router.get("/engine-status")
 async def gmail_engine_status(db: AsyncSession = Depends(get_db)):
     """Dashboard-facing production readiness for the outreach email engine."""
-    return await gmail_delivery_status(db, validate_smtp=True)
+    return await email_delivery_status(db, validate_provider=True)
 
 
 @router.post("/fetch")
 async def fetch_inbox(db: AsyncSession = Depends(get_db)):
     """Trigger inbox fetch manually; JARVIS reads all new emails."""
     count = await fetch_new_emails(db)
-    return {"fetched": count, "message": f"JARVIS processed {count} new emails from inbox."}
+    return {"fetched": count, "message": f"JARVIS processed {count} new emails from the inbound queue."}
 
 
 @router.get("/inbox")
@@ -99,7 +100,7 @@ async def inbox(
 
 @router.get("/stats")
 async def inbox_stats(db: AsyncSession = Depends(get_db)):
-    """Gmail inbox statistics."""
+    """Executive email inbox statistics."""
     return await get_inbox_stats(db)
 
 
@@ -128,8 +129,8 @@ async def send_email(body: SendEmailRequest, db: AsyncSession = Depends(get_db))
     uid = hashlib.md5(f"{body.to}{body.subject}{datetime.now()}".encode()).hexdigest()[:20]
     record = GmailMessage(
         gmail_id=f"sent_{uid}",
-        from_email=settings.GMAIL_ADDRESS,
-        from_name="Aliyar Solutions",
+        from_email=settings.EXECUTIVE_EMAIL_ADDRESS,
+        from_name=settings.EXECUTIVE_EMAIL_NAME,
         to_email=body.to,
         subject=body.subject,
         snippet=body.body[:200],

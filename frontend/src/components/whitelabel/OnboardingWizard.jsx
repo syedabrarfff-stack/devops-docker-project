@@ -36,7 +36,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
   const [branding, setBranding] = useState({ company_name: '', tagline: '', logo_url: '', primary_color: '#3b82f6', company_website: '', founder_name: '' })
   const [emailDomain, setEmailDomain] = useState('')
   const [personas, setPersonas] = useState([{ name: '', role: 'sales', title: 'Client Acquisition Specialist', is_primary_outreach: true }])
-  const [emailCfg, setEmailCfg] = useState({ gmail_address: '', gmail_app_password: '', reply_to_name: '' })
+  const [emailCfg, setEmailCfg] = useState({ executive_email: '', executive_name: 'Joseph David', reply_to_name: '' })
   const [integrations, setIntegrations] = useState({ apollo_api_key: '', hubspot_api_key: '', slack_webhook_url: '' })
   const [market, setMarket] = useState({ target_markets: '', target_industries: '', service_offerings: '', icp_description: '' })
   const [review, setReview] = useState(null)
@@ -140,13 +140,13 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
 
               {step === 3 && (
                 <div>
-                  <h2 className="text-white font-semibold mb-1">Email Credentials</h2>
-                  <p className="text-white/40 text-xs mb-4">JARVIS sends outreach from this address. Use a Google Workspace account with an App Password.</p>
-                  <Input label="Gmail Address *" value={emailCfg.gmail_address} onChange={v => setEmailCfg(e => ({ ...e, gmail_address: v }))} placeholder="info@youragency.com" />
-                  <Input label="App Password *" type="password" value={emailCfg.gmail_app_password} onChange={v => setEmailCfg(e => ({ ...e, gmail_app_password: v }))} placeholder="16-character app password" />
-                  <Input label="Display Name" value={emailCfg.reply_to_name} onChange={v => setEmailCfg(e => ({ ...e, reply_to_name: v }))} placeholder="James Harper" />
+                  <h2 className="text-white font-semibold mb-1">Executive Email Identity</h2>
+                  <p className="text-white/40 text-xs mb-4">JARVIS sends outreach from this SES identity. The executive persona is Joseph David.</p>
+                  <Input label="Executive Email Address *" value={emailCfg.executive_email} onChange={v => setEmailCfg(e => ({ ...e, executive_email: v }))} placeholder="joseph.david@aliyarsolutions.com" />
+                  <Input label="Display Name" value={emailCfg.executive_name} onChange={v => setEmailCfg(e => ({ ...e, executive_name: v }))} placeholder="Joseph David" />
+                  <Input label="Reply-To Name" value={emailCfg.reply_to_name} onChange={v => setEmailCfg(e => ({ ...e, reply_to_name: v }))} placeholder="Joseph David" />
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-400 mt-2">
-                    How to get an App Password: Google Account → Security → 2-Step Verification → App Passwords
+                    AWS SES production access and sender verification are required before client delivery can begin.
                   </div>
                 </div>
               )}

@@ -486,41 +486,13 @@ async def _job_memory_promotion() -> None:
 
 
 async def _job_gmail_inbox() -> None:
-    logger.info("Scheduler: fetching Gmail inbox")
-    try:
-        from app.core.database import AsyncSessionLocal
-        from app.services.outreach.gmail_inbox import fetch_new_emails
-        async with AsyncSessionLocal() as db:
-            count = await fetch_new_emails(db)
-        logger.info(f"Gmail inbox: {count} new emails processed")
-    except Exception as e:
-        logger.warning(f"Gmail inbox fetch failed: {e}")
+    logger.info("Scheduler: executive email inbound sync is disabled until SES inbound is configured")
+    return
 
 
 async def _job_reply_handler_scan() -> None:
-    logger.info("Scheduler: scanning Gmail for prospect replies")
-    if not settings.JARVIS_DEFAULT_TENANT_ID:
-        logger.info("Reply scan skipped: JARVIS_DEFAULT_TENANT_ID not configured")
-        return
-    try:
-        from app.services.notifications.gmail_sender import gmail_sender
-        from app.services.outreach.reply_handler import reply_handler
-
-        replies = await gmail_sender.check_replies(settings.JARVIS_DEFAULT_TENANT_ID)
-        processed = 0
-        for reply in replies:
-            try:
-                await reply_handler.process_reply(
-                    reply["lead_id"],
-                    reply.get("body_preview", ""),
-                    settings.JARVIS_DEFAULT_TENANT_ID,
-                )
-                processed += 1
-            except Exception as exc:
-                logger.warning("Reply handler failed for lead %s: %s", reply.get("lead_id"), exc)
-        logger.info(f"Reply handler: {processed}/{len(replies)} replies processed")
-    except Exception as e:
-        logger.warning(f"Reply handler scan failed: {e}")
+    logger.info("Scheduler: reply scanning is disabled until SES inbound processing is configured")
+    return
 
 
 # ── Overnight Revenue Engine jobs ─────────────────────────────────────────────

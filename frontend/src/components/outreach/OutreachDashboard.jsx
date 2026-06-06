@@ -42,8 +42,8 @@ export default function OutreachDashboard() {
 
   useEffect(() => {
     const onMessage = (event) => {
-      if (event.origin !== window.location.origin || event.data?.type !== "jarvis:gmail-connected") return;
-      setLastRun({ gmail_connected: true });
+      if (event.origin !== window.location.origin || event.data?.type !== "jarvis:email-connected") return;
+      setLastRun({ email_connected: true });
       loadAll();
     };
     window.addEventListener("message", onMessage);
@@ -121,24 +121,10 @@ export default function OutreachDashboard() {
 
   async function connectGmail() {
     try {
-      const r = await api.get("/api/v1/auth/gmail/initiate");
-      const popup = window.open(r.data.auth_url, "jarvis_gmail_oauth", "width=720,height=760");
-      setLastRun({ gmail_connecting: true });
-      for (let attempt = 0; attempt < 20; attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        const status = await api.get("/api/v1/outreach/engine-status").then(resp => resp.data).catch(() => null);
-        if (status) setEngine(status);
-        if (status?.gmail?.oauth_connected || status?.gmail?.send_mode === "live") {
-          setLastRun({ gmail_connected: true });
-          if (popup && !popup.closed) popup.close();
-          await loadAll();
-          return;
-        }
-        if (popup?.closed) break;
-      }
-      setLastRun({ gmail_connecting: false, note: "Gmail OAuth window closed or timed out. Refresh status after completing Google approval." });
+      await loadAll();
+      setLastRun({ email_connected: true, note: "Executive email status refreshed." });
     } catch (e) {
-      setLastRun({ error: e?.response?.data?.detail || e.message || "Gmail OAuth start failed" });
+      setLastRun({ error: e?.response?.data?.detail || e.message || "Email status refresh failed" });
     }
   }
 
@@ -181,7 +167,7 @@ export default function OutreachDashboard() {
               {engineReady ? "Ready to send" : engineBlocked ? "Blocked before send" : "Reading live status"}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-white/65">
-              {engine?.next_action || "JARVIS is checking Gmail, queue, lead availability, authority, and daily send cap."}
+              {engine?.next_action || "JARVIS is checking executive email, queue, lead availability, authority, and daily send cap."}
             </p>
           </div>
           <button
@@ -198,19 +184,19 @@ export default function OutreachDashboard() {
           >
             {preparing ? "Preparing..." : "Prepare Campaign Queue"}
           </button>
-          {engine?.gmail?.oauth_configured && !engine?.gmail?.oauth_connected && (
+          {engine?.email?.configured && !engine?.email?.connected && (
             <button
               onClick={connectGmail}
               className="rounded-xl border border-blue-300/30 bg-blue-500/15 px-5 py-2.5 text-sm font-bold text-blue-100 transition hover:bg-blue-500/25"
             >
-              Connect Gmail OAuth
+              Refresh Email Status
             </button>
           )}
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-6">
           <Metric label="Mode" value={(engine?.status || "unknown").toUpperCase()} />
-          <Metric label="Gmail" value={(engine?.gmail?.send_mode || "unknown").toUpperCase()} />
+          <Metric label="Email" value={(engine?.email?.send_mode || "unknown").toUpperCase()} />
           <Metric label="Pending" value={engine?.queue?.pending_followups ?? "-"} />
           <Metric label="Captain Review" value={engine?.queue?.pending_approvals ?? "-"} />
           <Metric label="With Email" value={engine?.leads?.with_email ?? "-"} />
@@ -231,26 +217,26 @@ export default function OutreachDashboard() {
           </div>
         )}
 
-        {engine?.gmail?.send_mode === "blocked" && (
+        {engine?.email?.send_mode === "blocked" && (
           <div className="mt-4 rounded-xl border border-orange-200/15 bg-orange-500/[0.07] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-100/70">Gmail Action Required</p>
-                <p className="mt-2 text-sm font-semibold text-white">{engine.gmail.human_message || "Gmail is not live yet."}</p>
-                <p className="mt-1 text-xs leading-5 text-white/65">{engine.gmail.required_action || "Connect Gmail OAuth before starting outreach."}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-orange-100/70">Email Action Required</p>
+                <p className="mt-2 text-sm font-semibold text-white">{engine.email.human_message || "Executive email is not live yet."}</p>
+                <p className="mt-1 text-xs leading-5 text-white/65">{engine.email.required_action || "Verify AWS SES before starting outreach."}</p>
               </div>
-              {engine.gmail.oauth_configured && !engine.gmail.oauth_connected && (
+              {engine.email.configured && !engine.email.connected && (
                 <button
                   onClick={connectGmail}
                   className="rounded-lg border border-orange-300/25 bg-orange-400/10 px-3 py-1.5 text-xs font-bold text-orange-100 transition hover:bg-orange-400/20"
                 >
-                  Connect Gmail OAuth
+                  Refresh Email Status
                 </button>
               )}
             </div>
-            {!!engine.gmail.setup_steps?.length && (
+            {!!engine.email.setup_steps?.length && (
               <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {engine.gmail.setup_steps.map((step, index) => (
+                {engine.email.setup_steps.map((step, index) => (
                   <p key={`${index}-${step}`} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-white/65">
                     {index + 1}. {step}
                   </p>
@@ -275,10 +261,10 @@ export default function OutreachDashboard() {
           <div className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100/80">
             {lastRun.error
               ? `Last action failed: ${lastRun.error}`
-              : lastRun.gmail_connected
-                ? "Gmail OAuth connected. Outreach status refreshed."
-                : lastRun.gmail_connecting
-                  ? "Waiting for Gmail OAuth approval..."
+              : lastRun.email_connected
+                ? "Executive email status refreshed."
+                : lastRun.email_connecting
+                  ? "Waiting for SES provisioning..."
                   : lastRun.note
                     ? lastRun.note
               : lastRun.queued_leads !== undefined

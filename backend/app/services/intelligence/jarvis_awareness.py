@@ -205,7 +205,7 @@ def _ai_response_payload(result) -> dict:
 
 
 async def _email_runtime_status(db: AsyncSession) -> dict:
-    configured = bool(settings.GMAIL_ADDRESS and settings.GMAIL_APP_PASSWORD)
+    configured = bool(settings.SES_FROM_EMAIL or settings.EXECUTIVE_EMAIL_ADDRESS)
     connected = await gmail_sender.test_connection() if configured else False
 
     result = await db.execute(
@@ -219,7 +219,7 @@ async def _email_runtime_status(db: AsyncSession) -> dict:
               (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at is not null) as real_email_sent_total,
               (select count(*) from outreach_log where channel::text = 'EMAIL' and status::text = 'SENT' and sent_at >= date_trunc('day', now())) as real_email_sent_today,
               (select count(*) from outreach_log where status::text = 'SENT' and sent_at is null) as draft_sent_without_sent_at,
-              (select count(*) from gmail_messages) as gmail_messages_total,
+              (select count(*) from gmail_messages) as email_messages_total,
               (select count(*) from reply_log) as reply_log_total
             """
         )
@@ -244,21 +244,21 @@ async def _email_runtime_status(db: AsyncSession) -> dict:
 
     return {
         **row,
-        "gmail_configured": configured,
-        "gmail_connected": connected,
-        "gmail_address": settings.GMAIL_ADDRESS or None,
+        "email_configured": configured,
+        "email_connected": connected,
+        "email_address": settings.SES_FROM_EMAIL or settings.EXECUTIVE_EMAIL_ADDRESS,
         "daily_send_cap": cap,
         "daily_send_remaining": max(0, cap - sent_today),
     }
 
 
 def _email_runtime_response(status: dict) -> str:
-    if not status["gmail_configured"]:
-        leading = "Email engine is NOT ready: Gmail credentials are missing."
-    elif not status["gmail_connected"]:
+    if not status["email_configured"]:
+        leading = "Email engine is NOT ready: the executive SES identity is missing."
+    elif not status["email_connected"]:
         leading = (
-            "Email engine is NOT sending right now: Gmail credentials exist, "
-            "but Google is rejecting SMTP login, so production email delivery is blocked."
+            "Email engine is NOT sending right now: AWS SES is configured, "
+            "but the account is not yet live for outbound client delivery."
         )
     else:
         leading = "Email engine is connected and allowed to send within the daily cap."
@@ -272,10 +272,10 @@ def _email_runtime_response(status: dict) -> str:
         f"{status.get('leads_with_email', 0)}/{status.get('leads_total', 0)} leads have email addresses, "
         f"daily cap is {status.get('daily_send_cap', 48)} with "
         f"{status.get('daily_send_remaining', 0)} remaining. "
-        f"Gmail inbox/outbound message table currently has {status.get('gmail_messages_total', 0)} records, "
+        f"Executive email inbox/outbound table currently has {status.get('email_messages_total', 0)} records, "
         f"and {status.get('reply_log_total', 0)} client replies are logged. "
         f"{'No client reply has been confirmed yet. ' if int(status.get('reply_log_total', 0) or 0) == 0 else 'At least one client reply has been confirmed. '} "
-        "Do not treat the dashboard as fully operational until Gmail OAuth/app-password login is fixed and the queue is populated with qualified recipients."
+        "Do not treat the dashboard as fully operational until AWS SES production access and sender verification are complete and the queue is populated with qualified recipients."
     )
 
 

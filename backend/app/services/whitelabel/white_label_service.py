@@ -206,16 +206,17 @@ class WhiteLabelService:
     async def configure_email(
         self,
         tenant_id: UUID,
-        gmail_address: str,
-        gmail_app_password: str,
+        executive_email: str,
+        executive_name: str,
         reply_to_name: str = "",
     ) -> dict:
-        """Step 3 — SMTP credentials for outreach sending."""
+        """Step 3 — SES executive identity for outreach sending."""
         return await self._patch_settings(tenant_id, {
             "email_config": {
-                "gmail_address": gmail_address,
-                "gmail_app_password": gmail_app_password,  # stored encrypted in prod
-                "reply_to_name": reply_to_name or gmail_address.split("@")[0],
+                "provider": "ses",
+                "ses_from_email": executive_email,
+                "ses_from_name": executive_name or "Joseph David",
+                "reply_to_name": reply_to_name or executive_name or executive_email.split("@")[0],
                 "configured_at": datetime.now(UTC).isoformat(),
             }
         })
@@ -268,18 +269,20 @@ class WhiteLabelService:
 
     async def get_tenant_email_credentials(self, tenant_id: UUID) -> dict:
         """
-        Called by the outreach engine to get THIS tenant's Gmail credentials.
+        Called by the outreach engine to get THIS tenant's executive email identity.
         Returns empty dict if not configured — outreach engine falls back to global.
         """
         config = await self.get_config(tenant_id)
         if not config:
             return {}
         email_cfg = config.email_config
-        if not email_cfg.get("gmail_address") or not email_cfg.get("gmail_app_password"):
+        if not email_cfg.get("ses_from_email"):
             return {}
         return {
-            "gmail_address": email_cfg["gmail_address"],
-            "gmail_app_password": email_cfg["gmail_app_password"],
+            "provider": "ses",
+            "ses_from_email": email_cfg["ses_from_email"],
+            "ses_from_name": email_cfg.get("ses_from_name") or "Joseph David",
+            "reply_to_name": email_cfg.get("reply_to_name") or "Joseph David",
         }
 
     async def get_tenant_personas(self, tenant_id: UUID) -> list[dict]:
@@ -301,7 +304,7 @@ class WhiteLabelService:
             "steps": {
                 "branding":         bool(s.get("branding", {}).get("company_name")),
                 "personas":         bool(s.get("personas")),
-                "email_config":     bool(s.get("email_config", {}).get("gmail_address")),
+                "email_config":     bool(s.get("email_config", {}).get("ses_from_email")),
                 "integrations":     bool(s.get("integrations")),
                 "market_focus":     bool(s.get("target_markets")),
                 "onboarding_done":  bool(s.get("onboarding_complete")),
@@ -315,8 +318,8 @@ class WhiteLabelService:
             return "Step 1: Add company branding"
         if not settings.get("personas"):
             return "Step 2: Configure team personas"
-        if not settings.get("email_config", {}).get("gmail_address"):
-            return "Step 3: Add email credentials"
+        if not settings.get("email_config", {}).get("ses_from_email"):
+            return "Step 3: Add executive email identity"
         if not settings.get("target_markets"):
             return "Step 4: Set target markets and ICP"
         if not settings.get("onboarding_complete"):

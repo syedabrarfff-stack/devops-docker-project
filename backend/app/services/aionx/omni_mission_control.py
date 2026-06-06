@@ -256,16 +256,16 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     jobs = await _scheduler_jobs(db)
     aionx_jobs = [job for job in jobs if job.startswith("aionx_")]
     counts = await _registry_counts(db)
-    from app.services.outreach.gmail import gmail_delivery_status
+    from app.services.outreach.gmail import email_delivery_status
 
-    email = await gmail_delivery_status(db, validate_smtp=False)
+    email = await email_delivery_status(db, validate_provider=False)
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
     if "aionx_omni_system_registry" not in tables:
         alerts.append({"severity": "CRITICAL", "message": "Omni registry table missing."})
     if email["send_mode"] != "live":
-        alerts.append({"severity": "WARNING", "message": f"Email engine blocked: {email['validation_error']}"})
+        alerts.append({"severity": "WARNING", "message": f"Executive email blocked: {email['validation_error']}"})
     health = {
         "backend": "green",
         "database": "green" if tables else "red",
@@ -448,7 +448,7 @@ async def _tables(db: AsyncSession) -> set[str]:
 def _diagnose(component: str, symptom: str) -> str:
     text_blob = f"{component} {symptom}".lower()
     if "email" in text_blob or "smtp" in text_blob:
-        return "Likely email provider, compliance, DNS, quota, or deliverability issue. Check Gmail/OAuth, send caps, DNC, and domain reputation."
+        return "Likely email provider, compliance, DNS, quota, or deliverability issue. Check SES identity, send caps, DNC, and domain reputation."
     if "database" in text_blob or "postgres" in text_blob:
         return "Likely database connectivity, disk, migration, or lock issue. Check container health, disk usage, migration head, and latest backup."
     if "ai" in text_blob or "provider" in text_blob:

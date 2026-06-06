@@ -9,7 +9,7 @@ export default function SystemHUD() {
     { key: 'aiHealth', label: 'AI provider health', path: '/api/v1/ai-ops/health' },
     { key: 'costToday', label: 'AI cost today', path: '/api/v1/ai-ops/cost/today' },
     { key: 'scheduler', label: 'Scheduler jobs', path: '/api/v1/scheduler/jobs' },
-    { key: 'gmail', label: 'Gmail status', path: '/api/v1/gmail/status' },
+    { key: 'email', label: 'Executive email status', path: '/api/v1/gmail/status' },
     { key: 'voice', label: 'Voice providers', path: '/api/v1/voice/providers' },
     { key: 'ledger', label: 'Civilization ledger', path: '/api/v1/civilization/ledger', params: { tenant_id: DEFAULT_TENANT, limit: 25 } },
   ], [])
@@ -18,7 +18,7 @@ export default function SystemHUD() {
     <FrontierShell
       eyebrow="Runtime"
       title="System HUD"
-      description="Machine truth for the JARVIS stack: health, readiness, scheduler, AI routing, Gmail, voice, and immutable operating ledger."
+      description="Machine truth for the JARVIS stack: health, readiness, scheduler, AI routing, executive email, voice, and immutable operating ledger."
       endpoints={endpoints}
     />
   )

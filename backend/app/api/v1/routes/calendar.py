@@ -51,7 +51,7 @@ async def add_event(body: EventIn, db: AsyncSession = Depends(get_db)):
         attendees=body.attendees, calendar_id=body.calendar_id,
     )
     if not event:
-        raise HTTPException(503, "Calendar not connected — complete Gmail OAuth first")
+        raise HTTPException(503, "Calendar not connected — complete the provider connection first")
     return event
 
 
@@ -75,6 +75,6 @@ async def schedule_lead_meeting(body: MeetingIn, db: AsyncSession = Depends(get_
         db, body.lead_email, body.lead_name, body.company, body.service
     )
     if not event:
-        raise HTTPException(503, "Calendar not connected — complete Gmail OAuth first")
+        raise HTTPException(503, "Calendar not connected — complete the provider connection first")
     await db.commit()
     return event

@@ -118,19 +118,16 @@ class OnboardingService:
     async def step3_email(
         self,
         tenant_id: UUID,
-        gmail_address: str,
-        gmail_app_password: str,
+        executive_email: str,
+        executive_name: str,
         reply_to_name: str = "",
     ) -> dict:
         """
-        Step 3 — Email sending credentials.
+        Step 3 — Executive email identity.
         JARVIS will send outreach FROM this address, displayed as the primary persona name.
-
-        For Google Workspace: use App Password (16 chars, no spaces).
-        Gmail must have IMAP enabled and 2FA active.
         """
         result = await white_label.configure_email(
-            tenant_id, gmail_address, gmail_app_password, reply_to_name
+            tenant_id, executive_email, executive_name, reply_to_name
         )
         result["step"] = 3
         result["next_step"] = "Step 4: Connect integrations (optional)"
