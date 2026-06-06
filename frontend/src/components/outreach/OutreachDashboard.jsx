@@ -24,6 +24,59 @@ function Metric({ label, value }) {
   );
 }
 
+function SesOperationsPanel({ email }) {
+  if (!email || email.provider !== "ses") return null;
+  const review = email.account_review || {};
+  const identities = email.identity_details || [];
+  const records = identities.flatMap((identity) => identity.dkim_records || []);
+
+  return (
+    <div className="mt-4 rounded-xl border border-cyan-200/15 bg-cyan-500/[0.06] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/70">AWS SES Sovereign Email</p>
+          <h3 className="mt-1 text-sm font-black text-white">{email.from_name || "Joseph David"} &lt;{email.from_email || "not configured"}&gt;</h3>
+          <p className="mt-1 text-xs leading-5 text-white/60">
+            Production: {String(!!email.production_access_enabled).toUpperCase()} - Identity verified: {String(!!email.identity_verified).toUpperCase()} - Method: {email.send_method || "ses_raw_email"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70">
+          <span className="font-bold text-white">Review:</span> {review.status || "not submitted"}
+          {review.case_id ? <span> - Case {review.case_id}</span> : null}
+        </div>
+      </div>
+
+      {!!identities.length && (
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {identities.map((identity) => (
+            <div key={identity.identity} className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-xs font-bold text-white">{identity.identity}</p>
+              <p className="mt-1 text-[11px] text-white/55">
+                Verification: {identity.verification_status || "unknown"} - DKIM: {identity.dkim_status || "unknown"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!!records.length && (
+        <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-100/70">DNS Records Required</p>
+          <div className="mt-2 space-y-2">
+            {records.map((record) => (
+              <div key={record.name} className="rounded-md border border-white/10 bg-black/20 p-2">
+                <p className="text-[11px] text-white/45">{record.type}</p>
+                <p className="break-all text-xs font-semibold text-white">{record.name}</p>
+                <p className="break-all text-xs text-cyan-100/75">{record.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OutreachDashboard() {
   const [tab, setTab] = useState("sequences");
   const [sequences, setSequences] = useState([]);
@@ -246,6 +299,8 @@ export default function OutreachDashboard() {
           </div>
         )}
 
+        <SesOperationsPanel email={engine?.email} />
+
         {!!engine?.blockers?.length && (
           <div className="mt-4 rounded-xl border border-amber-200/15 bg-black/20 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-100/70">Blockers</p>
@@ -316,7 +371,7 @@ export default function OutreachDashboard() {
                   <div>
                     <p className="font-semibold text-white">{seq.name}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {seq.emails_sent} sent · {seq.replies_received} replies · {seq.open_rate}% open rate
+                      {seq.emails_sent} sent - {seq.replies_received} replies - {seq.open_rate}% open rate
                     </p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full border ${seq.status === "active" ? "border-green-500/30 text-green-400" : "border-gray-600 text-gray-400"}`}>
@@ -336,7 +391,7 @@ export default function OutreachDashboard() {
               <div key={email.id} className="glass rounded-xl p-4 border border-white/5 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">{email.subject}</p>
-                  <p className="text-xs text-gray-500 mt-1">{email.to_email} · Step {email.step_number} · Due: {new Date(email.scheduled_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">{email.to_email} - Step {email.step_number} - Due: {new Date(email.scheduled_at).toLocaleDateString()}</p>
                 </div>
                 <button
                   onClick={() => sendEmail(email.id)}

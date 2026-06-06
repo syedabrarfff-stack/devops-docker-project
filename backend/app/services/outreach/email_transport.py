@@ -140,8 +140,9 @@ def _verified_identity_candidates(identity: ExecutiveIdentity) -> list[str]:
     return [identity.email, domain] if domain else [identity.email]
 
 
-def _identity_verified_sync(identity: ExecutiveIdentity) -> bool:
+def _identity_details_sync(identity: ExecutiveIdentity) -> list[dict[str, Any]]:
     client = _sesv2_client()
+    details: list[dict[str, Any]] = []
     for candidate in _verified_identity_candidates(identity):
         if not candidate:
             continue
@@ -149,7 +150,34 @@ def _identity_verified_sync(identity: ExecutiveIdentity) -> bool:
             result = client.get_email_identity(EmailIdentity=candidate)
         except ClientError:
             continue
+        dkim = result.get("DkimAttributes", {}) or {}
+        tokens = dkim.get("Tokens", []) or []
+        details.append(
+            {
+                "identity": candidate,
+                "identity_type": result.get("IdentityType"),
+                "verification_status": result.get("VerificationStatus"),
+                "verified_for_sending": bool(result.get("VerifiedForSendingStatus")),
+                "dkim_status": dkim.get("Status"),
+                "dkim_records": [
+                    {
+                        "type": "CNAME",
+                        "name": f"{token}._domainkey.{candidate}",
+                        "value": f"{token}.dkim.amazonses.com",
+                    }
+                    for token in tokens
+                    if token and "@" not in candidate
+                ],
+            }
+        )
+    return details
+
+
+def _identity_verified_sync(identity: ExecutiveIdentity) -> bool:
+    for result in _identity_details_sync(identity):
         if result.get("VerificationStatus") == "SUCCESS":
+            return True
+        if result.get("verification_status") == "SUCCESS":
             return True
     return False
 
@@ -158,8 +186,10 @@ def _account_status_sync() -> dict[str, Any]:
     client = _sesv2_client()
     account = client.get_account()
     quota = account.get("SendQuota", {}) or {}
+    review = ((account.get("Details") or {}).get("ReviewDetails") or {})
     identity = get_executive_identity()
-    verified = _identity_verified_sync(identity)
+    identity_details = _identity_details_sync(identity)
+    verified = any(item.get("verification_status") == "SUCCESS" for item in identity_details)
 
     production_access = bool(account.get("ProductionAccessEnabled"))
     sending_enabled = bool(account.get("SendingEnabled", True))
@@ -182,13 +212,19 @@ def _account_status_sync() -> dict[str, Any]:
         ]
     elif not production_access:
         blocker_code = "ses_sandbox_mode"
-        human_message = "AWS SES is configured but the account is still in sandbox mode."
-        required_action = "Request SES production access before sending to real clients."
+        review_status = (review.get("Status") or "").upper()
+        if review_status == "DENIED":
+            blocker_code = "ses_production_access_denied"
+            human_message = "AWS SES production access was denied for this account."
+            required_action = "Resolve AWS SES case review, verify domain identity, then re-request production access before sending to real clients."
+        else:
+            human_message = "AWS SES is configured but the account is still in sandbox mode."
+            required_action = "Request SES production access before sending to real clients."
         setup_steps = [
-            "Open AWS SES in the target region.",
-            "Request production access for the account.",
-            "Verify the sending identity.",
-            "Confirm outbound delivery is enabled.",
+            "Add the DKIM CNAME records for aliyarsolutions.com.",
+            "Wait until SES identity verification becomes SUCCESS.",
+            "Re-open or re-submit SES production access review.",
+            "Confirm outbound delivery is enabled before starting outreach.",
         ]
     elif not verified:
         blocker_code = "ses_identity_not_verified"
@@ -243,6 +279,11 @@ def _account_status_sync() -> dict[str, Any]:
             "max_send_rate": float(quota.get("MaxSendRate") or 0.0),
             "sent_last_24_hours": float(quota.get("SentLast24Hours") or 0.0),
         },
+        "account_review": {
+            "status": review.get("Status"),
+            "case_id": review.get("CaseId"),
+        },
+        "identity_details": identity_details,
         "safety": {
             "unsubscribe_footer": True,
             "do_not_contact_gate": True,
@@ -323,4 +364,3 @@ async def send_outbound_email(
         error = _error_message(exc)
         logger.error("SES error sending to %s: %s", to, error)
         return False, error, "ses_raw_email"
-
