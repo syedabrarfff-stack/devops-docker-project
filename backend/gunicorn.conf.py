@@ -17,9 +17,9 @@ worker_class = "uvicorn.workers.UvicornWorker"
 worker_connections = 200
 
 # ── Timeouts ──────────────────────────────────────────────────────────────────
-timeout = 120           # worker silent time before SIGKILL
+timeout = int(os.getenv("GUNICORN_TIMEOUT", "240"))  # worker silent time before SIGKILL
 keepalive = 5           # TCP keepalive on idle connections
-graceful_timeout = 30   # seconds for workers to finish before forced kill
+graceful_timeout = int(os.getenv("GUNICORN_GRACEFUL_TIMEOUT", "45"))
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 preload_app = True      # load app once before forking → smaller per-worker RAM

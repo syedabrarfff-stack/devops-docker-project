@@ -77,7 +77,6 @@ def human_intelligence_context(max_chars: int = 2400) -> str:
 async def seed_human_intelligence(tenant_id=None) -> dict[str, Any]:
     tenant_uuid = _tenant_uuid(tenant_id)
     content = json.dumps(HUMAN_INTELLIGENCE_KB, indent=2, sort_keys=True)
-    embedding = await _embed_text(content)
     nodes_created = 0
     edges_created = 0
 
@@ -92,6 +91,19 @@ async def seed_human_intelligence(tenant_id=None) -> dict[str, Any]:
                 )
                 .limit(1)
             )
+            if strategic and strategic.metadata_json.get("version") == "phase_2_v1":
+                return {
+                    "knowledge_base": "jarvis_human_intelligence",
+                    "stratum": "M2_identity_memory",
+                    "strategic_memory_id": str(strategic.id),
+                    "nodes_created": 0,
+                    "edges_created": 0,
+                    "sections": len(HUMAN_INTELLIGENCE_KB["sections"]),
+                    "m2_ready": True,
+                    "skipped": "already_seeded",
+                }
+
+            embedding = await _embed_text(content)
             if not strategic:
                 strategic = MemoryStrategic(
                     tenant_id=tenant_uuid,

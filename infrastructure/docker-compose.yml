@@ -94,6 +94,8 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
       WEB_CONCURRENCY: "1"
       GUNICORN_WORKERS: "1"
+      GUNICORN_TIMEOUT: "240"
+      GUNICORN_GRACEFUL_TIMEOUT: "45"
     volumes:
       - backend_data:/data
       - backup_data:/var/backups/jarvis
@@ -108,7 +110,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 20s
-      timeout: 10s
+      timeout: 30s
       retries: 5
       start_period: 40s
     networks:
