@@ -1,4 +1,6 @@
-from app.services.outreach.engine import PERSONAS, outreach_engine
-from app.services.outreach.reply_handler import REPLY_CLASSIFICATIONS, ReplyHandler, reply_handler
+"""Outreach service package.
 
-__all__ = ["PERSONAS", "outreach_engine", "REPLY_CLASSIFICATIONS", "ReplyHandler", "reply_handler"]
+Submodules are imported directly to avoid startup-time circular imports.
+"""
+
+__all__ = []
