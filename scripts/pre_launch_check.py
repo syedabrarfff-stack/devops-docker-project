@@ -113,7 +113,17 @@ async def test_bedrock() -> str:
     def _invoke() -> dict:
         import boto3
 
-        client = boto3.client("bedrock-runtime", region_name=settings.AWS_REGION)
+        session_kwargs = {}
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            session_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+            session_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+            if settings.AWS_SESSION_TOKEN:
+                session_kwargs["aws_session_token"] = settings.AWS_SESSION_TOKEN
+        client = (
+            boto3.Session(**session_kwargs).client("bedrock-runtime", region_name=settings.AWS_REGION)
+            if session_kwargs
+            else boto3.client("bedrock-runtime", region_name=settings.AWS_REGION)
+        )
         response = client.invoke_model(
             modelId=model_id,
             body=json.dumps(payload),

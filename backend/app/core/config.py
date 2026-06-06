@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     USE_AWS: bool = False
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_SESSION_TOKEN: Optional[str] = None
     AWS_REGION: str = "ap-south-2"             # Hyderabad primary
     AWS_BACKUP_REGION: str = "ap-south-1"      # Mumbai backup (Phase 2)
     BEDROCK_API_KEY: Optional[str] = None       # Bedrock bearer token fallback

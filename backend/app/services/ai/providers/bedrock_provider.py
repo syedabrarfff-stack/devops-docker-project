@@ -20,7 +20,9 @@ class BedrockProvider(BaseAIProvider):
     }
 
     def is_available(self) -> bool:
-        return bool(settings.AWS_REGION and (settings.USE_AWS or settings.BEDROCK_API_KEY or settings.AWS_BEARER_TOKEN_BEDROCK))
+        aws_creds_present = bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY)
+        bearer_present = bool(settings.BEDROCK_API_KEY or settings.AWS_BEARER_TOKEN_BEDROCK)
+        return bool(settings.AWS_REGION and (settings.USE_AWS or aws_creds_present or bearer_present))
 
     async def chat(
         self,
@@ -55,6 +57,16 @@ def _prepare_bedrock_auth() -> None:
     if token and not os.getenv("AWS_BEARER_TOKEN_BEDROCK"):
         # Boto3 recognizes this official Bedrock bearer-token environment variable.
         os.environ["AWS_BEARER_TOKEN_BEDROCK"] = token
+
+
+def _bedrock_session_kwargs() -> dict:
+    kwargs = {}
+    if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+        kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+        kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+        if settings.AWS_SESSION_TOKEN:
+            kwargs["aws_session_token"] = settings.AWS_SESSION_TOKEN
+    return kwargs
 
 
 def _candidate_model_ids(preferred_model_id: str) -> list[str]:
@@ -104,6 +116,9 @@ def _bedrock_client():
     import boto3
 
     _prepare_bedrock_auth()
+    session_kwargs = _bedrock_session_kwargs()
+    if session_kwargs:
+        return boto3.Session(**session_kwargs).client("bedrock-runtime", region_name=settings.AWS_REGION)
     return boto3.client("bedrock-runtime", region_name=settings.AWS_REGION)
 
 
