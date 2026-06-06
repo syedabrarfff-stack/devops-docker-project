@@ -86,6 +86,18 @@ async def send_outbound_message(
     return await send_outbound_email(to, subject, body, to_name=to_name, attachments=attachments)
 
 
+async def send_client_email(
+    db: AsyncSession,
+    to: str,
+    subject: str,
+    body: str,
+    to_name: str = "",
+    attachments: Optional[list[dict]] = None,
+) -> tuple[bool, str, str]:
+    """Legacy compatibility wrapper used by outreach and proposal flows."""
+    return await send_outbound_email(to, subject, body, to_name=to_name, attachments=attachments)
+
+
 async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
     """Fetch OutreachEmail record, personalise, send, and update status."""
     from sqlalchemy import select
