@@ -108,6 +108,7 @@ export default function TopBar() {
     approvals: 'Captain Approval Queue',
     leads: 'Lead Pipeline',
     outreach: 'Outreach Operations',
+    communications: 'Communication Hub',
     crm: 'Client Management',
     proposals: 'Proposals',
     invoices: 'Invoices',

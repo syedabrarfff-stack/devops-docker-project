@@ -13,15 +13,70 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.models.communication import CommunicationChannel, CommunicationDirection
 from app.models.outreach import OutreachEmail
 from app.services.communication.client_language import sanitize_client_text
+from app.services.communication.ledger import record_communication_event
 from app.services.outreach.compliance import outreach_compliance
 from app.services.outreach.email_transport import (
+    get_executive_identity,
     get_outbound_email_status,
     send_outbound_email,
 )
 
 logger = logging.getLogger(__name__)
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+
+
+def _default_tenant_id() -> uuid.UUID:
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        return uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+    return SYSTEM_TENANT_ID
+
+
+async def _record_email_event(
+    db: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    to: str,
+    subject: str,
+    body: str,
+    to_name: str = "",
+    contact_id: int | None = None,
+    status: str,
+    method: str,
+    error: str = "",
+) -> None:
+    identity = get_executive_identity()
+    await record_communication_event(
+        db,
+        tenant_id=tenant_id,
+        channel=CommunicationChannel.EMAIL,
+        direction=CommunicationDirection.OUTBOUND,
+        transport="ses",
+        from_address=identity.email,
+        to_address=to,
+        contact_name=to_name or None,
+        contact_id=contact_id,
+        subject=subject,
+        body_text=body,
+        status=status,
+        hia_persona=identity.name,
+        processing_summary={
+            "method": method,
+            "error": error,
+            "architecture_route": [
+                "HERALD Outreach Generation",
+                "AWS SES Email Delivery",
+                "Communication Ledger",
+                "Decision Memory",
+                "Client Digital Twin",
+                "Institutional Wisdom",
+            ],
+        },
+        raw_payload={"error": error} if error else {},
+        processed_at=datetime.now(timezone.utc),
+    )
 
 
 async def personalise_email(template: str, contact_data: dict) -> str:
@@ -95,7 +150,19 @@ async def send_client_email(
     attachments: Optional[list[dict]] = None,
 ) -> tuple[bool, str, str]:
     """Legacy compatibility wrapper used by outreach and proposal flows."""
-    return await send_outbound_email(to, subject, body, to_name=to_name, attachments=attachments)
+    success, error, method = await send_outbound_email(to, subject, body, to_name=to_name, attachments=attachments)
+    await _record_email_event(
+        db,
+        tenant_id=_default_tenant_id(),
+        to=to,
+        subject=subject,
+        body=body,
+        to_name=to_name,
+        status="sent" if success else "failed",
+        method=method,
+        error=error,
+    )
+    return success, error, method
 
 
 async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
@@ -161,6 +228,18 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
         row.error = error
 
     await db.flush()
+    await _record_email_event(
+        db,
+        tenant_id=row.tenant_id,
+        to=row.to_email or "",
+        subject=subject,
+        body=body,
+        to_name=row.to_name or "",
+        contact_id=row.contact_id,
+        status="sent" if success else "failed",
+        method=method,
+        error=error,
+    )
 
     try:
         from app.services.notifications.telegram import notify_telegram

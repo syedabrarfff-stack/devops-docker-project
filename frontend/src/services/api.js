@@ -22,6 +22,7 @@ const API_RESOURCES = new Set([
   'chat',
   'civilization',
   'clients',
+  'communication',
   'connector-hub',
   'council',
   'crm',

@@ -83,6 +83,13 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${POSTGRES_DB:-jarvis}
       REDIS_URL: redis://redis:6379/0
       JARVIS_REPO_DATA_PATH: /jarvis-data
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
+      WHATSAPP_INSTANCE_NAME: ${WHATSAPP_INSTANCE_NAME:-jarvis-main}
+      WHATSAPP_DISPLAY_IDENTITY: ${WHATSAPP_DISPLAY_IDENTITY:-Joseph David}
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-jarvis-master-key}
+      EVOLUTION_PUBLIC_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
+      EVOLUTION_WEBHOOK_URL: http://backend:8000/api/v1/webhooks/whatsapp
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
       WEB_CONCURRENCY: "1"
@@ -115,6 +122,32 @@ services:
           memory: 256M
 
   # ─── JARVIS Frontend ──────────────────────────────────────────
+  # AIONX WhatsApp transport layer - Evolution API only, no duplicate CRM/memory logic.
+  evolution:
+    <<: *logging
+    image: atendai/evolution-api:latest
+    container_name: evolution-api
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      SERVER_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-jarvis-master-key}
+      LOG_LEVEL: ${EVOLUTION_LOG_LEVEL:-ERROR}
+    volumes:
+      - evolution_instances:/evolution/instances
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - jarvis_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+
   frontend:
     <<: *logging
     build:
@@ -313,6 +346,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      evolution:
+        condition: service_started
     networks:
       - jarvis_net
     deploy:
@@ -411,6 +446,8 @@ volumes:
     name: jarvis_backend_data
   backup_data:
     name: jarvis_backup_data
+  evolution_instances:
+    name: jarvis_evolution_instances
 
 networks:
   jarvis_net:

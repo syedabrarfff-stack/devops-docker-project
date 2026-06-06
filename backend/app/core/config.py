@@ -79,6 +79,18 @@ class Settings(BaseSettings):
     GMAIL_CLIENT_ID: Optional[str] = None
     GMAIL_CLIENT_SECRET: Optional[str] = None
 
+    # WhatsApp / Evolution API transport
+    WHATSAPP_PROVIDER: str = "evolution"
+    WHATSAPP_ENABLED: bool = True
+    WHATSAPP_INSTANCE_NAME: str = "jarvis-main"
+    WHATSAPP_DISPLAY_IDENTITY: str = "Joseph David"
+    EVOLUTION_API_URL: str = "http://evolution:8080"
+    EVOLUTION_API_KEY: Optional[str] = None
+    EVOLUTION_PUBLIC_URL: Optional[str] = None
+    EVOLUTION_WEBHOOK_URL: Optional[str] = None
+    WHATSAPP_AUTO_REPLY_ENABLED: bool = False
+    WHATSAPP_AUTO_REPLY_MIN_CONFIDENCE: float = 0.85
+
     # Connectors
     HUBSPOT_API_KEY: Optional[str] = None
     APOLLO_API_KEY: Optional[str] = None

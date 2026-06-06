@@ -18,6 +18,12 @@ from app.models.captain_intelligence import (
     PredictedAction,
 )
 from app.models.connector_hub import ConnectorHubIngestion, ConnectorHubPackage
+from app.models.communication import (
+    CommunicationChannel,
+    CommunicationChannelStatus,
+    CommunicationDirection,
+    CommunicationEvent,
+)
 from app.models.aionx_organs import (
     DecisionObject,
     DecisionOption,
@@ -94,6 +100,7 @@ MODEL_MODULES = (
     "compliance",
     "captain_intelligence",
     "connector_hub",
+    "communication",
     "aionx_organs",
 )
 
@@ -148,6 +155,10 @@ __all__ = [
     "PredictedAction",
     "ConnectorHubIngestion",
     "ConnectorHubPackage",
+    "CommunicationChannel",
+    "CommunicationChannelStatus",
+    "CommunicationDirection",
+    "CommunicationEvent",
     "ClientPipelineState",
     "ClientPipelineMilestone",
     "ClientPipelineStageLog",

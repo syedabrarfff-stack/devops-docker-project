@@ -15,6 +15,7 @@ import {
   FileText,
   Layers,
   Loader2,
+  MessageCircle,
   Network,
   RefreshCw,
   Shield,
@@ -189,6 +190,7 @@ export default function Dashboard() {
     batch1Board: null,
     axiom: null,
     operatingIntelligence: null,
+    communication: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -219,6 +221,7 @@ export default function Dashboard() {
       api.get('/api/v1/batch1/board'),
       api.get('/api/v1/departments/axiom/operating-model'),
       api.get('/api/v1/aionx/operating-intelligence'),
+      api.get('/api/v1/communication/status'),
     ])
 
     const value = (index, fallback = null) => (
@@ -252,6 +255,7 @@ export default function Dashboard() {
       batch1Board: value(20, null),
       axiom: value(21, null),
       operatingIntelligence: value(22, null),
+      communication: value(23, null),
     })
 
     setLoading(false)
@@ -336,6 +340,9 @@ export default function Dashboard() {
   const integrityPipelineCount = data.operatingIntelligence?.operational_integrity?.pipeline_stage_count || 0
   const sovereignOrganCount = data.operatingIntelligence?.sovereign_organs?.organ_count || 0
   const ultimateJourneyCount = data.operatingIntelligence?.ultimate_journey?.stage_count || 0
+  const sesConnected = !!data.communication?.ses?.connected
+  const whatsappConnected = !!data.communication?.whatsapp?.connected
+  const communicationLiveCount = [sesConnected, whatsappConnected].filter(Boolean).length
 
   if (loading) {
     return (
@@ -473,6 +480,14 @@ export default function Dashboard() {
           tone={sovereignOrganCount === 9 ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
+        <MetricCard
+          icon={MessageCircle}
+          label="Comms"
+          value={`${communicationLiveCount}/2`}
+          detail={`SES ${sesConnected ? 'live' : 'blocked'} | WhatsApp ${whatsappConnected ? 'paired' : 'pairing'}`}
+          tone={communicationLiveCount === 2 ? 'green' : communicationLiveCount === 1 ? 'gold' : 'red'}
+          onClick={() => setActiveView('communications')}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
@@ -502,6 +517,34 @@ export default function Dashboard() {
               <HealthRow label="18-Stage Pipeline" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18 stages`} />
               <HealthRow label="Sovereign Organs" ok={sovereignOrganCount === 9} detail={`${sovereignOrganCount}/9 organs`} />
               <HealthRow label="Ultimate Journey" ok={ultimateJourneyCount === 33} detail={`${ultimateJourneyCount}/33 stages`} />
+              <HealthRow label="SES Email" ok={sesConnected} detail={data.communication?.ses?.blocker_code || data.communication?.ses?.send_mode || 'unknown'} />
+              <HealthRow label="WhatsApp" ok={whatsappConnected} detail={data.communication?.whatsapp?.blocker_code || data.communication?.whatsapp?.status || 'unknown'} />
+            </div>
+          </Panel>
+
+          <Panel
+            title="Communication Transport"
+            subtitle="AWS SES primary outreach and Bahrain WhatsApp Business relationship layer. Both feed the same AIONX organism."
+            icon={MessageCircle}
+            action={<button onClick={() => setActiveView('communications')} className="text-xs text-jarvis-cyan hover:text-white">Open Comms</button>}
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <HealthRow
+                label="AWS SES"
+                ok={sesConnected}
+                detail={data.communication?.ses?.required_action || data.communication?.ses?.send_mode || 'unknown'}
+              />
+              <HealthRow
+                label="Bahrain WhatsApp"
+                ok={whatsappConnected}
+                detail={data.communication?.whatsapp?.required_action || data.communication?.whatsapp?.status || 'unknown'}
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <HealthRow label="Email out" ok={true} detail={`${data.communication?.counts?.EMAIL?.OUTBOUND || 0}`} />
+              <HealthRow label="Email in" ok={true} detail={`${data.communication?.counts?.EMAIL?.INBOUND || 0}`} />
+              <HealthRow label="WA out" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.OUTBOUND || 0}`} />
+              <HealthRow label="WA in" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.INBOUND || 0}`} />
             </div>
           </Panel>
 

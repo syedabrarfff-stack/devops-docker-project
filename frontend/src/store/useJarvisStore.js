@@ -10,6 +10,7 @@ const VIEW_PATHS = {
   systemHud: '/control-room/system-hud',
   leads: '/control-room/leads',
   outreach: '/control-room/outreach',
+  communications: '/control-room/communications',
   crm: '/control-room/crm',
   relationships: '/control-room/relationships',
   proposals: '/control-room/proposals',

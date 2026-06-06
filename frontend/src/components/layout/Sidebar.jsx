@@ -5,7 +5,7 @@ import {
   Zap, Activity, UserCircle, Target, Mail, ListTodo, Bell, Clock,
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
-  DollarSign, Cpu,
+  DollarSign, Cpu, MessageCircle,
   Network,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
@@ -20,6 +20,7 @@ const NAV = [
   { id: 'systemHud',      path: '/control-room/system-hud', label: 'System HUD',    icon: Activity },
   { id: 'leads',          path: '/control-room/leads', label: 'Leads',         icon: Target },
   { id: 'outreach',       path: '/control-room/outreach', label: 'Outreach',      icon: Mail },
+  { id: 'communications', path: '/control-room/communications', label: 'Comms', icon: MessageCircle },
   { id: 'crm',            path: '/control-room/crm', label: 'CRM',           icon: UserCircle },
   { id: 'relationships',  path: '/control-room/relationships', label: 'Relationships', icon: Users },
   { id: 'proposals',      path: '/control-room/proposals', label: 'Proposals',     icon: FileText },

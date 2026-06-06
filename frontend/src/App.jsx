@@ -38,6 +38,7 @@ import Relationships from './components/frontier/Relationships'
 import IntelligenceHub from './components/frontier/IntelligenceHub'
 import ConsciousnessHub from './components/consciousness/ConsciousnessHub'
 import AionxArchitecture from './components/aionx/AionxArchitecture'
+import CommunicationHub from './components/communication/CommunicationHub'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -51,6 +52,7 @@ export const VIEWS = {
   approvals:     { path: controlPath('/approvals'),     title: 'Captain Approval Queue', Component: Approvals },
   leads:         { path: controlPath('/leads'),         title: 'Lead Pipeline',          Component: LeadsDashboard },
   outreach:      { path: controlPath('/outreach'),      title: 'Outreach Operations',    Component: OutreachDashboard },
+  communications:{ path: controlPath('/communications'), title: 'Communication Hub',     Component: CommunicationHub },
   crm:           { path: controlPath('/crm'),           title: 'Client Management',      Component: CRMDashboard },
   proposals:     { path: controlPath('/proposals'),     title: 'Proposals',             Component: ProposalsView },
   invoices:      { path: controlPath('/invoices'),      title: 'Invoices',              Component: InvoicesView },
