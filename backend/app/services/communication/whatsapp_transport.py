@@ -5,6 +5,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import or_, select
@@ -187,8 +188,25 @@ async def create_instance() -> dict[str, Any]:
     return result
 
 
-async def connect_qr() -> dict[str, Any]:
-    return await evolution_request("GET", f"/instance/connect/{_instance()}")
+async def connect_qr(number: str | None = None) -> dict[str, Any]:
+    query = ""
+    normalized_number = _normalize_number(number)
+    if normalized_number:
+        query = f"?{urlencode({'number': normalized_number})}"
+    result = await evolution_request("GET", f"/instance/connect/{_instance()}{query}")
+    payload = result.get("data") if isinstance(result.get("data"), dict) else {}
+    result["pairing_ready"] = bool(
+        payload.get("base64")
+        or payload.get("qrcode")
+        or payload.get("code")
+        or payload.get("pairingCode")
+    )
+    if result.get("ok") and not result["pairing_ready"]:
+        result["required_action"] = (
+            "Evolution is running, but no pairing code was returned yet. "
+            "Use Retrieve Pairing Code with the Bahrain WhatsApp number, or restart the instance and retry."
+        )
+    return result
 
 
 async def configure_webhook() -> dict[str, Any]:

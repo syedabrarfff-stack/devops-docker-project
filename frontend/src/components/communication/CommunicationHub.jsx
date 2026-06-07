@@ -57,6 +57,7 @@ export default function CommunicationHub() {
   const [status, setStatus] = useState(null)
   const [events, setEvents] = useState([])
   const [qr, setQr] = useState(null)
+  const [pairingNumber, setPairingNumber] = useState('')
   const [number, setNumber] = useState('')
   const [text, setText] = useState('AIONX transport layer online.')
   const [busy, setBusy] = useState(false)
@@ -92,7 +93,8 @@ export default function CommunicationHub() {
   async function getQr() {
     setBusy(true)
     try {
-      const result = await api.get('/api/v1/communication/whatsapp/qr').then((r) => r.data)
+      const params = pairingNumber ? { number: pairingNumber } : undefined
+      const result = await api.get('/api/v1/communication/whatsapp/qr', { params }).then((r) => r.data)
       setQr(result)
       setLastAction(result)
     } finally {
@@ -125,6 +127,7 @@ export default function CommunicationHub() {
 
   const qrPayload = qr?.data || qr
   const qrImage = qrPayload?.base64 || qrPayload?.qrcode?.base64 || qrPayload?.qrcode || qrPayload?.code
+  const pairingCode = qrPayload?.pairingCode
 
   return (
     <div className="h-full overflow-y-auto p-6 pb-24 space-y-6">
@@ -181,6 +184,29 @@ export default function CommunicationHub() {
           <button onClick={configureWebhook} disabled={busy} className="btn-primary">Configure Webhook</button>
           <button onClick={getQr} disabled={busy} className="btn-primary">Retrieve QR</button>
         </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-[320px_auto_1fr]">
+          <input
+            value={pairingNumber}
+            onChange={(e) => setPairingNumber(e.target.value)}
+            placeholder="Optional Bahrain WhatsApp number, e.g. 973xxxxxxxx"
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-jarvis-cyan/40"
+          />
+          <button onClick={getQr} disabled={busy} className="btn-primary">Retrieve Pairing Code</button>
+          <p className="self-center text-xs leading-5 text-white/45">
+            If QR returns empty, enter the WhatsApp Business number and use the pairing code fallback.
+          </p>
+        </div>
+        {qr?.required_action && (
+          <div className="mt-4 rounded-xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+            {qr.required_action}
+          </div>
+        )}
+        {pairingCode && (
+          <div className="mt-4 rounded-xl border border-green-300/20 bg-green-400/10 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-green-200/70">WhatsApp Pairing Code</p>
+            <p className="mt-2 select-all text-3xl font-black tracking-[0.2em] text-white">{pairingCode}</p>
+          </div>
+        )}
         {qrImage && (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-white/45">QR Payload</p>

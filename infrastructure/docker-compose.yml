@@ -127,7 +127,7 @@ services:
   # AIONX WhatsApp transport layer - Evolution API only, no duplicate CRM/memory logic.
   evolution:
     <<: *logging
-    image: atendai/evolution-api:v2.1.1
+    image: evoapicloud/evolution-api:v2.3.7
     container_name: evolution-api
     restart: unless-stopped
     env_file:

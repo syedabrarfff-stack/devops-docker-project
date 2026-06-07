@@ -128,8 +128,8 @@ async def whatsapp_status(
 
 
 @communication_router.get("/whatsapp/qr")
-async def whatsapp_qr() -> dict[str, Any]:
-    return await connect_qr()
+async def whatsapp_qr(number: Optional[str] = Query(None)) -> dict[str, Any]:
+    return await connect_qr(number)
 
 
 @communication_router.post("/whatsapp/webhook/configure")
