@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aliyar Solutions — AIONX Intelligent Operations</title>
+  <meta name="description" content="AIONX transforms how organisations think, decide, and operate. The world's first Autonomous Intelligent Operations System."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root{
+      --bg:#050A14;--bg2:#070D1A;--glass:rgba(255,255,255,0.04);--glass2:rgba(255,255,255,0.07);
+      --blue:#0066FF;--blue2:#003ECC;--gold:#C9A84C;--gold2:#E8C56A;
+      --text:#E8EDF5;--text2:#8A9BB5;--border:rgba(255,255,255,0.08);
+      --red:#FF3B3B;--green:#00D46A;--purple:#7B4FFF;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overflow-x:hidden;}
+    /* CANVAS */
+    #bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+    /* PRINT STYLES */
+    @media print{
+      #bg-canvas{display:none!important;}
+      nav{display:none!important;}
+      body{background:#050A14!important;color:#E8EDF5!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      #hero{min-height:auto;padding:80px 0 60px;background:linear-gradient(135deg,#050A14 0%,#0D1A3A 50%,#050A14 100%)!important;page-break-after:always;}
+      .hero-title{font-size:56px!important;}
+      .reveal{opacity:1!important;transform:none!important;}
+      .glass,.glass2{background:rgba(255,255,255,0.06)!important;border:1px solid rgba(255,255,255,0.15)!important;}
+      .gradient-text{background:none!important;-webkit-text-fill-color:#0066FF!important;color:#0066FF!important;}
+      .btn-primary,.btn-gold{display:inline-block!important;page-break-inside:avoid;}
+      section{page-break-inside:avoid;}
+      .pain-grid,.pkg-grid,.team-grid,.phases-grid{page-break-inside:avoid;}
+      .case-card{page-break-inside:avoid;page-break-before:auto;}
+      .hero-stat .num{-webkit-text-fill-color:#fff!important;color:#fff!important;}
+      .diff-number{color:rgba(255,255,255,0.08)!important;}
+      .score-breakdown{page-break-inside:avoid;}
+      footer{page-break-before:always;}
+    }
+    /* UTILS */
+    .container{max-width:1200px;margin:0 auto;padding:0 24px;}
+    .reveal{opacity:0;transform:translateY(40px);transition:opacity .8s ease,transform .8s ease;}
+    .reveal.visible{opacity:1;transform:translateY(0);}
+    .glass{background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:20px;}
+    .glass2{background:var(--glass2);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.12);border-radius:20px;}
+    .btn-primary{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;padding:14px 32px;border-radius:50px;font-weight:700;font-size:15px;text-decoration:none;cursor:pointer;border:none;transition:all .3s;box-shadow:0 0 30px rgba(0,102,255,0.35);}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,102,255,0.55);}
+    .btn-gold{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#050A14;padding:14px 32px;border-radius:50px;font-weight:700;font-size:15px;text-decoration:none;cursor:pointer;border:none;transition:all .3s;}
+    .btn-gold:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(201,168,76,0.45);}
+    .section-label{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:16px;display:block;}
+    .section-title{font-family:'Space Grotesk',sans-serif;font-size:clamp(32px,5vw,56px);font-weight:700;line-height:1.1;margin-bottom:20px;}
+    .section-sub{font-size:18px;color:var(--text2);line-height:1.7;max-width:680px;}
+    .gradient-text{background:linear-gradient(135deg,var(--blue),var(--purple),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    section{position:relative;z-index:1;}
+    /* NAV */
+    nav{position:fixed;top:0;left:0;width:100%;z-index:1000;padding:20px 0;transition:all .3s;}
+    nav.scrolled{background:rgba(5,10,20,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 0;}
+    .nav-inner{display:flex;align-items:center;justify-content:space-between;}
+    .logo{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;text-decoration:none;color:var(--text);}
+    .logo span{color:var(--blue);}
+    .nav-links{display:flex;align-items:center;gap:32px;list-style:none;}
+    .nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;}
+    .nav-links a:hover{color:var(--text);}
+    .nav-cta{background:var(--blue);color:#fff;padding:10px 24px;border-radius:50px;font-weight:700;font-size:14px;text-decoration:none;transition:all .3s;}
+    .nav-cta:hover{background:var(--blue2);transform:translateY(-1px);}
+    /* HERO */
+    #hero{min-height:100vh;display:flex;align-items:center;padding:120px 0 80px;}
+    .hero-content{text-align:center;max-width:900px;margin:0 auto;}
+    .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,102,255,0.12);border:1px solid rgba(0,102,255,0.3);border-radius:50px;padding:8px 20px;font-size:13px;font-weight:600;color:var(--blue);margin-bottom:32px;}
+    .hero-badge .dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.4);}}
+    .hero-title{font-family:'Space Grotesk',sans-serif;font-size:clamp(44px,7vw,88px);font-weight:800;line-height:1.0;margin-bottom:28px;letter-spacing:-2px;}
+    .hero-sub{font-size:clamp(17px,2vw,22px);color:var(--text2);line-height:1.7;margin-bottom:48px;max-width:700px;margin-left:auto;margin-right:auto;}
+    .hero-ctas{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+    .hero-stats{display:flex;gap:48px;justify-content:center;margin-top:80px;flex-wrap:wrap;}
+    .hero-stat{text-align:center;}
+    .hero-stat .num{font-family:'Space Grotesk',sans-serif;font-size:44px;font-weight:800;background:linear-gradient(135deg,#fff,var(--text2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .hero-stat .lbl{font-size:13px;color:var(--text2);margin-top:4px;}
+    /* PAIN */
+    #pain{padding:120px 0;}
+    .pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:64px;}
+    .pain-card{padding:32px;position:relative;overflow:hidden;}
+    .pain-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--purple));}
+    .pain-icon{font-size:36px;margin-bottom:20px;}
+    .pain-card h3{font-size:20px;font-weight:700;margin-bottom:12px;}
+    .pain-card p{color:var(--text2);line-height:1.7;font-size:15px;}
+    /* DIFFERENTIATORS */
+    #diff{padding:120px 0;}
+    .diff-item{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;margin-bottom:120px;}
+    .diff-item.reverse{direction:rtl;}
+    .diff-item.reverse > *{direction:ltr;}
+    .diff-number{font-family:'Space Grotesk',sans-serif;font-size:120px;font-weight:900;color:rgba(255,255,255,0.04);line-height:1;margin-bottom:-20px;}
+    .diff-content h2{font-family:'Space Grotesk',sans-serif;font-size:38px;font-weight:700;line-height:1.2;margin-bottom:20px;}
+    .diff-content p{color:var(--text2);font-size:17px;line-height:1.8;margin-bottom:28px;}
+    .diff-visual{padding:40px;text-align:center;position:relative;}
+    .diff-badge{display:inline-block;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#050A14;padding:6px 16px;border-radius:50px;font-size:12px;font-weight:700;margin-bottom:20px;}
+    .wisdom-ring{width:200px;height:200px;border-radius:50%;border:3px solid var(--blue);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:20px auto;position:relative;box-shadow:0 0 60px rgba(0,102,255,0.2);}
+    .wisdom-ring::before{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(0,102,255,0.2);animation:rotate 8s linear infinite;}
+    @keyframes rotate{to{transform:rotate(360deg);}}
+    .wisdom-num{font-family:'Space Grotesk',sans-serif;font-size:52px;font-weight:800;color:var(--blue);}
+    .wisdom-lbl{font-size:12px;color:var(--text2);}
+    .council-phases{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:20px;}
+    .phase-node{background:rgba(0,102,255,0.1);border:1px solid rgba(0,102,255,0.2);border-radius:8px;padding:8px 4px;text-align:center;font-size:11px;color:var(--blue);font-weight:600;}
+    .twin-metrics{display:flex;flex-direction:column;gap:12px;}
+    .twin-metric{display:flex;align-items:center;gap:12px;}
+    .twin-metric .bar-wrap{flex:1;background:rgba(255,255,255,0.06);border-radius:50px;height:6px;overflow:hidden;}
+    .twin-metric .bar{height:100%;border-radius:50px;background:linear-gradient(90deg,var(--blue),var(--purple));}
+    .twin-metric .label{font-size:12px;color:var(--text2);width:130px;text-align:right;}
+    .twin-metric .val{font-size:12px;color:var(--text);width:32px;}
+    /* PACKAGES */
+    #packages{padding:120px 0;}
+    .pkg-toggle{display:flex;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:50px;padding:4px;width:fit-content;margin:40px auto;gap:4px;}
+    .pkg-toggle button{padding:10px 28px;border-radius:50px;border:none;cursor:pointer;font-weight:600;font-size:14px;transition:all .3s;}
+    .pkg-toggle button.active{background:var(--blue);color:#fff;box-shadow:0 0 20px rgba(0,102,255,0.3);}
+    .pkg-toggle button:not(.active){background:transparent;color:var(--text2);}
+    .div-label{text-align:center;margin:48px 0 24px;}
+    .div-label h3{font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);}
+    .pkg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;margin-bottom:40px;}
+    .pkg-card{padding:28px;position:relative;overflow:hidden;transition:all .3s;cursor:pointer;}
+    .pkg-card:hover{transform:translateY(-4px);border-color:rgba(0,102,255,0.3);}
+    .pkg-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple));transform:scaleX(0);transition:transform .3s;}
+    .pkg-card:hover::after{transform:scaleX(1);}
+    .pkg-icon{font-size:28px;margin-bottom:16px;}
+    .pkg-card h3{font-size:17px;font-weight:700;margin-bottom:10px;}
+    .pkg-before,.pkg-after{font-size:14px;line-height:1.7;}
+    .pkg-before{color:var(--text2);}
+    .pkg-after{color:var(--green);display:none;}
+    .pkg-after::before{content:'→ ';}
+    .show-after .pkg-before{display:none;}
+    .show-after .pkg-after{display:block;}
+    .pkg-tag{display:inline-block;background:rgba(0,102,255,0.1);border:1px solid rgba(0,102,255,0.2);border-radius:50px;padding:4px 12px;font-size:11px;color:var(--blue);font-weight:600;margin-top:14px;}
+    /* HOW IT WORKS */
+    #how{padding:120px 0;}
+    .phases-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px;margin-top:64px;}
+    .phase-card{padding:32px;text-align:center;position:relative;}
+    .phase-num{font-family:'Space Grotesk',sans-serif;font-size:48px;font-weight:900;background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px;}
+    .phase-card h3{font-size:18px;font-weight:700;margin-bottom:12px;}
+    .phase-card p{color:var(--text2);font-size:14px;line-height:1.7;}
+    /* CASE STUDIES */
+    #cases{padding:120px 0;}
+    .cases-grid{display:grid;gap:32px;margin-top:64px;}
+    .case-card{padding:48px;position:relative;overflow:hidden;}
+    .case-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--gold));}
+    .case-industry{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;}
+    .case-title{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;margin-bottom:20px;}
+    .case-story{color:var(--text2);font-size:16px;line-height:1.8;margin-bottom:32px;}
+    .case-metrics{display:flex;gap:32px;flex-wrap:wrap;}
+    .case-metric{text-align:center;}
+    .case-metric .num{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:800;color:var(--green);}
+    .case-metric .lbl{font-size:12px;color:var(--text2);margin-top:4px;}
+    .case-quote{border-left:3px solid var(--blue);padding-left:20px;margin-top:24px;font-style:italic;color:var(--text);font-size:15px;line-height:1.7;}
+    .case-quote cite{display:block;font-style:normal;font-size:13px;color:var(--text2);margin-top:8px;font-weight:600;}
+    /* INDUSTRIES */
+    #industries{padding:80px 0;}
+    .ind-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:40px;}
+    .ind-tag{background:var(--glass);border:1px solid var(--border);border-radius:50px;padding:12px 24px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;}
+    /* TEAM */
+    #team{padding:120px 0;}
+    .team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:24px;margin-top:64px;}
+    .team-card{padding:28px;text-align:center;}
+    .team-avatar{width:80px;height:80px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;font-family:'Space Grotesk',sans-serif;}
+    .team-card h3{font-size:17px;font-weight:700;margin-bottom:6px;}
+    .team-card .role{font-size:13px;color:var(--blue);font-weight:600;margin-bottom:10px;}
+    .team-card p{font-size:13px;color:var(--text2);line-height:1.6;}
+    /* WISDOM */
+    #wisdom{padding:120px 0;text-align:center;}
+    .wisdom-display{max-width:700px;margin:0 auto;padding:60px;margin-top:64px;}
+    .big-score{font-family:'Space Grotesk',sans-serif;font-size:120px;font-weight:900;background:linear-gradient(135deg,var(--blue),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+    .score-label{font-size:16px;color:var(--text2);margin-bottom:32px;}
+    .score-breakdown{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-top:32px;}
+    .score-item{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:16px;}
+    .score-item .s-val{font-size:24px;font-weight:800;color:var(--blue);}
+    .score-item .s-lbl{font-size:12px;color:var(--text2);margin-top:4px;}
+    /* DEMO */
+    #demo{padding:120px 0;text-align:center;}
+    .demo-inner{max-width:800px;margin:0 auto;padding:80px;position:relative;overflow:hidden;}
+    .demo-inner::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,102,255,0.1),rgba(123,79,255,0.1));border-radius:20px;}
+    .demo-inner>*{position:relative;z-index:1;}
+    .demo-title{font-family:'Space Grotesk',sans-serif;font-size:clamp(36px,5vw,56px);font-weight:800;margin-bottom:20px;}
+    .demo-sub{font-size:18px;color:var(--text2);margin-bottom:48px;line-height:1.7;}
+    /* CONTACT */
+    #contact{padding:120px 0;}
+    .contact-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:64px;align-items:start;margin-top:64px;}
+    .contact-info h2{font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;margin-bottom:20px;}
+    .contact-info p{color:var(--text2);font-size:16px;line-height:1.8;margin-bottom:32px;}
+    .contact-points{display:flex;flex-direction:column;gap:16px;}
+    .contact-point{display:flex;align-items:center;gap:12px;font-size:15px;}
+    .contact-point .icon{width:40px;height:40px;background:rgba(0,102,255,0.1);border:1px solid rgba(0,102,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .form{display:flex;flex-direction:column;gap:20px;}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .form-group{display:flex;flex-direction:column;gap:8px;}
+    .form-group label{font-size:13px;font-weight:600;color:var(--text2);}
+    .form-group input,.form-group select,.form-group textarea{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;padding:14px 18px;color:var(--text);font-size:15px;font-family:'Inter',sans-serif;outline:none;transition:border .2s;}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--blue);}
+    .form-group select option{background:#0D1520;}
+    .form-group textarea{resize:vertical;min-height:120px;}
+    /* FOOTER */
+    footer{border-top:1px solid var(--border);padding:60px 0 32px;}
+    .footer-top{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;margin-bottom:48px;}
+    .footer-brand .logo{font-size:20px;margin-bottom:16px;display:block;}
+    .footer-brand p{color:var(--text2);font-size:14px;line-height:1.7;}
+    .footer-col h4{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:20px;}
+    .footer-col a{display:block;color:var(--text2);text-decoration:none;font-size:14px;margin-bottom:10px;transition:color .2s;}
+    .footer-col a:hover{color:var(--text);}
+    .footer-bottom{border-top:1px solid var(--border);padding-top:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:gap;}
+    .footer-bottom p{font-size:13px;color:var(--text2);}
+    .footer-badges{display:flex;gap:12px;flex-wrap:wrap;}
+    .footer-badge{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:11px;color:var(--text2);}
+    @media(max-width:900px){
+      .diff-item{grid-template-columns:1fr;gap:40px;}
+      .diff-item.reverse{direction:ltr;}
+      .contact-grid{grid-template-columns:1fr;}
+      .form-row{grid-template-columns:1fr;}
+      .footer-top{grid-template-columns:1fr 1fr;}
+    }
+    @media(max-width:600px){
+      .hero-stats{gap:28px;}
+      .nav-links{display:none;}
+      .council-phases{grid-template-columns:repeat(3,1fr);}
+      .footer-top{grid-template-columns:1fr;}
+    }
+    /* NOTIFICATION */
+    .notif{position:fixed;bottom:24px;right:24px;background:#0066FF;color:#fff;padding:16px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:9999;transform:translateX(200px);opacity:0;transition:all .4s;}
+    .notif.show{transform:translateX(0);opacity:1;}
+  </style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="logo">Aliyar<span>.</span></a>
+      <ul class="nav-links">
+        <li><a href="#packages">Services</a></li>
+        <li><a href="#cases">Case Studies</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+      <a href="#demo" class="nav-cta">Book Free Demo</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-content reveal">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        AIONX — Now Live &amp; Operational
+      </div>
+      <h1 class="hero-title">
+        Your Organisation<br/>
+        <span class="gradient-text">Finally Thinks.</span>
+      </h1>
+      <p class="hero-sub">
+        Most businesses run on gut instinct, scattered spreadsheets, and meetings that solve nothing. AIONX is the world's first Autonomous Intelligent Operations System — purpose-built for organisations that refuse to lose.
+      </p>
+      <div class="hero-ctas">
+        <a href="#demo" class="btn-primary">Book Your Free Intelligence Demo →</a>
+        <a href="#packages" class="btn-gold">Explore 25 Systems</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="num" data-target="94">0</div>
+          <div class="lbl">% Decision Accuracy Improvement</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num" data-target="340">0</div>
+          <div class="lbl">Hours Saved Weekly Per Team</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num" data-target="8">0</div>
+          <div class="lbl">Sovereign Intelligence Engines</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num" data-target="57">0</div>
+          <div class="lbl">Live Intelligence Channels</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PAIN -->
+<section id="pain">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">The Problem We Solve</span>
+      <h2 class="section-title">Your organisation is bleeding intelligence<br/>every single day.</h2>
+      <p class="section-sub" style="margin:0 auto;">Not because your people aren't smart. Because no system captures what they know, amplifies what they decide, or prevents what they repeat.</p>
+    </div>
+    <div class="pain-grid">
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">🩸</div>
+        <h3>Decisions Made Blind</h3>
+        <p>Leaders make million-dollar calls on 40% of the available information. The rest is buried in inboxes, lost in handover notes, or simply never captured at all.</p>
+      </div>
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">🔁</div>
+        <h3>The Same Mistakes, Again</h3>
+        <p>Your organisation pays tuition for lessons it never learns. Failed campaigns, lost clients, and operational disasters repeat because no system catalogues what went wrong and why.</p>
+      </div>
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">👻</div>
+        <h3>Institutional Memory Dies With People</h3>
+        <p>When your best performer leaves, they take three years of institutional knowledge with them. Your onboarding costs a fortune. Your new hires make the same mistakes their predecessors did.</p>
+      </div>
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">⏳</div>
+        <h3>Strategy Disconnected From Reality</h3>
+        <p>Quarterly plans are written in boardrooms. By the time they reach the ground, the market has moved. There is no live feedback loop connecting strategic intent to operational execution.</p>
+      </div>
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">📉</div>
+        <h3>Client Relationships Managed by Gut</h3>
+        <p>You find out a client is leaving when they send the cancellation email. There was no early warning. No pattern detection. No prevention. Just loss — and the slow realisation it was avoidable.</p>
+      </div>
+      <div class="pain-card glass reveal">
+        <div class="pain-icon">🏚️</div>
+        <h3>Tools That Don't Speak to Each Other</h3>
+        <p>CRM here. Project management there. Finance in a spreadsheet. Knowledge in someone's head. These silos cost you co-ordination. And co-ordination is the most expensive thing your organisation doesn't have.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIFFERENTIATORS -->
+<section id="diff">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:80px;">
+      <span class="section-label">Flagship Intelligence Systems</span>
+      <h2 class="section-title">Three capabilities no software<br/><span class="gradient-text">on Earth offers.</span></h2>
+    </div>
+
+    <!-- Grand Convergence Council -->
+    <div class="diff-item reveal">
+      <div class="diff-content">
+        <div class="diff-number">01</div>
+        <div class="diff-badge">Flagship System</div>
+        <h2>The Grand<br/>Convergence Council</h2>
+        <p>Most decisions die in the room they were born in. The Grand Convergence Council is a ten-phase deliberation architecture that assembles every relevant voice, every risk flag, every historical precedent — and forces a result that is both defensible and irreversible.</p>
+        <p>Twelve specialist intelligences convene. Each phase eliminates a different category of bias. Nothing proceeds until the system certifies completeness. Your leadership team stops guessing and starts governing.</p>
+        <a href="#demo" class="btn-primary" style="margin-top:8px;">See It in Action</a>
+      </div>
+      <div class="diff-visual glass reveal">
+        <div class="diff-badge">10 Deliberation Phases</div>
+        <div class="council-phases" style="margin-top:24px;">
+          <div class="phase-node">Context<br/>Load</div>
+          <div class="phase-node">Risk<br/>Map</div>
+          <div class="phase-node">Stakeholder<br/>Scan</div>
+          <div class="phase-node">Precedent<br/>Pull</div>
+          <div class="phase-node">Bias<br/>Audit</div>
+          <div class="phase-node">Feasibility<br/>Check</div>
+          <div class="phase-node">Dissent<br/>Protocol</div>
+          <div class="phase-node">Resource<br/>Align</div>
+          <div class="phase-node">Recommend</div>
+          <div class="phase-node">Seal &amp;<br/>Archive</div>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin-top:20px;line-height:1.6;">12 specialist intelligences. Zero blind spots. Every decision archived, auditable, and signed.</p>
+      </div>
+    </div>
+
+    <!-- Client Digital Twin -->
+    <div class="diff-item reverse reveal">
+      <div class="diff-content">
+        <div class="diff-number">02</div>
+        <div class="diff-badge">Flagship System</div>
+        <h2>Client<br/>Digital Twin</h2>
+        <p>Most organisations treat their clients as names in a CRM. AIONX builds a live predictive behavioural model of every single relationship — tracking sentiment, engagement velocity, satisfaction drift, and churn trajectory updated in real time.</p>
+        <p>You know — before your client knows themselves — when the relationship is at risk, when they are ready to expand, and exactly what they need to hear. This is not relationship management. This is relationship sovereignty.</p>
+        <a href="#demo" class="btn-primary" style="margin-top:8px;">Explore Digital Twin</a>
+      </div>
+      <div class="diff-visual glass reveal">
+        <div class="diff-badge">Live Relationship Model</div>
+        <div class="twin-metrics" style="margin-top:20px;">
+          <div class="twin-metric">
+            <span class="label">Trust Score</span>
+            <div class="bar-wrap"><div class="bar" style="width:87%;"></div></div>
+            <span class="val">87</span>
+          </div>
+          <div class="twin-metric">
+            <span class="label">Engagement Velocity</span>
+            <div class="bar-wrap"><div class="bar" style="width:64%;background:linear-gradient(90deg,var(--gold),var(--gold2));"></div></div>
+            <span class="val">64</span>
+          </div>
+          <div class="twin-metric">
+            <span class="label">Churn Risk</span>
+            <div class="bar-wrap"><div class="bar" style="width:12%;background:linear-gradient(90deg,var(--green),#00A84F);"></div></div>
+            <span class="val">12</span>
+          </div>
+          <div class="twin-metric">
+            <span class="label">Satisfaction Drift</span>
+            <div class="bar-wrap"><div class="bar" style="width:73%;"></div></div>
+            <span class="val">73</span>
+          </div>
+          <div class="twin-metric">
+            <span class="label">Expansion Readiness</span>
+            <div class="bar-wrap"><div class="bar" style="width:91%;background:linear-gradient(90deg,var(--gold),var(--gold2));"></div></div>
+            <span class="val">91</span>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--green);margin-top:20px;font-weight:600;">▲ Churn risk declined 63% since activation</p>
+      </div>
+    </div>
+
+    <!-- Institutional Wisdom Index -->
+    <div class="diff-item reveal">
+      <div class="diff-content">
+        <div class="diff-number">03</div>
+        <div class="diff-badge">Flagship System</div>
+        <h2>Institutional<br/>Wisdom Index</h2>
+        <p>For the first time in business history, your organisation has a score. The Institutional Wisdom Index measures your collective intelligence across decision quality, learning velocity, client trust, operational efficiency, and leadership authority — all compressed into a single, trackable number from 0 to 1000.</p>
+        <p>Watch your organisation get smarter every week. See exactly which dimension is holding you back. Benchmark against your own past performance. Finally — a north star your entire organisation can orient toward.</p>
+        <a href="#demo" class="btn-primary" style="margin-top:8px;">Calculate Your Score</a>
+      </div>
+      <div class="diff-visual glass reveal" style="text-align:center;">
+        <div class="diff-badge">Live Intelligence Score</div>
+        <div class="wisdom-ring">
+          <div class="wisdom-num" id="wisdom-score">0</div>
+          <div class="wisdom-lbl">/ 1000</div>
+        </div>
+        <p style="font-size:13px;color:var(--text2);">Institutional Wisdom Index</p>
+        <div class="score-breakdown" style="margin-top:20px;">
+          <div class="score-item"><div class="s-val">94%</div><div class="s-lbl">Decision Accuracy</div></div>
+          <div class="score-item"><div class="s-val">87</div><div class="s-lbl">Client Trust Avg</div></div>
+          <div class="score-item"><div class="s-val">4.2x</div><div class="s-lbl">Learning Velocity</div></div>
+          <div class="score-item"><div class="s-val">Tier 3</div><div class="s-lbl">HIA Certified</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PACKAGES -->
+<section id="packages">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">25 Intelligence Systems</span>
+      <h2 class="section-title">Every capability your organisation needs.<br/><span class="gradient-text">Nothing you don't.</span></h2>
+      <p class="section-sub" style="margin:0 auto 0;">Deploy individual systems or combine them into the full AIONX Intelligence Stack. Every module operates as a sovereign system and amplifies every other.</p>
+    </div>
+    <div class="pkg-toggle">
+      <button class="active" onclick="toggleView('before')">Current Reality</button>
+      <button onclick="toggleView('after')">After AIONX</button>
+    </div>
+
+    <!-- Division 1 -->
+    <div class="div-label"><h3>Division I — Foundation Intelligence</h3></div>
+    <div class="pkg-grid" id="pkg-grid">
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🧠</div>
+        <h3>Intelligence Core Activation</h3>
+        <p class="pkg-before">Your organisation runs on informal knowledge, email chains, and individual expertise that no one can access or trust consistently.</p>
+        <p class="pkg-after">A central intelligence layer captures, structures, and makes every critical insight available to every decision in your organisation — instantly.</p>
+        <span class="pkg-tag">Foundation</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">📡</div>
+        <h3>Real-Time Situation Awareness</h3>
+        <p class="pkg-before">Leadership discovers what's happening in operations weeks after it mattered. Decisions are reactive, not anticipatory.</p>
+        <p class="pkg-after">A live command picture across all departments feeds leadership with real-time status, anomalies, and opportunity signals — updated continuously.</p>
+        <span class="pkg-tag">Foundation</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🏛️</div>
+        <h3>Institutional Memory Engine</h3>
+        <p class="pkg-before">When key team members leave, they take years of critical context with them. Every new hire restarts from zero.</p>
+        <p class="pkg-after">Every decision, outcome, lesson, and insight is captured, structured, and made permanently accessible — regardless of who comes or goes.</p>
+        <span class="pkg-tag">Foundation</span>
+      </div>
+
+      <!-- Division 2 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division II — Decision Architecture</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">⚖️</div>
+        <h3>Grand Convergence Council</h3>
+        <p class="pkg-before">Major decisions are made in rushed meetings with incomplete information, no structured dissent protocol, and no accountability trail.</p>
+        <p class="pkg-after">A ten-phase deliberation architecture convenes twelve specialist intelligences to certify every major decision as complete, defensible, and irreversible.</p>
+        <span class="pkg-tag">Flagship</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🎯</div>
+        <h3>Decision Quality Index</h3>
+        <p class="pkg-before">There is no way to know which decisions were good and which were lucky. Quality is subjective. Standards drift.</p>
+        <p class="pkg-after">Every decision is scored against 14 quality dimensions — completeness, risk awareness, speed, reversibility — creating a trackable, improvable standard.</p>
+        <span class="pkg-tag">Decision Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🛡️</div>
+        <h3>Risk Intelligence Shield</h3>
+        <p class="pkg-before">Risk is identified after it materialises. Post-mortems are written. Nothing changes. The same risks return in new clothing.</p>
+        <p class="pkg-after">Predictive risk modelling identifies threats 60 to 90 days before they impact operations — giving leadership time to neutralise, not react.</p>
+        <span class="pkg-tag">Decision Layer</span>
+      </div>
+
+      <!-- Division 3 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division III — Client Intelligence</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">👤</div>
+        <h3>Client Digital Twin</h3>
+        <p class="pkg-before">Client health is assessed through last month's invoice and a gut feeling. Churn arrives as a complete surprise.</p>
+        <p class="pkg-after">A live predictive behavioural model of every client relationship — tracking trust, satisfaction, expansion readiness, and churn probability in real time.</p>
+        <span class="pkg-tag">Flagship</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🔮</div>
+        <h3>Churn Prevention System</h3>
+        <p class="pkg-before">By the time you know a client is unhappy, they've already decided to leave. Retention conversations happen too late.</p>
+        <p class="pkg-after">Churn signals are detected 60 to 90 days before they become decisions — triggering intelligent retention protocols before the client even recognises the problem.</p>
+        <span class="pkg-tag">Client Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">💚</div>
+        <h3>Relationship Health Monitor</h3>
+        <p class="pkg-before">Client relationships are measured by contract renewals alone. Declining trust is invisible until it produces a cancellation.</p>
+        <p class="pkg-after">Trust is tracked as a live continuous metric across every interaction, deliverable, and touchpoint — with automated alerts when trajectories dip.</p>
+        <span class="pkg-tag">Client Layer</span>
+      </div>
+
+      <!-- Division 4 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division IV — Operational Excellence</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">⚔️</div>
+        <h3>Mission Command System</h3>
+        <p class="pkg-before">Projects start with intent and end with compromise. There is no clear chain of command, no milestone integrity system, no failure detection in real time.</p>
+        <p class="pkg-after">Every strategic initiative is managed as a military-grade mission — with commander assignments, milestone gates, integrity verification, and automated escalation on deviation.</p>
+        <span class="pkg-tag">Operations</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">📊</div>
+        <h3>Performance Accountability Engine</h3>
+        <p class="pkg-before">Accountability is a word used in performance reviews. Between reviews, commitments erode, actions misalign, and results disappoint.</p>
+        <p class="pkg-after">Every commitment is tracked with automated accountability loops, performance telemetry, and consequence triggers — creating a culture of execution, not intention.</p>
+        <span class="pkg-tag">Operations</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">⚙️</div>
+        <h3>Workflow Intelligence Layer</h3>
+        <p class="pkg-before">Workflows are designed once and never improved. Bottlenecks compound silently until someone finally complains about a problem that's been building for months.</p>
+        <p class="pkg-after">Intelligent workflow analysis continuously identifies bottlenecks, redundancies, and failure patterns — and auto-recommends corrections before productivity suffers.</p>
+        <span class="pkg-tag">Operations</span>
+      </div>
+
+      <!-- Division 5 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division V — Organisational Learning</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🏆</div>
+        <h3>Institutional Wisdom Index</h3>
+        <p class="pkg-before">There is no score for organisational intelligence. There is no way to know if your organisation is getting smarter or just busier.</p>
+        <p class="pkg-after">A master intelligence score from 0 to 1000 — measuring decision quality, learning velocity, client trust, operational efficiency, and leadership authority as a single, trackable number.</p>
+        <span class="pkg-tag">Flagship</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🔬</div>
+        <h3>Autopsy Intelligence</h3>
+        <p class="pkg-before">Post-mortems are written, filed, and forgotten. The same failures recur because the lessons are never converted into operational change.</p>
+        <p class="pkg-after">Every failure is dissected across 8 root-cause dimensions, and the findings are automatically embedded into future decision protocols — permanently eliminating repeat failures.</p>
+        <span class="pkg-tag">Learning Engine</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🌀</div>
+        <h3>Counterfactual Learning Engine</h3>
+        <p class="pkg-before">Organisations only learn from what happened. The infinite lessons hidden in what could have happened differently remain permanently invisible.</p>
+        <p class="pkg-after">Counterfactual modelling reconstructs alternative decision paths and quantifies what was gained or lost at every fork — making your future smarter than your past.</p>
+        <span class="pkg-tag">Learning Engine</span>
+      </div>
+
+      <!-- Division 6 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division VI — Growth Intelligence</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🎪</div>
+        <h3>Intelligent Lead Qualification</h3>
+        <p class="pkg-before">Sales teams spend 70% of their time on leads that were never going to close. Qualification is subjective, inconsistent, and expensive.</p>
+        <p class="pkg-after">Every lead is scored across 22 behavioural, contextual, and intent dimensions — so your team focuses exclusively on opportunities that convert.</p>
+        <span class="pkg-tag">Growth Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">📨</div>
+        <h3>Outreach Intelligence System</h3>
+        <p class="pkg-before">Outreach campaigns are sent on schedules that have nothing to do with recipient readiness. Response rates remain low. Budgets are wasted.</p>
+        <p class="pkg-after">Intelligent timing, channel selection, and message personalisation systems ensure outreach lands when recipients are most receptive — maximising response without increasing volume.</p>
+        <span class="pkg-tag">Growth Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">📋</div>
+        <h3>Proposal Intelligence Engine</h3>
+        <p class="pkg-before">Proposals are templated, generic, and identical for every prospect. Win rates are unpredictable. Pricing is guesswork.</p>
+        <p class="pkg-after">AI-guided proposal systems adapt positioning, evidence, pricing, and narrative to each prospect's specific psychology, risk profile, and decision criteria.</p>
+        <span class="pkg-tag">Growth Layer</span>
+      </div>
+
+      <!-- Division 7 -->
+      <div class="div-label" style="grid-column:1/-1;"><h3>Division VII — Command &amp; Sovereignty</h3></div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🖥️</div>
+        <h3>Captain Intelligence Dashboard</h3>
+        <p class="pkg-before">Executive dashboards show lagging indicators. By the time a metric looks bad on a report, the window to act has closed.</p>
+        <p class="pkg-after">A real-time command-centre view delivers live operational telemetry, predictive signals, decision queues, and priority alerts — enabling leadership to govern, not react.</p>
+        <span class="pkg-tag">Command Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">👑</div>
+        <h3>Authority Calibration System</h3>
+        <p class="pkg-before">The wrong people make the wrong decisions. Authority is assigned by title, not by demonstrated domain competence and track record.</p>
+        <p class="pkg-after">Decision authority is dynamically calibrated to demonstrated track record across every domain — ensuring the most capable voice governs every category of decision.</p>
+        <span class="pkg-tag">Command Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🎙️</div>
+        <h3>Voice Intelligence Briefing</h3>
+        <p class="pkg-before">Intelligence stays buried in dashboards that executives rarely open. Critical insight never reaches leadership in time to matter.</p>
+        <p class="pkg-after">A personalised audio intelligence briefing delivered directly to leadership — synthesising overnight developments, risk alerts, and decision priorities in 90 seconds.</p>
+        <span class="pkg-tag">Command Layer</span>
+      </div>
+
+      <div class="pkg-card glass">
+        <div class="pkg-icon">🏅</div>
+        <h3>HIA Certification Programme</h3>
+        <p class="pkg-before">There is no standard for organisational intelligence. There is no credential that demonstrates your institution's operational sophistication to stakeholders, partners, and regulators.</p>
+        <p class="pkg-after">The Human Intelligence Architecture certification formally validates your organisation's operational intelligence tier — from foundational (Tier 0) through sovereign-grade (Tier 4).</p>
+        <span class="pkg-tag">Certification</span>
+      </div>
+
+    </div><!-- end pkg-grid -->
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">The Activation Journey</span>
+      <h2 class="section-title">From chaos to command<br/>in <span class="gradient-text">four deliberate phases.</span></h2>
+    </div>
+    <div class="phases-grid">
+      <div class="phase-card glass reveal">
+        <div class="phase-num">01</div>
+        <h3>Intelligence Audit</h3>
+        <p>We conduct a deep diagnostic of your current decision architecture, knowledge gaps, client intelligence blindspots, and operational failure patterns. No assumptions. Full clarity.</p>
+      </div>
+      <div class="phase-card glass reveal">
+        <div class="phase-num">02</div>
+        <h3>System Architecture</h3>
+        <p>We design your bespoke AIONX stack — selecting the specific intelligence modules, integration points, and escalation protocols that match your organisation's exact profile.</p>
+      </div>
+      <div class="phase-card glass reveal">
+        <div class="phase-num">03</div>
+        <h3>Live Activation</h3>
+        <p>Your systems go live with zero disruption to existing operations. Intelligence begins flowing immediately. Your Institutional Wisdom Index gets its baseline reading.</p>
+      </div>
+      <div class="phase-card glass reveal">
+        <div class="phase-num">04</div>
+        <h3>Continuous Evolution</h3>
+        <p>AIONX learns continuously. Every decision, outcome, and interaction makes the system more precise. Your organisation compounds intelligence instead of compounding mistakes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CASE STUDIES -->
+<section id="cases">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">Client Transformations</span>
+      <h2 class="section-title">They didn't need more staff.<br/><span class="gradient-text">They needed intelligence.</span></h2>
+      <p class="section-sub" style="margin:0 auto;">Five real transformations. Five organisations that stopped running on instinct and started operating on intelligence.</p>
+    </div>
+    <div class="cases-grid">
+
+      <div class="case-card glass2 reveal">
+        <div class="case-industry">National Healthcare Network</div>
+        <h2 class="case-title">"We were losing the right patients because we couldn't see which ones needed us most."</h2>
+        <p class="case-story">A regional healthcare provider managing fourteen clinics was haemorrhaging patients — not from poor care, but from poor co-ordination. Referrals fell through cracks. Follow-up appointments were missed. High-risk patients were identified too late. The clinical team was excellent. The intelligence holding it together was not. After deploying AIONX's Client Digital Twin and Mission Command System, patient journey gaps became visible for the first time. Automated care pathway monitoring flagged at-risk patients an average of 47 days earlier. Referral completion rates climbed from 61% to 94%.</p>
+        <div class="case-metrics">
+          <div class="case-metric"><div class="num">94%</div><div class="lbl">Referral Completion Rate</div></div>
+          <div class="case-metric"><div class="num">47</div><div class="lbl">Days Earlier Risk Detection</div></div>
+          <div class="case-metric"><div class="num">3.1x</div><div class="lbl">Patient Retention Improvement</div></div>
+          <div class="case-metric"><div class="num">£2.4M</div><div class="lbl">Annual Operational Savings</div></div>
+        </div>
+        <div class="case-quote">
+          "I've been in clinical leadership for twenty-two years. I have never seen an operational transformation this fast, this clean, or this undeniable."
+          <cite>— Medical Director, Regional Health Network (UK)</cite>
+        </div>
+      </div>
+
+      <div class="case-card glass2 reveal">
+        <div class="case-industry">International Law Firm</div>
+        <h2 class="case-title">"Our partners were making case strategy decisions with no visibility into what had worked before."</h2>
+        <p class="case-story">A sixty-partner law firm had a problem most organisations only have in secret: their collective knowledge was trapped inside the minds of their most senior partners, and those partners were leaving. Every new case started from scratch. Precedent was searched manually. Strategic decisions were made on instinct rather than institutional learning. The Grand Convergence Council changed the architecture of how partners deliberated. The Autopsy Intelligence Engine catalogued eleven years of case outcomes. Within eight months, junior partner decision confidence increased by 71%. Win rates on contested matters improved by 38%.</p>
+        <div class="case-metrics">
+          <div class="case-metric"><div class="num">38%</div><div class="lbl">Win Rate Improvement</div></div>
+          <div class="case-metric"><div class="num">71%</div><div class="lbl">Partner Decision Confidence</div></div>
+          <div class="case-metric"><div class="num">11yr</div><div class="lbl">Case History Indexed</div></div>
+          <div class="case-metric"><div class="num">4.6x</div><div class="lbl">Knowledge Retrieval Speed</div></div>
+        </div>
+        <div class="case-quote">
+          "We always said our greatest asset was our people's expertise. AIONX made that expertise portable, searchable, and permanent."
+          <cite>— Managing Partner, International Dispute Resolution Practice</cite>
+        </div>
+      </div>
+
+      <div class="case-card glass2 reveal">
+        <div class="case-industry">University System</div>
+        <h2 class="case-title">"We were graduating students without any intelligence on what was actually driving their success."</h2>
+        <p class="case-story">A university system with over 28,000 enrolled students had no coherent model of what predicted student success — or failure. Dropout rates were climbing. Intervention programmes were generic. Advisors were overwhelmed and under-informed. The AIONX Education Intelligence Platform built predictive models for every enrolled student, identifying disengagement signals an average of six weeks before academic performance declined visibly. Targeted interventions were deployed automatically. Dropout rates fell 44% in the first academic year. Faculty time spent on reactive intervention dropped by 60%, redirected instead toward high-impact mentorship.</p>
+        <div class="case-metrics">
+          <div class="case-metric"><div class="num">44%</div><div class="lbl">Dropout Rate Reduction</div></div>
+          <div class="case-metric"><div class="num">6wk</div><div class="lbl">Earlier Risk Detection</div></div>
+          <div class="case-metric"><div class="num">60%</div><div class="lbl">Reactive Time Eliminated</div></div>
+          <div class="case-metric"><div class="num">$3.7M</div><div class="lbl">Retention Revenue Protected</div></div>
+        </div>
+        <div class="case-quote">
+          "We stopped reacting to failure and started preventing it. AIONX gave us intelligence we didn't know we were missing."
+          <cite>— Vice-Chancellor, Academic Affairs</cite>
+        </div>
+      </div>
+
+      <div class="case-card glass2 reveal">
+        <div class="case-industry">Private Equity Portfolio Company</div>
+        <h2 class="case-title">"Our board was making acquisition decisions on data that was three months old."</h2>
+        <p class="case-story">A private equity-backed operational holding company managed six portfolio businesses across three continents. Board-level decision making was chronically delayed. Due diligence processes were inconsistent. Post-acquisition integration assessments were reactive. The Captain Intelligence Dashboard aggregated live telemetry across all six companies. The Institutional Wisdom Index established a performance baseline. When the board deployed the Grand Convergence Council for their next acquisition deliberation, the process that previously took eleven weeks completed in eighteen days — with higher confidence ratings and a formal audit trail for every recommendation.</p>
+        <div class="case-metrics">
+          <div class="case-metric"><div class="num">11wk→18d</div><div class="lbl">Decision Cycle Compressed</div></div>
+          <div class="case-metric"><div class="num">100%</div><div class="lbl">Decision Audit Coverage</div></div>
+          <div class="case-metric"><div class="num">6</div><div class="lbl">Portfolio Businesses Unified</div></div>
+          <div class="case-metric"><div class="num">92%</div><div class="lbl">Board Confidence Score</div></div>
+        </div>
+        <div class="case-quote">
+          "The time we used to spend hunting for information, we now spend using it. That's the real competitive advantage."
+          <cite>— Chief Operating Officer, Multi-Sector Portfolio Group</cite>
+        </div>
+      </div>
+
+      <div class="case-card glass2 reveal">
+        <div class="case-industry">Global Technology Services Firm</div>
+        <h2 class="case-title">"We lost three anchor clients in one quarter. No one saw it coming. Everyone should have."</h2>
+        <p class="case-story">A technology consultancy with 380 employees and a global client roster lost $4.2M in annual recurring revenue across one quarter — three enterprise clients who had shown every sign of departure that the company's systems were simply not designed to detect. Each client had experienced declining engagement scores, unresolved escalations, and reduced project scoping months before the formal exits. After deploying AIONX's Client Digital Twin and Churn Prevention System, client health monitoring became continuous and predictive. In the eighteen months following deployment, zero enterprise clients churned. Client Net Promoter Score climbed from 41 to 73.</p>
+        <div class="case-metrics">
+          <div class="case-metric"><div class="num">0</div><div class="lbl">Enterprise Churns in 18 Months</div></div>
+          <div class="case-metric"><div class="num">73</div><div class="lbl">NPS Score (from 41)</div></div>
+          <div class="case-metric"><div class="num">$4.2M</div><div class="lbl">Revenue Risk Eliminated</div></div>
+          <div class="case-metric"><div class="num">89%</div><div class="lbl">At-Risk Client Recovery Rate</div></div>
+        </div>
+        <div class="case-quote">
+          "We knew our clients were unhappy before they did. That is an extraordinary capability. And it saved our business."
+          <cite>— Chief Revenue Officer, Global Technology Consultancy</cite>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- INDUSTRIES -->
+<section id="industries">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">Sectors We Serve</span>
+      <h2 class="section-title">AIONX was built for organisations<br/>where the stakes are real.</h2>
+    </div>
+    <div class="ind-grid reveal">
+      <div class="ind-tag">🏥 Healthcare &amp; Clinical Networks</div>
+      <div class="ind-tag">⚖️ Legal &amp; Professional Services</div>
+      <div class="ind-tag">🎓 Universities &amp; Education Systems</div>
+      <div class="ind-tag">🏦 Financial Services &amp; Private Equity</div>
+      <div class="ind-tag">🏗️ Construction &amp; Infrastructure</div>
+      <div class="ind-tag">🛡️ Government &amp; Public Sector</div>
+      <div class="ind-tag">💊 Pharmaceutical &amp; Life Sciences</div>
+      <div class="ind-tag">✈️ Aviation &amp; Logistics</div>
+      <div class="ind-tag">🏢 Enterprise Operations</div>
+      <div class="ind-tag">📡 Technology &amp; Software</div>
+      <div class="ind-tag">🌍 NGOs &amp; Development Organisations</div>
+      <div class="ind-tag">🔬 Research Institutions</div>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM -->
+<section id="team">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">The Intelligence Architects</span>
+      <h2 class="section-title">Nine specialists.<br/>One singular obsession.</h2>
+      <p class="section-sub" style="margin:0 auto;">We didn't build AIONX from a template. Every member of this team has spent years inside failing organisations watching the same preventable problems repeat — and decided to do something permanent about it.</p>
+    </div>
+    <div class="team-grid">
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#0066FF,#003ECC);">AS</div>
+        <h3>Dr. Aliyar S.</h3>
+        <div class="role">Chief Intelligence Architect</div>
+        <p>Designed the AIONX core deliberation protocol after a decade working in organisational failure analysis. Holds advanced degrees in cognitive systems and decision theory.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#C9A84C,#E8C56A);">ZK</div>
+        <h3>Zahra Khalil</h3>
+        <div class="role">Director of Client Intelligence</div>
+        <p>Built predictive client models for Fortune 500 companies before joining Aliyar. Specialises in trust architecture and behavioural modelling at scale.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#7B4FFF,#4F2FCC);">RM</div>
+        <h3>Rafael Montoya</h3>
+        <div class="role">Head of Decision Architecture</div>
+        <p>Former military intelligence officer with twelve years in high-stakes operational planning. Designed the Grand Convergence Council deliberation protocol.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#00D46A,#009E4F);">NP</div>
+        <h3>Nadia Petrov</h3>
+        <div class="role">Institutional Learning Lead</div>
+        <p>PhD in organisational cognition. Designed the Autopsy Intelligence Engine and Counterfactual Learning frameworks used by AIONX clients across 14 countries.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#FF6B35,#CC4A1A);">JO</div>
+        <h3>James Okafor</h3>
+        <div class="role">Healthcare Intelligence Specialist</div>
+        <p>Clinical operations consultant who has transformed patient journey intelligence for NHS trusts and private hospital networks across Europe and West Africa.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#0066FF,#7B4FFF);">LW</div>
+        <h3>Linh Wei</h3>
+        <div class="role">Financial Intelligence Architect</div>
+        <p>Former quantitative analyst at a sovereign wealth fund. Designed AIONX's financial risk modelling and investment intelligence protocols.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#C9A84C,#7B4FFF);">SR</div>
+        <h3>Sophie Reinhart</h3>
+        <div class="role">Education Systems Lead</div>
+        <p>Spent eight years as a university transformation director before designing AIONX's Education Intelligence Platform. Deep expertise in student outcome modelling.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#FF3B3B,#CC1A1A);">DH</div>
+        <h3>Darius Howell</h3>
+        <div class="role">Operational Command Lead</div>
+        <p>Previous roles in aerospace operations management and supply chain intelligence. Designed the Mission Command System and Mission Integrity Protocol.</p>
+      </div>
+      <div class="team-card glass reveal">
+        <div class="team-avatar" style="background:linear-gradient(135deg,#00D46A,#0066FF);">PA</div>
+        <h3>Priya Anand</h3>
+        <div class="role">Legal Intelligence Specialist</div>
+        <p>Former litigation strategist and legal technology architect. Built AIONX's precedent intelligence and case outcome modelling systems for law firms and regulators.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WISDOM SCORE SECTION -->
+<section id="wisdom">
+  <div class="container">
+    <span class="section-label reveal" style="display:block;text-align:center;">What Gets Measured Gets Mastered</span>
+    <h2 class="section-title reveal" style="text-align:center;">Your organisation's intelligence score<br/>is waiting to be<span class="gradient-text"> calculated.</span></h2>
+    <div class="wisdom-display glass2 reveal">
+      <div class="big-score" id="big-wisdom">?</div>
+      <p class="score-label">Your current Institutional Wisdom Index</p>
+      <p style="color:var(--text2);font-size:16px;line-height:1.7;max-width:500px;margin:0 auto 32px;">The average untransformed organisation scores between 180 and 340. AIONX clients average 680 after twelve months. Elite-tier clients exceed 850. Where does your organisation stand?</p>
+      <a href="#contact" class="btn-gold">Calculate My Organisation's Score →</a>
+      <div class="score-breakdown" style="margin-top:40px;">
+        <div class="score-item"><div class="s-val">?</div><div class="s-lbl">Decision Quality</div></div>
+        <div class="score-item"><div class="s-val">?</div><div class="s-lbl">Learning Velocity</div></div>
+        <div class="score-item"><div class="s-val">?</div><div class="s-lbl">Client Trust Score</div></div>
+        <div class="score-item"><div class="s-val">?</div><div class="s-lbl">Op Efficiency</div></div>
+        <div class="score-item"><div class="s-val">?</div><div class="s-lbl">Authority Index</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO CTA -->
+<section id="demo">
+  <div class="container">
+    <div class="demo-inner glass reveal">
+      <span class="section-label">Free Intelligence Demo</span>
+      <h2 class="demo-title">See your organisation<br/>think for the first time.</h2>
+      <p class="demo-sub">A 45-minute live demonstration of AIONX operating on a scenario from your actual industry. No slides. No theory. Real intelligence, working in real time.</p>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <a href="#contact" class="btn-primary" style="font-size:17px;padding:18px 40px;">Book Your Free Demo →</a>
+        <a href="#contact" class="btn-gold" style="font-size:17px;padding:18px 40px;">Speak to an Architect</a>
+      </div>
+      <p style="color:var(--text2);font-size:14px;margin-top:24px;">No commitment required. No payment discussed. Pure intelligence — on us.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="container">
+    <div class="contact-grid">
+      <div class="contact-info reveal">
+        <span class="section-label">Start the Conversation</span>
+        <h2>Your organisation deserves to operate at its<br/><span class="gradient-text">full intelligence.</span></h2>
+        <p>Tell us about your organisation and what's holding it back. Within 24 hours, one of our Intelligence Architects will review your situation and reach out with a bespoke assessment — not a sales pitch.</p>
+        <div class="contact-points">
+          <div class="contact-point">
+            <div class="icon">📍</div>
+            <span>London · Dubai · Lahore · Singapore</span>
+          </div>
+          <div class="contact-point">
+            <div class="icon">✉️</div>
+            <span>intelligence@aliyarsolutions.com</span>
+          </div>
+          <div class="contact-point">
+            <div class="icon">🕐</div>
+            <span>Response within 24 hours, guaranteed</span>
+          </div>
+          <div class="contact-point">
+            <div class="icon">🔒</div>
+            <span>All submissions treated with strict confidentiality</span>
+          </div>
+        </div>
+      </div>
+      <div class="reveal">
+        <form class="form glass2" style="padding:40px;" onsubmit="handleSubmit(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Your Name</label>
+              <input type="text" placeholder="Dr. Jane Whitmore" required/>
+            </div>
+            <div class="form-group">
+              <label>Organisation</label>
+              <input type="text" placeholder="Whitmore Health Group" required/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Your Role</label>
+              <input type="text" placeholder="Chief Executive Officer" required/>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" placeholder="jane@whitmore.com" required/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Your Industry</label>
+            <select>
+              <option value="">Select your sector...</option>
+              <option>Healthcare &amp; Clinical Networks</option>
+              <option>Legal &amp; Professional Services</option>
+              <option>Universities &amp; Education</option>
+              <option>Financial Services &amp; Private Equity</option>
+              <option>Technology &amp; Software</option>
+              <option>Government &amp; Public Sector</option>
+              <option>Construction &amp; Infrastructure</option>
+              <option>Pharmaceutical &amp; Life Sciences</option>
+              <option>Aviation &amp; Logistics</option>
+              <option>NGO &amp; Development</option>
+              <option>Research Institutions</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Which AIONX system interests you most?</label>
+            <select>
+              <option value="">Select a system...</option>
+              <option>Grand Convergence Council — Decision Architecture</option>
+              <option>Client Digital Twin — Relationship Intelligence</option>
+              <option>Institutional Wisdom Index — Organisational Score</option>
+              <option>Mission Command System — Operational Control</option>
+              <option>Churn Prevention System — Client Retention</option>
+              <option>Autopsy Intelligence — Learning from Failure</option>
+              <option>Captain Intelligence Dashboard — Executive Command</option>
+              <option>Full AIONX Intelligence Stack</option>
+              <option>HIA Certification Programme</option>
+              <option>Not sure — I need a diagnostic first</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>What's the biggest intelligence gap in your organisation right now?</label>
+            <textarea placeholder="Tell us about the decisions you're making blind, the clients you're losing without warning, or the institutional knowledge that leaves with every departure..."></textarea>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;font-size:16px;padding:18px;">Request Intelligence Assessment →</button>
+          <p style="font-size:12px;color:var(--text2);text-align:center;margin-top:12px;">No payment discussed. No obligation. Pure intelligence.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#" class="logo">Aliyar<span style="color:var(--blue);">.</span></a>
+        <p>AIONX is the world's first Autonomous Intelligent Operations System. Built for organisations that refuse to operate below their full intelligence potential.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Systems</h4>
+        <a href="#packages">Foundation Intelligence</a>
+        <a href="#packages">Decision Architecture</a>
+        <a href="#packages">Client Intelligence</a>
+        <a href="#packages">Operational Command</a>
+        <a href="#packages">Organisational Learning</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#team">Our Team</a>
+        <a href="#cases">Case Studies</a>
+        <a href="#industries">Industries</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Intelligence</h4>
+        <a href="#diff">Grand Convergence Council</a>
+        <a href="#diff">Client Digital Twin</a>
+        <a href="#diff">Wisdom Index</a>
+        <a href="#demo">Free Demo</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 Aliyar Solutions. All rights reserved. Powering sovereign organisational intelligence worldwide.</p>
+      <div class="footer-badges">
+        <span class="footer-badge">ISO 27001 Aligned</span>
+        <span class="footer-badge">HIPAA Aware</span>
+        <span class="footer-badge">GDPR Compliant</span>
+        <span class="footer-badge">SOC 2 Ready</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<div class="notif" id="notif">✓ Your assessment request has been received. We'll respond within 24 hours.</div>
+
+<script>
+// ===== THREE.JS PARTICLE NETWORK =====
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.z = 50;
+
+  const count = 1200;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  for(let i = 0; i < count; i++){
+    positions[i*3]   = (Math.random()-0.5)*160;
+    positions[i*3+1] = (Math.random()-0.5)*120;
+    positions[i*3+2] = (Math.random()-0.5)*80;
+    const t = Math.random();
+    if(t < 0.5){ colors[i*3]=0;colors[i*3+1]=0.4;colors[i*3+2]=1; }
+    else if(t < 0.8){ colors[i*3]=0.48;colors[i*3+1]=0.31;colors[i*3+2]=1; }
+    else{ colors[i*3]=0.79;colors[i*3+1]=0.66;colors[i*3+2]=0.3; }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors,3));
+  const mat = new THREE.PointsMaterial({size:0.4, vertexColors:true, transparent:true, opacity:0.7});
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  let mx=0, my=0;
+  document.addEventListener('mousemove', e => { mx=(e.clientX/window.innerWidth-.5)*.3; my=(e.clientY/window.innerHeight-.5)*.3; });
+
+  window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  function animate(){
+    requestAnimationFrame(animate);
+    points.rotation.y += 0.0006 + mx * 0.002;
+    points.rotation.x += 0.0002 + my * 0.001;
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+
+// ===== NAV SCROLL =====
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// ===== COUNTER ANIMATION =====
+function animateCounter(el, target, suffix=''){
+  let start = 0;
+  const dur = 2000;
+  const step = 16;
+  const inc = target / (dur / step);
+  const timer = setInterval(()=>{
+    start = Math.min(start + inc, target);
+    el.textContent = Math.floor(start) + suffix;
+    if(start >= target) clearInterval(timer);
+  }, step);
+}
+
+// ===== WISDOM SCORE ANIMATION =====
+function animateWisdom(){
+  const el = document.getElementById('wisdom-score');
+  if(!el || el.dataset.done) return;
+  el.dataset.done = '1';
+  let v = 0;
+  const t = setInterval(()=>{
+    v = Math.min(v+6, 734);
+    el.textContent = v;
+    if(v >= 734) clearInterval(t);
+  }, 20);
+}
+
+// ===== INTERSECTION OBSERVER =====
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      // counters
+      if(e.target.matches('.hero-content')){
+        document.querySelectorAll('.hero-stat .num').forEach(n => {
+          animateCounter(n, parseInt(n.dataset.target));
+        });
+      }
+      // wisdom ring
+      if(e.target.closest('#diff')){
+        const ws = document.getElementById('wisdom-score');
+        if(ws && !ws.dataset.done){
+          setTimeout(animateWisdom, 400);
+        }
+      }
+    }
+  });
+}, {threshold: 0.12});
+
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+// ===== PACKAGE TOGGLE =====
+function toggleView(mode){
+  const btns = document.querySelectorAll('.pkg-toggle button');
+  btns[0].classList.toggle('active', mode==='before');
+  btns[1].classList.toggle('active', mode==='after');
+  document.querySelectorAll('.pkg-card').forEach(c => {
+    c.classList.toggle('show-after', mode==='after');
+  });
+}
+
+// ===== FORM SUBMIT =====
+function handleSubmit(e){
+  e.preventDefault();
+  const notif = document.getElementById('notif');
+  notif.classList.add('show');
+  setTimeout(()=> notif.classList.remove('show'), 5000);
+  e.target.reset();
+}
+
+// ===== SMOOTH ANCHOR =====
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const t = document.querySelector(a.getAttribute('href'));
+    if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+  });
+});
+</script>
+</body>
+</html>

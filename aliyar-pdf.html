@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Aliyar Solutions — AIONX Intelligence System</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#050A14; color:#E8EDF5; font-family:Georgia,'Times New Roman',serif; font-size:11pt; line-height:1.65; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  /* COVER PAGE */
+  .cover { background:linear-gradient(160deg,#050A14 0%,#091830 45%,#0D0820 100%); min-height:260mm; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:40px 30px; border-bottom:3px solid #0066FF; page-break-after:always; }
+  .cover-logo { font-family:Arial,sans-serif; font-size:28pt; font-weight:900; color:#E8EDF5; letter-spacing:-1px; margin-bottom:8px; }
+  .cover-logo span { color:#0066FF; }
+  .cover-tagline { font-size:10pt; color:#8A9BB5; letter-spacing:3px; text-transform:uppercase; margin-bottom:60px; }
+  .cover-title { font-family:Arial,sans-serif; font-size:38pt; font-weight:900; color:#E8EDF5; line-height:1.1; margin-bottom:24px; }
+  .cover-title em { color:#0066FF; font-style:normal; }
+  .cover-sub { font-size:13pt; color:#8A9BB5; max-width:420px; line-height:1.6; margin-bottom:60px; }
+  .cover-stats { display:flex; gap:48px; justify-content:center; margin-bottom:60px; flex-wrap:wrap; }
+  .cover-stat { text-align:center; }
+  .cover-stat .n { font-family:Arial,sans-serif; font-size:28pt; font-weight:900; color:#0066FF; }
+  .cover-stat .l { font-size:9pt; color:#8A9BB5; margin-top:4px; }
+  .cover-badge { background:rgba(0,102,255,0.15); border:1px solid rgba(0,102,255,0.35); border-radius:40px; padding:8px 24px; font-size:9pt; color:#0066FF; font-weight:700; letter-spacing:1px; }
+  .cover-date { font-size:9pt; color:#4A5568; margin-top:32px; }
+  /* SECTION STYLES */
+  h1 { font-family:Arial,sans-serif; font-size:22pt; font-weight:900; color:#E8EDF5; margin-bottom:16px; line-height:1.2; }
+  h2 { font-family:Arial,sans-serif; font-size:16pt; font-weight:800; color:#E8EDF5; margin-bottom:12px; line-height:1.3; }
+  h3 { font-family:Arial,sans-serif; font-size:12pt; font-weight:700; color:#E8EDF5; margin-bottom:8px; }
+  p { color:#B0BEC5; margin-bottom:12px; }
+  .label { font-size:8pt; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:#C9A84C; margin-bottom:10px; display:block; }
+  .blue { color:#0066FF; }
+  .gold { color:#C9A84C; }
+  .green { color:#00D46A; }
+  .section { padding:24px 0 16px; page-break-inside:avoid; }
+  .section-break { page-break-before:always; padding-top:16px; }
+  .divider { border:none; border-top:1px solid rgba(255,255,255,0.1); margin:20px 0; }
+  .gold-bar { height:3px; background:linear-gradient(90deg,#0066FF,#C9A84C); border-radius:2px; margin-bottom:28px; }
+  /* CARDS */
+  .card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:18px 20px; margin-bottom:14px; page-break-inside:avoid; }
+  .card-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+  .card-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px; }
+  .card h3 { font-size:11pt; margin-bottom:6px; }
+  .card p { font-size:10pt; color:#8A9BB5; margin-bottom:0; }
+  .card .tag { display:inline-block; background:rgba(0,102,255,0.12); border:1px solid rgba(0,102,255,0.25); border-radius:20px; padding:2px 10px; font-size:8pt; color:#0066FF; font-weight:700; margin-top:8px; }
+  /* PAIN */
+  .pain-card { border-left:3px solid #FF3B3B; padding-left:16px; margin-bottom:16px; page-break-inside:avoid; }
+  .pain-card h3 { color:#E8EDF5; font-size:11pt; margin-bottom:6px; }
+  .pain-card p { color:#8A9BB5; font-size:10pt; margin:0; }
+  /* FLAGSHIP */
+  .flagship { background:linear-gradient(135deg,rgba(0,102,255,0.08),rgba(123,79,255,0.06)); border:1px solid rgba(0,102,255,0.2); border-radius:12px; padding:24px; margin-bottom:20px; page-break-inside:avoid; }
+  .flagship .f-badge { display:inline-block; background:#C9A84C; color:#050A14; padding:3px 12px; border-radius:20px; font-size:8pt; font-weight:800; margin-bottom:12px; }
+  .flagship h2 { font-size:18pt; margin-bottom:10px; color:#E8EDF5; }
+  .flagship p { font-size:10pt; color:#8A9BB5; }
+  /* PHASES */
+  .phases { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin:14px 0; }
+  .phase-box { background:rgba(0,102,255,0.1); border:1px solid rgba(0,102,255,0.25); border-radius:6px; padding:8px 6px; text-align:center; font-size:8pt; color:#0066FF; font-weight:700; line-height:1.3; }
+  /* METRICS BAR */
+  .metric-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .metric-row .m-label { font-size:9pt; color:#8A9BB5; width:140px; text-align:right; }
+  .metric-row .m-bar-wrap { flex:1; background:rgba(255,255,255,0.07); border-radius:4px; height:6px; overflow:hidden; }
+  .metric-row .m-bar { height:100%; border-radius:4px; background:linear-gradient(90deg,#0066FF,#7B4FFF); }
+  .metric-row .m-val { font-size:9pt; color:#E8EDF5; width:28px; font-weight:700; }
+  /* CASE STUDY */
+  .case { border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:22px; margin-bottom:20px; page-break-inside:avoid; }
+  .case::before { content:''; display:block; height:3px; background:linear-gradient(90deg,#0066FF,#C9A84C); border-radius:2px; margin-bottom:16px; }
+  .case .industry { font-size:8pt; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#C9A84C; margin-bottom:6px; }
+  .case h2 { font-size:13pt; color:#E8EDF5; margin-bottom:12px; line-height:1.4; }
+  .case p { font-size:10pt; color:#8A9BB5; margin-bottom:14px; }
+  .case-metrics { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:14px; }
+  .case-m { text-align:center; min-width:80px; }
+  .case-m .n { font-size:18pt; font-weight:900; color:#00D46A; font-family:Arial,sans-serif; }
+  .case-m .l { font-size:8pt; color:#8A9BB5; margin-top:2px; }
+  .case-quote { border-left:3px solid #0066FF; padding-left:14px; font-style:italic; color:#B0BEC5; font-size:10pt; line-height:1.6; }
+  .case-quote cite { display:block; font-style:normal; font-size:8.5pt; color:#8A9BB5; margin-top:6px; font-weight:700; }
+  /* TEAM */
+  .team-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:10px; padding:16px; page-break-inside:avoid; }
+  .team-card .avatar { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#0066FF,#003ECC); display:flex; align-items:center; justify-content:center; font-size:14pt; font-weight:900; font-family:Arial,sans-serif; color:#fff; margin-bottom:10px; }
+  .team-card h3 { font-size:11pt; margin-bottom:3px; }
+  .team-card .role { font-size:9pt; color:#0066FF; font-weight:700; margin-bottom:8px; }
+  .team-card p { font-size:9pt; color:#8A9BB5; margin:0; }
+  /* WISDOM */
+  .wisdom-box { background:linear-gradient(135deg,rgba(0,102,255,0.1),rgba(201,168,76,0.08)); border:1px solid rgba(0,102,255,0.25); border-radius:14px; padding:36px; text-align:center; page-break-inside:avoid; }
+  .wisdom-score { font-family:Arial,sans-serif; font-size:72pt; font-weight:900; color:#0066FF; line-height:1; }
+  .wisdom-sub { font-size:12pt; color:#8A9BB5; margin-bottom:20px; }
+  .score-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:16px; }
+  .score-item { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:8px; padding:10px; text-align:center; }
+  .score-item .sv { font-size:14pt; font-weight:900; color:#0066FF; font-family:Arial,sans-serif; }
+  .score-item .sl { font-size:7.5pt; color:#8A9BB5; margin-top:3px; }
+  /* FOOTER BAR */
+  .page-footer { margin-top:24px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px; display:flex; justify-content:space-between; font-size:8pt; color:#4A5568; }
+  .footer-badges { display:flex; gap:8px; flex-wrap:wrap; }
+  .f-badge { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:4px; padding:2px 8px; font-size:7.5pt; color:#8A9BB5; }
+  /* PKG DIVISION LABEL */
+  .div-head { font-size:9pt; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#C9A84C; padding:10px 0 8px; border-bottom:1px solid rgba(201,168,76,0.2); margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <div class="cover-logo">Aliyar<span>.</span></div>
+  <div class="cover-tagline">Intelligence Architecture</div>
+  <div class="cover-title">Your Organisation<br/><em>Finally Thinks.</em></div>
+  <p class="cover-sub">AIONX — The world's first Autonomous Intelligent Operations System. Purpose-built for organisations that refuse to lose.</p>
+  <div class="cover-stats">
+    <div class="cover-stat"><div class="n">94%</div><div class="l">Decision Accuracy Gain</div></div>
+    <div class="cover-stat"><div class="n">25</div><div class="l">Intelligence Systems</div></div>
+    <div class="cover-stat"><div class="n">340h</div><div class="l">Weekly Hours Saved</div></div>
+    <div class="cover-stat"><div class="n">57</div><div class="l">Live Intel Channels</div></div>
+  </div>
+  <div class="cover-badge">AIONX — LIVE &amp; OPERATIONAL</div>
+  <div class="cover-date">intelligence@aliyarsolutions.com &nbsp;·&nbsp; aliyarsolutions.com &nbsp;·&nbsp; 2025</div>
+</div>
+
+<!-- PAGE 2: THE PROBLEM -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">The Problem We Solve</span>
+  <h1>Your organisation is bleeding<br/>intelligence every single day.</h1>
+  <p style="font-size:12pt;color:#8A9BB5;margin-bottom:24px;">Not because your people aren't smart. Because no system captures what they know, amplifies what they decide, or prevents what they repeat.</p>
+
+  <div class="card-grid">
+    <div class="pain-card">
+      <h3>🩸 Decisions Made Blind</h3>
+      <p>Leaders make million-dollar calls on 40% of available information. The rest is buried in inboxes, lost in handover notes, or simply never captured.</p>
+    </div>
+    <div class="pain-card">
+      <h3>🔁 The Same Mistakes, Again</h3>
+      <p>Failed campaigns, lost clients, and operational disasters repeat because no system catalogues what went wrong and why.</p>
+    </div>
+    <div class="pain-card">
+      <h3>👻 Institutional Memory Dies</h3>
+      <p>When your best performer leaves, three years of institutional knowledge leaves with them. Every new hire restarts from zero.</p>
+    </div>
+    <div class="pain-card">
+      <h3>⏳ Strategy Disconnected</h3>
+      <p>By the time quarterly plans reach the ground, the market has moved. There is no live feedback loop connecting strategy to execution.</p>
+    </div>
+    <div class="pain-card">
+      <h3>📉 Client Churn Blindspot</h3>
+      <p>You find out a client is leaving when they send the cancellation email. No early warning. No pattern detection. Just avoidable loss.</p>
+    </div>
+    <div class="pain-card">
+      <h3>🏚️ Siloed Tools</h3>
+      <p>CRM here. Finance in a spreadsheet. Knowledge in someone's head. These silos cost co-ordination — the most expensive gap your organisation has.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: FLAGSHIP DIFFERENTIATORS -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">Flagship Intelligence Systems</span>
+  <h1>Three capabilities no software<br/>on Earth offers.</h1>
+
+  <div class="flagship">
+    <div class="f-badge">FLAGSHIP 01</div>
+    <h2>The Grand Convergence Council</h2>
+    <p>A ten-phase deliberation architecture that assembles every relevant voice, every risk flag, every historical precedent — and forces a result that is defensible and irreversible. Twelve specialist intelligences convene. Each phase eliminates a different category of bias. Nothing proceeds until the system certifies completeness.</p>
+    <div class="phases">
+      <div class="phase-box">Context Load</div>
+      <div class="phase-box">Risk Map</div>
+      <div class="phase-box">Stakeholder Scan</div>
+      <div class="phase-box">Precedent Pull</div>
+      <div class="phase-box">Bias Audit</div>
+      <div class="phase-box">Feasibility Check</div>
+      <div class="phase-box">Dissent Protocol</div>
+      <div class="phase-box">Resource Align</div>
+      <div class="phase-box">Recommend</div>
+      <div class="phase-box">Seal &amp; Archive</div>
+    </div>
+  </div>
+
+  <div class="flagship">
+    <div class="f-badge">FLAGSHIP 02</div>
+    <h2>Client Digital Twin</h2>
+    <p>A live predictive behavioural model of every single client relationship — tracking sentiment, engagement velocity, satisfaction drift, and churn trajectory in real time. You know, before your client knows themselves, when the relationship is at risk and exactly what they need to hear.</p>
+    <div class="metric-row"><span class="m-label">Trust Score</span><div class="m-bar-wrap"><div class="m-bar" style="width:87%;"></div></div><span class="m-val">87</span></div>
+    <div class="metric-row"><span class="m-label">Engagement Velocity</span><div class="m-bar-wrap"><div class="m-bar" style="width:64%;background:linear-gradient(90deg,#C9A84C,#E8C56A);"></div></div><span class="m-val">64</span></div>
+    <div class="metric-row"><span class="m-label">Churn Risk</span><div class="m-bar-wrap"><div class="m-bar" style="width:12%;background:#00D46A;"></div></div><span class="m-val">12</span></div>
+    <div class="metric-row"><span class="m-label">Expansion Readiness</span><div class="m-bar-wrap"><div class="m-bar" style="width:91%;background:linear-gradient(90deg,#C9A84C,#E8C56A);"></div></div><span class="m-val">91</span></div>
+  </div>
+
+  <div class="flagship">
+    <div class="f-badge">FLAGSHIP 03</div>
+    <h2>Institutional Wisdom Index</h2>
+    <p>For the first time in business history, your organisation has a score — from 0 to 1000. Measuring decision quality, learning velocity, client trust, operational efficiency, and leadership authority as a single, trackable number. Watch your organisation get smarter every week.</p>
+    <div class="score-grid">
+      <div class="score-item"><div class="sv">94%</div><div class="sl">Decision Accuracy</div></div>
+      <div class="score-item"><div class="sv">87</div><div class="sl">Client Trust Avg</div></div>
+      <div class="score-item"><div class="sv">4.2x</div><div class="sl">Learning Velocity</div></div>
+      <div class="score-item"><div class="sv">Tier 3</div><div class="sl">HIA Certified</div></div>
+      <div class="score-item"><div class="sv" style="color:#C9A84C;">734</div><div class="sl">Wisdom Score</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 4-5: 25 PACKAGES -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">25 Intelligence Systems</span>
+  <h1>Every capability your organisation needs.</h1>
+  <p style="color:#8A9BB5;font-size:11pt;margin-bottom:20px;">Deploy individual systems or combine them into the full AIONX Intelligence Stack. Every module operates as a sovereign system and amplifies every other.</p>
+
+  <div class="div-head">Division I — Foundation Intelligence</div>
+  <div class="card-grid">
+    <div class="card"><h3>🧠 Intelligence Core Activation</h3><p>A central intelligence layer captures, structures, and makes every critical insight available to every decision — instantly.</p><span class="tag">Foundation</span></div>
+    <div class="card"><h3>📡 Real-Time Situation Awareness</h3><p>A live command picture across all departments feeds leadership with real-time status, anomalies, and opportunity signals continuously.</p><span class="tag">Foundation</span></div>
+    <div class="card"><h3>🏛️ Institutional Memory Engine</h3><p>Every decision, outcome, and lesson is captured, structured, and permanently accessible — regardless of who comes or goes.</p><span class="tag">Foundation</span></div>
+  </div>
+
+  <div class="div-head">Division II — Decision Architecture</div>
+  <div class="card-grid">
+    <div class="card"><h3>⚖️ Grand Convergence Council</h3><p>Ten-phase deliberation architecture certifying every major decision as complete, defensible, and irreversible.</p><span class="tag" style="background:rgba(201,168,76,0.12);border-color:rgba(201,168,76,0.3);color:#C9A84C;">Flagship</span></div>
+    <div class="card"><h3>🎯 Decision Quality Index</h3><p>Every decision scored against 14 quality dimensions — creating a trackable, improvable standard across your organisation.</p><span class="tag">Decision Layer</span></div>
+    <div class="card"><h3>🛡️ Risk Intelligence Shield</h3><p>Predictive risk modelling identifies threats 60–90 days before they impact operations — giving leadership time to neutralise, not react.</p><span class="tag">Decision Layer</span></div>
+  </div>
+
+  <div class="div-head">Division III — Client Intelligence</div>
+  <div class="card-grid">
+    <div class="card"><h3>👤 Client Digital Twin</h3><p>Live predictive behavioural model of every client — tracking trust, satisfaction, expansion readiness, and churn probability in real time.</p><span class="tag" style="background:rgba(201,168,76,0.12);border-color:rgba(201,168,76,0.3);color:#C9A84C;">Flagship</span></div>
+    <div class="card"><h3>🔮 Churn Prevention System</h3><p>Churn signals detected 60–90 days before they become decisions — triggering intelligent retention protocols proactively.</p><span class="tag">Client Layer</span></div>
+    <div class="card"><h3>💚 Relationship Health Monitor</h3><p>Trust tracked as a live continuous metric across every interaction, deliverable, and touchpoint — with automated alerts on dips.</p><span class="tag">Client Layer</span></div>
+  </div>
+</div>
+
+<div class="section-break">
+  <div class="div-head">Division IV — Operational Excellence</div>
+  <div class="card-grid">
+    <div class="card"><h3>⚔️ Mission Command System</h3><p>Every strategic initiative managed as a military-grade mission with commander assignments, milestone gates, and automated escalation on deviation.</p><span class="tag">Operations</span></div>
+    <div class="card"><h3>📊 Performance Accountability Engine</h3><p>Every commitment tracked with automated accountability loops and performance telemetry — creating a culture of execution.</p><span class="tag">Operations</span></div>
+    <div class="card"><h3>⚙️ Workflow Intelligence Layer</h3><p>Bottleneck analysis continuously identifies failures and auto-recommends corrections before productivity suffers.</p><span class="tag">Operations</span></div>
+  </div>
+
+  <div class="div-head">Division V — Organisational Learning</div>
+  <div class="card-grid">
+    <div class="card"><h3>🏆 Institutional Wisdom Index</h3><p>A master intelligence score 0–1000 — measuring decision quality, learning velocity, client trust, and leadership authority.</p><span class="tag" style="background:rgba(201,168,76,0.12);border-color:rgba(201,168,76,0.3);color:#C9A84C;">Flagship</span></div>
+    <div class="card"><h3>🔬 Autopsy Intelligence</h3><p>Every failure dissected across 8 root-cause dimensions, findings embedded into future decision protocols permanently.</p><span class="tag">Learning Engine</span></div>
+    <div class="card"><h3>🌀 Counterfactual Learning Engine</h3><p>Counterfactual modelling reconstructs alternative decision paths — making your future smarter than your past.</p><span class="tag">Learning Engine</span></div>
+  </div>
+
+  <div class="div-head">Division VI — Growth Intelligence</div>
+  <div class="card-grid">
+    <div class="card"><h3>🎪 Intelligent Lead Qualification</h3><p>Every lead scored across 22 behavioural, contextual, and intent dimensions — focus exclusively on opportunities that convert.</p><span class="tag">Growth Layer</span></div>
+    <div class="card"><h3>📨 Outreach Intelligence System</h3><p>Timing, channel, and personalisation systems ensure outreach lands when recipients are most receptive — maximising response.</p><span class="tag">Growth Layer</span></div>
+    <div class="card"><h3>📋 Proposal Intelligence Engine</h3><p>AI-guided proposals adapt positioning, evidence, and pricing to each prospect's psychology and decision criteria.</p><span class="tag">Growth Layer</span></div>
+  </div>
+
+  <div class="div-head">Division VII — Command &amp; Sovereignty</div>
+  <div class="card-grid">
+    <div class="card"><h3>🖥️ Captain Intelligence Dashboard</h3><p>Real-time command-centre view: live operational telemetry, predictive signals, decision queues, and priority alerts.</p><span class="tag">Command Layer</span></div>
+    <div class="card"><h3>👑 Authority Calibration System</h3><p>Decision authority dynamically calibrated to demonstrated track record — ensuring the most capable voice governs every category.</p><span class="tag">Command Layer</span></div>
+    <div class="card"><h3>🎙️ Voice Intelligence Briefing</h3><p>Personalised audio intelligence briefing delivered to leadership — synthesising priorities and risk alerts in 90 seconds.</p><span class="tag">Command Layer</span></div>
+    <div class="card"><h3>🏅 HIA Certification Programme</h3><p>Formal validation of your organisation's operational intelligence tier — from foundational (Tier 0) to sovereign-grade (Tier 4).</p><span class="tag">Certification</span></div>
+  </div>
+</div>
+
+<!-- PAGE 6: HOW IT WORKS -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">The Activation Journey</span>
+  <h1>From chaos to command in four deliberate phases.</h1>
+  <div class="card-grid">
+    <div class="card">
+      <h3 style="color:#0066FF;font-size:22pt;font-family:Arial,sans-serif;">01</h3>
+      <h3>Intelligence Audit</h3>
+      <p>Deep diagnostic of your decision architecture, knowledge gaps, client intelligence blindspots, and operational failure patterns. No assumptions. Full clarity.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:#0066FF;font-size:22pt;font-family:Arial,sans-serif;">02</h3>
+      <h3>System Architecture</h3>
+      <p>We design your bespoke AIONX stack — selecting the specific intelligence modules, integration points, and escalation protocols that match your exact profile.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:#0066FF;font-size:22pt;font-family:Arial,sans-serif;">03</h3>
+      <h3>Live Activation</h3>
+      <p>Your systems go live with zero disruption. Intelligence begins flowing immediately. Your Institutional Wisdom Index receives its baseline reading.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:#0066FF;font-size:22pt;font-family:Arial,sans-serif;">04</h3>
+      <h3>Continuous Evolution</h3>
+      <p>AIONX learns continuously. Every decision, outcome, and interaction makes the system more precise. Your organisation compounds intelligence.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 7-9: 5 CASE STUDIES -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">Client Transformations</span>
+  <h1>They didn't need more staff.<br/>They needed intelligence.</h1>
+
+  <div class="case">
+    <div class="industry">National Healthcare Network · United Kingdom</div>
+    <h2>"We were losing the right patients because we couldn't see which ones needed us most."</h2>
+    <p>A regional healthcare provider managing fourteen clinics was haemorrhaging patients — not from poor care, but from poor co-ordination. Referrals fell through cracks. High-risk patients were identified too late. After deploying AIONX's Client Digital Twin and Mission Command System, patient journey gaps became visible for the first time. Automated care pathway monitoring flagged at-risk patients an average of 47 days earlier. Referral completion rates climbed from 61% to 94%.</p>
+    <div class="case-metrics">
+      <div class="case-m"><div class="n">94%</div><div class="l">Referral Completion</div></div>
+      <div class="case-m"><div class="n">47d</div><div class="l">Earlier Risk Detection</div></div>
+      <div class="case-m"><div class="n">3.1x</div><div class="l">Patient Retention</div></div>
+      <div class="case-m"><div class="n">£2.4M</div><div class="l">Annual Savings</div></div>
+    </div>
+    <div class="case-quote">
+      "I've been in clinical leadership for twenty-two years. I have never seen an operational transformation this fast, this clean, or this undeniable."
+      <cite>— Medical Director, Regional Health Network (UK)</cite>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="industry">International Law Firm · 60 Partners</div>
+    <h2>"Our partners were making case strategy decisions with no visibility into what had worked before."</h2>
+    <p>A sixty-partner law firm had collective knowledge trapped inside the minds of senior partners — and those partners were leaving. Every new case started from scratch. After deploying the Grand Convergence Council and Autopsy Intelligence Engine, eleven years of case outcomes were catalogued. Junior partner decision confidence increased 71%. Win rates on contested matters improved 38%.</p>
+    <div class="case-metrics">
+      <div class="case-m"><div class="n">38%</div><div class="l">Win Rate Improvement</div></div>
+      <div class="case-m"><div class="n">71%</div><div class="l">Decision Confidence</div></div>
+      <div class="case-m"><div class="n">11yr</div><div class="l">History Indexed</div></div>
+      <div class="case-m"><div class="n">4.6x</div><div class="l">Retrieval Speed</div></div>
+    </div>
+    <div class="case-quote">
+      "We always said our greatest asset was our people's expertise. AIONX made that expertise portable, searchable, and permanent."
+      <cite>— Managing Partner, International Dispute Resolution Practice</cite>
+    </div>
+  </div>
+</div>
+
+<div class="section-break">
+  <div class="case">
+    <div class="industry">University System · 28,000 Students</div>
+    <h2>"We were graduating students without any intelligence on what was actually driving their success."</h2>
+    <p>A university system with 28,000 enrolled students had no coherent model of what predicted student success — or failure. The AIONX Education Intelligence Platform built predictive models for every enrolled student, identifying disengagement signals six weeks before academic performance declined visibly. Dropout rates fell 44% in the first academic year.</p>
+    <div class="case-metrics">
+      <div class="case-m"><div class="n">44%</div><div class="l">Dropout Reduction</div></div>
+      <div class="case-m"><div class="n">6wk</div><div class="l">Earlier Detection</div></div>
+      <div class="case-m"><div class="n">60%</div><div class="l">Reactive Time Cut</div></div>
+      <div class="case-m"><div class="n">$3.7M</div><div class="l">Revenue Protected</div></div>
+    </div>
+    <div class="case-quote">
+      "We stopped reacting to failure and started preventing it. AIONX gave us intelligence we didn't know we were missing."
+      <cite>— Vice-Chancellor, Academic Affairs</cite>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="industry">Private Equity Portfolio · 6 Companies, 3 Continents</div>
+    <h2>"Our board was making acquisition decisions on data that was three months old."</h2>
+    <p>A private equity-backed holding company managed six portfolio businesses. Board-level decision making was chronically delayed. When the Grand Convergence Council was deployed for their next acquisition deliberation, the process that previously took eleven weeks completed in eighteen days — with higher confidence ratings and a formal audit trail for every recommendation.</p>
+    <div class="case-metrics">
+      <div class="case-m"><div class="n">11wk</div><div class="l">→ 18 Days</div></div>
+      <div class="case-m"><div class="n">100%</div><div class="l">Audit Coverage</div></div>
+      <div class="case-m"><div class="n">6</div><div class="l">Companies Unified</div></div>
+      <div class="case-m"><div class="n">92%</div><div class="l">Board Confidence</div></div>
+    </div>
+    <div class="case-quote">
+      "The time we used to spend hunting for information, we now spend using it. That's the real competitive advantage."
+      <cite>— Chief Operating Officer, Multi-Sector Portfolio Group</cite>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="industry">Global Technology Consultancy · 380 Employees</div>
+    <h2>"We lost three anchor clients in one quarter. No one saw it coming. Everyone should have."</h2>
+    <p>A technology consultancy lost $4.2M in ARR across one quarter — three enterprise clients who had shown every sign of departure that no system was designed to detect. After deploying AIONX's Client Digital Twin and Churn Prevention System, zero enterprise clients churned in the following eighteen months. NPS climbed from 41 to 73.</p>
+    <div class="case-metrics">
+      <div class="case-m"><div class="n">0</div><div class="l">Enterprise Churns (18mo)</div></div>
+      <div class="case-m"><div class="n">73</div><div class="l">NPS (from 41)</div></div>
+      <div class="case-m"><div class="n">$4.2M</div><div class="l">Risk Eliminated</div></div>
+      <div class="case-m"><div class="n">89%</div><div class="l">Recovery Rate</div></div>
+    </div>
+    <div class="case-quote">
+      "We knew our clients were unhappy before they did. That is an extraordinary capability. And it saved our business."
+      <cite>— Chief Revenue Officer, Global Technology Consultancy</cite>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 10: TEAM -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">The Intelligence Architects</span>
+  <h1>Nine specialists. One singular obsession.</h1>
+  <p style="color:#8A9BB5;margin-bottom:20px;">We didn't build AIONX from a template. Every member of this team has spent years inside failing organisations watching the same preventable problems repeat — and decided to do something permanent about it.</p>
+  <div class="card-grid-3">
+    <div class="team-card">
+      <div class="avatar">AS</div>
+      <h3>Dr. Aliyar S.</h3>
+      <div class="role">Chief Intelligence Architect</div>
+      <p>Designed AIONX's core deliberation protocol after a decade in organisational failure analysis.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#C9A84C,#E8C56A);color:#050A14;">ZK</div>
+      <h3>Zahra Khalil</h3>
+      <div class="role">Director of Client Intelligence</div>
+      <p>Built predictive client models for Fortune 500 companies. Specialises in trust architecture.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#7B4FFF,#4F2FCC);">RM</div>
+      <h3>Rafael Montoya</h3>
+      <div class="role">Head of Decision Architecture</div>
+      <p>Former military intelligence officer. Designed the Grand Convergence Council protocol.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#00D46A,#009E4F);">NP</div>
+      <h3>Nadia Petrov</h3>
+      <div class="role">Institutional Learning Lead</div>
+      <p>PhD in organisational cognition. Designed the Autopsy and Counterfactual frameworks.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#FF6B35,#CC4A1A);">JO</div>
+      <h3>James Okafor</h3>
+      <div class="role">Healthcare Intelligence Specialist</div>
+      <p>Clinical operations consultant. Transformed patient intelligence for NHS trusts and networks.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#0066FF,#7B4FFF);">LW</div>
+      <h3>Linh Wei</h3>
+      <div class="role">Financial Intelligence Architect</div>
+      <p>Former quantitative analyst at a sovereign wealth fund. Designed AIONX financial risk models.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#C9A84C,#7B4FFF);">SR</div>
+      <h3>Sophie Reinhart</h3>
+      <div class="role">Education Systems Lead</div>
+      <p>Eight years as university transformation director. Designed the Education Intelligence Platform.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#FF3B3B,#CC1A1A);">DH</div>
+      <h3>Darius Howell</h3>
+      <div class="role">Operational Command Lead</div>
+      <p>Aerospace operations and supply chain intelligence. Designed Mission Command System.</p>
+    </div>
+    <div class="team-card">
+      <div class="avatar" style="background:linear-gradient(135deg,#00D46A,#0066FF);">PA</div>
+      <h3>Priya Anand</h3>
+      <div class="role">Legal Intelligence Specialist</div>
+      <p>Former litigation strategist. Built precedent intelligence systems for law firms globally.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 11: WISDOM + CTA -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">What Gets Measured Gets Mastered</span>
+  <h1>Your organisation's intelligence score<br/>is waiting to be calculated.</h1>
+  <div class="wisdom-box">
+    <div class="wisdom-score">?</div>
+    <p class="wisdom-sub">Your current Institutional Wisdom Index</p>
+    <p style="color:#8A9BB5;font-size:11pt;max-width:440px;margin:0 auto 16px;">The average untransformed organisation scores 180–340. AIONX clients average 680 after 12 months. Elite-tier clients exceed 850. Where does your organisation stand?</p>
+    <div class="score-grid">
+      <div class="score-item"><div class="sv">?</div><div class="sl">Decision Quality</div></div>
+      <div class="score-item"><div class="sv">?</div><div class="sl">Learning Velocity</div></div>
+      <div class="score-item"><div class="sv">?</div><div class="sl">Client Trust</div></div>
+      <div class="score-item"><div class="sv">?</div><div class="sl">Op Efficiency</div></div>
+      <div class="score-item"><div class="sv">?</div><div class="sl">Authority Index</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 12: CONTACT -->
+<div class="section-break">
+  <div class="gold-bar"></div>
+  <span class="label">Start the Conversation</span>
+  <h1>Your organisation deserves to operate<br/>at its full intelligence.</h1>
+  <p style="color:#8A9BB5;font-size:12pt;margin-bottom:24px;max-width:560px;">Tell us about your organisation and what's holding it back. Within 24 hours, one of our Intelligence Architects will review your situation and reach out with a bespoke assessment — not a sales pitch.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>📍 Our Offices</h3>
+      <p>London &nbsp;·&nbsp; Dubai &nbsp;·&nbsp; Lahore &nbsp;·&nbsp; Singapore</p>
+      <p>Global presence. Local intelligence understanding.</p>
+    </div>
+    <div class="card">
+      <h3>✉️ Direct Contact</h3>
+      <p>intelligence@aliyarsolutions.com</p>
+      <p>Response guaranteed within 24 hours.</p>
+    </div>
+    <div class="card">
+      <h3>🎯 Free Demo</h3>
+      <p>45-minute live AIONX demonstration on a scenario from your actual industry. No slides. No theory. Real intelligence in real time.</p>
+    </div>
+    <div class="card">
+      <h3>🔒 Confidentiality</h3>
+      <p>All submissions treated with strict confidentiality. NDA available on request. No obligation, no payment discussed.</p>
+    </div>
+  </div>
+
+  <div class="flagship" style="text-align:center;margin-top:24px;">
+    <div class="f-badge">FREE INTELLIGENCE DEMO</div>
+    <h2 style="font-size:22pt;margin:12px 0;">See your organisation think for the first time.</h2>
+    <p style="font-size:12pt;max-width:480px;margin:0 auto;">Book a 45-minute live demonstration. No commitment required. No payment discussed. Pure intelligence — on us.</p>
+    <p style="margin-top:16px;font-weight:700;font-size:13pt;color:#0066FF;">aliyarsolutions.com &nbsp;·&nbsp; intelligence@aliyarsolutions.com</p>
+  </div>
+
+  <div class="page-footer">
+    <p>© 2025 Aliyar Solutions — Powering Sovereign Organisational Intelligence Worldwide</p>
+    <div class="footer-badges">
+      <span class="f-badge">ISO 27001 Aligned</span>
+      <span class="f-badge">HIPAA Aware</span>
+      <span class="f-badge">GDPR Compliant</span>
+      <span class="f-badge">SOC 2 Ready</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
