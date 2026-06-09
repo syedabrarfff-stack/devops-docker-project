@@ -66,7 +66,29 @@ function statusIsOk(value) {
   return ['ok', 'ready', 'operational', 'healthy', 'up'].includes(normalized)
 }
 
-function MetricCard({ icon: Icon, label, value, detail, tone = 'cyan', onClick }) {
+function TruthBadge({ source = 'live' }) {
+  const styles = {
+    live: 'border-green-400/25 bg-green-400/10 text-green-300',
+    metric: 'border-jarvis-cyan/25 bg-jarvis-cyan/10 text-jarvis-cyan',
+    mixed: 'border-blue-400/25 bg-blue-400/10 text-blue-300',
+    doctrine: 'border-amber-300/25 bg-amber-400/10 text-amber-200',
+    blocked: 'border-red-400/25 bg-red-400/10 text-red-300',
+  }
+  const labels = {
+    live: 'LIVE DATA',
+    metric: 'LIVE METRIC',
+    mixed: 'MIXED',
+    doctrine: 'DOCTRINE',
+    blocked: 'BLOCKED',
+  }
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-[0.14em] ${styles[source] || styles.live}`}>
+      {labels[source] || labels.live}
+    </span>
+  )
+}
+
+function MetricCard({ icon: Icon, label, value, detail, tone = 'cyan', source = 'live', onClick }) {
   const tones = {
     gold: 'border-jarvis-gold/30 text-jarvis-gold bg-jarvis-gold/10',
     cyan: 'border-jarvis-cyan/30 text-jarvis-cyan bg-jarvis-cyan/10',
@@ -88,7 +110,10 @@ function MetricCard({ icon: Icon, label, value, detail, tone = 'cyan', onClick }
         <div className={`rounded-xl border p-2.5 ${tones}`}>
           <Icon size={18} />
         </div>
-        <p className="text-right text-[11px] uppercase tracking-[0.18em] text-gray-500">{label}</p>
+        <div className="flex flex-col items-end gap-2">
+          <p className="text-right text-[11px] uppercase tracking-[0.18em] text-gray-500">{label}</p>
+          <TruthBadge source={source} />
+        </div>
       </div>
       <p className="mt-5 text-3xl font-bold text-white">{value}</p>
       <p className={`mt-2 text-xs ${tone === 'red' ? 'text-red-300' : 'text-gray-400'}`}>{detail}</p>
@@ -126,14 +151,17 @@ function EmptyState({ text }) {
   )
 }
 
-function HealthRow({ label, ok, detail }) {
+function HealthRow({ label, ok, detail, source }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
       <div className="flex items-center gap-2">
         {ok ? <CheckCircle2 size={14} className="text-green-400" /> : <AlertTriangle size={14} className="text-red-300" />}
         <span className="text-sm text-white/70">{label}</span>
       </div>
-      <span className={`text-xs ${ok ? 'text-green-300' : 'text-red-300'}`}>{detail}</span>
+      <div className="flex items-center gap-2">
+        {source && <TruthBadge source={source} />}
+        <span className={`text-xs ${ok ? 'text-green-300' : 'text-red-300'}`}>{detail}</span>
+      </div>
     </div>
   )
 }
@@ -445,6 +473,7 @@ export default function Dashboard() {
           value={money(data.revenue?.mrr_usd)}
           detail={`${mrrGrowth >= 0 ? '+' : ''}${mrrGrowth.toFixed(1)}% vs previous snapshot`}
           tone="gold"
+          source="live"
           onClick={() => setActiveView('invoices')}
         />
         <MetricCard
@@ -453,6 +482,7 @@ export default function Dashboard() {
           value={number(data.revenue?.active_clients)}
           detail={`${number(data.revenue?.paid_invoices)} paid invoices`}
           tone="cyan"
+          source="live"
           onClick={() => setActiveView('crm')}
         />
         <MetricCard
@@ -461,6 +491,7 @@ export default function Dashboard() {
           value={money(data.pipeline?.pipeline_value || data.pipeline?.total_value || data.pipeline?.open_value)}
           detail="Open opportunities from CRM"
           tone="blue"
+          source="live"
           onClick={() => setActiveView('leads')}
         />
         <MetricCard
@@ -469,6 +500,7 @@ export default function Dashboard() {
           value={number(queueCount)}
           detail={queueCount ? 'Captain decision required' : 'No blocking queue items'}
           tone={queueCount ? 'red' : 'green'}
+          source="live"
           onClick={() => setActiveView('approvals')}
         />
         <MetricCard
@@ -477,6 +509,7 @@ export default function Dashboard() {
           value={number(moduleCount)}
           detail={`${osLayerCount} operating layers mapped`}
           tone={moduleCount === 25 ? 'green' : 'red'}
+          source="doctrine"
           onClick={() => setActiveView('catalog')}
         />
         <MetricCard
@@ -485,6 +518,7 @@ export default function Dashboard() {
           value={Number(operationalIq || 0).toFixed(1)}
           detail={`${aionxJobCount} AIONX heartbeat jobs visible`}
           tone={aionxJobCount ? 'green' : 'red'}
+          source="metric"
           onClick={() => setActiveView('aionxArchitecture')}
         />
         <MetricCard
@@ -493,6 +527,7 @@ export default function Dashboard() {
           value={number(batch1StageCount)}
           detail={`${batch1PhaseCount} phases - ${activePipelines} active pipelines`}
           tone={batch1StageCount === 33 ? 'green' : 'red'}
+          source="mixed"
           onClick={() => setActiveView('aionxArchitecture')}
         />
         <MetricCard
@@ -501,6 +536,7 @@ export default function Dashboard() {
           value={`${adaptiveCycleCount}/5`}
           detail={`${techSourceCount} watchtower sources | ${dependencyModuleCount} dependency rules`}
           tone={adaptiveCycleCount === 5 ? 'green' : 'red'}
+          source="doctrine"
           onClick={() => setActiveView('aionxArchitecture')}
         />
         <MetricCard
@@ -509,6 +545,7 @@ export default function Dashboard() {
           value={number(integrityTeamCount)}
           detail={`${integrityPipelineCount} full pipeline stages guarded`}
           tone={integrityTeamCount === 8 ? 'green' : 'red'}
+          source="doctrine"
           onClick={() => setActiveView('aionxArchitecture')}
         />
         <MetricCard
@@ -517,6 +554,7 @@ export default function Dashboard() {
           value={number(sovereignOrganCount)}
           detail={`${ultimateJourneyCount} monitored client journey stages`}
           tone={sovereignOrganCount === 9 ? 'green' : 'red'}
+          source="doctrine"
           onClick={() => setActiveView('aionxArchitecture')}
         />
         <MetricCard
@@ -525,6 +563,7 @@ export default function Dashboard() {
           value={`${communicationLiveCount}/2`}
           detail={`SES ${sesConnected ? 'live' : 'blocked'} | WhatsApp ${whatsappConnected ? 'paired' : 'pairing'}`}
           tone={communicationLiveCount === 2 ? 'green' : communicationLiveCount === 1 ? 'gold' : 'red'}
+          source={communicationLiveCount === 2 ? 'live' : 'blocked'}
           onClick={() => setActiveView('communications')}
         />
       </div>
@@ -538,26 +577,26 @@ export default function Dashboard() {
             action={<button onClick={() => setActiveView('catalog')} className="text-xs text-jarvis-cyan hover:text-white">Open catalog</button>}
           >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <HealthRow label="Catalog" ok={moduleCount === 25} detail={`${moduleCount}/25 modules`} />
-              <HealthRow label="Departments" ok={statusIsOk(data.departments)} detail={`${data.departments?.departments_monitored || 0} DIOs`} />
-              <HealthRow label="Council" ok={statusIsOk(data.council)} detail={data.council?.status || 'unknown'} />
-              <HealthRow label="AIONX Cortex" ok={Number(operationalIq) >= 0 && data.aionx} detail={`IQ ${Number(operationalIq || 0).toFixed(1)}`} />
-              <HealthRow label="Consciousness" ok={statusIsOk(data.consciousness)} detail={`${data.consciousness?.giants_online || 0} giants`} />
-              <HealthRow label="Civilization" ok={!!data.civilization} detail={`${safeArray(data.civilization, 'ledger').length} records`} />
-              <HealthRow label="Agent Ops" ok={statusIsOk(data.agentOps)} detail={data.agentOps?.status || 'unknown'} />
-              <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} />
-              <HealthRow label="Client Engine" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33 stages`} />
-              <HealthRow label="AXIOM" ok={axiomDepartmentCount === 25} detail={`${axiomDepartmentCount}/25 departments`} />
-              <HealthRow label="Adaptive Intelligence" ok={adaptiveCycleCount === 5} detail={`${adaptiveCycleCount}/5 cycles`} />
-              <HealthRow label="Tech Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} sources`} />
-              <HealthRow label="Dependency Resolver" ok={dependencyModuleCount >= 25} detail={`${dependencyModuleCount} modules`} />
-              <HealthRow label="Data Backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} />
-              <HealthRow label="Operational Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} />
-              <HealthRow label="18-Stage Pipeline" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18 stages`} />
-              <HealthRow label="Sovereign Organs" ok={sovereignOrganCount === 9} detail={`${sovereignOrganCount}/9 organs`} />
-              <HealthRow label="Ultimate Journey" ok={ultimateJourneyCount === 33} detail={`${ultimateJourneyCount}/33 stages`} />
-              <HealthRow label="SES Email" ok={sesConnected} detail={data.communication?.ses?.blocker_code || data.communication?.ses?.send_mode || 'unknown'} />
-              <HealthRow label="WhatsApp" ok={whatsappConnected} detail={data.communication?.whatsapp?.blocker_code || data.communication?.whatsapp?.status || 'unknown'} />
+              <HealthRow label="Catalog" ok={moduleCount === 25} detail={`${moduleCount}/25 modules`} source="doctrine" />
+              <HealthRow label="Departments" ok={statusIsOk(data.departments)} detail={`${data.departments?.departments_monitored || 0} DIOs`} source="live" />
+              <HealthRow label="Council" ok={statusIsOk(data.council)} detail={data.council?.status || 'unknown'} source="live" />
+              <HealthRow label="AIONX Cortex" ok={Number(operationalIq) >= 0 && data.aionx} detail={`IQ ${Number(operationalIq || 0).toFixed(1)}`} source="metric" />
+              <HealthRow label="Consciousness" ok={statusIsOk(data.consciousness)} detail={`${data.consciousness?.giants_online || 0} giants`} source="doctrine" />
+              <HealthRow label="Civilization" ok={!!data.civilization} detail={`${safeArray(data.civilization, 'ledger').length} records`} source="live" />
+              <HealthRow label="Agent Ops" ok={statusIsOk(data.agentOps)} detail={data.agentOps?.status || 'unknown'} source="live" />
+              <HealthRow label="Scheduler" ok={aionxJobCount > 0} detail={`${aionxJobCount} AIONX jobs`} source="live" />
+              <HealthRow label="Client Engine" ok={batch1StageCount === 33} detail={`${batch1StageCount}/33 stages`} source="mixed" />
+              <HealthRow label="AXIOM" ok={axiomDepartmentCount === 25} detail={`${axiomDepartmentCount}/25 departments`} source="doctrine" />
+              <HealthRow label="Adaptive Intelligence" ok={adaptiveCycleCount === 5} detail={`${adaptiveCycleCount}/5 cycles`} source="doctrine" />
+              <HealthRow label="Tech Watchtower" ok={techSourceCount >= 10} detail={`${techSourceCount} sources`} source="doctrine" />
+              <HealthRow label="Dependency Resolver" ok={dependencyModuleCount >= 25} detail={`${dependencyModuleCount} modules`} source="doctrine" />
+              <HealthRow label="Data Backbone" ok={liveTableCount > 0} detail={`${liveTableCount} tables`} source="live" />
+              <HealthRow label="Operational Integrity" ok={integrityTeamCount === 8} detail={`${integrityTeamCount}/8 teams`} source="doctrine" />
+              <HealthRow label="18-Stage Pipeline" ok={integrityPipelineCount === 18} detail={`${integrityPipelineCount}/18 stages`} source="doctrine" />
+              <HealthRow label="Sovereign Organs" ok={sovereignOrganCount === 9} detail={`${sovereignOrganCount}/9 organs`} source="doctrine" />
+              <HealthRow label="Ultimate Journey" ok={ultimateJourneyCount === 33} detail={`${ultimateJourneyCount}/33 stages`} source="doctrine" />
+              <HealthRow label="SES Email" ok={sesConnected} detail={data.communication?.ses?.blocker_code || data.communication?.ses?.send_mode || 'unknown'} source={sesConnected ? 'live' : 'blocked'} />
+              <HealthRow label="WhatsApp" ok={whatsappConnected} detail={data.communication?.whatsapp?.blocker_code || data.communication?.whatsapp?.status || 'unknown'} source={whatsappConnected ? 'live' : 'blocked'} />
             </div>
           </Panel>
 
@@ -572,18 +611,20 @@ export default function Dashboard() {
                 label="AWS SES"
                 ok={sesConnected}
                 detail={data.communication?.ses?.required_action || data.communication?.ses?.send_mode || 'unknown'}
+                source={sesConnected ? 'live' : 'blocked'}
               />
               <HealthRow
                 label="Bahrain WhatsApp"
                 ok={whatsappConnected}
                 detail={data.communication?.whatsapp?.required_action || data.communication?.whatsapp?.status || 'unknown'}
+                source={whatsappConnected ? 'live' : 'blocked'}
               />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <HealthRow label="Email out" ok={true} detail={`${data.communication?.counts?.EMAIL?.OUTBOUND || 0}`} />
-              <HealthRow label="Email in" ok={true} detail={`${data.communication?.counts?.EMAIL?.INBOUND || 0}`} />
-              <HealthRow label="WA out" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.OUTBOUND || 0}`} />
-              <HealthRow label="WA in" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.INBOUND || 0}`} />
+              <HealthRow label="Email out" ok={true} detail={`${data.communication?.counts?.EMAIL?.OUTBOUND || 0}`} source="live" />
+              <HealthRow label="Email in" ok={true} detail={`${data.communication?.counts?.EMAIL?.INBOUND || 0}`} source="live" />
+              <HealthRow label="WA out" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.OUTBOUND || 0}`} source="live" />
+              <HealthRow label="WA in" ok={true} detail={`${data.communication?.counts?.WHATSAPP?.INBOUND || 0}`} source="live" />
             </div>
           </Panel>
 
