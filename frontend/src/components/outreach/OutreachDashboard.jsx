@@ -90,6 +90,7 @@ export default function OutreachDashboard() {
   const [starting, setStarting] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [lastRun, setLastRun] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -130,9 +131,12 @@ export default function OutreachDashboard() {
   async function sendEmail(id) {
     setSending(s => ({ ...s, [id]: true }));
     try {
-      await api.post(`/api/v1/outreach/emails/${id}/send`);
-      loadAll();
-    } catch (e) { console.error(e); }
+      const r = await api.post(`/api/v1/outreach/emails/${id}/send`);
+      setNotice({ tone: "success", text: r.data?.message || "Email sent and logged." });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: e?.response?.data?.detail || e.message || "Email send failed." });
+    }
     setSending(s => ({ ...s, [id]: false }));
   }
 
@@ -140,9 +144,11 @@ export default function OutreachDashboard() {
     setProcessing(true);
     try {
       const r = await api.post("/api/v1/outreach/emails/process-due?limit=10");
-      alert(`Processed ${r.data.processed} emails, sent ${r.data.sent}`);
-      loadAll();
-    } catch (e) { console.error(e); }
+      setNotice({ tone: "success", text: `Processed ${r.data.processed ?? 0} emails, sent ${r.data.sent ?? 0}.` });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: e?.response?.data?.detail || e.message || "Due email processing failed." });
+    }
     setProcessing(false);
   }
 
@@ -151,9 +157,12 @@ export default function OutreachDashboard() {
     try {
       const r = await api.post("/api/v1/outreach/execute", { limit: 48, autonomy_stage: "outreach_emails" });
       setLastRun(r.data);
+      setNotice({ tone: "success", text: `Engine run completed: sent ${r.data?.sent ?? 0}, blocked ${r.data?.blocked ?? 0}.` });
       await loadAll();
     } catch (e) {
-      setLastRun({ error: e?.response?.data?.detail || e.message || "Engine start failed" });
+      const text = e?.response?.data?.detail || e.message || "Engine start failed";
+      setLastRun({ error: text });
+      setNotice({ tone: "error", text });
     } finally {
       setStarting(false);
     }
@@ -164,9 +173,12 @@ export default function OutreachDashboard() {
     try {
       const r = await api.post("/api/v1/outreach/prepare-campaign", { limit: 25, min_score: 80 });
       setLastRun(r.data);
+      setNotice({ tone: "success", text: `Campaign queue prepared: ${r.data?.queued_leads ?? 0} leads queued.` });
       await loadAll();
     } catch (e) {
-      setLastRun({ error: e?.response?.data?.detail || e.message || "Campaign preparation failed" });
+      const text = e?.response?.data?.detail || e.message || "Campaign preparation failed";
+      setLastRun({ error: text });
+      setNotice({ tone: "error", text });
     } finally {
       setPreparing(false);
     }
@@ -176,8 +188,11 @@ export default function OutreachDashboard() {
     try {
       await loadAll();
       setLastRun({ email_connected: true, note: "Executive email status refreshed." });
+      setNotice({ tone: "success", text: "Executive email status refreshed." });
     } catch (e) {
-      setLastRun({ error: e?.response?.data?.detail || e.message || "Email status refresh failed" });
+      const text = e?.response?.data?.detail || e.message || "Email status refresh failed";
+      setLastRun({ error: text });
+      setNotice({ tone: "error", text });
     }
   }
 
@@ -210,6 +225,19 @@ export default function OutreachDashboard() {
           </button>
         </div>
       </div>
+
+      {notice && (
+        <div className={`rounded-xl border p-3 text-sm ${
+          notice.tone === "error"
+            ? "border-red-300/25 bg-red-500/10 text-red-100"
+            : "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"
+        }`}>
+          <div className="flex items-start justify-between gap-3">
+            <p>{notice.text}</p>
+            <button onClick={() => setNotice(null)} className="text-xs opacity-60 hover:opacity-100">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {/* Engine Control */}
       <div className={`rounded-2xl border p-5 ${engineTone}`}>

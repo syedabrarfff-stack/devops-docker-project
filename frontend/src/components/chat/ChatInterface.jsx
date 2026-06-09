@@ -73,7 +73,7 @@ const Message = ({ msg, onSpeak }) => {
             <span className="text-[10px] text-white/20 font-mono">{msg.model}</span>
           )}
           {msg.provider && (
-            <span className="text-[10px] text-white/15 font-mono">· {msg.provider}</span>
+            <span className="text-[10px] text-white/15 font-mono">- {msg.provider}</span>
           )}
           <span className="text-[10px] text-white/15 ml-auto">
             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -99,7 +99,7 @@ const Typing = () => (
             className="w-1.5 h-1.5 rounded-full bg-jarvis-blue"
           />
         ))}
-        <span className="ml-2 text-[11px] text-white/25 font-mono tracking-wide">JARVIS processing…</span>
+        <span className="ml-2 text-[11px] text-white/25 font-mono tracking-wide">JARVIS processing...</span>
       </div>
     </div>
   </motion.div>
@@ -255,7 +255,7 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 p-4 pb-24">
 
       {/* Header controls */}
       <div className="flex items-center gap-3 px-1">
@@ -331,7 +331,7 @@ export default function ChatInterface() {
               className="flex justify-end"
             >
               <div className="px-4 py-2 rounded-2xl rounded-tr-sm bg-white/[0.03] border border-white/[0.06] text-white/35 text-sm italic max-w-[70%]">
-                {interimText}…
+                {interimText}...
               </div>
             </motion.div>
           )}
@@ -351,11 +351,11 @@ export default function ChatInterface() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-            placeholder={voiceListening ? 'Listening…' : voiceMode ? 'Just speak, Captain…' : 'Message JARVIS…'}
+            placeholder={voiceListening ? 'Listening...' : voiceMode ? 'Just speak, Captain...' : 'Message JARVIS...'}
             className="flex-1 bg-transparent text-sm text-white/80 placeholder:text-white/25 outline-none"
           />
           {input && (
-            <button onClick={() => setInput('')} className="text-white/20 hover:text-white/50 text-xs leading-none">✕</button>
+            <button onClick={() => setInput('')} className="text-white/20 hover:text-white/50 text-xs leading-none">x</button>
           )}
         </div>
 
@@ -407,7 +407,7 @@ export default function ChatInterface() {
                 style={{ height: 16 }}
               />
             ))}
-            <span className="text-[11px] text-white/30 font-mono ml-1">always listening · say anything</span>
+            <span className="text-[11px] text-white/30 font-mono ml-1">always listening - say anything</span>
           </motion.div>
         )}
       </AnimatePresence>
