@@ -573,29 +573,61 @@ async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSessio
 
 @router.get("/emails/pending")
 async def list_pending_emails(
+    request: Request,
     limit: int = Query(50, le=200),
+    tenant_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
-    from app.models.outreach import OutreachEmail
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead
+    from app.models.outreach import FollowUpQueue, FollowUpStatus
 
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
     rows = (
         await db.execute(
-            select(OutreachEmail)
-            .where(OutreachEmail.status == "scheduled")
+            select(FollowUpQueue, Lead)
+            .outerjoin(Lead, Lead.id == FollowUpQueue.lead_id)
+            .where(
+                FollowUpQueue.tenant_id == resolved_tenant_id,
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            )
+            .order_by(FollowUpQueue.scheduled_at.asc().nulls_last(), FollowUpQueue.created_at.asc())
             .limit(limit)
         )
-    ).scalars().all()
+    ).all()
+
+    pending = []
+    for queue_item, lead in rows:
+        sequence = (lead.enrichment_data or {}).get("outreach_sequence") if lead else []
+        email_step = next(
+            (
+                item
+                for item in sequence or []
+                if int(item.get("step") or 0) == int(queue_item.sequence_step or 1)
+            ),
+            {},
+        )
+        to_email = (lead.email or lead.contact_email) if lead else None
+        pending.append(
+            {
+                "id": str(queue_item.id),
+                "queue_source": "follow_up_queue",
+                "lead_id": str(queue_item.lead_id) if queue_item.lead_id else None,
+                "company": (lead.company_name or lead.company) if lead else None,
+                "to_email": to_email,
+                "to_name": lead.contact_name if lead else None,
+                "subject": email_step.get("subject") or "Outreach sequence pending",
+                "body_preview": (email_step.get("body") or "")[:260],
+                "step_number": queue_item.sequence_step,
+                "scheduled_at": queue_item.scheduled_at.isoformat() if queue_item.scheduled_at else None,
+                "status": queue_item.status.value if hasattr(queue_item.status, "value") else str(queue_item.status),
+                "ready_to_send": bool(to_email and email_step.get("subject") and email_step.get("body")),
+            }
+        )
     return [
-        {
-            "id": email.id,
-            "to_email": email.to_email,
-            "subject": email.subject,
-            "step_number": email.step_number,
-            "scheduled_at": str(email.scheduled_at),
-            "sequence_id": email.sequence_id,
-        }
-        for email in rows
+        item for item in pending
     ]
 
 

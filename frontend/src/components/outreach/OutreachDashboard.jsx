@@ -416,18 +416,34 @@ export default function OutreachDashboard() {
             <div className="text-center text-gray-500 py-12">No pending emails.</div>
           ) : (
             pendingEmails.map(email => (
-              <div key={email.id} className="glass rounded-xl p-4 border border-white/5 flex items-center justify-between">
+              <div key={email.id} className="glass rounded-xl p-4 border border-white/5 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-white">{email.subject}</p>
-                  <p className="text-xs text-gray-500 mt-1">{email.to_email} - Step {email.step_number} - Due: {new Date(email.scheduled_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {email.company || email.to_name || "Queued lead"} - {email.to_email || "missing email"} - Step {email.step_number}
+                    {email.scheduled_at ? ` - Due: ${new Date(email.scheduled_at).toLocaleDateString()}` : ""}
+                  </p>
+                  {email.body_preview && (
+                    <p className="mt-2 max-w-3xl text-xs leading-5 text-gray-400">{email.body_preview}</p>
+                  )}
                 </div>
-                <button
-                  onClick={() => sendEmail(email.id)}
-                  disabled={sending[email.id]}
-                  className="ml-4 px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 border border-green-500/20 text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
-                >
-                  {sending[email.id] ? "Sending..." : "Send Now"}
-                </button>
+                {email.queue_source === "follow_up_queue" ? (
+                  <button
+                    onClick={startEngine}
+                    disabled={!engineReady || starting}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/20 text-xs transition-colors disabled:opacity-40 whitespace-nowrap"
+                  >
+                    {engineReady ? "Run Engine" : "Waiting SES"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => sendEmail(email.id)}
+                    disabled={sending[email.id]}
+                    className="px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 border border-green-500/20 text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {sending[email.id] ? "Sending..." : "Send Now"}
+                  </button>
+                )}
               </div>
             ))
           )}
