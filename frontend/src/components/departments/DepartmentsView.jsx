@@ -5,6 +5,7 @@ import {
   Cpu, Loader2, Mic, RefreshCw, Rocket, Shield, TrendingUp, Users, Zap,
 } from 'lucide-react'
 import api from '../../services/api'
+import { DEFAULT_TENANT } from '../frontier/FrontierShell'
 
 const TABS = [
   { id: 'axiom',      label: 'AXIOM OS',         icon: Shield },
@@ -531,57 +532,79 @@ function StrategyTab({ strategy, onDailyReport, onWeeklyReport, loading }) {
 
 // ── Main View ─────────────────────────────────────────────────────────────────
 export default function DepartmentsView() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('axiom')
   const [data, setData] = useState({ health: null, dios: null, milestones: null, tech: null, calls: null, strategy: null, axiom: null })
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionNotice, setActionNotice] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [health, dios, milestones, tech, calls, strategy, axiomModel, axiomPulse] = await Promise.allSettled([
-      api.get('/api/v1/departments/health').then(r => r.data),
-      api.get('/api/v1/departments/dios').then(r => r.data),
-      api.get('/api/v1/departments/milestones').then(r => r.data),
-      api.get('/api/v1/departments/tech/discoveries').then(r => r.data),
-      api.get('/api/v1/departments/calls').then(r => r.data),
-      api.get('/api/v1/departments/strategy/reports').then(r => r.data),
-      api.get('/api/v1/departments/axiom/operating-model').then(r => r.data),
-      api.get('/api/v1/departments/axiom/pulse').then(r => r.data),
-    ])
-    setData({
-      health:     health.status    === 'fulfilled' ? health.value    : null,
-      dios:       dios.status      === 'fulfilled' ? dios.value      : null,
-      milestones: milestones.status === 'fulfilled' ? milestones.value : null,
-      tech:       tech.status      === 'fulfilled' ? tech.value      : null,
-      calls:      calls.status     === 'fulfilled' ? calls.value     : null,
-      strategy:   strategy.status  === 'fulfilled' ? strategy.value  : null,
-      axiom: {
-        model: axiomModel.status === 'fulfilled' ? axiomModel.value : null,
-        pulse: axiomPulse.status === 'fulfilled' ? axiomPulse.value : null,
-      },
-    })
-    setLoading(false)
+    try {
+      const [health, dios, milestones, tech, calls, strategy, axiomModel, axiomPulse] = await Promise.allSettled([
+        api.get('/api/v1/departments/health').then((r) => r.data),
+        api.get('/api/v1/departments/dios', { params: { tenant_id: DEFAULT_TENANT } }).then((r) => r.data),
+        api.get('/api/v1/departments/milestones', { params: { tenant_id: DEFAULT_TENANT } }).then((r) => r.data),
+        api.get('/api/v1/departments/tech/discoveries', { params: { tenant_id: DEFAULT_TENANT } }).then((r) => r.data),
+        api.get('/api/v1/departments/calls', { params: { tenant_id: DEFAULT_TENANT } }).then((r) => r.data),
+        api.get('/api/v1/departments/strategy/reports', { params: { tenant_id: DEFAULT_TENANT } }).then((r) => r.data),
+        api.get('/api/v1/departments/axiom/operating-model').then((r) => r.data),
+        api.get('/api/v1/departments/axiom/pulse').then((r) => r.data),
+      ])
+      setData({
+        health:     health.status    === 'fulfilled' ? health.value    : null,
+        dios:       dios.status      === 'fulfilled' ? dios.value      : null,
+        milestones: milestones.status === 'fulfilled' ? milestones.value : null,
+        tech:       tech.status      === 'fulfilled' ? tech.value      : null,
+        calls:      calls.status     === 'fulfilled' ? calls.value     : null,
+        strategy:   strategy.status  === 'fulfilled' ? strategy.value  : null,
+        axiom: {
+          model: axiomModel.status === 'fulfilled' ? axiomModel.value : null,
+          pulse: axiomPulse.status === 'fulfilled' ? axiomPulse.value : null,
+        },
+      })
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const withAction = (fn) => async (...args) => {
+  const withAction = (label, fn) => async (...args) => {
     setActionLoading(true)
-    try { await fn(...args) } catch (_) {}
-    await load()
-    setActionLoading(false)
+    setActionNotice(null)
+    try {
+      const response = await fn(...args)
+      const payload = response?.data || response || {}
+      setActionNotice({
+        kind: 'success',
+        title: `${label} complete`,
+        message: payload.message || payload.status || `${label} finished successfully.`,
+      })
+      await load()
+    } catch (error) {
+      const detail = error?.response?.data?.detail || error?.message || `${label} failed.`
+      setActionNotice({
+        kind: 'error',
+        title: `${label} failed`,
+        message: detail,
+      })
+      await load()
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const initializeDios    = withAction(() => api.post('/api/v1/departments/dios/initialize'))
-  const runBulkReview     = withAction(() => api.post('/api/v1/departments/milestones/bulk-review'))
-  const runDiscovery      = withAction(() => api.post('/api/v1/departments/tech/discover'))
-  const runDailyStrategy  = withAction(() => api.post('/api/v1/departments/strategy/daily-report'))
-  const runWeeklyStrategy = withAction(() => api.post('/api/v1/departments/strategy/weekly-report'))
+  const initializeDios    = withAction('Initialize DIOs', () => api.post('/api/v1/departments/dios/initialize', { tenant_id: DEFAULT_TENANT }))
+  const runBulkReview     = withAction('Bulk council review', () => api.post('/api/v1/departments/milestones/bulk-review', { tenant_id: DEFAULT_TENANT }))
+  const runDiscovery      = withAction('Technology discovery', () => api.post('/api/v1/departments/tech/discover', { tenant_id: DEFAULT_TENANT }))
+  const runDailyStrategy  = withAction('Daily strategy report', () => api.post('/api/v1/departments/strategy/daily-report', { tenant_id: DEFAULT_TENANT }))
+  const runWeeklyStrategy = withAction('Weekly strategy report', () => api.post('/api/v1/departments/strategy/weekly-report', { tenant_id: DEFAULT_TENANT }))
 
   const busyLoading = loading || actionLoading
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -597,6 +620,17 @@ export default function DepartmentsView() {
           Refresh
         </button>
       </div>
+
+      {actionNotice && (
+        <div className={`rounded-2xl border px-4 py-3 text-sm ${
+          actionNotice.kind === 'success'
+            ? 'border-green-400/30 bg-green-400/10 text-green-100'
+            : 'border-red-400/30 bg-red-400/10 text-red-100'
+        }`}>
+          <p className="font-semibold">{actionNotice.title}</p>
+          <p className="mt-1 text-xs leading-relaxed opacity-90">{actionNotice.message}</p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-white/10 pb-0 overflow-x-auto">
