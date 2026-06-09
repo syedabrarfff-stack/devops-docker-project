@@ -37,15 +37,19 @@ export default function ConsciousnessHub() {
   const [loading, setLoading] = useState(false)
   const [inputText, setInputText] = useState('')
   const [inputText2, setInputText2] = useState('')
+  const [pageError, setPageError] = useState(null)
 
   async function run(fn) {
     setLoading(true)
     setResult(null)
+    setPageError(null)
     try {
       const data = await fn()
       setResult(data)
     } catch (err) {
-      setResult({ error: err.response?.data?.detail || err.message })
+      const message = err.response?.data?.detail || err.message || 'Unknown error'
+      setResult({ error: message })
+      setPageError(message)
     } finally {
       setLoading(false)
     }
@@ -407,14 +411,37 @@ export default function ConsciousnessHub() {
     captain:     renderCaptain,
   }
 
+  let activeContent = null
+  try {
+    activeContent = TAB_RENDER[activeTab]?.() || null
+  } catch (error) {
+    activeContent = (
+      <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+        <p className="font-semibold">Consciousness view failed to render</p>
+        <p className="mt-1 text-xs leading-relaxed text-red-100/80">
+          {error?.message || 'Unknown render error'}
+        </p>
+      </div>
+    )
+  }
+
   return (
-    <FrontierShell title="Consciousness Hub" subtitle="JARVIS Soul · Heart · Brain — The Complete Inner Operating System">
+    <FrontierShell
+      title="Consciousness Hub"
+      subtitle="JARVIS Soul - Heart - Brain - The Complete Inner Operating System"
+    >
+      {pageError && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+          <p className="font-semibold">Consciousness page alert</p>
+          <p className="mt-1 text-xs leading-relaxed text-red-100/80">{pageError}</p>
+        </div>
+      )}
       {/* Tab bar */}
-      <div className="flex flex-wrap gap-1.5 mb-6">
+      <div className="flex flex-wrap gap-1.5 mb-6 overflow-x-auto pb-1">
         {TABS.map(t => (
           <button
             key={t.key}
-            onClick={() => { setActiveTab(t.key); setResult(null) }}
+            onClick={() => { setActiveTab(t.key); setResult(null); setPageError(null) }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all
               ${activeTab === t.key
                 ? 'bg-jarvis-blue/20 border border-jarvis-blue/40 text-jarvis-blue'
@@ -427,9 +454,9 @@ export default function ConsciousnessHub() {
       </div>
 
       {/* Active tab content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
         <div className="space-y-3">
-          {TAB_RENDER[activeTab]?.()}
+          {activeContent}
         </div>
         <div>
           <ResultBox result={result} loading={loading} />
