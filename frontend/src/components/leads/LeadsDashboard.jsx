@@ -19,6 +19,23 @@ function normaliseStatus(status) {
   return String(status || "new").toLowerCase();
 }
 
+function errorText(error, fallback) {
+  return error?.response?.data?.detail || error?.response?.data?.message || error?.message || fallback;
+}
+
+function Notice({ notice, onDismiss }) {
+  if (!notice) return null;
+  const error = notice.tone === "error";
+  return (
+    <div className={`rounded-xl border p-3 text-sm ${error ? "border-red-300/25 bg-red-500/10 text-red-100" : "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p>{notice.text}</p>
+        <button onClick={onDismiss} className="text-xs opacity-60 hover:opacity-100">Dismiss</button>
+      </div>
+    </div>
+  );
+}
+
 function ScoreBar({ score }) {
   const color = score >= 80 ? "bg-red-500" : score >= 60 ? "bg-orange-500" : score >= 40 ? "bg-yellow-500" : "bg-gray-500";
   return (
@@ -99,6 +116,7 @@ export default function LeadsDashboard() {
   const [showAdd, setShowAdd] = useState(false);
   const [newLead, setNewLead] = useState({ company: "", contact_name: "", email: "", industry: "", country: "" });
   const [bulkScoring, setBulkScoring] = useState(false);
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -111,18 +129,33 @@ export default function LeadsDashboard() {
       ]);
       setLeads(asArray(l, "leads"));
       setStats(s);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      setLeads([]);
+      setStats({});
+      setNotice({ tone: "error", text: errorText(e, "Lead pipeline failed to load.") });
+    }
     setLoading(false);
   }
 
   async function scoreLead(id) {
-    await api.post(`/api/v1/leads/${id}/score`);
-    loadAll();
+    try {
+      await api.post(`/api/v1/leads/${id}/score`);
+      setNotice({ tone: "success", text: "Lead scoring completed." });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Lead scoring failed.") });
+    }
   }
 
   async function bulkScore() {
     setBulkScoring(true);
-    try { await api.post("/api/v1/leads/bulk-score?limit=20"); loadAll(); }
+    try {
+      const response = await api.post("/api/v1/leads/bulk-score?limit=20");
+      setNotice({ tone: "success", text: response.data?.message || "Bulk lead scoring started." });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Bulk lead scoring failed.") });
+    }
     finally { setBulkScoring(false); }
   }
 
@@ -131,8 +164,11 @@ export default function LeadsDashboard() {
       await api.post("/api/v1/leads/?auto_score=true", newLead);
       setShowAdd(false);
       setNewLead({ company: "", contact_name: "", email: "", industry: "", country: "" });
+      setNotice({ tone: "success", text: "Lead added. AI scoring will run in the background." });
       setTimeout(loadAll, 2000); // brief delay for background scoring
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Lead creation failed.") });
+    }
   }
 
   const filtered = filter === "all" ? leads :
@@ -162,6 +198,8 @@ export default function LeadsDashboard() {
           </button>
         </div>
       </div>
+
+      <Notice notice={notice} onDismiss={() => setNotice(null)} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

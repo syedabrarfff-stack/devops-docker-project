@@ -11,13 +11,36 @@ const STAGE_COLORS = {
   closed_lost: "text-red-400",
 };
 
+function asArray(value, key) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.[key])) return value[key];
+  return [];
+}
+
+function errorText(error, fallback) {
+  return error?.response?.data?.detail || error?.response?.data?.message || error?.message || fallback;
+}
+
+function Notice({ notice, onDismiss }) {
+  if (!notice) return null;
+  const error = notice.tone === "error";
+  return (
+    <div className={`rounded-xl border p-3 text-sm ${error ? "border-red-300/25 bg-red-500/10 text-red-100" : "border-emerald-300/25 bg-emerald-500/10 text-emerald-100"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p>{notice.text}</p>
+        <button onClick={onDismiss} className="text-xs opacity-60 hover:opacity-100">Dismiss</button>
+      </div>
+    </div>
+  );
+}
+
 function ContactCard({ contact }) {
   return (
     <div className="glass rounded-xl p-4 border border-white/5 hover:border-blue-500/30 transition-all">
       <div className="flex items-start justify-between mb-2">
         <div>
           <p className="font-semibold text-white">{contact.name}</p>
-          <p className="text-sm text-gray-400">{contact.title || "—"}</p>
+          <p className="text-sm text-gray-400">{contact.title || "-"}</p>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full border ${
           contact.status === "active" ? "border-green-500/40 text-green-400 bg-green-500/10" :
@@ -67,6 +90,7 @@ export default function CRMDashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", email: "", title: "", country: "" });
+  const [notice, setNotice] = useState(null);
 
   useEffect(() => {
     loadAll();
@@ -76,29 +100,34 @@ export default function CRMDashboard() {
     setLoading(true);
     try {
       const [c, d, p, cs] = await Promise.all([
-        api.get("/crm/contacts?limit=50").then(r => r.data),
-        api.get("/crm/deals?limit=50").then(r => r.data),
-        api.get("/crm/deals/pipeline").then(r => r.data),
-        api.get("/crm/contacts/stats").then(r => r.data),
+        api.get("/api/v1/crm/contacts", { params: { limit: 50 } }).then(r => r.data),
+        api.get("/api/v1/crm/deals", { params: { limit: 50 } }).then(r => r.data),
+        api.get("/api/v1/crm/deals/pipeline").then(r => r.data),
+        api.get("/api/v1/crm/contacts/stats").then(r => r.data),
       ]);
-      setContacts(c);
-      setDeals(d);
+      setContacts(asArray(c, "contacts"));
+      setDeals(asArray(d, "deals"));
       setPipeline(p);
       setContactStats(cs);
     } catch (e) {
-      console.error(e);
+      setContacts([]);
+      setDeals([]);
+      setPipeline({});
+      setContactStats({});
+      setNotice({ tone: "error", text: errorText(e, "CRM failed to load.") });
     }
     setLoading(false);
   }
 
   async function addContact() {
     try {
-      await api.post("/crm/contacts", newContact);
+      await api.post("/api/v1/crm/contacts", newContact);
       setShowAddContact(false);
       setNewContact({ name: "", email: "", title: "", country: "" });
-      loadAll();
+      setNotice({ tone: "success", text: "Contact created and added to CRM." });
+      await loadAll();
     } catch (e) {
-      console.error(e);
+      setNotice({ tone: "error", text: errorText(e, "Contact creation failed.") });
     }
   }
 
@@ -107,7 +136,7 @@ export default function CRMDashboard() {
     .reduce((s, d) => s + (d.value || 0), 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-full p-6 pb-28 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">CRM</h1>
@@ -120,6 +149,8 @@ export default function CRMDashboard() {
           + Add Contact
         </button>
       </div>
+
+      <Notice notice={notice} onDismiss={() => setNotice(null)} />
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -195,7 +226,7 @@ export default function CRMDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
             onClick={() => setShowAddContact(false)}
           >
             <motion.div
