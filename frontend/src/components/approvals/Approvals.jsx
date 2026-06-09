@@ -310,7 +310,7 @@ export default function Approvals() {
   }, [decideAndRemove, focusedId])
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-6">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">Captain Decision Center</p>

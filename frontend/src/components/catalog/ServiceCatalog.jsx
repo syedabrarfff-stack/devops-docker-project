@@ -192,7 +192,7 @@ export default function ServiceCatalog() {
   }, [])
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28">
       <div className="mx-auto max-w-7xl space-y-6 pb-12">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(0,200,255,0.20),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-6 shadow-2xl shadow-black/25">
           <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-jarvis-blue/10 blur-3xl" />

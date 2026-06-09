@@ -40,7 +40,7 @@ export default function MorningBriefing() {
   const tod = timeOfDay()
 
   return (
-    <div className="p-6 h-full overflow-y-auto no-scrollbar space-y-5">
+    <div className="p-6 pb-28 h-full min-h-0 overflow-y-auto no-scrollbar space-y-5">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}

@@ -604,7 +604,7 @@ export default function DepartmentsView() {
   const busyLoading = loading || actionLoading
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>

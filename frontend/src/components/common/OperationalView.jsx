@@ -70,7 +70,7 @@ export default function OperationalView({
   ), [endpoints, results])
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">{eyebrow}</p>

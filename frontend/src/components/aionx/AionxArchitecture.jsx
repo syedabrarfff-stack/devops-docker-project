@@ -155,7 +155,7 @@ export default function AionxArchitecture() {
 
   if (state.error) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-8">
+      <div className="h-full min-h-0 overflow-auto bg-slate-950 p-8 pb-28">
         <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-6 text-red-100">
           AIONX architecture endpoint is not reachable: {state.error.message}
         </div>
@@ -197,7 +197,7 @@ export default function AionxArchitecture() {
   const preventive = operating.preventive_monitoring || {}
 
   return (
-    <div className="h-full overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 text-white">
+    <div className="h-full min-h-0 overflow-auto bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_34%),linear-gradient(135deg,#020617,#07111f_52%,#031017)] p-6 pb-28 text-white">
       <div className="mx-auto max-w-7xl space-y-6">
         <motion.header initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-[2rem] border border-cyan-200/15 bg-white/[0.045] p-7 shadow-2xl shadow-cyan-950/30">
           <div className="absolute right-8 top-8 h-32 w-32 rounded-full bg-cyan-400/10 blur-3xl" />

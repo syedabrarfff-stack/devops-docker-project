@@ -47,7 +47,7 @@ function LeadRow({ lead, onScore }) {
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="font-semibold text-white">{leadCompany(lead)}</p>
-          <p className="text-sm text-gray-400">{lead.contact_name || "—"}</p>
+          <p className="text-sm text-gray-400">{lead.contact_name || "-"}</p>
         </div>
         <div className="flex items-center gap-2">
           {lead.tier && (
@@ -140,7 +140,7 @@ export default function LeadsDashboard() {
     leads.filter(l => normaliseStatus(l.status) === filter);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-full p-6 pb-28 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Lead Generation</h1>
@@ -210,7 +210,7 @@ export default function LeadsDashboard() {
       {/* Add Lead Modal */}
       {showAdd && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
           onClick={() => setShowAdd(false)}
         >
           <div

@@ -223,7 +223,7 @@ export default function TeamRegistry() {
   const visible = filter === 'all' ? members : members.filter(m => m.department === filter)
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

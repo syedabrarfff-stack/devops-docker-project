@@ -130,7 +130,7 @@ export default function CommunicationHub() {
   const pairingCode = qrPayload?.pairingCode
 
   return (
-    <div className="h-full overflow-y-auto p-6 pb-24 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-jarvis-cyan/70">Transport Layer</p>

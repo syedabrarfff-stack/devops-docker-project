@@ -439,7 +439,7 @@ export default function GovernanceDashboard() {
   ]
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-5">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-28 space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Governance</h1>
