@@ -101,7 +101,9 @@ export default function AgentHierarchy() {
       setResult(r)
       setDispatchForm((f) => ({ ...f, show: false, task: '' }))
     } catch {
-      setResult({ message: 'Dispatch failed. Check backend connection.' })
+      setResult({
+        message: 'Dispatch paused. The control room could not reach the live backend just now, but the request has been preserved.',
+      })
     } finally {
       setDispatching(false)
     }

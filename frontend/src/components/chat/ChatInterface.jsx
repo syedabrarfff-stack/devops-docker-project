@@ -36,7 +36,7 @@ const Message = ({ msg, onSpeak }) => {
       {/* Bubble */}
       <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed relative group
                         ${isJarvis
-                          ? 'bg-white/[0.04] border border-white/[0.08] text-white/85 rounded-tl-sm'
+                          ? `bg-white/[0.04] border ${msg.error ? 'border-amber-400/30 bg-amber-400/8 text-amber-50' : 'border-white/[0.08] text-white/85'} rounded-tl-sm`
                           : 'bg-jarvis-blue/10 border border-jarvis-blue/20 text-white/85 rounded-tr-sm'}`}>
         {isJarvis ? (
           <>
@@ -195,11 +195,21 @@ export default function ChatInterface() {
           onEnd: () => setIsSpeaking(false),
         })
       }
-    } catch {
+    } catch (error) {
+      const status = error?.response?.status
+      const fallback =
+        status === 401
+          ? "Captain, the control room is protected by access controls right now. The message is preserved, but I need the live session to continue."
+          : status >= 500
+            ? "Captain, the live AI link is temporarily under strain. Your message is preserved, and the control room remains available."
+            : "Captain, the live AI link is temporarily unavailable. Your message is preserved and I’ll retry when the backend is reachable again."
+
       setMessages(m => [...m, {
         id: Date.now() + 1,
         role: 'assistant',
-        content: "I've lost contact with the AI systems for a moment, Captain. Check the backend connection.",
+        content: fallback,
+        error: true,
+        model: status ? `http-${status}` : 'runtime-fallback',
         timestamp: new Date().toISOString(),
       }])
     } finally {

@@ -28,15 +28,19 @@ export default function TopBar() {
 
     const checkRuntime = async () => {
       try {
-        const [ready, email, outreach] = await Promise.all([
+        const [ready, communication, outreach] = await Promise.allSettled([
           api.get('/readyz'),
-          api.get('/api/v1/gmail/status'),
-          api.get('/api/v1/outreach/compliance/status'),
+          api.get('/api/v1/communication/status'),
+          api.get('/api/v1/outreach/engine-status'),
         ])
 
         if (!active) return
 
-        if (ready.data?.status !== 'ready') {
+        const readyValue = ready.status === 'fulfilled' ? ready.value?.data : null
+        const communicationValue = communication.status === 'fulfilled' ? communication.value?.data : null
+        const outreachValue = outreach.status === 'fulfilled' ? outreach.value?.data : null
+
+        if (ready.status !== 'fulfilled' || readyValue?.status !== 'ready') {
           setRuntimeStatus({
             level: 'degraded',
             label: 'DEGRADED',
@@ -45,20 +49,41 @@ export default function TopBar() {
           return
         }
 
-        if (!email.data?.connected) {
+        if (communication.status !== 'fulfilled') {
           setRuntimeStatus({
             level: 'degraded',
-            label: 'EMAIL BLOCKED',
-            detail: email.data?.message || 'Executive email is configured but not connected',
+            label: 'PROBE DEGRADED',
+            detail: 'Communication status probe is unavailable; shell remains usable.',
           })
           return
         }
 
-        if (outreach.data?.outreach_paused) {
+        const sesConnected = !!communicationValue?.ses?.connected
+        const whatsappConnected = !!communicationValue?.whatsapp?.connected
+
+        if (!sesConnected || !whatsappConnected) {
+          setRuntimeStatus({
+            level: 'degraded',
+            label: sesConnected && !whatsappConnected ? 'WHATSAPP BLOCKED' : !sesConnected && whatsappConnected ? 'SES BLOCKED' : 'CHANNELS BLOCKED',
+            detail: communicationValue?.ses?.required_action || communicationValue?.whatsapp?.required_action || 'One or more communication channels are not yet live.',
+          })
+          return
+        }
+
+        if (outreach.status !== 'fulfilled') {
+          setRuntimeStatus({
+            level: 'degraded',
+            label: 'OUTREACH DEGRADED',
+            detail: 'Outreach engine probe is unavailable, but the control room is still live.',
+          })
+          return
+        }
+
+        if (outreachValue?.outreach_paused) {
           setRuntimeStatus({
             level: 'degraded',
             label: 'OUTREACH PAUSED',
-            detail: 'Outreach is paused by compliance controls',
+            detail: outreachValue?.human_message || 'Outreach is paused by compliance controls',
           })
           return
         }
@@ -66,14 +91,14 @@ export default function TopBar() {
         setRuntimeStatus({
           level: 'operational',
           label: 'OPERATIONAL',
-          detail: 'Core runtime, executive email, and outreach controls are ready',
+          detail: 'Core runtime, communication transport, and outreach controls are ready',
         })
       } catch {
         if (!active) return
         setRuntimeStatus({
           level: 'degraded',
-          label: 'CHECK FAILED',
-          detail: 'Could not verify production subsystem readiness',
+          label: 'PROBE DEGRADED',
+          detail: 'Could not verify one or more subsystem probes; control room remains usable',
         })
       }
     }
@@ -134,7 +159,7 @@ export default function TopBar() {
   const effectiveStatus = wsConnected ? runtimeStatus : {
     level: 'offline',
     label: 'OFFLINE',
-    detail: 'Realtime backend connection is offline',
+    detail: 'Realtime control channel is offline',
   }
   const statusStyles = {
     operational: 'bg-green-400/10 border-green-400/20 text-green-400',
