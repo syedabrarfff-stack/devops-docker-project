@@ -186,7 +186,7 @@ export default function TopBar() {
             : voiceActive
               ? <Mic size={13} />
               : <MicOff size={13} />}
-          {voiceActive ? (voiceListening ? 'Listening…' : 'Wake: "Jarvis"') : 'Voice Off'}
+          {voiceActive ? (voiceListening ? 'Listening...' : 'Wake: "Jarvis"') : 'Voice Off'}
         </motion.button>
 
         {/* Notifications */}

@@ -167,6 +167,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [briefExpanded, setBriefExpanded] = useState(false)
   const [criticalAlert, setCriticalAlert] = useState(null)
+  const [dashboardIssues, setDashboardIssues] = useState([])
   const [data, setData] = useState({
     revenue: null,
     mrrChart: [],
@@ -196,70 +197,84 @@ export default function Dashboard() {
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
     if (soft) setRefreshing(true)
     else setLoading(true)
+    setDashboardIssues([])
+    try {
+      const requests = [
+        { key: 'revenue', run: () => api.get('/api/v1/revenue/snapshot') },
+        { key: 'mrrChart', run: () => api.get('/api/v1/revenue/mrr-chart', { params: { days: 365 } }) },
+        { key: 'pipeline', run: () => api.get('/api/v1/crm/deals/pipeline') },
+        { key: 'approvals', run: () => api.get('/api/v1/approvals', { params: { status: 'pending' } }) },
+        { key: 'leads', run: () => api.get('/api/v1/leads/', { params: { limit: 50 } }) },
+        { key: 'leadStats', run: () => api.get('/api/v1/leads/stats') },
+        { key: 'briefing', run: () => api.get('/api/v1/briefing/morning') },
+        { key: 'ready', run: () => api.get('/readyz') },
+        { key: 'aiHealth', run: () => api.get('/api/v1/ai-ops/health') },
+        { key: 'aiCost', run: () => api.get('/api/v1/ai-ops/cost/summary', { params: { days: 7 } }) },
+        { key: 'audit', run: () => api.get('/api/v1/ai-ops/audit', { params: { limit: 10 } }) },
+        { key: 'catalog', run: () => api.get('/api/v1/catalog/capability-modules') },
+        { key: 'departments', run: () => api.get('/api/v1/departments/health') },
+        { key: 'council', run: () => api.get('/api/v1/council/status') },
+        { key: 'aionx', run: () => api.get('/api/v1/aionx/cortex/operational-iq') },
+        { key: 'consciousness', run: () => api.get('/api/v1/consciousness/snapshot') },
+        { key: 'civilization', run: () => api.get('/api/v1/civilization/ledger') },
+        { key: 'agentOps', run: () => api.get('/api/v1/agent-ops/status') },
+        { key: 'scheduler', run: () => api.get('/api/v1/scheduler/jobs') },
+        { key: 'batch1Workflow', run: () => api.get('/api/v1/batch1/workflow') },
+        { key: 'batch1Board', run: () => api.get('/api/v1/batch1/board') },
+        { key: 'axiom', run: () => api.get('/api/v1/departments/axiom/operating-model') },
+        { key: 'operatingIntelligence', run: () => api.get('/api/v1/aionx/operating-intelligence') },
+        { key: 'communication', run: () => api.get('/api/v1/communication/status') },
+      ]
 
-    const results = await Promise.allSettled([
-      api.get('/api/v1/revenue/snapshot'),
-      api.get('/api/v1/revenue/mrr-chart', { params: { days: 365 } }),
-      api.get('/api/v1/crm/deals/pipeline'),
-      api.get('/api/v1/approvals', { params: { status: 'pending' } }),
-      api.get('/api/v1/leads/', { params: { limit: 50 } }),
-      api.get('/api/v1/leads/stats'),
-      api.get('/api/v1/briefing/morning'),
-      api.get('/readyz'),
-      api.get('/api/v1/ai-ops/health'),
-      api.get('/api/v1/ai-ops/cost/summary', { params: { days: 7 } }),
-      api.get('/api/v1/ai-ops/audit', { params: { limit: 10 } }),
-      api.get('/api/v1/catalog/capability-modules'),
-      api.get('/api/v1/departments/health'),
-      api.get('/api/v1/council/status'),
-      api.get('/api/v1/aionx/cortex/operational-iq'),
-      api.get('/api/v1/consciousness/snapshot'),
-      api.get('/api/v1/civilization/ledger'),
-      api.get('/api/v1/agent-ops/status'),
-      api.get('/api/v1/scheduler/jobs'),
-      api.get('/api/v1/batch1/workflow'),
-      api.get('/api/v1/batch1/board'),
-      api.get('/api/v1/departments/axiom/operating-model'),
-      api.get('/api/v1/aionx/operating-intelligence'),
-      api.get('/api/v1/communication/status'),
-    ])
+      const results = await Promise.allSettled(requests.map((request) => request.run()))
+      const issues = results.flatMap((result, index) => {
+        if (result.status === 'fulfilled') return []
+        const name = requests[index]?.key || `request-${index + 1}`
+        const reason = result.reason?.response?.data?.detail
+          || result.reason?.response?.data?.message
+          || result.reason?.message
+          || 'failed to load'
+        return [{ name, reason }]
+      })
 
-    const value = (index, fallback = null) => (
-      results[index].status === 'fulfilled' ? results[index].value.data : fallback
-    )
+      const value = (index, fallback = null) => (
+        results[index].status === 'fulfilled' ? results[index].value.data : fallback
+      )
 
-    const approvals = safeArray(value(3, []), 'approvals')
-    setPendingApprovals(approvals.length)
-    setSystemHealth(value(7, null))
+      const approvals = safeArray(value(3, []), 'approvals')
+      setPendingApprovals(approvals.length)
+      setSystemHealth(value(7, null))
+      setDashboardIssues(issues)
 
-    setData({
-      revenue: value(0, null),
-      mrrChart: safeArray(value(1, {}), 'points'),
-      pipeline: value(2, null),
-      approvals,
-      leads: safeArray(value(4, []), 'leads'),
-      briefing: value(6, null),
-      ready: value(7, null),
-      aiHealth: value(8, null),
-      aiCost: value(9, null),
-      audit: safeArray(value(10, {}), 'logs'),
-      catalog: value(11, null),
-      departments: value(12, null),
-      council: value(13, null),
-      aionx: value(14, null),
-      consciousness: value(15, null),
-      civilization: value(16, null),
-      agentOps: value(17, null),
-      scheduler: value(18, null),
-      batch1Workflow: value(19, null),
-      batch1Board: value(20, null),
-      axiom: value(21, null),
-      operatingIntelligence: value(22, null),
-      communication: value(23, null),
-    })
-
-    setLoading(false)
-    setRefreshing(false)
+      setData({
+        revenue: value(0, null),
+        mrrChart: safeArray(value(1, {}), 'points'),
+        pipeline: value(2, null),
+        approvals,
+        leads: safeArray(value(4, []), 'leads'),
+        briefing: value(6, null),
+        ready: value(7, null),
+        aiHealth: value(8, null),
+        aiCost: value(9, null),
+        audit: safeArray(value(10, {}), 'logs'),
+        catalog: value(11, null),
+        departments: value(12, null),
+        council: value(13, null),
+        aionx: value(14, null),
+        consciousness: value(15, null),
+        civilization: value(16, null),
+        agentOps: value(17, null),
+        scheduler: value(18, null),
+        batch1Workflow: value(19, null),
+        batch1Board: value(20, null),
+        axiom: value(21, null),
+        operatingIntelligence: value(22, null),
+        communication: value(23, null),
+      })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [setPendingApprovals, setSystemHealth])
 
   useEffect(() => {
@@ -356,7 +371,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
+    <div className="h-full min-h-0 overflow-y-auto p-6 pb-24 space-y-6">
       <AnimatePresence>
         {criticalAlert && (
           <motion.div
@@ -380,6 +395,30 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {dashboardIssues.length > 0 && (
+        <div className="glass border border-amber-400/30 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="mt-0.5 text-amber-300" />
+            <div>
+              <p className="text-sm font-semibold text-amber-100">Partial dashboard load</p>
+              <p className="mt-1 text-sm text-amber-100/80">
+                {dashboardIssues.length} subsystem{dashboardIssues.length === 1 ? '' : 's'} failed to load, but the dashboard stayed online.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {dashboardIssues.slice(0, 6).map((issue) => (
+                  <span
+                    key={issue.name}
+                    className="rounded-full border border-amber-300/20 bg-black/20 px-3 py-1 text-xs text-amber-100/80"
+                  >
+                    {issue.name}: {issue.reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -452,7 +491,7 @@ export default function Dashboard() {
           icon={Zap}
           label="Client Engine"
           value={number(batch1StageCount)}
-          detail={`${batch1PhaseCount} phases · ${activePipelines} active pipelines`}
+          detail={`${batch1PhaseCount} phases - ${activePipelines} active pipelines`}
           tone={batch1StageCount === 33 ? 'green' : 'red'}
           onClick={() => setActiveView('aionxArchitecture')}
         />
@@ -601,7 +640,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <p className="mt-3 line-clamp-2 text-xs text-gray-400">
-                    {(phase.stages || []).slice(0, 3).map((stage) => stage.name).join(' · ')}
+                    {(phase.stages || []).slice(0, 3).map((stage) => stage.name).join(' - ')}
                   </p>
                 </div>
               ))}
