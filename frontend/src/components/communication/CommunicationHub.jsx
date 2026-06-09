@@ -62,6 +62,14 @@ export default function CommunicationHub() {
   const [text, setText] = useState('AIONX transport layer online.')
   const [busy, setBusy] = useState(false)
   const [lastAction, setLastAction] = useState(null)
+  const [notice, setNotice] = useState(null)
+
+  const errorText = (error, fallback) => (
+    error?.response?.data?.detail
+    || error?.response?.data?.message
+    || error?.message
+    || fallback
+  )
 
   async function load() {
     setBusy(true)
@@ -72,6 +80,8 @@ export default function CommunicationHub() {
       ])
       setStatus(s)
       setEvents(e.events || [])
+    } catch (error) {
+      setNotice({ tone: 'error', text: errorText(error, 'Communication status failed to load.') })
     } finally {
       setBusy(false)
     }
@@ -84,7 +94,12 @@ export default function CommunicationHub() {
     try {
       const result = await api.post('/api/v1/communication/whatsapp/instance').then((r) => r.data)
       setLastAction(result)
+      setNotice({ tone: 'success', text: result?.message || 'WhatsApp instance request completed.' })
       await load()
+    } catch (error) {
+      const text = errorText(error, 'WhatsApp instance creation failed.')
+      setLastAction({ error: text })
+      setNotice({ tone: 'error', text })
     } finally {
       setBusy(false)
     }
@@ -97,6 +112,11 @@ export default function CommunicationHub() {
       const result = await api.get('/api/v1/communication/whatsapp/qr', { params }).then((r) => r.data)
       setQr(result)
       setLastAction(result)
+      setNotice({ tone: 'success', text: result?.required_action || 'WhatsApp pairing payload retrieved.' })
+    } catch (error) {
+      const text = errorText(error, 'WhatsApp QR retrieval failed.')
+      setLastAction({ error: text })
+      setNotice({ tone: 'error', text })
     } finally {
       setBusy(false)
     }
@@ -107,7 +127,12 @@ export default function CommunicationHub() {
     try {
       const result = await api.post('/api/v1/communication/whatsapp/webhook/configure').then((r) => r.data)
       setLastAction(result)
+      setNotice({ tone: 'success', text: result?.message || 'WhatsApp webhook configuration completed.' })
       await load()
+    } catch (error) {
+      const text = errorText(error, 'WhatsApp webhook configuration failed.')
+      setLastAction({ error: text })
+      setNotice({ tone: 'error', text })
     } finally {
       setBusy(false)
     }
@@ -119,7 +144,12 @@ export default function CommunicationHub() {
     try {
       const result = await api.post('/api/v1/communication/whatsapp/send-text', { number, text }).then((r) => r.data)
       setLastAction(result)
+      setNotice({ tone: 'success', text: result?.message || 'WhatsApp test message sent.' })
       await load()
+    } catch (error) {
+      const text = errorText(error, 'WhatsApp test message failed.')
+      setLastAction({ error: text })
+      setNotice({ tone: 'error', text })
     } finally {
       setBusy(false)
     }
@@ -144,6 +174,19 @@ export default function CommunicationHub() {
           Refresh
         </button>
       </header>
+
+      {notice && (
+        <div className={`rounded-xl border p-3 text-sm ${
+          notice.tone === 'error'
+            ? 'border-red-300/25 bg-red-500/10 text-red-100'
+            : 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100'
+        }`}>
+          <div className="flex items-start justify-between gap-3">
+            <p>{notice.text}</p>
+            <button onClick={() => setNotice(null)} className="text-xs opacity-60 hover:opacity-100">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TransportCard title="AWS SES Primary Outreach" data={status?.ses}>
