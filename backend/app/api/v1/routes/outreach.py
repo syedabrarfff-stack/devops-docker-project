@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from app.services.outreach import sequences as seq_service
 from app.services.outreach.engine import outreach_engine
 
 router = APIRouter(prefix="/outreach", tags=["Outreach"])
+EMAIL_STATUS_TIMEOUT_SECONDS = 4.0
 
 
 class SequenceIn(BaseModel):
@@ -150,7 +152,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     await set_tenant_context(db, str(resolved_tenant_id))
-    email = await gmail_service.email_delivery_status(db, validate_provider=True)
+    email = await _email_delivery_status_for_dashboard(db)
     cap = await outreach_compliance.daily_send_cap_status(db, resolved_tenant_id)
 
     total_leads = await db.scalar(
@@ -680,6 +682,35 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
         return UUID(str(tenant_id))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
+
+
+async def _email_delivery_status_for_dashboard(db: AsyncSession) -> dict:
+    try:
+        return await asyncio.wait_for(
+            gmail_service.email_delivery_status(db, validate_provider=True),
+            timeout=EMAIL_STATUS_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        return {
+            "engine": "ses_outreach",
+            "provider": "ses",
+            "configured": True,
+            "connected": False,
+            "send_method": "ses_raw_email",
+            "send_mode": "blocked",
+            "validation_error": "AWS SES status check timed out.",
+            "blocker_code": "ses_status_timeout",
+            "human_message": "AWS SES did not answer quickly enough for the dashboard.",
+            "required_action": "Re-check SES from AWS console; outreach remains blocked until SES production access and identity verification are live.",
+            "setup_steps": [],
+            "safety": {
+                "unsubscribe_footer": True,
+                "do_not_contact_gate": True,
+                "business_hours_gate": True,
+                "daily_cap_gate": True,
+                "client_language_sanitizer": True,
+            },
+        }
 
 
 _TRANSPARENT_GIF = (

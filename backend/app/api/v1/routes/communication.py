@@ -30,7 +30,7 @@ webhook_router = APIRouter(prefix="/webhooks", tags=["Communication Webhooks"])
 logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
-STATUS_TIMEOUT_SECONDS = 5.0
+STATUS_TIMEOUT_SECONDS = 3.0
 
 
 def _resolve_tenant_id(request: Request, tenant_id: Optional[uuid.UUID] = None) -> uuid.UUID:
