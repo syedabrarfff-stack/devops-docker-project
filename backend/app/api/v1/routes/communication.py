@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 import logging
 from typing import Any, Optional
@@ -29,6 +30,7 @@ webhook_router = APIRouter(prefix="/webhooks", tags=["Communication Webhooks"])
 logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+STATUS_TIMEOUT_SECONDS = 5.0
 
 
 def _resolve_tenant_id(request: Request, tenant_id: Optional[uuid.UUID] = None) -> uuid.UUID:
@@ -63,7 +65,7 @@ async def communication_status(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     resolved = _resolve_tenant_id(request, tenant_id)
-    email = await email_service.email_delivery_status(db, validate_provider=True)
+    email = await _email_status_with_timeout(db)
     await update_channel_status(
         db,
         tenant_id=resolved,
@@ -77,7 +79,7 @@ async def communication_status(
         required_action=email.get("required_action"),
         details=email,
     )
-    whatsapp = await evolution_status(db, resolved)
+    whatsapp = await _whatsapp_status_with_timeout(db, resolved)
     counts = await communication_counts(db, resolved)
     return {
         "tenant_id": str(resolved),
@@ -126,7 +128,7 @@ async def whatsapp_status(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await evolution_status(db, resolved)
+    return await _whatsapp_status_with_timeout(db, resolved)
 
 
 @communication_router.get("/whatsapp/qr")
@@ -212,6 +214,65 @@ async def _process_whatsapp_webhook_background(
             await db.commit()
     except Exception:
         logger.exception("WhatsApp webhook background processing failed")
+
+
+async def _email_status_with_timeout(db: AsyncSession) -> dict[str, Any]:
+    try:
+        return await asyncio.wait_for(
+            email_service.email_delivery_status(db, validate_provider=True),
+            timeout=STATUS_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("SES status check timed out")
+        return {
+            "engine": "ses_outreach",
+            "provider": "ses",
+            "configured": True,
+            "connected": False,
+            "send_method": "ses_raw_email",
+            "send_mode": "blocked",
+            "validation_error": "AWS SES status check timed out.",
+            "blocker_code": "ses_status_timeout",
+            "human_message": "AWS SES did not answer quickly enough for the dashboard.",
+            "required_action": "Re-check SES from the AWS console or retry after AWS responds.",
+            "setup_steps": [],
+            "safety": {
+                "unsubscribe_footer": True,
+                "do_not_contact_gate": True,
+                "business_hours_gate": True,
+                "daily_cap_gate": True,
+                "client_language_sanitizer": True,
+            },
+        }
+
+
+async def _whatsapp_status_with_timeout(
+    db: AsyncSession | None,
+    tenant_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    try:
+        return await asyncio.wait_for(
+            evolution_status(db, tenant_id),
+            timeout=STATUS_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("WhatsApp Evolution status check timed out")
+        return {
+            "provider": "evolution",
+            "instance": settings.WHATSAPP_INSTANCE_NAME or "jarvis-main",
+            "configured": bool(settings.WHATSAPP_ENABLED and settings.EVOLUTION_API_KEY),
+            "connected": False,
+            "status": "blocked",
+            "blocker_code": "evolution_status_timeout",
+            "required_action": "Evolution API did not answer quickly enough; retry status or inspect the Evolution container.",
+            "api_url": settings.EVOLUTION_API_URL,
+            "public_url": settings.EVOLUTION_PUBLIC_URL,
+            "webhook_url": settings.EVOLUTION_WEBHOOK_URL,
+            "auto_reply_enabled": bool(settings.WHATSAPP_AUTO_REPLY_ENABLED),
+            "auto_reply_min_confidence": float(settings.WHATSAPP_AUTO_REPLY_MIN_CONFIDENCE),
+            "identity": settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
+            "raw": {"ok": False, "status": "timeout"},
+        }
 
 
 router.include_router(communication_router)
