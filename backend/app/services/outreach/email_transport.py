@@ -12,12 +12,18 @@ from email.utils import formataddr
 from typing import Any, Optional
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import settings
 from app.services.communication.client_language import sanitize_client_text, sanitize_subject_body
 
 logger = logging.getLogger(__name__)
+AWS_CLIENT_CONFIG = Config(
+    connect_timeout=3,
+    read_timeout=6,
+    retries={"max_attempts": 1},
+)
 
 
 @dataclass(frozen=True)
@@ -57,11 +63,11 @@ def _session() -> boto3.session.Session:
 
 
 def _ses_client():
-    return _session().client("ses", region_name=_ses_region())
+    return _session().client("ses", region_name=_ses_region(), config=AWS_CLIENT_CONFIG)
 
 
 def _sesv2_client():
-    return _session().client("sesv2", region_name=_ses_region())
+    return _session().client("sesv2", region_name=_ses_region(), config=AWS_CLIENT_CONFIG)
 
 
 def _html_body(body: str) -> str:

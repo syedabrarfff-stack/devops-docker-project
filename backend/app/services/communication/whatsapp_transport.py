@@ -22,6 +22,7 @@ from app.services.memory.manager import store_memory
 from app.services.outreach.reply_handler import reply_handler
 
 logger = logging.getLogger(__name__)
+EVOLUTION_TIMEOUT_SECONDS = 6.0
 
 
 def _base_url() -> str:
@@ -107,7 +108,7 @@ async def evolution_request(method: str, path: str, *, json: dict[str, Any] | No
         return {"ok": False, "status": "not_configured", "error": "EVOLUTION_API_KEY is not configured."}
     url = f"{_base_url()}/{path.lstrip('/')}"
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=EVOLUTION_TIMEOUT_SECONDS) as client:
             response = await client.request(method.upper(), url, headers=_headers(), json=json)
         content_type = response.headers.get("content-type", "")
         data = response.json() if "json" in content_type else {"raw": response.text[:4000]}
@@ -117,6 +118,8 @@ async def evolution_request(method: str, path: str, *, json: dict[str, Any] | No
             "data": data,
             "url": url,
         }
+    except httpx.TimeoutException as exc:
+        return {"ok": False, "status": "timeout", "error": str(exc), "url": url}
     except httpx.HTTPError as exc:
         return {"ok": False, "status": "unreachable", "error": str(exc), "url": url}
 

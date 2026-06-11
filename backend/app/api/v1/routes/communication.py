@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import uuid
+import logging
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import AsyncSessionLocal, get_db
 from app.models.communication import CommunicationChannel
 from app.services.communication.ledger import communication_counts, recent_events, update_channel_status
 from app.services.communication.whatsapp_transport import (
@@ -25,6 +26,7 @@ from app.services.outreach import gmail as email_service
 router = APIRouter(tags=["Communication"])
 communication_router = APIRouter(prefix="/communication", tags=["Communication"])
 webhook_router = APIRouter(prefix="/webhooks", tags=["Communication Webhooks"])
+logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
@@ -181,12 +183,35 @@ async def whatsapp_send_media(
 @webhook_router.post("/whatsapp")
 async def whatsapp_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: dict[str, Any] = Body(default_factory=dict),
     tenant_id: Optional[uuid.UUID] = None,
-    db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await process_inbound_webhook(db, tenant_id=resolved, payload=payload)
+    background_tasks.add_task(_process_whatsapp_webhook_background, resolved, payload)
+    return {
+        "accepted": True,
+        "queued": True,
+        "action": "queued_existing_pipeline",
+        "architecture_route": [
+            "WhatsApp",
+            "Evolution API",
+            "JARVIS webhook acknowledgement",
+            "background Digital Twin / Decision Memory / Council / HIA processing",
+        ],
+    }
+
+
+async def _process_whatsapp_webhook_background(
+    tenant_id: uuid.UUID,
+    payload: dict[str, Any],
+) -> None:
+    try:
+        async with AsyncSessionLocal() as db:
+            await process_inbound_webhook(db, tenant_id=tenant_id, payload=payload)
+            await db.commit()
+    except Exception:
+        logger.exception("WhatsApp webhook background processing failed")
 
 
 router.include_router(communication_router)
