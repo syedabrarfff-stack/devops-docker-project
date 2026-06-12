@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     WHATSAPP_ENABLED: bool = True
     WHATSAPP_INSTANCE_NAME: str = "jarvis-main"
     WHATSAPP_DISPLAY_IDENTITY: str = "Joseph David"
+    WHATSAPP_CAPTAIN_PHONE: str = "+97334360246"  # Captain's Bahrain number for notifications
     EVOLUTION_API_URL: str = "http://evolution:8080"
     EVOLUTION_API_KEY: Optional[str] = None
     EVOLUTION_PUBLIC_URL: Optional[str] = None
