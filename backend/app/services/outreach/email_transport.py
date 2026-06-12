@@ -114,7 +114,15 @@ def _build_raw_message(
     mixed["Subject"] = str(Header(subject, "utf-8"))
     mixed["From"] = formataddr((identity.display_name, identity.email))
     mixed["To"] = formataddr((to_name, to)) if to_name else to
-    mixed["Reply-To"] = reply_to or formataddr((identity.display_name, identity.email))
+    # Use SES_REPLY_TO_EMAIL if configured (inbound.aliyarsolutions.com subdomain routes
+    # replies through SES receipt rules instead of Google Workspace MX).
+    # Falls back to caller-provided reply_to, then the from address.
+    ses_reply_to = settings.SES_REPLY_TO_EMAIL if hasattr(settings, "SES_REPLY_TO_EMAIL") else None
+    effective_reply_to = reply_to or (
+        formataddr((identity.name, ses_reply_to)) if ses_reply_to else
+        formataddr((identity.display_name, identity.email))
+    )
+    mixed["Reply-To"] = effective_reply_to
 
     return mixed.as_bytes(), subject, body
 

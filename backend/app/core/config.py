@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     SES_FROM_EMAIL: Optional[str] = None
     SES_CONFIGURATION_SET: Optional[str] = None
     SES_REGION: Optional[str] = None
+    # Inbound reply routing: replies from clients go to this address,
+    # which is routed via SES receipt rules (not Google Workspace).
+    # MX record for inbound.aliyarsolutions.com must point to SES inbound SMTP.
+    SES_REPLY_TO_EMAIL: Optional[str] = None  # e.g. replies@inbound.aliyarsolutions.com
     OUTREACH_PERSONALIZE_ON_SEND: bool = True
     EMAIL_REPLY_TO_NAME: Optional[str] = None
     # Legacy mailbox fields retained only for retired compatibility paths
