@@ -144,7 +144,7 @@ jobs:
     name: Deploy via SSH key
     runs-on: ubuntu-latest
     needs: deploy-via-ssm
-    if: needs.deploy-via-ssm.outputs.ssm_success != 'true' && secrets.EC2_SSH_KEY != ''
+    if: needs.deploy-via-ssm.outputs.ssm_success != 'true'
 
     steps:
       - name: SSH deploy
