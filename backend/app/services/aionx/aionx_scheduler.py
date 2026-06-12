@@ -60,6 +60,12 @@ def register_aionx_jobs(add_cron_job, add_interval_job) -> None:
     # Preventive Monitoring — record watchtower state (every 15 min)
     add_interval_job("aionx_preventive_monitoring_snapshot", _job_preventive_monitoring_snapshot, minutes=15)
 
+    # Outreach Engine — execute due follow-ups (every 30 min during business hours)
+    add_interval_job("aionx_execute_due_outreach", _job_execute_due_outreach, minutes=30)
+
+    # Speed-to-Lead — check for fresh replies requiring immediate response (every 5 min)
+    add_interval_job("aionx_speed_to_lead_check", _job_speed_to_lead_check, minutes=5)
+
     # Governed Autonomy — proposals and integrity checks, no self-execution (hourly)
     add_interval_job("aionx_governed_integrity_cycle", _job_governed_integrity_cycle, hours=1)
 
@@ -552,3 +558,87 @@ async def _job_mission_control_snapshot() -> None:
             )
     except Exception as exc:
         logger.warning("AIONX Mission Control snapshot failed: %s", exc)
+
+
+# ─── OUTREACH ENGINE — DUE FOLLOW-UP EXECUTION ───────────────────────────────
+
+async def _job_execute_due_outreach() -> None:
+    """Execute all follow-ups due now — fires up to daily cap emails per run."""
+    from app.core.config import settings
+
+    if settings.OUTREACH_PAUSED:
+        return
+
+    tenant_id = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            import uuid
+            tenant_id = uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except Exception:
+            pass
+
+    if not tenant_id:
+        logger.debug("AIONX outreach: no default tenant configured — skipping")
+        return
+
+    logger.info("AIONX outreach: executing due follow-ups for tenant %s", tenant_id)
+    try:
+        from app.services.outreach.engine import outreach_engine
+        sent = await outreach_engine.execute_due_outreach(
+            tenant_id,
+            limit=int(settings.OUTREACH_DAILY_SEND_CAP or 48),
+            autonomy_stage="outreach_emails",
+        )
+        if sent:
+            logger.info("AIONX outreach: sent %d emails", sent)
+    except Exception as exc:
+        logger.warning("AIONX outreach execution failed: %s", exc)
+
+
+# ─── SPEED-TO-LEAD — FRESH REPLY MONITORING ──────────────────────────────────
+
+async def _job_speed_to_lead_check() -> None:
+    """Check for speed-to-lead events requiring immediate Captain attention."""
+    import uuid as _uuid
+    from app.core.config import settings
+
+    tenant_id = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            tenant_id = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except Exception:
+            pass
+    if not tenant_id:
+        return
+
+    try:
+        from datetime import UTC, datetime, timedelta
+        from sqlalchemy import select
+        from app.core.database import AsyncSessionLocal
+        from app.models.revenue_activation import SpeedToLeadEvent
+        from app.services.notifications import notify_business_event
+
+        cutoff = datetime.now(UTC) - timedelta(minutes=10)
+        async with AsyncSessionLocal() as db:
+            fresh = (await db.execute(
+                select(SpeedToLeadEvent).where(
+                    SpeedToLeadEvent.tenant_id == tenant_id,
+                    SpeedToLeadEvent.action_taken == "QUEUED",
+                    SpeedToLeadEvent.created_at >= cutoff,
+                ).limit(5)
+            )).scalars().all()
+
+            if fresh:
+                logger.info("AIONX speed-to-lead: %d fresh events require Captain attention", len(fresh))
+                await notify_business_event(
+                    "speed_to_lead_alert",
+                    f"Speed-to-Lead: {len(fresh)} prospect(s) need immediate follow-up",
+                    f"{len(fresh)} prospect(s) replied and are awaiting response. "
+                    f"Open the War Room to review and respond.",
+                )
+                # Mark as notified
+                for event in fresh:
+                    event.action_taken = "CAPTAIN_NOTIFIED"
+                await db.commit()
+    except Exception as exc:
+        logger.warning("AIONX speed-to-lead check failed: %s", exc)

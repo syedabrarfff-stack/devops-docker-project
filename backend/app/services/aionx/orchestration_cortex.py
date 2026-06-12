@@ -47,6 +47,26 @@ EVENT_CASCADES: dict[str, list[str]] = {
         "update_twin_interaction",
         "speed_to_lead_queue",
     ],
+    # Fired when reply classification = INTERESTED — highest-value lead signal
+    "LEAD_INTERESTED": [
+        "update_twin_interaction",
+        "create_decision_object",
+        "open_convergence_council",
+        "speed_to_lead_queue",
+        "notify_captain",
+    ],
+    # Fired when reply classification = QUESTION — nurture, do not close prematurely
+    "LEAD_QUESTION": [
+        "update_twin_interaction",
+        "create_decision_object",
+        "speed_to_lead_queue",
+        "notify_captain",
+    ],
+    "EMAIL_REPLY_RECEIVED": [
+        "update_twin_interaction",
+        "create_decision_object",
+        "speed_to_lead_queue",
+    ],
     "MISSION_FAILED": [
         "create_autopsy",
         "open_convergence_council",

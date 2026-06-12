@@ -256,7 +256,6 @@ async def send_text(
         from_address=settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
         to_address=_normalize_number(number),
         lead_id=lead_id,
-        client_id=lead_id,
         body_text=clean_text,
         status="sent" if result.get("ok") else "failed",
         processing_summary={"context": context or {}, "evolution": _summarize_transport_result(result)},

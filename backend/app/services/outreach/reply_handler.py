@@ -157,12 +157,48 @@ class ReplyHandler:
                     dedupe=True,
                 )
 
+        # Fire cortex cascade based on classification — council convened for INTERESTED
+        cortex_event = None
         if classification == "INTERESTED":
+            cortex_event = "LEAD_INTERESTED"
             await notify_business_event(
                 "interested_reply",
                 f"Interested reply: {lead.company_name or lead.company or lead.email}",
                 "A prospect is ready for the next step. Follow-up sequence paused and demo status set.",
             )
+        elif classification == "QUESTION":
+            cortex_event = "LEAD_QUESTION"
+
+        if cortex_event:
+            try:
+                from app.core.database import AsyncSessionLocal as _S
+                from app.services.aionx.orchestration_cortex import fire_event
+
+                async with _S() as _db:
+                    async with _db.begin():
+                        await fire_event(
+                            _db,
+                            cortex_event,
+                            {
+                                "event_type": cortex_event,
+                                "client_id": str(lead_uuid),
+                                "lead_id": str(lead_uuid),
+                                "interaction_type": "REPLY",
+                                "sentiment": "positive" if classification == "INTERESTED" else "neutral",
+                                "trust_delta": 5.0 if classification == "INTERESTED" else 2.0,
+                                "summary": reply_text[:500],
+                                "problem": f"Lead {classification.lower()} — council action required." if classification == "INTERESTED" else f"Lead asked a question — prepare tailored response.",
+                                "category": "OUTREACH",
+                                "confidence": confidence,
+                                "trigger_type": "REVENUE_OPPORTUNITY" if classification == "INTERESTED" else "LEAD_NURTURE",
+                                "response_draft": response_draft or "",
+                                "draft_subject": f"Re: {lead.company_name or 'your inquiry'}",
+                                "draft_body": response_draft or "",
+                                "stage_name": f"{classification} lead — {lead.company_name or lead.company or 'prospect'}",
+                            },
+                        )
+            except Exception as exc:
+                logger.warning("Cortex cascade for %s failed: %s", cortex_event, exc)
 
         return {
             "lead_id": str(lead_uuid),
@@ -171,6 +207,7 @@ class ReplyHandler:
             "action_taken": action_taken,
             "lead_status": _status_for_classification(classification),
             "response_draft": response_draft,
+            "cortex_event": cortex_event,
         }
 
     async def generate_response(self, reply_text: str, lead: Lead, classification: str) -> str:
