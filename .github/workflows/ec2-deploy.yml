@@ -1,6 +1,14 @@
 name: JARVIS — EC2 Deploy (Nginx + Backend)
 
 on:
+  push:
+    branches:
+      - claude/jarvis-cans-api-integration-ZThTD
+    paths:
+      - 'infrastructure/nginx/**'
+      - 'infrastructure/docker-compose.yml'
+      - 'backend/**'
+      - '.github/workflows/ec2-deploy.yml'
   workflow_dispatch:
     inputs:
       action:
@@ -55,7 +63,7 @@ jobs:
         if: steps.find_ec2.outputs.instance_id != ''
         run: |
           INSTANCE_ID="${{ steps.find_ec2.outputs.instance_id }}"
-          ACTION="${{ github.event.inputs.action }}"
+          ACTION="${{ github.event.inputs.action || 'full-restart' }}"
 
           if [ "$ACTION" = "nginx-reload" ]; then
             COMMANDS='["set -e",
@@ -156,7 +164,7 @@ jobs:
             git checkout claude/jarvis-cans-api-integration-ZThTD
             git pull origin claude/jarvis-cans-api-integration-ZThTD
             cd infrastructure
-            ACTION="${{ github.event.inputs.action }}"
+            ACTION="${{ github.event.inputs.action || 'full-restart' }}"
             if [ "$ACTION" = "full-restart" ]; then
               docker compose up -d --build nginx backend
               sleep 20
