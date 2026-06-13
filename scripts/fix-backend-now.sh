@@ -114,48 +114,57 @@ fi
 echo ""
 info "Step 2 — Deploying backend (8-10 min for Docker build)..."
 
+# Use python3 to build the JSON to avoid bash escaping issues with $DEPLOY_DIR
+FIX_PARAMS=$(python3 -c "
+import json
+repo = '${REPO}'
+branch = '${BRANCH}'
+cmds = [
+    'set -e',
+    'echo === SETUP ===',
+    'DEPLOY_DIR=/opt/jarvis',
+    '[ -d /home/ubuntu/devops-docker-project/infrastructure ] && [ ! -d /opt/jarvis/infrastructure ] && DEPLOY_DIR=/home/ubuntu/devops-docker-project || true',
+    'if [ ! -f \$DEPLOY_DIR/infrastructure/docker-compose.yml ]; then',
+    '  echo Cloning repo...',
+    '  apt-get install -y git curl 2>/dev/null || true',
+    '  git clone ' + repo + ' /opt/jarvis 2>&1 | tail -5',
+    '  DEPLOY_DIR=/opt/jarvis',
+    'fi',
+    'cd \$DEPLOY_DIR',
+    'git fetch origin ' + branch + ' 2>&1',
+    'git checkout ' + branch + ' 2>&1',
+    'git pull origin ' + branch + ' 2>&1',
+    'echo Latest: \$(git log --oneline -1)',
+    'which docker-compose 2>/dev/null || (curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose && echo docker-compose installed)',
+    '[ -f \$DEPLOY_DIR/.env ] || cp \$DEPLOY_DIR/.env.example \$DEPLOY_DIR/.env',
+    'echo === ENSURE JARVIS-DATA DIR ===',
+    'mkdir -p \$DEPLOY_DIR/jarvis-data/daily \$DEPLOY_DIR/jarvis-data/outputs \$DEPLOY_DIR/jarvis-data/intelligence',
+    'echo === START DEPS (postgres + redis) ===',
+    'cd \$DEPLOY_DIR/infrastructure',
+    'docker-compose up -d postgres redis 2>&1 | tail -5',
+    'echo Waiting 20s for postgres/redis to be healthy...',
+    'sleep 20',
+    'echo === BUILD + START BACKEND ===',
+    'docker-compose up -d --no-deps --build backend 2>&1',
+    'echo Backend build triggered. Waiting 35s for startup...',
+    'sleep 35',
+    'echo === BACKEND STATUS ===',
+    'docker-compose ps backend 2>&1',
+    'echo === LAST 30 LOG LINES ===',
+    'docker logs jarvis_backend --tail=30 2>&1 || true',
+    'echo === HEALTH CHECK ===',
+    'curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_DOWN',
+    'echo DONE'
+]
+print(json.dumps({'commands': cmds}))
+")
+
 FIX_ID=$(aws ssm send-command \
   --region "$REGION" \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --timeout-seconds 720 \
-  --parameters "{\"commands\":[
-    \"set -e\",
-    \"echo === SETUP ===\",
-    \"DEPLOY_DIR=/opt/jarvis\",
-    \"[ -d /home/ubuntu/devops-docker-project/infrastructure ] && [ ! -d /opt/jarvis/infrastructure ] && DEPLOY_DIR=/home/ubuntu/devops-docker-project || true\",
-    \"if [ ! -f \\$DEPLOY_DIR/infrastructure/docker-compose.yml ]; then\",
-    \"  echo Cloning repo...\",
-    \"  apt-get install -y git curl 2>/dev/null || true\",
-    \"  git clone $REPO /opt/jarvis 2>&1 | tail -5\",
-    \"  DEPLOY_DIR=/opt/jarvis\",
-    \"fi\",
-    \"cd \\$DEPLOY_DIR\",
-    \"git fetch origin $BRANCH 2>&1\",
-    \"git checkout $BRANCH 2>&1\",
-    \"git pull origin $BRANCH 2>&1\",
-    \"echo Latest: \\$(git log --oneline -1)\",
-    \"which docker-compose 2>/dev/null || (curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose && echo docker-compose installed)\",
-    \"[ -f \\$DEPLOY_DIR/.env ] || cp \\$DEPLOY_DIR/.env.example \\$DEPLOY_DIR/.env\",
-    \"echo === ENSURE JARVIS-DATA DIR ===\",
-    \"mkdir -p \\$DEPLOY_DIR/jarvis-data/daily \\$DEPLOY_DIR/jarvis-data/outputs \\$DEPLOY_DIR/jarvis-data/intelligence\",
-    \"echo === START DEPS (postgres + redis) ===\",
-    \"cd \\$DEPLOY_DIR/infrastructure\",
-    \"docker-compose up -d postgres redis 2>&1 | tail -5\",
-    \"echo Waiting 20s for postgres/redis to be healthy...\",
-    \"sleep 20\",
-    \"echo === BUILD + START BACKEND ===\",
-    \"docker-compose up -d --no-deps --build backend 2>&1\",
-    \"echo Backend build triggered. Waiting 35s for startup...\",
-    \"sleep 35\",
-    \"echo === BACKEND STATUS ===\",
-    \"docker-compose ps backend 2>&1\",
-    \"echo === LAST 30 LOG LINES ===\",
-    \"docker logs jarvis_backend --tail=30 2>&1 || true\",
-    \"echo === HEALTH CHECK ===\",
-    \"curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_DOWN\",
-    \"echo DONE\"
-  ]}" \
+  --parameters "$FIX_PARAMS" \
   --query "Command.CommandId" \
   --output text 2>/dev/null)
 
