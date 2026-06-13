@@ -246,3 +246,31 @@ async def get_warm_intros(
         "intro_paths": intros,
         "count": len(intros),
     }
+
+
+class HubSpotSyncRequest(BaseModel):
+    tenant_id: Optional[UUID] = None
+
+
+@router.post("/hubspot-sync")
+async def sync_to_hubspot(body: HubSpotSyncRequest, request: Request):
+    """Push qualified JARVIS leads to HubSpot CRM as contacts and deals."""
+    from app.services.integrations.hubspot_sync import hubspot_sync
+
+    resolved = _resolve_crm_tenant_id(request, body.tenant_id)
+    result = await hubspot_sync.sync_all_qualified_leads(tenant_id=resolved)
+    return {
+        "tenant_id": str(resolved),
+        **result,
+        "message": f"HubSpot sync complete — {result.get('synced', 0)} leads pushed, {result.get('errors', 0)} errors.",
+    }
+
+
+@router.post("/hubspot-sync/{lead_id}")
+async def sync_single_lead_to_hubspot(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
+    """Push one specific lead to HubSpot immediately."""
+    from app.services.integrations.hubspot_sync import hubspot_sync
+
+    resolved = _resolve_crm_tenant_id(request, tenant_id)
+    result = await hubspot_sync.push_single_lead(lead_id, resolved)
+    return {"lead_id": str(lead_id), "tenant_id": str(resolved), **result}

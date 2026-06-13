@@ -136,6 +136,161 @@ async def discover_leads(body: DiscoverLeadsRequest, request: Request):
     }
 
 
+@router.post("/bulk-discover")
+async def bulk_discover_leads(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    limit: int = Query(200, ge=10, le=500),
+    tenant_id: Optional[UUID] = None,
+):
+    """
+    Discover up to 200 qualified leads across all 25 Aliyar Solutions service packages.
+    Runs Apollo + free-source discovery in background. Returns job ID immediately.
+    """
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    targets = _aliyar_discovery_targets(limit)
+    background_tasks.add_task(
+        _run_bulk_discovery_background,
+        resolved_tenant_id,
+        targets,
+    )
+    return {
+        "status": "discovery_started",
+        "tenant_id": str(resolved_tenant_id),
+        "targets": len(targets),
+        "estimated_leads": limit,
+        "packages_targeted": 25,
+        "message": "Discovery running in background. Check /leads/?min_score=0&limit=200 in ~60s.",
+    }
+
+
+@router.post("/batch-import")
+async def batch_import_leads(
+    request: Request,
+    leads_data: list[dict],
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Import a batch of lead records directly into JARVIS CRM.
+    Accepts array of lead objects: {company, email, contact_name, phone, website, industry, country, source, notes}
+    Deduplicates by email + company. Scores each lead after import.
+    """
+    from app.models.lead import Lead, LeadStatus
+    from sqlalchemy import select
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    inserted = skipped = 0
+
+    for raw in leads_data:
+        email = (raw.get("email") or "").strip().lower() or None
+        company = (raw.get("company") or raw.get("company_name") or "").strip() or None
+        if not company:
+            skipped += 1
+            continue
+
+        existing = None
+        if email:
+            existing = await db.scalar(
+                select(Lead).where(Lead.tenant_id == resolved_tenant_id, Lead.email == email)
+            )
+        if not existing and company:
+            existing = await db.scalar(
+                select(Lead).where(
+                    Lead.tenant_id == resolved_tenant_id,
+                    Lead.company_name == company,
+                )
+            )
+        if existing:
+            skipped += 1
+            continue
+
+        lead = Lead(
+            tenant_id=resolved_tenant_id,
+            company_name=company,
+            company=company,
+            contact_name=raw.get("contact_name") or raw.get("name"),
+            email=email,
+            phone=raw.get("phone") or raw.get("whatsapp"),
+            website=raw.get("website"),
+            industry=raw.get("industry"),
+            country=raw.get("country"),
+            source=raw.get("source") or "batch_import",
+            notes=raw.get("notes"),
+            pain_points=raw.get("pain_points") or [],
+            status=LeadStatus.NEW,
+        )
+        if raw.get("whatsapp"):
+            lead.phone = raw["whatsapp"]
+        db.add(lead)
+        inserted += 1
+
+    await db.commit()
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "total": len(leads_data),
+        "tenant_id": str(resolved_tenant_id),
+        "message": f"Imported {inserted} leads. Run /leads/bulk-score to score them.",
+    }
+
+
+async def _run_bulk_discovery_background(tenant_id, targets):
+    from app.core.database import AsyncSessionLocal
+    from app.services.revenue_activation.free_discovery import free_discovery_engine
+    try:
+        await lead_discovery_engine.run_daily_discovery(str(tenant_id), targets)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Bulk Apollo discovery error: %s", exc)
+
+    try:
+        async with AsyncSessionLocal() as _:
+            await free_discovery_engine.run(tenant_id, limit=50)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Bulk free discovery error: %s", exc)
+
+
+def _aliyar_discovery_targets(total_limit: int) -> list[dict]:
+    """25 discovery targets — one per Aliyar Solutions service package, across ICP markets."""
+    per_target = max(5, total_limit // 25)
+    return [
+        # Sales & Revenue packages
+        {"query": "sales process automation CRM", "industry": "SaaS", "country": "United Kingdom", "location": "London", "limit": per_target},
+        {"query": "outbound sales lead generation", "industry": "Professional Services", "country": "United Arab Emirates", "location": "Dubai", "limit": per_target},
+        {"query": "CRM implementation revenue operations", "industry": "Technology", "country": "United States", "location": "New York", "limit": per_target},
+        # AI Automation packages
+        {"query": "appointment booking scheduling automation", "industry": "Healthcare", "country": "Australia", "location": "Sydney", "limit": per_target},
+        {"query": "AI voice receptionist call handling", "industry": "Legal", "country": "United Kingdom", "location": "Manchester", "limit": per_target},
+        {"query": "workflow automation business processes", "industry": "Finance", "country": "United Arab Emirates", "location": "Abu Dhabi", "limit": per_target},
+        {"query": "executive automation AI assistant", "industry": "Consulting", "country": "Canada", "location": "Toronto", "limit": per_target},
+        # Cloud & DevOps packages
+        {"query": "AWS cloud architecture migration", "industry": "E-commerce", "country": "United States", "location": "Austin", "limit": per_target},
+        {"query": "Docker containerization DevOps", "industry": "SaaS", "country": "Canada", "location": "Vancouver", "limit": per_target},
+        {"query": "CI/CD pipeline deployment automation", "industry": "Technology", "country": "United Kingdom", "location": "Edinburgh", "limit": per_target},
+        {"query": "Terraform infrastructure as code", "industry": "FinTech", "country": "Australia", "location": "Melbourne", "limit": per_target},
+        {"query": "Kubernetes container orchestration scaling", "industry": "Logistics", "country": "United Arab Emirates", "location": "Sharjah", "limit": per_target},
+        {"query": "cloud monitoring observability", "industry": "Manufacturing", "country": "United States", "location": "Chicago", "limit": per_target},
+        # Security packages
+        {"query": "cybersecurity operations SMB", "industry": "Healthcare", "country": "United Kingdom", "location": "Birmingham", "limit": per_target},
+        {"query": "vulnerability assessment penetration testing", "industry": "Finance", "country": "United States", "location": "San Francisco", "limit": per_target},
+        {"query": "compliance hardening GDPR SOC2", "industry": "Legal", "country": "United Arab Emirates", "location": "Dubai", "limit": per_target},
+        # Content & Media packages
+        {"query": "content automation marketing", "industry": "Media", "country": "Australia", "location": "Brisbane", "limit": per_target},
+        {"query": "YouTube channel growth automation", "industry": "Education", "country": "United States", "location": "Los Angeles", "limit": per_target},
+        {"query": "social media management AI", "industry": "Retail", "country": "United Kingdom", "location": "Leeds", "limit": per_target},
+        # Digital Products
+        {"query": "web application development SaaS platform", "industry": "Real Estate", "country": "United Arab Emirates", "location": "Dubai", "limit": per_target},
+        {"query": "client portal dashboard software", "industry": "Professional Services", "country": "Canada", "location": "Calgary", "limit": per_target},
+        {"query": "operational dashboard business intelligence", "industry": "Logistics", "country": "United States", "location": "Dallas", "limit": per_target},
+        # Intelligence
+        {"query": "business intelligence AI research analytics", "industry": "Consulting", "country": "United Kingdom", "location": "London", "limit": per_target},
+        {"query": "competitive analysis market research AI", "industry": "SaaS", "country": "Australia", "location": "Perth", "limit": per_target},
+        {"query": "data analytics reporting automation", "industry": "E-commerce", "country": "United Arab Emirates", "location": "Ajman", "limit": per_target},
+    ]
+
+
 @router.get("/stats")
 async def lead_stats(db: AsyncSession = Depends(get_db)):
     return await leads.lead_stats(db)

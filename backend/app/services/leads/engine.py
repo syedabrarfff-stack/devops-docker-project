@@ -164,16 +164,31 @@ async def list_leads(db: AsyncSession, status: Optional[str] = None,
 
 
 async def lead_stats(db: AsyncSession) -> dict:
-    total     = await db.scalar(select(func.count()).select_from(Lead)) or 0
-    qualified = await db.scalar(
+    total              = await db.scalar(select(func.count()).select_from(Lead)) or 0
+    qualified          = await db.scalar(
         select(func.count()).select_from(Lead).where(Lead.score >= ALIYAR_ICP["min_score"])
     ) or 0
-    contacted = await db.scalar(select(func.count()).select_from(Lead).where(Lead.outreach_sent == True)) or 0
-    avg_score = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0)) or 0
+    high_score         = await db.scalar(
+        select(func.count()).select_from(Lead).where(Lead.score >= 70)
+    ) or 0
+    outreach_eligible  = await db.scalar(
+        select(func.count()).select_from(Lead).where(Lead.outreach_eligible == True)
+    ) or 0
+    contacted          = await db.scalar(select(func.count()).select_from(Lead).where(Lead.outreach_sent == True)) or 0
+    avg_score          = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0)) or 0
+    by_status: dict[str, int] = {}
+    for status_val in ["NEW", "CONTACTED", "REPLIED", "DEMO", "PROPOSAL", "WON", "LOST"]:
+        cnt = await db.scalar(select(func.count()).select_from(Lead).where(Lead.status == status_val)) or 0
+        if cnt:
+            by_status[status_val.lower()] = cnt
     return {
         "total": total,
         "qualified": qualified,
+        "high_score": high_score,
+        "outreach_eligible": outreach_eligible,
         "contacted": contacted,
         "avg_score": round(float(avg_score), 1),
         "conversion_rate": round(qualified / total * 100, 1) if total else 0,
+        "by_status": by_status,
+        "icp_min_score": ALIYAR_ICP["min_score"],
     }

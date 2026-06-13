@@ -69,6 +69,20 @@ from app.models.memory import (
 from app.models.outreach import ReplyClassification, ReplyLog
 from app.models.revenue import Client, Invoice, InvoiceStatus, RevenueSnapshot
 from app.models.tenant import PlanTier, Tenant, TenantApiKey, User, UserRole
+from app.models.approval import ApprovalRequest, ApprovalStatus, AuditLog
+from app.models.conversation import Conversation
+from app.models.crm import Company, Contact, Deal
+from app.models.lead import Lead, LeadStatus
+from app.models.tasks import AgentMessage, AgentTask
+from app.models.scheduling import JobFailure, ScheduledJob
+from app.models.notifications import NotificationLog
+from app.models.governance import AgentPermission, ContractTemplate, IncidentReport, Proposal
+from app.models.knowledge import KnowledgeBase, LearningRecord, SOPDocument
+from app.models.service_catalog import ServiceDivision
+from app.models.ai_audit import AIRequestLog
+from app.models.team_member import TeamMember
+from app.models.gmail import GmailMessage
+from app.models.credentials import OAuthToken, SecureCredential
 
 
 MODEL_MODULES = (
@@ -168,4 +182,31 @@ __all__ = [
     "DepartmentMilestone",
     "StrategyReport",
     "TechnologyDiscovery",
+    "ApprovalRequest",
+    "ApprovalStatus",
+    "AuditLog",
+    "Conversation",
+    "Company",
+    "Contact",
+    "Deal",
+    "Lead",
+    "LeadStatus",
+    "AgentMessage",
+    "AgentTask",
+    "JobFailure",
+    "ScheduledJob",
+    "NotificationLog",
+    "AgentPermission",
+    "ContractTemplate",
+    "IncidentReport",
+    "Proposal",
+    "KnowledgeBase",
+    "LearningRecord",
+    "SOPDocument",
+    "ServiceDivision",
+    "AIRequestLog",
+    "TeamMember",
+    "GmailMessage",
+    "OAuthToken",
+    "SecureCredential",
 ]

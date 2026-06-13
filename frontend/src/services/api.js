@@ -395,4 +395,22 @@ export const configureWhatsAppWebhook   = ()         => api.post('/api/v1/commun
 export const sendWhatsAppText           = (number, text, leadId, tenantId) => api.post('/api/v1/communication/whatsapp/send-text', { number, text, lead_id: leadId }, { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const sendWhatsAppMedia          = (number, mediaUrl, caption, mediaType, leadId) => api.post('/api/v1/communication/whatsapp/send-media', { number, media_url: mediaUrl, caption, media_type: mediaType, lead_id: leadId }).then(r => r.data)
 
+// Lead Generation — Bulk Discovery & Import
+export const bulkDiscoverLeads  = (limit = 200, tenantId) => api.post('/api/v1/leads/bulk-discover', null, { params: { limit, ...(tenantId ? { tenant_id: tenantId } : {}) } }).then(r => r.data)
+export const batchImportLeads   = (leadsData, tenantId) => api.post('/api/v1/leads/batch-import', leadsData, { params: tenantId ? { tenant_id: tenantId } : {}, timeout: 120000 }).then(r => r.data)
+export const discoverLeadsApollo = (payload) => api.post('/api/v1/leads/discover', payload, { timeout: 90000 }).then(r => r.data)
+export const syncLeadsToHubSpot  = (tenantId) => api.post('/api/v1/crm/hubspot-sync', { tenant_id: tenantId }).then(r => r.data)
+export const getLeadStats        = () => api.get('/api/v1/leads/stats').then(r => r.data)
+
+// AIONX System Intelligence
+export const getSystemHUD       = () => api.get('/api/v1/system/hud').then(r => r.data)
+export const getFrontierStatus  = () => api.get('/api/v1/frontier/status').then(r => r.data)
+export const getConsciousnessSnapshot = () => api.get('/api/v1/consciousness/snapshot').then(r => r.data)
+export const getBatch1Board     = () => api.get('/api/v1/batch1/board').then(r => r.data)
+export const getConnectorHubStatus = () => api.get('/api/v1/connector-hub/status').then(r => r.data)
+
+// Captain Mirror
+export const getCaptainMirrorProfile  = () => api.get('/api/v1/captain/mirror/profile').then(r => r.data)
+export const recordCaptainDecision    = (payload) => api.post('/api/v1/captain/mirror/record', payload).then(r => r.data)
+
 export default api
