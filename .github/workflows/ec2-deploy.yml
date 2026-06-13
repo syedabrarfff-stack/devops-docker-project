@@ -136,7 +136,7 @@ jobs:
               "sleep 5",
               "echo === HEALTH CHECKS ===",
               "curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL",
-              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || echo BACKEND_HEALTH_FAIL",
+              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || (echo BACKEND_HEALTH_FAIL && docker logs jarvis_backend --tail=50 2>&1 || true)",
               "curl -sf http://localhost:8000/readyz && echo BACKEND_READYZ_OK || echo BACKEND_READYZ_FAIL",
               "echo === TRIGGERING PIPELINE ===",
               "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 && echo BULK_DISCOVER_TRIGGERED || echo BULK_DISCOVER_FAIL",
@@ -153,7 +153,7 @@ jobs:
             --region ap-south-2 \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --timeout-seconds 720 \
+            --timeout-seconds 1800 \
             --parameters "{\"commands\": $CMDS}" \
             --comment "JARVIS $ACTION deploy" \
             --query "Command.CommandId" \
@@ -162,9 +162,9 @@ jobs:
           [ -z "$CMD_ID" ] && { echo "SSM send-command failed"; exit 1; }
           echo "SSM Command ID: $CMD_ID"
 
-          # Poll up to 12 min — Docker build takes 8-10 min on a blank EC2
-          sleep 90
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+          # Poll up to 14 min — Docker build takes 8-12 min on EC2
+          sleep 60
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
             RESULT=$(aws ssm get-command-invocation \
               --region ap-south-2 \
               --command-id "$CMD_ID" \
@@ -172,7 +172,7 @@ jobs:
               --output json 2>/dev/null || echo '{"Status":"Pending"}')
             STATUS=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Status","Pending"))' 2>/dev/null)
             [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] && break
-            echo "Attempt $attempt/10: $STATUS — waiting 30s..."
+            echo "Attempt $attempt/25: $STATUS — waiting 30s..."
             sleep 30
           done
 
