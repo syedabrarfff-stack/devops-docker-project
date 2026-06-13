@@ -138,6 +138,29 @@ else
     warn "Nginx deploy had issues — checking Evolution API anyway"
 fi
 
+# ── Step 3b: Restart backend + run Alembic migrations ────────────────────────
+step "STEP 3b — Restart Backend + Apply DB Migrations"
+
+BACKEND_DEPLOY='[
+  "DEPLOY_DIR=/opt/jarvis",
+  "[ -d /home/ubuntu/devops-docker-project ] && [ ! -d /opt/jarvis ] && DEPLOY_DIR=/home/ubuntu/devops-docker-project || true",
+  "cd $DEPLOY_DIR/infrastructure",
+  "echo Rebuilding and restarting jarvis_backend...",
+  "docker compose up -d --no-deps --build backend 2>&1 | tail -10",
+  "sleep 15",
+  "echo Running Alembic migrations...",
+  "docker compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || true",
+  "echo Checking backend health...",
+  "curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_STARTING_UP",
+  "docker compose ps backend 2>&1 | tail -5"
+]'
+
+if ssm_run "Restart backend + Alembic upgrade head" "$BACKEND_DEPLOY" 60; then
+    ok "Backend restarted and migrations applied"
+else
+    warn "Backend deploy had issues — check: docker logs jarvis_backend --tail=30"
+fi
+
 # ── Step 4: Verify Evolution API ─────────────────────────────────────────────
 step "STEP 4 — Verify Evolution API"
 
