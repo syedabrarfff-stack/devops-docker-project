@@ -208,13 +208,17 @@ async def batch_import_leads(
             skipped += 1
             continue
 
+        phone = raw.get("phone") or raw.get("whatsapp") or raw.get("whatsapp_number")
+        whatsapp = raw.get("whatsapp_number") or raw.get("whatsapp") or phone
         lead = Lead(
             tenant_id=resolved_tenant_id,
             company_name=company,
             company=company,
             contact_name=raw.get("contact_name") or raw.get("name"),
             email=email,
-            phone=raw.get("phone") or raw.get("whatsapp"),
+            phone=phone,
+            whatsapp_number=whatsapp,
+            linkedin_url=raw.get("linkedin_url"),
             website=raw.get("website"),
             industry=raw.get("industry"),
             country=raw.get("country"),
@@ -223,8 +227,6 @@ async def batch_import_leads(
             pain_points=raw.get("pain_points") or [],
             status=LeadStatus.NEW,
         )
-        if raw.get("whatsapp"):
-            lead.phone = raw["whatsapp"]
         db.add(lead)
         inserted += 1
 
