@@ -1,4 +1,4 @@
-name: JARVIS — EC2 Deploy (Nginx + Backend)
+name: JARVIS — EC2 Deploy (Full Stack)
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'infrastructure/nginx/**'
       - 'infrastructure/docker-compose.yml'
       - 'backend/**'
+      - 'scripts/**'
       - '.github/workflows/ec2-deploy.yml'
   workflow_dispatch:
     inputs:
@@ -17,9 +18,11 @@ on:
         default: full-restart
         type: choice
         options:
-          - nginx-reload
           - full-restart
+          - backend-only
+          - nginx-reload
           - git-pull-only
+          - verify-status
 
 env:
   EC2_HOST: aliyarsolutions.com
@@ -30,6 +33,7 @@ jobs:
     name: Deploy to EC2
     runs-on: ubuntu-latest
     steps:
+
       - name: Configure AWS credentials
         id: aws_creds
         continue-on-error: true
@@ -39,6 +43,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-2
 
+      # ── SSM path (uses AWS credentials) ───────────────────────────────────
       - name: Deploy via SSM
         id: ssm
         if: steps.aws_creds.outcome == 'success'
@@ -54,16 +59,83 @@ jobs:
             --output text 2>/dev/null | tr '\t' '\n' | head -1)
 
           echo "EC2 Instance: $INSTANCE_ID"
-
-          if [ -z "$INSTANCE_ID" ]; then
-            echo "No running instance found"
-            exit 1
-          fi
+          [ -z "$INSTANCE_ID" ] && { echo "No running instance"; exit 1; }
 
           if [ "$ACTION" = "nginx-reload" ]; then
-            CMDS='["set -e","DEPLOY_DIR=/home/ubuntu/devops-docker-project","[ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true","cd $DEPLOY_DIR","git fetch origin claude/jarvis-cans-api-integration-ZThTD","git checkout claude/jarvis-cans-api-integration-ZThTD","git pull origin claude/jarvis-cans-api-integration-ZThTD","cd infrastructure","docker compose exec -T nginx nginx -s reload || docker compose restart nginx","curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL"]'
+            CMDS='["set -e",
+              "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
+              "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "cd infrastructure && docker compose exec -T nginx nginx -s reload || docker compose restart nginx",
+              "curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL"]'
+
+          elif [ "$ACTION" = "git-pull-only" ]; then
+            CMDS='["set -e",
+              "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
+              "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR",
+              "git fetch origin claude/jarvis-cans-api-integration-ZThTD",
+              "git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "echo LATEST: $(git log --oneline -1)"]'
+
+          elif [ "$ACTION" = "backend-only" ]; then
+            CMDS='["set -e",
+              "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
+              "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "cd infrastructure",
+              "docker compose up -d --no-deps --build backend 2>&1 | tail -5",
+              "sleep 20",
+              "docker compose exec -T backend alembic upgrade head 2>&1 || true",
+              "sleep 5",
+              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_FAIL",
+              "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 || true",
+              "curl -sf -X POST http://localhost:8000/api/v1/crm/hubspot-sync || true",
+              "docker compose ps"]'
+
+          elif [ "$ACTION" = "verify-status" ]; then
+            CMDS='["docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"",
+              "curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL",
+              "curl -sf http://localhost:8000/health && echo BACKEND_OK || echo BACKEND_DOWN",
+              "curl -sf http://localhost:8080/instance/fetchInstances -H apikey:jarvis-master-key | python3 -c \"import json,sys; d=json.load(sys.stdin); print(f\\\"WhatsApp: {len(d)} instance(s)\\\")\\ \" || true",
+              "docker exec jarvis_backend alembic current 2>/dev/null || true"]'
+
           else
-            CMDS='["set -e","DEPLOY_DIR=/home/ubuntu/devops-docker-project","[ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true","cd $DEPLOY_DIR","git fetch origin claude/jarvis-cans-api-integration-ZThTD","git checkout claude/jarvis-cans-api-integration-ZThTD","git pull origin claude/jarvis-cans-api-integration-ZThTD","cd infrastructure","docker compose up -d --no-deps --build nginx","sleep 5","docker compose exec -T nginx nginx -s reload 2>/dev/null || true","curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL","curl -sf http://localhost/evolution/ > /dev/null 2>&1 && echo EVOLUTION_OK || echo EVOLUTION_NOT_YET"]'
+            # full-restart — rebuilds everything, runs migrations, triggers pipeline
+            CMDS='["set -e",
+              "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
+              "[ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true",
+              "echo === DEPLOY DIR: $DEPLOY_DIR ===",
+              "cd $DEPLOY_DIR",
+              "git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
+              "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1",
+              "git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
+              "echo === LATEST COMMIT: $(git log --oneline -1) ===",
+              "cd $DEPLOY_DIR/infrastructure",
+              "echo === REBUILDING BACKEND ===",
+              "docker compose up -d --no-deps --build backend 2>&1 | tail -10",
+              "echo === REBUILDING NGINX ===",
+              "docker compose up -d --no-deps --build nginx 2>&1 | tail -5",
+              "echo === WAITING FOR BACKEND STARTUP ===",
+              "sleep 25",
+              "echo === RUNNING ALEMBIC MIGRATIONS ===",
+              "docker compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || echo MIGRATION_ATTEMPTED",
+              "sleep 5",
+              "echo === HEALTH CHECKS ===",
+              "curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL",
+              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || echo BACKEND_HEALTH_FAIL",
+              "curl -sf http://localhost:8000/readyz && echo BACKEND_READYZ_OK || echo BACKEND_READYZ_FAIL",
+              "echo === TRIGGERING PIPELINE ===",
+              "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 && echo BULK_DISCOVER_TRIGGERED || echo BULK_DISCOVER_FAIL",
+              "curl -sf -X POST http://localhost:8000/api/v1/crm/hubspot-sync && echo HUBSPOT_SYNC_TRIGGERED || echo HUBSPOT_SYNC_FAIL",
+              "echo === CHECKING WHATSAPP ===",
+              "WA=$(curl -sf http://localhost:8080/instance/connectionState/jarvis-main -H apikey:jarvis-master-key 2>/dev/null || echo {})",
+              "echo WhatsApp state: $WA",
+              "echo === CHECKING SES / DKIM ===",
+              "aws sesv2 get-email-identity --email-identity aliyarsolutions.com --region ap-south-2 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); print(f\\\"DKIM: {d.get(\\x27DkimAttributes\\x27,{}).get(\\x27Status\\x27,\\x27UNKNOWN\\x27)}, Verified: {d.get(\\x27VerifiedForSendingStatus\\x27,False)}\\\")\" 2>/dev/null || echo SES_CHECK_SKIPPED",
+              "echo === DOCKER STATUS ===",
+              "docker compose ps",
+              "echo === DEPLOY_COMPLETE ==="]'
           fi
 
           CMD_ID=$(aws ssm send-command \
@@ -71,29 +143,36 @@ jobs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters "{\"commands\": $CMDS}" \
-            --comment "JARVIS nginx deploy" \
+            --comment "JARVIS $ACTION deploy" \
             --query "Command.CommandId" \
             --output text 2>/dev/null)
 
-          if [ -z "$CMD_ID" ]; then
-            echo "SSM send-command failed (no SSM agent or permissions)"
-            exit 1
-          fi
+          [ -z "$CMD_ID" ] && { echo "SSM send-command failed"; exit 1; }
+          echo "SSM Command ID: $CMD_ID"
 
-          echo "SSM Command: $CMD_ID"
-          sleep 20
+          sleep 60
 
-          RESULT=$(aws ssm get-command-invocation \
-            --region ap-south-2 \
-            --command-id "$CMD_ID" \
-            --instance-id "$INSTANCE_ID" \
-            --output json 2>/dev/null || echo '{"Status":"Pending"}')
+          for attempt in 1 2 3 4 5; do
+            RESULT=$(aws ssm get-command-invocation \
+              --region ap-south-2 \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --output json 2>/dev/null || echo '{"Status":"Pending"}')
+            STATUS=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Status","Pending"))' 2>/dev/null)
+            [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] && break
+            echo "Attempt $attempt: $STATUS — waiting 15s..."
+            sleep 15
+          done
 
-          echo "Status: $(echo $RESULT | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Status","?"))')"
-          echo "Output:"
-          echo $RESULT | python3 -c 'import json,sys; print(json.load(sys.stdin).get("StandardOutputContent",""))'
+          echo "=== SSM Result: $STATUS ==="
+          echo "$RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("StandardOutputContent",""))' 2>/dev/null
+          STDERR=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("StandardErrorContent",""))' 2>/dev/null)
+          [ -n "$STDERR" ] && echo "STDERR: $STDERR"
+          [ "$STATUS" = "Success" ] && exit 0 || exit 1
 
+      # ── SSH path (fallback when AWS creds missing) ─────────────────────────
       - name: Deploy via SSH (fallback)
+        id: ssh_deploy
         if: steps.aws_creds.outcome != 'success' || steps.ssm.outcome == 'failure'
         continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
@@ -102,40 +181,114 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 120s
+          timeout: 300s
+          command_timeout: 10m
           script: |
             set -e
             DEPLOY_DIR=/home/ubuntu/devops-docker-project
             [ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true
+
+            echo "=== DEPLOY DIR: $DEPLOY_DIR ==="
             cd $DEPLOY_DIR
             git fetch origin claude/jarvis-cans-api-integration-ZThTD
             git checkout claude/jarvis-cans-api-integration-ZThTD
             git pull origin claude/jarvis-cans-api-integration-ZThTD
-            cd infrastructure
-            docker compose up -d --no-deps --build nginx
-            sleep 5
-            docker compose exec -T nginx nginx -s reload 2>/dev/null || true
-            curl -sf http://localhost/health && echo "HEALTH OK" || echo "HEALTH FAIL"
-            echo "DEPLOY COMPLETE"
+            echo "=== LATEST: $(git log --oneline -1) ==="
 
-      - name: Show manual deploy instructions
+            cd $DEPLOY_DIR/infrastructure
+
+            ACTION="${{ github.event.inputs.action }}"
+            ACTION="${ACTION:-full-restart}"
+
+            if [ "$ACTION" = "nginx-reload" ]; then
+              docker compose exec -T nginx nginx -s reload || docker compose restart nginx
+              curl -sf http://localhost/health && echo "NGINX OK" || echo "NGINX FAIL"
+
+            elif [ "$ACTION" = "verify-status" ]; then
+              docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+              curl -sf http://localhost:8000/health && echo "BACKEND OK" || echo "BACKEND DOWN"
+              docker exec jarvis_backend alembic current 2>/dev/null || true
+
+            else
+              echo "=== REBUILDING BACKEND ==="
+              docker compose up -d --no-deps --build backend 2>&1 | tail -10
+
+              echo "=== REBUILDING NGINX ==="
+              docker compose up -d --no-deps --build nginx 2>&1 | tail -5
+
+              echo "=== WAITING FOR BACKEND ==="
+              sleep 25
+
+              echo "=== RUNNING MIGRATIONS ==="
+              docker compose exec -T backend alembic upgrade head 2>&1 || \
+                docker exec jarvis_backend alembic upgrade head 2>&1 || \
+                echo "MIGRATION_ATTEMPTED"
+
+              sleep 5
+
+              echo "=== HEALTH CHECKS ==="
+              curl -sf http://localhost/health && echo "NGINX_PROXY: OK" || echo "NGINX_PROXY: FAIL"
+              curl -sf http://localhost:8000/health && echo "BACKEND: OK" || echo "BACKEND: FAIL"
+              curl -sf http://localhost:8000/readyz && echo "READYZ: OK" || echo "READYZ: FAIL"
+
+              echo "=== PIPELINE TRIGGERS ==="
+              curl -sf -X POST "http://localhost:8000/api/v1/leads/bulk-discover?limit=200" \
+                && echo "BULK_DISCOVER: TRIGGERED" || echo "BULK_DISCOVER: FAIL"
+              curl -sf -X POST "http://localhost:8000/api/v1/crm/hubspot-sync" \
+                && echo "HUBSPOT_SYNC: TRIGGERED" || echo "HUBSPOT_SYNC: FAIL"
+
+              echo "=== WHATSAPP ==="
+              curl -sf "http://localhost:8080/instance/connectionState/jarvis-main" \
+                -H "apikey: jarvis-master-key" || echo "WA_CHECK_FAIL"
+
+              echo "=== DOCKER STATUS ==="
+              docker compose ps
+
+              echo "=== DEPLOY COMPLETE ==="
+            fi
+
+      # ── Final status report ────────────────────────────────────────────────
+      - name: Status Report
         if: always()
         run: |
-          echo "============================================"
-          echo "JARVIS DEPLOY STATUS"
-          echo "SSM: ${{ steps.ssm.outcome }}"
-          echo "============================================"
-          echo ""
-          echo "If automated deploy failed, run from AWS CloudShell:"
-          echo ""
-          echo "  bash <(curl -s https://raw.githubusercontent.com/syedabrarfff-stack/devops-docker-project/claude/jarvis-cans-api-integration-ZThTD/scripts/cloudshell-deploy.sh)"
-          echo ""
-          echo "Or SSH: bash /home/ubuntu/devops-docker-project/scripts/jarvis-activate-now.sh"
-          echo "============================================"
-          echo ""
-          echo "Required GitHub secrets for automated deploy:"
-          echo "  AWS_ACCESS_KEY_ID — IAM user with EC2+SSM read permissions"
-          echo "  AWS_SECRET_ACCESS_KEY — corresponding secret"
-          echo "  EC2_SSH_KEY (optional) — SSH private key for fallback"
-          echo ""
-          echo "Add at: github.com/syedabrarfff-stack/devops-docker-project/settings/secrets/actions"
+          echo "╔══════════════════════════════════════════════════╗"
+          echo "║         JARVIS DEPLOY STATUS REPORT              ║"
+          echo "╠══════════════════════════════════════════════════╣"
+          echo "║  AWS SSM:  ${{ steps.ssm.outcome }}"
+          echo "║  SSH:      ${{ steps.ssh_deploy.outcome }}"
+          echo "╠══════════════════════════════════════════════════╣"
+
+          # Probe production from GitHub Actions runner
+          HEALTH=$(curl -so /dev/null -w "%{http_code}" --connect-timeout 5 https://aliyarsolutions.com/health 2>/dev/null || echo "000")
+          EVOL=$(curl -so /dev/null -w "%{http_code}" --connect-timeout 5 https://aliyarsolutions.com/evolution/ 2>/dev/null || echo "000")
+          GRAFANA=$(curl -so /dev/null -w "%{http_code}" --connect-timeout 5 https://aliyarsolutions.com/grafana/ 2>/dev/null || echo "000")
+
+          echo "║  /health:   HTTP $HEALTH  (200=OK  502=backend down)"
+          echo "║  /evolution: HTTP $EVOL  (200=OK)"
+          echo "║  /grafana:   HTTP $GRAFANA  (401=running)"
+
+          WA_STATE=$(curl -sf --connect-timeout 5 \
+            "https://aliyarsolutions.com/evolution/instance/connectionState/jarvis-main" \
+            -H "apikey: jarvis-master-key" 2>/dev/null | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('instance',{}).get('state','unknown'))" 2>/dev/null || echo "unknown")
+          echo "║  WhatsApp:  $WA_STATE"
+          echo "╠══════════════════════════════════════════════════╣"
+
+          if [ "$HEALTH" = "200" ]; then
+            echo "║  ✅ BACKEND IS UP AND HEALTHY"
+          else
+            echo "║  ❌ BACKEND DOWN (HTTP $HEALTH)"
+            echo "║"
+            echo "║  To fix — add GitHub secret EC2_SSH_KEY:"
+            echo "║  github.com/syedabrarfff-stack/devops-docker-project"
+            echo "║  → Settings → Secrets → Actions → New repository secret"
+            echo "║  Name: EC2_SSH_KEY"
+            echo "║  Value: contents of ~/.ssh/jarvis-ec2.pem on your machine"
+            echo "║"
+            echo "║  OR run from AWS CloudShell:"
+            echo "║  bash <(curl -s https://raw.githubusercontent.com/"
+            echo "║    syedabrarfff-stack/devops-docker-project/"
+            echo "║    claude/jarvis-cans-api-integration-ZThTD/"
+            echo "║    scripts/cloudshell-deploy.sh)"
+          fi
+          echo "╚══════════════════════════════════════════════════╝"
