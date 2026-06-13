@@ -205,9 +205,9 @@ DEPLOY_CMDS='[
   "git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
   "echo Latest commit: $(git log --oneline -1)",
   "cd $DEPLOY_DIR/infrastructure",
-  "docker compose up -d --no-deps --build nginx 2>&1 | tail -5",
+  "docker-compose up -d --no-deps --build nginx 2>&1 | tail -5",
   "sleep 5",
-  "docker compose exec -T nginx nginx -t 2>&1 && docker compose exec -T nginx nginx -s reload || true",
+  "docker-compose exec -T nginx nginx -t 2>&1 && docker-compose exec -T nginx nginx -s reload || true",
   "sleep 2",
   "curl -sf http://localhost/health && echo HEALTH_OK",
   "EVOL=$(curl -sw \"%{http_code}\" http://localhost/evolution/ -o /dev/null 2>/dev/null); echo Evolution proxy HTTP: $EVOL",
@@ -228,13 +228,13 @@ BACKEND_DEPLOY='[
   "[ -d /home/ubuntu/devops-docker-project ] && [ ! -d /opt/jarvis ] && DEPLOY_DIR=/home/ubuntu/devops-docker-project || true",
   "cd $DEPLOY_DIR/infrastructure",
   "echo Rebuilding and restarting jarvis_backend...",
-  "docker compose up -d --no-deps --build backend 2>&1 | tail -10",
+  "docker-compose up -d --no-deps --build backend 2>&1 | tail -10",
   "sleep 15",
   "echo Running Alembic migrations...",
-  "docker compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || true",
+  "docker-compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || true",
   "echo Checking backend health...",
   "curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_STARTING_UP",
-  "docker compose ps backend 2>&1 | tail -5"
+  "docker-compose ps backend 2>&1 | tail -5"
 ]'
 
 if ssm_run "Restart backend + Alembic upgrade head" "$BACKEND_DEPLOY" 60; then
