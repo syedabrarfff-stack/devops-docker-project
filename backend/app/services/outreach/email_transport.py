@@ -20,8 +20,8 @@ from app.services.communication.client_language import sanitize_client_text, san
 
 logger = logging.getLogger(__name__)
 AWS_CLIENT_CONFIG = Config(
-    connect_timeout=1,
-    read_timeout=2,
+    connect_timeout=2,
+    read_timeout=3,
     retries={"max_attempts": 1},
 )
 
