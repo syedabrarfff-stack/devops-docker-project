@@ -1,4 +1,4 @@
-name: JARVIS — EC2 Deploy (Full Stack)
+name: JARVIS — EC2 Deploy (Full Stack) [OIDC active]
 
 on:
   push:
