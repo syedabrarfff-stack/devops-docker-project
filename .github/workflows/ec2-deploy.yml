@@ -71,7 +71,7 @@ jobs:
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
-              "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
               "cd infrastructure && docker-compose exec -T nginx nginx -s reload || docker-compose restart nginx",
               "curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL"]'
 
@@ -80,15 +80,15 @@ jobs:
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
               "cd $DEPLOY_DIR",
-              "git fetch origin claude/jarvis-cans-api-integration-ZThTD",
-              "git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "for i in 1 2 3; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
+              "for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
               "echo LATEST: $(git log --oneline -1)"]'
 
           elif [ "$ACTION" = "backend-only" ]; then
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
-              "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
+              "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
               "cd infrastructure",
               "docker-compose up -d --no-deps --build backend 2>&1 | tail -5",
               "sleep 20",
@@ -115,9 +115,9 @@ jobs:
               "which docker-compose 2>/dev/null || (curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose)",
               "echo === DEPLOY DIR: $DEPLOY_DIR ===",
               "cd $DEPLOY_DIR",
-              "git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
-              "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1",
-              "git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
+              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git fetch attempt $i/5 failed, retrying in 20s...\" && sleep 20); done",
+              "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1 || true",
+              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git pull attempt $i/5 failed, retrying in 20s...\" && sleep 20); done",
               "echo === LATEST COMMIT: $(git log --oneline -1) ===",
               "[ -f $DEPLOY_DIR/.env ] || cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env",
               "mkdir -p $DEPLOY_DIR/jarvis-data/daily $DEPLOY_DIR/jarvis-data/outputs",
@@ -202,9 +202,9 @@ jobs:
 
             echo "=== DEPLOY DIR: $DEPLOY_DIR ==="
             cd $DEPLOY_DIR
-            git fetch origin claude/jarvis-cans-api-integration-ZThTD
-            git checkout claude/jarvis-cans-api-integration-ZThTD
-            git pull origin claude/jarvis-cans-api-integration-ZThTD
+            for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo "git fetch attempt $i/5 failed, retrying..." && sleep 15); done
+            git checkout claude/jarvis-cans-api-integration-ZThTD || true
+            for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo "git pull attempt $i/5 failed, retrying..." && sleep 15); done
             echo "=== LATEST: $(git log --oneline -1) ==="
 
             cd $DEPLOY_DIR/infrastructure
