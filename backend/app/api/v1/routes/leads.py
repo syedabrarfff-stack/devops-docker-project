@@ -85,6 +85,9 @@ async def list_leads(
         "assigned_persona": l.assigned_persona,
         "last_contact": l.last_contact or l.last_contacted,
         "notes": l.notes,
+        "phone": l.phone,
+        "whatsapp_number": getattr(l, "whatsapp_number", None),
+        "linkedin_url": getattr(l, "linkedin_url", None),
     } for l in rows]
 
 

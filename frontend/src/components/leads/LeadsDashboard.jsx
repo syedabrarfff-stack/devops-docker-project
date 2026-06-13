@@ -84,6 +84,33 @@ function LeadRow({ lead, onScore }) {
         {lead.email && <span className="truncate max-w-32">{lead.email}</span>}
       </div>
 
+      {/* Contact channels */}
+      {(lead.whatsapp_number || lead.phone || lead.linkedin_url) && (
+        <div className="flex items-center gap-3 mt-2">
+          {(lead.whatsapp_number || lead.phone) && (
+            <a
+              href={`https://wa.me/${(lead.whatsapp_number || lead.phone).replace(/[^\d]/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300"
+            >
+              <span>📱</span>
+              <span>{lead.whatsapp_number || lead.phone}</span>
+            </a>
+          )}
+          {lead.linkedin_url && (
+            <a
+              href={lead.linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              🔗 LinkedIn
+            </a>
+          )}
+        </div>
+      )}
+
       {lead.pain_points?.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           {lead.pain_points.slice(0, 3).map(pp => (

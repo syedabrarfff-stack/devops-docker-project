@@ -55,6 +55,10 @@ class Lead(JarvisBase):
     last_contact: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Outreach channels
+    whatsapp_number: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # Compatibility fields used by the existing v9 services while vNEXT routes are migrated.
     company: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)

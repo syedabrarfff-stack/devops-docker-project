@@ -122,74 +122,97 @@ class LeadDiscoveryEngine:
         return _heuristic_score(lead_data)
 
     async def run_daily_discovery(self, tenant_id: str | uuid.UUID, targets: list) -> int:
+        import asyncio as _asyncio
         tenant_uuid = uuid.UUID(str(tenant_id))
-        inserted = 0
-        seen_keys: set[str] = set()
 
+        # Phase 1: concurrent I/O — fetch all targets in parallel
+        normalized_targets = [(_normalize_target(t), t) for t in targets]
+
+        async def _fetch_one(norm_target, original_target):
+            try:
+                records = await self._discover_target(norm_target)
+                return [(r, norm_target) for r in records]
+            except Exception as exc:
+                logger.warning("Discovery target failed %s: %s", norm_target.get("query"), exc)
+                return []
+
+        fetch_tasks = [_fetch_one(nt, ot) for nt, ot in normalized_targets]
+        results_by_target = await _asyncio.gather(*fetch_tasks, return_exceptions=False)
+
+        # Phase 2: flatten and dedupe before DB writes
+        all_records: list[tuple[dict, dict]] = []
+        seen_keys: set[str] = set()
+        for records_with_target in results_by_target:
+            for lead_data, norm_target in records_with_target:
+                key = _dedupe_key(lead_data)
+                if key and key in seen_keys:
+                    continue
+                if key:
+                    seen_keys.add(key)
+                all_records.append((lead_data, norm_target))
+
+        if not all_records:
+            return 0
+
+        # Phase 3: score + persist in single DB session
+        inserted = 0
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
-                for target in targets:
-                    normalized_target = _normalize_target(target)
-                    discovered = await self._discover_target(normalized_target)
-
-                    for lead_data in discovered:
-                        dedupe_key = _dedupe_key(lead_data)
-                        if dedupe_key and dedupe_key in seen_keys:
-                            continue
-                        if dedupe_key:
-                            seen_keys.add(dedupe_key)
-
-                        score, reasoning = await lead_scoring_engine.score_against_icp(lead_data)
-                        if await self._lead_exists(session, tenant_uuid, lead_data):
-                            continue
-
-                        lead = Lead(
+                for lead_data, norm_target in all_records:
+                    if await self._lead_exists(session, tenant_uuid, lead_data):
+                        continue
+                    score, reasoning = await lead_scoring_engine.score_against_icp(lead_data)
+                    phone = lead_data.get("phone")
+                    lead = Lead(
+                        tenant_id=tenant_uuid,
+                        company_name=lead_data.get("company_name"),
+                        company=lead_data.get("company_name"),
+                        contact_name=lead_data.get("contact_name"),
+                        email=lead_data.get("email"),
+                        contact_email=lead_data.get("email"),
+                        phone=phone,
+                        whatsapp_number=_extract_whatsapp(phone, lead_data),
+                        country=lead_data.get("country") or norm_target.get("country"),
+                        industry=lead_data.get("industry") or norm_target.get("industry"),
+                        score=score,
+                        status=LeadStatus.NEW,
+                        source=lead_data.get("source") or "lead_discovery",
+                        pain_points=lead_data.get("pain_points") or [],
+                        enrichment_data={
+                            **(lead_data.get("enrichment_data") or lead_data),
+                            "icp_scoring": reasoning,
+                        },
+                        apollo_id=lead_data.get("apollo_id"),
+                        website=lead_data.get("website"),
+                        company_website=lead_data.get("website"),
+                        linkedin_url=lead_data.get("linkedin_url"),
+                        opportunity_type=lead_data.get("opportunity_type"),
+                        notes=lead_data.get("notes"),
+                    )
+                    session.add(lead)
+                    await session.flush()
+                    session.add(
+                        AuditLog(
                             tenant_id=tenant_uuid,
-                            company_name=lead_data.get("company_name"),
-                            company=lead_data.get("company_name"),
-                            contact_name=lead_data.get("contact_name"),
-                            email=lead_data.get("email"),
-                            contact_email=lead_data.get("email"),
-                            phone=lead_data.get("phone"),
-                            country=lead_data.get("country") or normalized_target.get("country"),
-                            industry=lead_data.get("industry") or normalized_target.get("industry"),
-                            score=score,
-                            status=LeadStatus.NEW,
-                            source=lead_data.get("source") or "lead_discovery",
-                            pain_points=lead_data.get("pain_points") or [],
-                            enrichment_data={
-                                **(lead_data.get("enrichment_data") or lead_data),
+                            action="lead_discovered",
+                            entity_type="lead",
+                            entity_id=lead.id,
+                            actor="LeadDiscoveryEngine",
+                            after_json={
+                                "company_name": lead.company_name,
+                                "source": lead.source,
+                                "score": score,
                                 "icp_scoring": reasoning,
+                                "target": norm_target,
                             },
-                            apollo_id=lead_data.get("apollo_id"),
-                            website=lead_data.get("website"),
-                            company_website=lead_data.get("website"),
-                            opportunity_type=lead_data.get("opportunity_type"),
-                            notes=lead_data.get("notes"),
+                            details={"discovery_source": lead.source},
                         )
-                        session.add(lead)
-                        await session.flush()
-                        session.add(
-                            AuditLog(
-                                tenant_id=tenant_uuid,
-                                action="lead_discovered",
-                                entity_type="lead",
-                                entity_id=lead.id,
-                                actor="LeadDiscoveryEngine",
-                                after_json={
-                                    "company_name": lead.company_name,
-                                    "source": lead.source,
-                                    "score": score,
-                                    "icp_scoring": reasoning,
-                                    "target": normalized_target,
-                                },
-                                details={"discovery_source": lead.source},
-                            )
-                        )
-                        inserted += 1
-                        record_lead_discovered(lead.source, lead.country)
+                    )
+                    inserted += 1
+                    record_lead_discovered(lead.source, lead.country)
 
+        logger.info("Lead discovery complete: %s leads inserted from %s targets", inserted, len(targets))
         return inserted
 
     async def discover_from_google_maps(self, query: str, location: str) -> list[dict]:
@@ -410,6 +433,21 @@ def _dedupe_key(lead_data: dict) -> str | None:
         or _clean_lower(lead_data.get("website"))
         or _clean_lower(lead_data.get("company_name"))
     )
+
+
+def _extract_whatsapp(phone: str | None, lead_data: dict) -> str | None:
+    """Return E.164-normalized phone if it looks like a mobile number, else None."""
+    raw = phone or lead_data.get("whatsapp_number") or lead_data.get("mobile")
+    if not raw:
+        return None
+    digits = re.sub(r"[^\d+]", "", str(raw))
+    if len(digits) < 7:
+        return None
+    if digits.startswith("+"):
+        return digits
+    if len(digits) >= 10:
+        return "+" + digits
+    return None
 
 
 lead_discovery_engine = LeadDiscoveryEngine()

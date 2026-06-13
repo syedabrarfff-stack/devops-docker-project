@@ -306,8 +306,7 @@ async def readyz():
     try:
         import asyncio as _asyncio
         from app.services.outreach.email_transport import get_outbound_email_status
-        async with AsyncSessionLocal() as db:
-            ses = await _asyncio.wait_for(get_outbound_email_status(db), timeout=2.0)
+        ses = await _asyncio.wait_for(get_outbound_email_status(validate_provider=True), timeout=2.0)
         checks["ses"] = {
             "status": "connected" if ses.get("connected") else "not_connected",
             "send_mode": ses.get("send_mode") or ses.get("status"),

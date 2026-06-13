@@ -31,11 +31,38 @@ SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 _scheduler: AsyncIOScheduler | None = None
 
 DAILY_DISCOVERY_TARGETS = [
-    {"query": "SaaS operations automation", "industry": "SaaS", "country": "UK", "location": "London UK", "limit": 4},
-    {"query": "ecommerce workflow automation", "industry": "E-commerce", "country": "USA", "location": "Austin TX", "limit": 4},
-    {"query": "agency CRM automation", "industry": "Agency", "country": "Australia", "location": "Sydney Australia", "limit": 4},
-    {"query": "hotel guest communication automation", "industry": "Hospitality", "country": "UAE", "location": "Dubai UAE", "limit": 4},
-    {"query": "logistics dispatch automation", "industry": "Logistics", "country": "Canada", "location": "Toronto Canada", "limit": 4},
+    # ── Sales & Revenue Division ──────────────────────────────────────────────
+    {"query": "AI lead generation software SaaS", "industry": "SaaS", "country": "UK", "location": "London UK", "limit": 8},
+    {"query": "cold email outreach automation agency", "industry": "Agency", "country": "UAE", "location": "Dubai UAE", "limit": 8},
+    {"query": "sales automation CRM ecommerce", "industry": "E-commerce", "country": "USA", "location": "New York USA", "limit": 8},
+    {"query": "CRM architecture recruitment staffing", "industry": "Recruitment", "country": "Australia", "location": "Sydney Australia", "limit": 8},
+    # ── AI Automation Division ────────────────────────────────────────────────
+    {"query": "appointment scheduling automation clinic", "industry": "Healthcare", "country": "Canada", "location": "Toronto Canada", "limit": 8},
+    {"query": "AI voice receptionist hospitality hotel", "industry": "Hospitality", "country": "Bahrain", "location": "Manama Bahrain", "limit": 8},
+    {"query": "workflow automation SaaS operations", "industry": "SaaS", "country": "UK", "location": "Manchester UK", "limit": 8},
+    {"query": "executive assistant automation fintech", "industry": "Fintech", "country": "UAE", "location": "Abu Dhabi UAE", "limit": 8},
+    # ── Cloud & DevOps Division ───────────────────────────────────────────────
+    {"query": "AWS cloud architecture startup scaling", "industry": "Technology", "country": "USA", "location": "Austin TX", "limit": 8},
+    {"query": "Docker DevOps containerization startup", "industry": "Technology", "country": "Australia", "location": "Melbourne Australia", "limit": 8},
+    {"query": "CI CD pipeline DevOps SaaS", "industry": "SaaS", "country": "Canada", "location": "Vancouver Canada", "limit": 8},
+    {"query": "Terraform infrastructure as code cloud", "industry": "Technology", "country": "Bahrain", "location": "Manama Bahrain", "limit": 8},
+    {"query": "Kubernetes container orchestration cloud", "industry": "Technology", "country": "UK", "location": "Edinburgh UK", "limit": 8},
+    {"query": "cloud monitoring observability SaaS", "industry": "E-commerce", "country": "UAE", "location": "Dubai UAE", "limit": 8},
+    # ── Security Division ─────────────────────────────────────────────────────
+    {"query": "cybersecurity operations fintech finance", "industry": "Finance", "country": "USA", "location": "San Francisco USA", "limit": 8},
+    {"query": "vulnerability assessment healthcare clinic", "industry": "Healthcare", "country": "Australia", "location": "Brisbane Australia", "limit": 8},
+    {"query": "compliance hardening legal professional services", "industry": "Legal", "country": "Canada", "location": "Montreal Canada", "limit": 8},
+    # ── Content & Media Division ──────────────────────────────────────────────
+    {"query": "content automation marketing agency", "industry": "Agency", "country": "Bahrain", "location": "Manama Bahrain", "limit": 8},
+    {"query": "YouTube operations media brand agency", "industry": "Media", "country": "UK", "location": "London UK", "limit": 8},
+    {"query": "social media AI automation restaurant hospitality", "industry": "Hospitality", "country": "UAE", "location": "Dubai UAE", "limit": 8},
+    # ── Digital Products Division ─────────────────────────────────────────────
+    {"query": "web application development hotel hospitality", "industry": "Hospitality", "country": "USA", "location": "Miami USA", "limit": 8},
+    {"query": "client portal SaaS professional services", "industry": "SaaS", "country": "Australia", "location": "Perth Australia", "limit": 8},
+    {"query": "operational dashboard analytics operations", "industry": "Logistics", "country": "Canada", "location": "Calgary Canada", "limit": 8},
+    # ── Intelligence Division ─────────────────────────────────────────────────
+    {"query": "AI research operations consulting firm", "industry": "Consulting", "country": "Bahrain", "location": "Manama Bahrain", "limit": 8},
+    {"query": "business intelligence analytics startup SaaS", "industry": "Technology", "country": "UK", "location": "Birmingham UK", "limit": 8},
 ]
 
 RESEARCH_TOPICS = [
