@@ -273,6 +273,51 @@ async def readyz():
     except Exception:
         checks["team_registry"] = {"status": "unknown"}
 
+    # ── Evolution API (WhatsApp) ───────────────────────────────────────────────
+    try:
+        import httpx
+        from app.core.config import settings as _s
+        evol_url = (_s.EVOLUTION_API_URL or "http://evolution:8080").rstrip("/")
+        evol_key = _s.EVOLUTION_API_KEY or ""
+        instance = _s.WHATSAPP_INSTANCE_NAME or "jarvis-main"
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(
+                f"{evol_url}/instance/connectionState/{instance}",
+                headers={"apikey": evol_key},
+            )
+            if r.status_code == 200:
+                state_data = r.json()
+                state = (
+                    state_data.get("instance", {}).get("state")
+                    or state_data.get("state")
+                    or "unknown"
+                )
+                checks["whatsapp"] = {
+                    "status": "connected" if state == "open" else "disconnected",
+                    "state": state,
+                    "instance": instance,
+                }
+            else:
+                checks["whatsapp"] = {"status": "unreachable", "http": r.status_code, "instance": instance}
+    except Exception as exc:
+        checks["whatsapp"] = {"status": "unreachable", "error": type(exc).__name__, "instance": settings.WHATSAPP_INSTANCE_NAME or "jarvis-main"}
+
+    # ── SES (email) ───────────────────────────────────────────────────────────
+    try:
+        import asyncio as _asyncio
+        from app.services.outreach.email_transport import get_outbound_email_status
+        async with AsyncSessionLocal() as db:
+            ses = await _asyncio.wait_for(get_outbound_email_status(db), timeout=2.0)
+        checks["ses"] = {
+            "status": "connected" if ses.get("connected") else "not_connected",
+            "send_mode": ses.get("send_mode") or ses.get("status"),
+            "configured": bool(ses.get("configured")),
+            "from_email": ses.get("from_email"),
+            "blocker": ses.get("blocker_code"),
+        }
+    except Exception as exc:
+        checks["ses"] = {"status": "unknown", "error": type(exc).__name__}
+
     status_code = 200 if overall_ok else 503
     return JSONResponse(
         status_code=status_code,

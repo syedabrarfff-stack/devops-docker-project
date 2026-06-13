@@ -235,13 +235,27 @@ SES_CMDS='[
   "echo SES Production Access: $PROD",
   "echo SES Sending Enabled: $SEND",
   "IDENTITY=$(aws sesv2 get-email-identity --email-identity aliyarsolutions.com --region ap-south-2 2>/dev/null || echo {})",
-  "DKIM=$(echo $IDENTITY | python3 -c \"import json,sys; print(json.load(sys.stdin).get('"'"'DkimAttributes'"'"',{}).get('"'"'Status'"'"','"'"'UNKNOWN'"'"'))\" 2>/dev/null || echo Unknown)",
-  "VERIFIED=$(echo $IDENTITY | python3 -c \"import json,sys; print(json.load(sys.stdin).get('"'"'VerifiedForSendingStatus'"'"',False))\" 2>/dev/null || echo Unknown)",
-  "echo DKIM Status: $DKIM",
-  "echo Domain Verified: $VERIFIED"
+  "DKIM_STATUS=$(echo $IDENTITY | python3 -c \"import json,sys; print(json.load(sys.stdin).get('"'"'DkimAttributes'"'"',{}).get('"'"'Status'"'"','"'"'NOT_STARTED'"'"'))\" 2>/dev/null || echo NOT_STARTED)",
+  "VERIFIED=$(echo $IDENTITY | python3 -c \"import json,sys; print(json.load(sys.stdin).get('"'"'VerifiedForSendingStatus'"'"',False))\" 2>/dev/null || echo False)",
+  "echo DKIM Status: $DKIM_STATUS",
+  "echo Domain Verified: $VERIFIED",
+  "if [ \"$DKIM_STATUS\" = \"NOT_STARTED\" ]; then",
+  "  echo Creating SES domain identity for aliyarsolutions.com...",
+  "  aws sesv2 create-email-identity --email-identity aliyarsolutions.com --dkim-signing-attributes SigningAttributesOrigin=AWS_SES --region ap-south-2 2>/dev/null | python3 -m json.tool 2>/dev/null | head -20 || true",
+  "  IDENTITY=$(aws sesv2 get-email-identity --email-identity aliyarsolutions.com --region ap-south-2 2>/dev/null || echo {})",
+  "  DKIM_STATUS=PENDING",
+  "fi",
+  "echo ====================================",
+  "echo SES DKIM CNAME RECORDS FOR GODADDY:",
+  "echo ====================================",
+  "echo $IDENTITY | python3 -c \"import json,sys; d=json.load(sys.stdin); tokens=d.get('"'"'DkimAttributes'"'"',{}).get('"'"'Tokens'"'"',[]); [print(f'"'"'CNAME: {t}._domainkey.aliyarsolutions.com -> {t}.dkim.amazonses.com'"'"') for t in tokens]\" 2>/dev/null || echo No DKIM tokens yet — rerun after identity is created",
+  "echo ====================================",
+  "echo SPF TXT to ADD to aliyarsolutions.com:",
+  "echo v=spf1 include:_spf.google.com include:amazonses.com ~all",
+  "echo ===================================="
 ]'
 
-ssm_run "Check SES status" "$SES_CMDS" 15 || true
+ssm_run "Check and init SES domain identity" "$SES_CMDS" 20 || true
 
 # ── Final status ──────────────────────────────────────────────────────────────
 step "ACTIVATION COMPLETE"
@@ -255,6 +269,15 @@ echo -e "${WHITE}Verify WhatsApp:${NC}"
 HTTP_EVOL=$(curl -sw "%{http_code}" https://aliyarsolutions.com/evolution/ -o /dev/null 2>/dev/null)
 [ "$HTTP_EVOL" = "200" ] && ok "Evolution proxy live (HTTP $HTTP_EVOL)" || warn "Evolution proxy: HTTP $HTTP_EVOL"
 echo ""
-echo -e "${WHITE}Remaining actions if SES sandbox:${NC}"
-echo "  → AWS Console → SES → ap-south-2 → Account dashboard → Request production access"
+echo -e "${WHITE}SES Email Setup (GoDaddy DNS required):${NC}"
+echo "  1. Above CNAME records → GoDaddy DNS → add all 3 CNAME records"
+echo "  2. Update SPF TXT: add include:amazonses.com to existing SPF"
+echo "  3. AWS Console → SES → ap-south-2 → Account dashboard → Request production access"
+echo "  4. Wait 48-72h for DKIM verification after DNS propagation"
+echo ""
+echo -e "${WHITE}Current DNS state:${NC}"
+echo "  MX: Google Workspace (inbound email → Gmail, not JARVIS)"
+echo "  SPF: Google only — needs amazonses.com added"
+echo "  DKIM: Not configured yet"
+echo "  DMARC: p=none (safe — no rejection until production is ready)"
 echo ""
