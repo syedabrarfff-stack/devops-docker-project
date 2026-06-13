@@ -25,6 +25,7 @@ SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 # Pipeline stage mapping: JARVIS status → HubSpot deal stage name
 STAGE_MAP = {
     LeadStatus.NEW:       "appointmentscheduled",
+    LeadStatus.NURTURE:   "appointmentscheduled",
     LeadStatus.CONTACTED: "qualifiedtobuy",
     LeadStatus.REPLIED:   "presentationscheduled",
     LeadStatus.DEMO:      "decisionmakerboughtin",
@@ -65,13 +66,14 @@ class HubSpotSyncService:
                         Lead.tenant_id == target_tenant,
                         Lead.score >= 60,
                         Lead.status.in_([
+                            LeadStatus.NURTURE,
                             LeadStatus.CONTACTED,
                             LeadStatus.REPLIED,
                             LeadStatus.DEMO,
                             LeadStatus.PROPOSAL,
                             LeadStatus.WON,
                         ]),
-                    ).order_by(Lead.score.desc()).limit(100)
+                    ).order_by(Lead.score.desc()).limit(200)
                 )
             ).scalars().all()
 
@@ -124,18 +126,25 @@ class HubSpotSyncService:
 
             # Create new
             name_parts = (lead.contact_name or "").split(" ", 1)
+            wa_number = getattr(lead, "whatsapp_number", None) or lead.phone or ""
+            linkedin = getattr(lead, "linkedin_url", None) or (lead.enrichment_data or {}).get("linkedin_url", "")
             props = {
                 "email": email,
                 "firstname": name_parts[0] if name_parts else "",
                 "lastname": name_parts[1] if len(name_parts) > 1 else "",
                 "company": lead.company_name or lead.company or "",
-                "phone": lead.phone or "",
+                "phone": wa_number,
                 "hs_lead_status": "NEW",
                 "lifecyclestage": "lead",
                 "country": lead.country or "",
                 "jobtitle": (lead.enrichment_data or {}).get("decision_maker_title", ""),
                 "website": lead.website or lead.company_website or "",
-                "description": f"JARVIS ICP Score: {lead.score or 0:.0f}/100 | Source: {lead.source or 'jarvis'} | Industry: {lead.industry or 'unknown'}",
+                "description": (
+                    f"JARVIS ICP Score: {lead.score or 0:.0f}/100 | Source: {lead.source or 'jarvis'} | "
+                    f"Industry: {lead.industry or 'unknown'}"
+                    + (f" | WhatsApp: {wa_number}" if wa_number else "")
+                    + (f" | LinkedIn: {linkedin}" if linkedin else "")
+                ),
             }
             create_resp = await client.post(
                 f"{HUBSPOT_BASE}/crm/v3/objects/contacts",
