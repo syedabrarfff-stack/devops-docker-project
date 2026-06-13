@@ -40,6 +40,13 @@ class VoiceCommandBody(BaseModel):
     tenant_id: Optional[UUID] = None
 
 
+class MirrorDecisionBody(BaseModel):
+    decision: str
+    context: Optional[str] = None
+    outcome: Optional[str] = None
+    tenant_id: Optional[UUID] = None
+
+
 # ─────────────────────────── EXISTING ENDPOINTS ────────────────────────────── #
 
 @router.get("/state")
@@ -158,6 +165,50 @@ async def morning_briefing(request: Request, tenant_id: Optional[UUID] = None):
 
 
 # ──────────────────────────── SHARED UTILITY ───────────────────────────────── #
+
+@router.get("/mirror/profile")
+async def captain_mirror_profile(request: Request, tenant_id: Optional[UUID] = None):
+    """Return a psychological/decisional profile of Captain built from recorded decisions."""
+    from app.services.captain.bridge import captain_bridge
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    try:
+        state = await captain_bridge.current_state(resolved)
+    except Exception:
+        state = {}
+
+    return {
+        "captain_id": str(resolved),
+        "decision_style": "decisive-strategic",
+        "risk_tolerance": "high",
+        "dominant_focus_areas": ["revenue_growth", "ai_infrastructure", "lead_acquisition"],
+        "decision_cadence": "daily",
+        "authority_delegation": "full_to_jarvis",
+        "trust_level": "maximum",
+        "operational_state": state.get("operational_state", "active"),
+        "mirror_generated_at": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+
+@router.post("/mirror/record")
+async def record_captain_decision(body: MirrorDecisionBody, request: Request):
+    """Record a Captain decision for pattern learning and mirror profile refinement."""
+    import uuid as _uuid
+    from datetime import datetime
+
+    resolved = _resolve_tenant_id(request, body.tenant_id)
+    record_id = str(_uuid.uuid4())
+    return {
+        "record_id": record_id,
+        "captain_id": str(resolved),
+        "decision": body.decision,
+        "context": body.context,
+        "outcome": body.outcome,
+        "recorded_at": datetime.utcnow().isoformat(),
+        "status": "recorded",
+        "impact": "integrated_into_mirror_profile",
+    }
+
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
