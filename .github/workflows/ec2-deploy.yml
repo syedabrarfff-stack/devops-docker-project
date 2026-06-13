@@ -27,20 +27,26 @@ on:
 env:
   EC2_HOST: aliyarsolutions.com
   BRANCH: claude/jarvis-cans-api-integration-ZThTD
+  AWS_ACCOUNT_ID: "824232273953"
 
 jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
+    # OIDC permissions — allows GitHub to authenticate with AWS without stored secrets
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC — no secrets needed)
         id: aws_creds
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::824232273953:role/JarvisGitHubActionsRole
+          role-session-name: JarvisGitHubDeploy
           aws-region: ap-south-2
 
       # ── SSM path (uses AWS credentials) ───────────────────────────────────
