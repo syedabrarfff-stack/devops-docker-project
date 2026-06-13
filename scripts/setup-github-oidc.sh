@@ -26,7 +26,7 @@ if [ -n "$EXISTING" ]; then
   echo "✅ OIDC provider already exists: $EXISTING"
 else
   echo "Creating OIDC provider..."
-  CREATED_ARN=$(aws iam create-openid-connect-provider \
+  CREATED_ARN=$(aws iam create-open-id-connect-provider \
     --url "$OIDC_URL" \
     --client-id-list sts.amazonaws.com \
     --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
