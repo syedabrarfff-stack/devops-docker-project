@@ -102,6 +102,7 @@ MODEL_MODULES = (
     "connector_hub",
     "communication",
     "aionx_organs",
+    "credentials",
 )
 
 

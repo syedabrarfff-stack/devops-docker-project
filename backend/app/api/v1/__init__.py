@@ -35,6 +35,7 @@ from app.api.v1.routes import frontier
 from app.api.v1.routes import system
 from app.api.v1.routes import communication
 from app.api.v1.routes import ses_inbound
+from app.api.v1.routes import whitelabel
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -108,3 +109,4 @@ api_router.include_router(frontier.router)
 api_router.include_router(system.router)
 api_router.include_router(communication.router)
 api_router.include_router(ses_inbound.router)
+api_router.include_router(whitelabel.router)

@@ -385,4 +385,14 @@ export const generateWeeklyStrategy   = (tenantId) => api.post('/api/v1/departme
 export const getStrategyReports        = () => api.get('/api/v1/departments/strategy/reports').then(r => r.data)
 export const getStrategyDashboard      = () => api.get('/api/v1/departments/strategy/dashboard').then(r => r.data)
 
+// Communication — SES + WhatsApp unified status layer
+export const getCommunicationStatus     = (tenantId) => api.get('/api/v1/communication/status', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getCommunicationEvents     = (params)   => api.get('/api/v1/communication/events', { params }).then(r => r.data)
+export const getWhatsAppStatus          = (tenantId) => api.get('/api/v1/communication/whatsapp/status', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getWhatsAppQR              = (number)   => api.get('/api/v1/communication/whatsapp/qr', { params: number ? { number } : {} }).then(r => r.data)
+export const createWhatsAppInstance     = ()         => api.post('/api/v1/communication/whatsapp/instance').then(r => r.data)
+export const configureWhatsAppWebhook   = ()         => api.post('/api/v1/communication/whatsapp/webhook/configure').then(r => r.data)
+export const sendWhatsAppText           = (number, text, leadId, tenantId) => api.post('/api/v1/communication/whatsapp/send-text', { number, text, lead_id: leadId }, { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const sendWhatsAppMedia          = (number, mediaUrl, caption, mediaType, leadId) => api.post('/api/v1/communication/whatsapp/send-media', { number, media_url: mediaUrl, caption, media_type: mediaType, lead_id: leadId }).then(r => r.data)
+
 export default api

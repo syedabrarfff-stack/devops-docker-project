@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import uuid
@@ -12,7 +13,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.communication import CommunicationChannel, CommunicationDirection
+from app.models.communication import CommunicationChannel, CommunicationDirection, CommunicationEvent
 from app.models.lead import Lead
 from app.services.aionx import client_digital_twin
 from app.services.aionx.orchestration_cortex import fire_event
@@ -302,6 +303,50 @@ async def send_media(
     return {"sent": bool(result.get("ok")), "event_id": str(event.id), "transport": result}
 
 
+async def _handle_message_update(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    normalized: dict[str, Any],
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if normalized.get("message_id"):
+        try:
+            existing = (await db.execute(
+                select(CommunicationEvent).where(
+                    CommunicationEvent.external_message_id == normalized["message_id"],
+                ).limit(1)
+            )).scalars().first()
+            if existing:
+                data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+                update_type = str(data.get("status") or data.get("update") or "").upper()
+                new_status = {
+                    "DELIVERY_ACK": "delivered",
+                    "READ": "read",
+                    "PLAYED": "read",
+                    "SERVER_ACK": "sent",
+                }.get(update_type, "updated")
+                existing.status = new_status
+                await db.flush()
+                return {"accepted": True, "event_id": str(existing.id), "action": f"status_updated:{new_status}"}
+        except Exception as exc:
+            logger.warning("MESSAGES_UPDATE patch failed: %s", exc)
+    event = await record_communication_event(
+        db,
+        tenant_id=tenant_id,
+        channel=CommunicationChannel.WHATSAPP,
+        direction=CommunicationDirection(normalized["direction"]),
+        transport="evolution",
+        external_message_id=normalized["message_id"],
+        thread_id=normalized["thread_id"],
+        from_address=normalized["number"],
+        body_text="",
+        status="delivery_update",
+        raw_payload=payload,
+        processed_at=datetime.now(UTC),
+    )
+    return {"accepted": True, "event_id": str(event.id), "action": "delivery_update_logged"}
+
+
 async def process_inbound_webhook(
     db: AsyncSession,
     *,
@@ -309,6 +354,11 @@ async def process_inbound_webhook(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     normalized = normalize_evolution_payload(payload)
+    event_type = normalized["event"]
+
+    if event_type == "MESSAGES_UPDATE":
+        return await _handle_message_update(db, tenant_id, normalized, payload)
+
     if normalized["direction"] != "INBOUND" or not normalized["text"]:
         event = await record_communication_event(
             db,
@@ -326,6 +376,20 @@ async def process_inbound_webhook(
             processed_at=datetime.now(UTC),
         )
         return {"accepted": True, "event_id": str(event.id), "action": "ignored_transport_event"}
+
+    # Idempotency guard — Evolution API retries must not create duplicate records
+    if normalized["message_id"]:
+        try:
+            dup = (await db.execute(
+                select(CommunicationEvent).where(
+                    CommunicationEvent.external_message_id == normalized["message_id"],
+                    CommunicationEvent.direction == CommunicationDirection.INBOUND,
+                ).limit(1)
+            )).scalars().first()
+            if dup:
+                return {"accepted": True, "event_id": str(dup.id), "action": "duplicate_ignored"}
+        except Exception as exc:
+            logger.warning("Idempotency check failed (proceeding): %s", exc)
 
     lead = await _find_lead_by_number(db, tenant_id, normalized["number"])
     lead_id = lead.id if lead else None
@@ -345,65 +409,94 @@ async def process_inbound_webhook(
     }
 
     if lead_id:
-        reply_result = await reply_handler.process_reply(lead_id, normalized["text"], tenant_id)
-        processing["reply_handler"] = reply_result
-        interaction = await client_digital_twin.record_interaction(
-            db,
-            lead_id,
-            interaction_type="WHATSAPP",
-            hia_agent=settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
-            sentiment=_sentiment_from_reply(reply_result.get("classification")),
-            trust_delta=_trust_delta_from_reply(reply_result.get("classification")),
-            summary=normalized["text"][:500],
-            profile_updates={
-                "communication_preferences": {
-                    "preferred_channel": "WHATSAPP",
-                    "last_whatsapp_number": normalized["number"],
+        reply_result: dict[str, Any] = {}
+        try:
+            reply_result = await asyncio.wait_for(
+                reply_handler.process_reply(lead_id, normalized["text"], tenant_id),
+                timeout=15.0,
+            )
+            processing["reply_handler"] = reply_result
+        except asyncio.TimeoutError:
+            logger.warning("reply_handler timed out for lead %s", lead_id)
+            processing["reply_handler"] = {"error": "timeout"}
+        except Exception as exc:
+            logger.exception("reply_handler failed for lead %s: %s", lead_id, exc)
+            processing["reply_handler"] = {"error": str(exc)}
+
+        try:
+            interaction = await client_digital_twin.record_interaction(
+                db,
+                lead_id,
+                interaction_type="WHATSAPP",
+                hia_agent=settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
+                sentiment=_sentiment_from_reply(reply_result.get("classification")),
+                trust_delta=_trust_delta_from_reply(reply_result.get("classification")),
+                summary=normalized["text"][:500],
+                profile_updates={
+                    "communication_preferences": {
+                        "preferred_channel": "WHATSAPP",
+                        "last_whatsapp_number": normalized["number"],
+                    },
+                    "preferred_hia_agent": settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
                 },
-                "preferred_hia_agent": settings.WHATSAPP_DISPLAY_IDENTITY or "Joseph David",
-            },
-            raw_notes=normalized["text"],
-        )
-        processing["twin_interaction_id"] = str(interaction.id)
-        cascade = await fire_event(
-            db,
-            "LEAD_REPLIED",
-            {
-                "event_type": "LEAD_REPLIED",
-                "client_id": str(lead_id),
-                "lead_id": str(lead_id),
-                "interaction_type": "WHATSAPP_REPLY",
-                "sentiment": _sentiment_from_reply(reply_result.get("classification")),
-                "summary": normalized["text"][:500],
-                "problem": "Inbound WhatsApp reply requires Human Interface follow-up.",
-                "category": "OUTREACH",
-                "confidence": reply_result.get("confidence_score", 0.7),
-            },
-        )
-        processing["cortex"] = cascade
-        await store_memory(
-            db,
-            content=(
-                f"WhatsApp interaction via Joseph David persona with "
-                f"{lead.company_name or lead.company or normalized['number']}: {normalized['text'][:700]}"
-            ),
-            memory_type="episodic",
-            importance=0.75,
-            tags=["whatsapp", "client_digital_twin", "decision_memory"],
-            key=f"whatsapp:{lead_id}:{normalized['message_id'] or datetime.now(UTC).isoformat()}",
-        )
+                raw_notes=normalized["text"],
+            )
+            processing["twin_interaction_id"] = str(interaction.id)
+        except Exception as exc:
+            logger.exception("client_digital_twin failed for lead %s: %s", lead_id, exc)
+            processing["twin_error"] = str(exc)
+
+        try:
+            cascade = await fire_event(
+                db,
+                "LEAD_REPLIED",
+                {
+                    "event_type": "LEAD_REPLIED",
+                    "client_id": str(lead_id),
+                    "lead_id": str(lead_id),
+                    "interaction_type": "WHATSAPP_REPLY",
+                    "sentiment": _sentiment_from_reply(reply_result.get("classification")),
+                    "summary": normalized["text"][:500],
+                    "problem": "Inbound WhatsApp reply requires Human Interface follow-up.",
+                    "category": "OUTREACH",
+                    "confidence": reply_result.get("confidence_score", 0.7),
+                },
+            )
+            processing["cortex"] = cascade
+        except Exception as exc:
+            logger.warning("cortex fire_event failed: %s", exc)
+            processing["cortex"] = {"error": str(exc)}
+
+        try:
+            await store_memory(
+                db,
+                content=(
+                    f"WhatsApp interaction via Joseph David persona with "
+                    f"{lead.company_name or lead.company or normalized['number']}: {normalized['text'][:700]}"
+                ),
+                memory_type="episodic",
+                importance=0.75,
+                tags=["whatsapp", "client_digital_twin", "decision_memory"],
+                key=f"whatsapp:{lead_id}:{normalized['message_id'] or datetime.now(UTC).isoformat()}",
+            )
+        except Exception as exc:
+            logger.warning("store_memory failed: %s", exc)
 
         response_text = reply_result.get("response_draft")
         if response_text and settings.WHATSAPP_AUTO_REPLY_ENABLED and float(reply_result.get("confidence_score") or 0) >= settings.WHATSAPP_AUTO_REPLY_MIN_CONFIDENCE:
-            auto_send = await send_text(
-                db,
-                tenant_id=tenant_id,
-                number=normalized["number"],
-                text=response_text,
-                lead_id=lead_id,
-                context={"source": "whatsapp_auto_reply", "classification": reply_result.get("classification")},
-            )
-            processing["auto_reply"] = auto_send
+            try:
+                auto_send = await send_text(
+                    db,
+                    tenant_id=tenant_id,
+                    number=normalized["number"],
+                    text=response_text,
+                    lead_id=lead_id,
+                    context={"source": "whatsapp_auto_reply", "classification": reply_result.get("classification")},
+                )
+                processing["auto_reply"] = auto_send
+            except Exception as exc:
+                logger.warning("auto_reply send failed: %s", exc)
+                processing["auto_reply"] = {"error": str(exc)}
         elif response_text:
             processing["draft_ready"] = response_text
             processing["auto_reply"] = "governance_gated"
