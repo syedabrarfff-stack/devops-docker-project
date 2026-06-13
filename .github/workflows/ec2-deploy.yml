@@ -72,7 +72,7 @@ jobs:
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
               "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
-              "cd infrastructure && docker compose exec -T nginx nginx -s reload || docker compose restart nginx",
+              "cd infrastructure && docker-compose exec -T nginx nginx -s reload || docker-compose restart nginx",
               "curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL"]'
 
           elif [ "$ACTION" = "git-pull-only" ]; then
@@ -90,14 +90,14 @@ jobs:
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
               "cd $DEPLOY_DIR && git pull origin claude/jarvis-cans-api-integration-ZThTD",
               "cd infrastructure",
-              "docker compose up -d --no-deps --build backend 2>&1 | tail -5",
+              "docker-compose up -d --no-deps --build backend 2>&1 | tail -5",
               "sleep 20",
-              "docker compose exec -T backend alembic upgrade head 2>&1 || true",
+              "docker-compose exec -T backend alembic upgrade head 2>&1 || true",
               "sleep 5",
               "curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_FAIL",
               "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 || true",
               "curl -sf -X POST http://localhost:8000/api/v1/crm/hubspot-sync || true",
-              "docker compose ps"]'
+              "docker-compose ps"]'
 
           elif [ "$ACTION" = "verify-status" ]; then
             CMDS='["docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"",
@@ -107,25 +107,32 @@ jobs:
               "docker exec jarvis_backend alembic current 2>/dev/null || true"]'
 
           else
-            # full-restart — rebuilds everything, runs migrations, triggers pipeline
+            # full-restart — clone if missing, install docker-compose, build, migrate, trigger
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true",
+              "if [ ! -f $DEPLOY_DIR/infrastructure/docker-compose.yml ]; then apt-get install -y git curl 2>/dev/null || true; git clone https://github.com/syedabrarfff-stack/devops-docker-project.git /opt/jarvis 2>&1 | tail -3; DEPLOY_DIR=/opt/jarvis; fi",
+              "which docker-compose 2>/dev/null || (curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose)",
               "echo === DEPLOY DIR: $DEPLOY_DIR ===",
               "cd $DEPLOY_DIR",
               "git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
               "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1",
               "git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1",
               "echo === LATEST COMMIT: $(git log --oneline -1) ===",
+              "[ -f $DEPLOY_DIR/.env ] || cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env",
+              "mkdir -p $DEPLOY_DIR/jarvis-data/daily $DEPLOY_DIR/jarvis-data/outputs",
               "cd $DEPLOY_DIR/infrastructure",
+              "echo === STARTING DEPS ===",
+              "docker-compose up -d postgres redis 2>&1 | tail -5",
+              "sleep 20",
               "echo === REBUILDING BACKEND ===",
-              "docker compose up -d --no-deps --build backend 2>&1 | tail -10",
+              "docker-compose up -d --no-deps --build backend 2>&1 | tail -10",
               "echo === REBUILDING NGINX ===",
-              "docker compose up -d --no-deps --build nginx 2>&1 | tail -5",
+              "docker-compose up -d --no-deps --build nginx 2>&1 | tail -5",
               "echo === WAITING FOR BACKEND STARTUP ===",
-              "sleep 25",
+              "sleep 40",
               "echo === RUNNING ALEMBIC MIGRATIONS ===",
-              "docker compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || echo MIGRATION_ATTEMPTED",
+              "docker-compose exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || echo MIGRATION_ATTEMPTED",
               "sleep 5",
               "echo === HEALTH CHECKS ===",
               "curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL",
@@ -134,13 +141,11 @@ jobs:
               "echo === TRIGGERING PIPELINE ===",
               "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 && echo BULK_DISCOVER_TRIGGERED || echo BULK_DISCOVER_FAIL",
               "curl -sf -X POST http://localhost:8000/api/v1/crm/hubspot-sync && echo HUBSPOT_SYNC_TRIGGERED || echo HUBSPOT_SYNC_FAIL",
-              "echo === CHECKING WHATSAPP ===",
+              "echo === WHATSAPP ===",
               "WA=$(curl -sf http://localhost:8080/instance/connectionState/jarvis-main -H apikey:jarvis-master-key 2>/dev/null || echo {})",
               "echo WhatsApp state: $WA",
-              "echo === CHECKING SES / DKIM ===",
-              "aws sesv2 get-email-identity --email-identity aliyarsolutions.com --region ap-south-2 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); print(f\\\"DKIM: {d.get(\\x27DkimAttributes\\x27,{}).get(\\x27Status\\x27,\\x27UNKNOWN\\x27)}, Verified: {d.get(\\x27VerifiedForSendingStatus\\x27,False)}\\\")\" 2>/dev/null || echo SES_CHECK_SKIPPED",
               "echo === DOCKER STATUS ===",
-              "docker compose ps",
+              "docker-compose ps",
               "echo === DEPLOY_COMPLETE ==="]'
           fi
 
@@ -148,6 +153,7 @@ jobs:
             --region ap-south-2 \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
+            --timeout-seconds 720 \
             --parameters "{\"commands\": $CMDS}" \
             --comment "JARVIS $ACTION deploy" \
             --query "Command.CommandId" \
@@ -156,9 +162,9 @@ jobs:
           [ -z "$CMD_ID" ] && { echo "SSM send-command failed"; exit 1; }
           echo "SSM Command ID: $CMD_ID"
 
-          sleep 60
-
-          for attempt in 1 2 3 4 5; do
+          # Poll up to 12 min — Docker build takes 8-10 min on a blank EC2
+          sleep 90
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
             RESULT=$(aws ssm get-command-invocation \
               --region ap-south-2 \
               --command-id "$CMD_ID" \
@@ -166,8 +172,8 @@ jobs:
               --output json 2>/dev/null || echo '{"Status":"Pending"}')
             STATUS=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("Status","Pending"))' 2>/dev/null)
             [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] && break
-            echo "Attempt $attempt: $STATUS — waiting 15s..."
-            sleep 15
+            echo "Attempt $attempt/10: $STATUS — waiting 30s..."
+            sleep 30
           done
 
           echo "=== SSM Result: $STATUS ==="
@@ -207,7 +213,7 @@ jobs:
             ACTION="${ACTION:-full-restart}"
 
             if [ "$ACTION" = "nginx-reload" ]; then
-              docker compose exec -T nginx nginx -s reload || docker compose restart nginx
+              docker-compose exec -T nginx nginx -s reload || docker-compose restart nginx
               curl -sf http://localhost/health && echo "NGINX OK" || echo "NGINX FAIL"
 
             elif [ "$ACTION" = "verify-status" ]; then
@@ -217,16 +223,16 @@ jobs:
 
             else
               echo "=== REBUILDING BACKEND ==="
-              docker compose up -d --no-deps --build backend 2>&1 | tail -10
+              docker-compose up -d --no-deps --build backend 2>&1 | tail -10
 
               echo "=== REBUILDING NGINX ==="
-              docker compose up -d --no-deps --build nginx 2>&1 | tail -5
+              docker-compose up -d --no-deps --build nginx 2>&1 | tail -5
 
               echo "=== WAITING FOR BACKEND ==="
               sleep 25
 
               echo "=== RUNNING MIGRATIONS ==="
-              docker compose exec -T backend alembic upgrade head 2>&1 || \
+              docker-compose exec -T backend alembic upgrade head 2>&1 || \
                 docker exec jarvis_backend alembic upgrade head 2>&1 || \
                 echo "MIGRATION_ATTEMPTED"
 
@@ -248,7 +254,7 @@ jobs:
                 -H "apikey: jarvis-master-key" || echo "WA_CHECK_FAIL"
 
               echo "=== DOCKER STATUS ==="
-              docker compose ps
+              docker-compose ps
 
               echo "=== DEPLOY COMPLETE ==="
             fi
