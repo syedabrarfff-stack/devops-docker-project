@@ -13,6 +13,7 @@ REGION="ap-south-2"
 INSTANCE="jarvis-main"
 CAPTAIN_PHONE="97334360246"
 EVOLUTION_KEY="jarvis-master-key"
+OLD_KEY_ID="AKIA372ASNAQ45KIMZHX"
 
 GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; WHITE='\033[1;37m'; NC='\033[0m'
 
@@ -76,6 +77,62 @@ ssm_run() {
     [ "$STATUS" = "Success" ] && return 0 || return 1
 }
 
+# ── Step 0: AWS Credential Rotation (Blocker 1) ───────────────────────────────
+step "STEP 0 — AWS Credential Rotation"
+info "Rotating compromised key $OLD_KEY_ID"
+
+# Get the IAM username this CloudShell session is running as
+IAM_USER=$(aws iam get-user --query "User.UserName" --output text 2>/dev/null || echo "")
+
+if [ -z "$IAM_USER" ]; then
+    warn "Could not determine IAM user — skipping key rotation (using IAM role / SSO session)"
+    warn "If running under assumed role, keys are session-based and auto-expire — no rotation needed"
+else
+    ok "IAM User: $IAM_USER"
+
+    # Check if old key still active — deactivate it
+    OLD_KEY_STATUS=$(aws iam get-access-key-last-used --access-key-id "$OLD_KEY_ID" \
+        --query "AccessKeyLastUsed.LastUsedDate" --output text 2>/dev/null || echo "NOT_FOUND")
+
+    if [ "$OLD_KEY_STATUS" != "NOT_FOUND" ]; then
+        info "Deactivating compromised key $OLD_KEY_ID ..."
+        aws iam update-access-key --access-key-id "$OLD_KEY_ID" --status Inactive --user-name "$IAM_USER" 2>/dev/null \
+            && ok "Key $OLD_KEY_ID deactivated" \
+            || warn "Key already inactive or not owned by $IAM_USER"
+    else
+        info "Key $OLD_KEY_ID not found under $IAM_USER — already rotated or belonged to different user"
+    fi
+
+    # Create new key
+    info "Creating new IAM access key for $IAM_USER ..."
+    NEW_KEY_JSON=$(aws iam create-access-key --user-name "$IAM_USER" --output json 2>/dev/null || echo "{}")
+    NEW_KEY_ID=$(echo "$NEW_KEY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('AccessKey',{}).get('AccessKeyId',''))" 2>/dev/null || echo "")
+    NEW_SECRET=$(echo "$NEW_KEY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('AccessKey',{}).get('SecretAccessKey',''))" 2>/dev/null || echo "")
+
+    if [ -n "$NEW_KEY_ID" ] && [ -n "$NEW_SECRET" ]; then
+        ok "New key created: $NEW_KEY_ID"
+        # Store new key ID for reference
+        export NEW_AWS_KEY_ID="$NEW_KEY_ID"
+        export NEW_AWS_SECRET="$NEW_SECRET"
+
+        echo ""
+        echo -e "${WHITE}  ╔══════════════════════════════════════════════════════╗${NC}"
+        echo -e "${WHITE}  ║  NEW AWS CREDENTIALS (save these now)               ║${NC}"
+        echo -e "${WHITE}  ║  AWS_ACCESS_KEY_ID:     $NEW_KEY_ID   ║${NC}"
+        echo -e "${WHITE}  ║  AWS_SECRET_ACCESS_KEY: (shown once — save it now) ║${NC}"
+        echo -e "${WHITE}  ╚══════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo "  AWS_SECRET_ACCESS_KEY=$NEW_SECRET"
+        echo ""
+        info "Will update EC2 .env file with new credentials after instance is located"
+    else
+        warn "Could not create new key — may have hit the 2-key limit. Delete old key first in IAM console."
+        warn "Continuing deployment — existing .env on EC2 will be used"
+        NEW_KEY_ID=""
+        NEW_SECRET=""
+    fi
+fi
+
 # ── Step 1: Find EC2 instance ─────────────────────────────────────────────────
 step "STEP 1 — Find EC2 Instance"
 INSTANCE_ID=$(aws ec2 describe-instances \
@@ -86,6 +143,31 @@ INSTANCE_ID=$(aws ec2 describe-instances \
 
 [ -z "$INSTANCE_ID" ] && { fail "No running EC2 instance in $REGION"; exit 1; }
 ok "Instance: $INSTANCE_ID"
+
+# ── Step 1b: Inject new AWS credentials into EC2 .env ────────────────────────
+if [ -n "${NEW_KEY_ID:-}" ] && [ -n "${NEW_SECRET:-}" ]; then
+    step "STEP 1b — Inject New Credentials into EC2 .env"
+    INJECT_CREDS_JSON=$(python3 -c "
+import json
+key_id = '$NEW_KEY_ID'
+secret = '$NEW_SECRET'
+cmds = [
+    'DEPLOY_DIR=\$([ -d /opt/jarvis ] && echo /opt/jarvis || echo /home/ubuntu/devops-docker-project)',
+    'ENV_FILE=\$DEPLOY_DIR/.env',
+    'echo Updating credentials in \$ENV_FILE',
+    'grep -q AWS_ACCESS_KEY_ID \$ENV_FILE && sed -i \"s|^AWS_ACCESS_KEY_ID=.*|AWS_ACCESS_KEY_ID=$key_id|\" \$ENV_FILE || echo AWS_ACCESS_KEY_ID=$key_id >> \$ENV_FILE',
+    'grep -q AWS_SECRET_ACCESS_KEY \$ENV_FILE && sed -i \"s|^AWS_SECRET_ACCESS_KEY=.*|AWS_SECRET_ACCESS_KEY=$secret|\" \$ENV_FILE || echo AWS_SECRET_ACCESS_KEY=$secret >> \$ENV_FILE',
+    'echo CREDENTIALS_UPDATED',
+    'grep AWS_ACCESS_KEY_ID \$ENV_FILE | head -1'
+]
+print(json.dumps(cmds))
+")
+    if ssm_run "Inject new AWS credentials into .env" "$INJECT_CREDS_JSON" 15; then
+        ok "New AWS credentials written to EC2 .env"
+    else
+        warn "Credential injection failed — update .env manually on EC2"
+    fi
+fi
 
 # ── Step 2: Verify SSM ────────────────────────────────────────────────────────
 step "STEP 2 — Verify SSM Agent"
@@ -159,6 +241,34 @@ if ssm_run "Restart backend + Alembic upgrade head" "$BACKEND_DEPLOY" 60; then
     ok "Backend restarted and migrations applied"
 else
     warn "Backend deploy had issues — check: docker logs jarvis_backend --tail=30"
+fi
+
+# ── Step 3c: Post-Deploy API Triggers (Blocker 2) ────────────────────────────
+step "STEP 3c — Post-Deploy Pipeline Triggers"
+
+TRIGGER_CMDS='[
+  "BACKEND=http://localhost:8000/api/v1",
+  "echo Waiting for backend to be fully ready...",
+  "for i in $(seq 1 10); do curl -sf http://localhost:8000/health > /dev/null 2>&1 && echo READY && break || echo Attempt $i/10 — waiting... && sleep 5; done",
+  "echo ---",
+  "echo Triggering bulk lead discovery (200 targets)...",
+  "DISC=$(curl -sf -X POST \"$BACKEND/leads/bulk-discover?limit=200\" -H \"Content-Type: application/json\" 2>/dev/null || echo {failed})",
+  "echo BULK_DISCOVER: $DISC",
+  "sleep 2",
+  "echo ---",
+  "echo Triggering HubSpot sync (score>=60 leads)...",
+  "SYNC=$(curl -sf -X POST \"$BACKEND/crm/hubspot-sync\" -H \"Content-Type: application/json\" 2>/dev/null || echo {failed})",
+  "echo HUBSPOT_SYNC: $SYNC",
+  "echo ---",
+  "echo PIPELINE_TRIGGERS_COMPLETE"
+]'
+
+if ssm_run "Trigger bulk-discover + HubSpot sync" "$TRIGGER_CMDS" 40; then
+    ok "Bulk discovery + HubSpot sync triggered"
+else
+    warn "Pipeline triggers had issues — trigger manually via /control-room after deployment"
+    warn "  curl -X POST https://aliyarsolutions.com/api/v1/leads/bulk-discover?limit=200"
+    warn "  curl -X POST https://aliyarsolutions.com/api/v1/crm/hubspot-sync"
 fi
 
 # ── Step 4: Verify Evolution API ─────────────────────────────────────────────
@@ -275,10 +385,33 @@ SES_CMDS='[
   "echo ====================================",
   "echo SPF TXT to ADD to aliyarsolutions.com:",
   "echo v=spf1 include:_spf.google.com include:amazonses.com ~all",
-  "echo ===================================="
+  "echo ====================================",
+  "echo DKIM_FINAL_STATUS=$DKIM_STATUS"
 ]'
 
-ssm_run "Check and init SES domain identity" "$SES_CMDS" 20 || true
+SES_OUTPUT=$(ssm_run "Check and init SES domain identity" "$SES_CMDS" 20 2>&1) || true
+echo "$SES_OUTPUT"
+
+# Auto-trigger SES production access request if DKIM is SUCCESS (Blocker 3)
+DKIM_FINAL=$(echo "$SES_OUTPUT" | grep "DKIM_FINAL_STATUS=" | head -1 | cut -d= -f2 | tr -d '[:space:]')
+if [ "$DKIM_FINAL" = "SUCCESS" ]; then
+    step "STEP 8b — SES Production Access Request (DKIM is SUCCESS — auto-requesting)"
+    ok "DKIM verified! Submitting SES production access request..."
+    aws sesv2 put-account-details \
+        --mail-type TRANSACTIONAL \
+        --website-url "https://aliyarsolutions.com" \
+        --use-case-description "JARVIS is the operational AI system for Aliyar Solutions, a global technology company. We send automated client proposals, project delivery reports, outreach emails, system alerts, and operational notifications. All recipients have opted into communications. Volume: estimated 500-2000 emails/day at scale. Content: professional B2B communications, never spam." \
+        --additional-contact-email-addresses "syedabrarbhd@gmail.com" \
+        --region ap-south-2 2>/dev/null \
+        && ok "SES production access request submitted — AWS will review within 24h" \
+        || warn "SES production access request failed — check IAM permissions or submit manually in AWS console"
+else
+    warn "DKIM status is '$DKIM_FINAL' — not SUCCESS yet. SES production access request skipped."
+    if [ "$DKIM_FINAL" = "PENDING" ]; then
+        warn "Add the 3 CNAME records above to GoDaddy DNS, then re-run this script."
+        warn "DNS propagation takes 24-72h. Once DKIM shows SUCCESS, production access auto-submits."
+    fi
+fi
 
 # ── Final status ──────────────────────────────────────────────────────────────
 step "ACTIVATION COMPLETE"
