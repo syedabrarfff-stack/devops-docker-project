@@ -270,6 +270,26 @@ async def trigger_auto_outreach_for_lead(
 
     if send_result["success"]:
         logger.info("Auto-outreach sent to %s — lead %s", lead_email, lead_id)
+        # Notify n8n + Telegram on successful outreach
+        try:
+            from app.services.notifications.n8n import on_outreach_sent
+            from app.services.notifications.telegram import notify_telegram
+            persona = email_data.get("persona", "team")
+            await on_outreach_sent(
+                lead_id=str(lead_id),
+                company=lead_data.get("company_name", ""),
+                email=lead_email,
+                subject=email_data.get("subject", ""),
+                persona=persona,
+            )
+            await notify_telegram(
+                f"📧 *Outreach Sent*\n\n"
+                f"Company: {lead_data.get('company_name', 'Unknown')}\n"
+                f"Email: `{lead_email}`\n"
+                f"Subject: {email_data.get('subject', '')[:60]}"
+            )
+        except Exception:
+            pass
 
     return {
         "success": send_result["success"],

@@ -193,13 +193,25 @@ async def _mark_invoice_paid(
             invoice_ref, stripe_event_id, amount
         )
 
-        # Notify Captain via Slack
+        # Notify Captain via Slack + Telegram + n8n
         try:
             from app.services.notifications.slack import notify_captain
+            from app.services.notifications.telegram import notify_telegram
+            from app.services.notifications.n8n import on_invoice_paid
             await notify_captain(
                 title=f"💰 Payment received — ${amount:.2f}",
                 body=f"Invoice {invoice_ref} paid via Stripe. Amount: ${amount:.2f}",
                 level="info",
+            )
+            await notify_telegram(
+                f"💰 *Payment Received*\n\nInvoice: `{invoice_ref}`\nAmount: *${amount:.2f}*\nMethod: Stripe"
+            )
+            await on_invoice_paid(
+                invoice_id=str(invoice_id),
+                invoice_number=invoice_ref,
+                client_name="",
+                amount_usd=amount,
+                payment_method="stripe",
             )
         except Exception:
             pass
