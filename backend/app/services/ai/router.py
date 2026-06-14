@@ -121,91 +121,107 @@ OPERATIONAL CAPABILITIES
 - Business intelligence: MRR tracking, pipeline analytics, conversion rates
 """
 
-# Routing table: task_type -> [(provider_key, model_key), ...] (primary first, then fallbacks)
+# ──────────────────────────────────────────────────────────────────────────────
+# Routing table — NIM is now the primary engine for most task types.
+# 10 rotating NIM API keys provide fault tolerance at zero additional cost.
+# Model assignments per task type:
+#   CODE       → DeepSeek V4 Pro (NIM) → Qwen Coder (NIM) → Anthropic Haiku
+#   RESEARCH   → DeepSeek V4 Pro (NIM) → Kimi K2.6 (NIM) → Llama 4 Maverick
+#   REASONING  → DeepSeek V4 Pro (NIM) → Llama 4 Maverick (NIM)
+#   FAST       → Llama 4 Scout (NIM) → DeepSeek V4 Flash (NIM)
+#   LONG_CTX   → Kimi K2.6 (NIM) → Llama 4 Maverick (NIM)
+#   GENERAL    → Llama 4 Maverick (NIM) → Llama 4 Scout (NIM)
+#   ANALYSIS   → DeepSeek V4 Pro (NIM) → Llama 4 Maverick (NIM)
+#   STRATEGY   → Anthropic Sonnet → DeepSeek V4 Pro (NIM) → Llama 4 Maverick
+#   SALES      → Anthropic Sonnet → Llama 4 Maverick (NIM) → DeepSeek V4 Pro
+#   REALTIME   → Llama 4 Scout (NIM) → DeepSeek V4 Flash (NIM)
+# ──────────────────────────────────────────────────────────────────────────────
 ROUTING_TABLE: dict = {
     TaskType.CODE: [
-        ("deepseek", "deepseek-v4-pro"),
+        ("nvidia", "deepseek-v4-pro"),     # DeepSeek V4 Pro via NIM — best for code
+        ("nvidia", "qwen-coder"),           # Qwen 2.5 Coder via NIM
+        ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash via NIM
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick via NIM
+        ("anthropic", "claude-haiku"),      # Anthropic Haiku — fallback
         ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("anthropic", "claude-sonnet"),
     ],
     TaskType.RESEARCH: [
-        ("deepseek", "deepseek-v4-pro"),
-        ("groq", "llama-3-3"),
-        ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("google", "gemini-pro"),
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — deep research
+        ("nvidia", "kimi-k2"),              # Kimi K2.6 — long-context synthesis
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — broad intelligence
+        ("nvidia", "deepseek-v4-flash"),    # Fast research fallback
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.REASONING: [
-        ("deepseek", "deepseek-v4-pro"),
-        ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("google", "gemini-pro"),
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — chain-of-thought
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — reasoning
+        ("nvidia", "kimi-k2"),              # Kimi — long reasoning chains
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.FAST: [
-        ("nvidia", "nvidia-nim"),
-        ("deepseek", "deepseek-v4-flash"),
-        ("groq", "llama-3-3"),
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — fastest NIM model
+        ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash — fast + smart
+        ("nvidia", "mistral-medium"),       # Mistral Medium — operational speed
+        ("nvidia", "llama-3-3"),            # Llama 3.3 70B
         ("openai", "gpt-4o-mini"),
     ],
     TaskType.LONG_CONTEXT: [
-        ("moonshot", "kimi-k2"),
-        ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("google", "gemini-pro"),
+        ("nvidia", "kimi-k2"),              # Kimi K2.6 — 1M context via NIM
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — 128K context
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — 1M context
         ("anthropic", "claude-sonnet"),
+        ("openai", "gpt-4o"),
     ],
     TaskType.MULTILINGUAL: [
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — multilingual
+        ("nvidia", "qwen-coder"),           # Qwen — strong CJK + structured
+        ("nvidia", "mistral-medium"),       # Mistral — European languages
         ("zhipuai", "glm-5-1"),
-        ("qwen", "qwen-turbo"),
         ("openai", "gpt-4o"),
     ],
     TaskType.MATH: [
-        ("deepseek", "deepseek-v4-pro"),
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — math SOTA
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick
+        ("nvidia", "deepseek-v4-flash"),
         ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
     ],
     TaskType.GENERAL: [
-        ("nvidia", "nvidia-nim"),
-        ("groq", "llama-3-3"),
-        ("mistral", "mistral-large"),
-        ("openai", "gpt-4o-mini"),
-        ("deepseek", "deepseek-v4-flash"),
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — best general NIM
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — fast general
+        ("nvidia", "llama-3-3"),            # Llama 3.3 70B
+        ("nvidia", "mistral-medium"),       # Mistral Medium
+        ("nvidia", "deepseek-v4-flash"),
     ],
     TaskType.ANALYSIS: [
-        ("deepseek", "deepseek-v4-pro"),
-        ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("google", "gemini-pro"),
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — analytical depth
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick
+        ("nvidia", "kimi-k2"),              # Kimi — document analysis
         ("anthropic", "claude-sonnet"),
+        ("openai", "gpt-4o"),
     ],
     TaskType.STRATEGY: [
-        ("deepseek", "deepseek-v4-pro"),
-        ("openai", "gpt-4o"),
-        ("nvidia", "nvidia-nim"),
-        ("anthropic", "claude-sonnet"),
+        ("anthropic", "claude-sonnet"),     # Claude Sonnet — executive strategy
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — strategic depth
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — strategic intel
+        ("nvidia", "kimi-k2"),
     ],
     TaskType.SALES: [
-        ("anthropic", "claude-sonnet"),
-        ("openai", "gpt-4o"),
-        ("deepseek", "deepseek-v4-pro"),
-        ("mistral", "mistral-large"),
-        ("nvidia", "nvidia-nim"),
-        ("google", "gemini-pro"),
+        ("anthropic", "claude-sonnet"),     # Claude Sonnet — client communications
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — outreach copy
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — bulk outreach
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — proposal quality
+        ("nvidia", "mistral-medium"),       # Mistral — fast outreach
     ],
     TaskType.MULTIMODAL: [
-        ("openai", "gpt-4o"),         # GPT-4o vision
-        ("qwen", "qwen-image"),       # Qwen image editing
-        ("google", "gemini-pro"),     # Gemini multimodal
+        ("openai", "gpt-4o"),
+        ("nvidia", "llama-4-maverick"),
+        ("google", "gemini-pro"),
     ],
     TaskType.REALTIME: [
-        ("nvidia", "nvidia-nim"),
-        ("groq", "llama-4-scout"),    # Groq — ultra-low latency
-        ("groq", "llama-3-3"),
-        ("zhipuai", "glm-4-flash"),   # GLM flash — fast
-        ("deepseek", "deepseek-v4-flash"),
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — lowest latency NIM
+        ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash — fast + capable
+        ("nvidia", "mistral-medium"),       # Mistral — operational speed
+        ("nvidia", "llama-3-3"),
     ],
 }
 

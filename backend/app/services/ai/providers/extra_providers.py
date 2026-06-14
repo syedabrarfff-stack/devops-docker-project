@@ -132,36 +132,89 @@ class MinimaxProvider(BaseAIProvider):
 
 
 class NvidiaProvider(BaseAIProvider):
+    """
+    NVIDIA NIM unified provider — one endpoint, 10 rotating API keys,
+    serving Llama 4, DeepSeek V4, Qwen, Kimi, Mistral, GLM, and more.
+    """
     name = "nvidia"
     base_url = "https://integrate.api.nvidia.com/v1"
-    models = {"nvidia-nim": "meta/llama-3.1-70b-instruct"}
+    models = {
+        # Default / generic routing
+        "nvidia-nim":         "meta/llama-4-maverick-17b-128e-instruct",
+        # Llama family
+        "llama-4-maverick":   "meta/llama-4-maverick-17b-128e-instruct",
+        "llama-4-scout":      "meta/llama-4-scout-17b-16e-instruct",
+        "llama-3-3":          "meta/llama-3.3-70b-instruct",
+        # DeepSeek via NIM
+        "deepseek-v4-flash":  "deepseek-ai/deepseek-v4-flash",
+        "deepseek-v4-pro":    "deepseek-ai/deepseek-v4-pro",
+        # Qwen via NIM
+        "qwen-coder":         "qwen/qwen2.5-coder-32b-instruct",
+        # Kimi (Moonshot) via NIM
+        "kimi-k2":            "moonshotai/kimi-k2.6",
+        # Mistral via NIM
+        "mistral-medium":     "mistralai/mistral-medium-3-instruct",
+        # MiniMax via NIM
+        "minimax-m3":         "minimaxai/minimax-m3",
+    }
+
+    def _nim_keys(self) -> list:
+        """Return all configured NIM API keys for round-robin rotation."""
+        candidates = [
+            settings.NVIDIA_API_KEY,
+            settings.NVIDIA_API_KEY_B,
+            settings.NVIDIA_API_KEY_C,
+            settings.NVIDIA_API_KEY_D,
+            settings.NVIDIA_API_KEY_E,
+            settings.NVIDIA_API_KEY_F,
+            settings.NVIDIA_API_KEY_G,
+            settings.NVIDIA_API_KEY_H,
+            settings.NVIDIA_API_KEY_I,
+            settings.NVIDIA_API_KEY_J,
+        ]
+        return [k for k in candidates if k and not k.startswith("test") and k.startswith("nvapi-")]
 
     def is_available(self) -> bool:
-        return bool(settings.NVIDIA_API_KEY)
+        return len(self._nim_keys()) > 0
 
-    async def chat(self, messages: List[Message], model_id: str = "meta/llama-3.1-70b-instruct",
-                   system_prompt: str = "", max_tokens: int = 2048) -> AIResponse:
-        try:
-            msgs = []
-            if system_prompt:
-                msgs.append({"role": "system", "content": system_prompt})
-            msgs.extend([{"role": m.role, "content": m.content} for m in messages])
-            async with httpx.AsyncClient(timeout=90) as client:
-                r = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {settings.NVIDIA_API_KEY}"},
-                    json={"model": model_id, "messages": msgs, "max_tokens": max_tokens},
+    async def chat(self, messages: List[Message], model_id: str = "meta/llama-4-maverick-17b-128e-instruct",
+                   system_prompt: str = "", max_tokens: int = 4096) -> AIResponse:
+        keys = self._nim_keys()
+        if not keys:
+            return AIResponse(content="", model=model_id, provider=self.name,
+                              task_type="general", error="no_nvidia_nim_keys_configured")
+
+        msgs = []
+        if system_prompt:
+            msgs.append({"role": "system", "content": system_prompt})
+        msgs.extend([{"role": m.role, "content": m.content} for m in messages])
+
+        last_error = ""
+        for api_key in keys:
+            try:
+                async with httpx.AsyncClient(timeout=90) as client:
+                    r = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={"model": model_id, "messages": msgs, "max_tokens": max_tokens,
+                              "temperature": 0.7, "top_p": 0.95},
+                    )
+                    if r.status_code == 429:
+                        last_error = "rate_limited"
+                        continue
+                    r.raise_for_status()
+                    data = r.json()
+                return AIResponse(
+                    content=data["choices"][0]["message"]["content"],
+                    model=model_id, provider=self.name, task_type="general",
+                    tokens_used=data.get("usage", {}).get("total_tokens", 0),
                 )
-                r.raise_for_status()
-                data = r.json()
-            return AIResponse(
-                content=data["choices"][0]["message"]["content"],
-                model=model_id, provider=self.name, task_type="general",
-                tokens_used=data.get("usage", {}).get("total_tokens", 0),
-            )
-        except httpx.TimeoutException:
-            return AIResponse(content="", model=model_id, provider=self.name,
-                              task_type="general", error="nvidia_request_timeout")
-        except Exception as e:
-            return AIResponse(content="", model=model_id, provider=self.name,
-                              task_type="general", error=str(e))
+            except httpx.TimeoutException:
+                last_error = "timeout"
+                continue
+            except Exception as e:
+                last_error = str(e)
+                continue
+
+        return AIResponse(content="", model=model_id, provider=self.name,
+                          task_type="general", error=f"all_nim_keys_failed:{last_error}")

@@ -5,16 +5,22 @@ from app.core.config import settings
 
 class AnthropicProvider(BaseAIProvider):
     name = "anthropic"
+    # Captain directive: Haiku 4.5 and Sonnet 4.6 ONLY — never Opus
     models = {
         "claude-sonnet": "claude-sonnet-4-6",
-        "claude-opus": "claude-opus-4-7",
+        "claude-haiku":  "claude-haiku-4-5-20251001",
     }
+    # Hard block: reject any attempt to use Opus through this provider
+    _BLOCKED_MODELS = {"claude-opus", "claude-opus-4", "claude-opus-4-7", "claude-opus-4-8"}
 
     def is_available(self) -> bool:
         return bool(settings.ANTHROPIC_API_KEY)
 
     async def chat(self, messages: List[Message], model_id: str = "claude-sonnet-4-6",
                    system_prompt: str = "", max_tokens: int = 2048) -> AIResponse:
+        # Enforce Captain's directive: Haiku 4.5 / Sonnet 4.6 only
+        if model_id in self._BLOCKED_MODELS or "opus" in model_id.lower():
+            model_id = "claude-sonnet-4-6"
         try:
             import anthropic
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)

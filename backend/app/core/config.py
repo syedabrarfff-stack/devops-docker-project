@@ -50,6 +50,16 @@ class Settings(BaseSettings):
     DASHSCOPE_API_KEY: Optional[str] = None
     MINIMAX_API_KEY: Optional[str] = None
     NVIDIA_API_KEY: Optional[str] = None
+    # NIM key rotation pool — all keys work for all NIM-hosted models
+    NVIDIA_API_KEY_B: Optional[str] = None
+    NVIDIA_API_KEY_C: Optional[str] = None
+    NVIDIA_API_KEY_D: Optional[str] = None
+    NVIDIA_API_KEY_E: Optional[str] = None
+    NVIDIA_API_KEY_F: Optional[str] = None
+    NVIDIA_API_KEY_G: Optional[str] = None
+    NVIDIA_API_KEY_H: Optional[str] = None
+    NVIDIA_API_KEY_I: Optional[str] = None
+    NVIDIA_API_KEY_J: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
     ELEVENLABS_VOICE_ID: str = "onwK4e9ZLuTAKqWW03F9"  # Daniel — British male
     CLAUDE_BUDGET_TOTAL_USD: float = 5.0
@@ -117,6 +127,11 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
+
+    # n8n Automation Platform
+    N8N_BASE_URL: str = "https://automation.aliyarsolutions.com"
+    N8N_WEBHOOK_URL: str = "https://automation.aliyarsolutions.com/webhook"
+    N8N_API_KEY: Optional[str] = None
 
     # GitHub Bridge (scout network pushes daily leads to jarvis-data/)
     GITHUB_TOKEN: Optional[str] = None
