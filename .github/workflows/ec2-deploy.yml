@@ -180,7 +180,49 @@ jobs:
           echo "$RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("StandardOutputContent",""))' 2>/dev/null
           STDERR=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("StandardErrorContent",""))' 2>/dev/null)
           [ -n "$STDERR" ] && echo "STDERR: $STDERR"
-          [ "$STATUS" = "Success" ] && exit 0 || exit 1
+          if [ "$STATUS" = "Success" ]; then
+            echo "=== DEPLOY SUCCEEDED ==="
+            exit 0
+          elif [ "$STATUS" = "InProgress" ]; then
+            echo "=== SSM STILL RUNNING — Docker build >13 min on EC2 (normal). Deploy continues on server. ==="
+            echo "=== Waiting 90s for build to finish, then checking status... ==="
+            sleep 90
+            # Send a quick diagnostic SSM to get status + backend logs
+            STATUS_CMDS='["set -e || true",
+              "DDIR=/opt/jarvis/infrastructure; [ -d $DDIR ] || DDIR=/home/ubuntu/devops-docker-project/infrastructure",
+              "echo === CONTAINERS ===",
+              "docker ps -a 2>&1 | grep -E jarvis_backend || echo backend_not_found",
+              "echo === BACKEND_LOGS ===",
+              "docker logs jarvis_backend --tail=80 2>&1 || echo NO_BACKEND_CONTAINER",
+              "echo === HEALTH ===",
+              "curl -sf http://localhost:8000/health && echo BACKEND_OK || echo BACKEND_FAIL",
+              "curl -sf http://localhost/health && echo NGINX_OK || echo NGINX_FAIL"]'
+            STATUS_CMD=$(aws ssm send-command \
+              --region ap-south-2 \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --timeout-seconds 120 \
+              --parameters "{\"commands\": $STATUS_CMDS}" \
+              --comment "JARVIS status check" \
+              --query "Command.CommandId" \
+              --output text 2>/dev/null || echo "")
+            if [ -n "$STATUS_CMD" ]; then
+              sleep 35
+              STATUS_RESULT=$(aws ssm get-command-invocation \
+                --region ap-south-2 \
+                --command-id "$STATUS_CMD" \
+                --instance-id "$INSTANCE_ID" \
+                --output json 2>/dev/null || echo '{"Status":"Pending","StandardOutputContent":""}')
+              echo "=== STATUS CHECK OUTPUT ==="
+              echo "$STATUS_RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("StandardOutputContent",""))' 2>/dev/null
+              BACKEND_OK=$(echo "$STATUS_RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("yes" if "BACKEND_OK" in d.get("StandardOutputContent","") else "no")' 2>/dev/null)
+              [ "$BACKEND_OK" = "yes" ] && exit 0 || exit 1
+            fi
+            exit 1
+          else
+            echo "=== SSM FAILED with status: $STATUS ==="
+            exit 1
+          fi
 
       # ── SSH path (fallback when AWS creds missing) ─────────────────────────
       - name: Deploy via SSH (fallback)
