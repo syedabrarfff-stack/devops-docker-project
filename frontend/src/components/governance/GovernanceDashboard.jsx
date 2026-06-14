@@ -53,15 +53,29 @@ function InvoicesTab() {
     setLoading(false)
   }
 
-  async function getPaymentLink(inv) {
-    setLinkLoading(inv.id)
+  async function getPaymentLink(inv, method = 'stripe') {
+    setLinkLoading(`${inv.id}-${method}`)
     try {
-      const data = await api.post(`/api/v1/payments/invoices/${inv.id}/payment-link`).then(r => r.data)
-      await navigator.clipboard.writeText(data.payment_url)
-      alert(`Payment link copied to clipboard:\n${data.payment_url}`)
+      const endpoints = {
+        stripe: `/api/v1/payments/invoices/${inv.id}/payment-link`,
+        bank: `/api/v1/payments/invoices/${inv.id}/bank-transfer`,
+        wise: `/api/v1/payments/invoices/${inv.id}/wise-transfer`,
+      }
+      const data = await api.post(endpoints[method]).then(r => r.data)
+
+      if (method === 'stripe' && data.payment_url) {
+        await navigator.clipboard.writeText(data.payment_url)
+        alert(`Payment link copied:\n${data.payment_url}`)
+      } else if (method === 'bank' && data.instructions) {
+        await navigator.clipboard.writeText(data.instructions)
+        alert(`Bank details copied to clipboard`)
+      } else if (method === 'wise' && data.instructions) {
+        await navigator.clipboard.writeText(data.instructions)
+        alert(`Wise transfer details copied`)
+      }
       load()
     } catch (e) {
-      alert(e.response?.data?.detail || "Failed to generate payment link")
+      alert(e.response?.data?.detail || `Failed to get ${method} details`)
     }
     setLinkLoading(null)
   }
@@ -161,16 +175,33 @@ function InvoicesTab() {
               )}
               {["draft","sent"].includes(inv.status) && (
                 <>
-                  <button
-                    onClick={() => getPaymentLink(inv)}
-                    disabled={linkLoading === inv.id}
-                    className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded text-xs disabled:opacity-50">
-                    {linkLoading === inv.id ? "Generating…" : inv.payment_link ? "Copy Link" : "Get Payment Link"}
-                  </button>
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      onClick={() => getPaymentLink(inv, 'stripe')}
+                      disabled={linkLoading === `${inv.id}-stripe`}
+                      title="Stripe payment link"
+                      className="px-2 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded text-xs disabled:opacity-50">
+                      {linkLoading === `${inv.id}-stripe` ? "…" : "💳"}
+                    </button>
+                    <button
+                      onClick={() => getPaymentLink(inv, 'bank')}
+                      disabled={linkLoading === `${inv.id}-bank`}
+                      title="Bank transfer"
+                      className="px-2 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded text-xs disabled:opacity-50">
+                      {linkLoading === `${inv.id}-bank` ? "…" : "🏦"}
+                    </button>
+                    <button
+                      onClick={() => getPaymentLink(inv, 'wise')}
+                      disabled={linkLoading === `${inv.id}-wise`}
+                      title="Wise transfer"
+                      className="px-2 py-1 bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 rounded text-xs disabled:opacity-50">
+                      {linkLoading === `${inv.id}-wise` ? "…" : "💱"}
+                    </button>
+                  </div>
                   {inv.payment_link && (
                     <a href={inv.payment_link} target="_blank" rel="noopener noreferrer"
-                      className="px-3 py-1 bg-purple-600/10 text-purple-300 border border-purple-500/20 rounded text-xs">
-                      Open ↗
+                      className="px-2 py-1 bg-purple-600/10 text-purple-300 border border-purple-500/20 rounded text-xs">
+                      Stripe ↗
                     </a>
                   )}
                   <button onClick={() => updateStatus(inv.id, "cancelled")}

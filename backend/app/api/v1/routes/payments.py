@@ -79,6 +79,70 @@ async def generate_payment_link(
     }
 
 
+@router.post("/invoices/{invoice_id}/bank-transfer")
+async def bank_transfer_details(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
+) -> dict[str, Any]:
+    """Get bank transfer details for an invoice (alternative payment method)."""
+    from app.models.revenue import Invoice
+    from app.services.payments.bank_transfer import create_bank_transfer_details
+    from sqlalchemy import select
+    import uuid
+
+    try:
+        inv_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice ID")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == inv_uuid))
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    details = await create_bank_transfer_details(
+        invoice_id=str(inv.id),
+        invoice_number=inv.invoice_number,
+        amount_usd=float(inv.total),
+        client_name=inv.client_name or "Client",
+        client_email=inv.client_email or "",
+    )
+    return details
+
+
+@router.post("/invoices/{invoice_id}/wise-transfer")
+async def wise_transfer_details(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
+) -> dict[str, Any]:
+    """Get Wise transfer details for an invoice (international alternative)."""
+    from app.models.revenue import Invoice
+    from app.services.payments.wise_transfer import create_wise_transfer_request
+    from sqlalchemy import select
+    import uuid
+
+    try:
+        inv_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice ID")
+
+    result = await db.execute(select(Invoice).where(Invoice.id == inv_uuid))
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    details = await create_wise_transfer_request(
+        invoice_id=str(inv.id),
+        invoice_number=inv.invoice_number,
+        amount_usd=float(inv.total),
+        client_name=inv.client_name or "Client",
+        client_email=inv.client_email or "",
+    )
+    return details
+
+
 @webhook_router.post("/stripe")
 async def stripe_webhook(
     request: Request,

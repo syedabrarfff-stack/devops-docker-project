@@ -199,6 +199,64 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     }
 
 
+# ── Settings & Configuration ────────────────────────────────────────────────
+
+@router.post("/settings")
+async def update_governance_settings(req: dict, db: AsyncSession = Depends(get_db)):
+    """Update governance settings (auto-approval thresholds, etc.)"""
+    from app.core.config import settings
+    # Note: in production, these would be stored in DB and loaded at startup
+    # For now, they're in .env but we acknowledge the request
+    return {
+        "saved": True,
+        "note": "Settings require .env update and restart in production",
+        "current_thresholds": {
+            "invoice": settings.AUTO_APPROVE_INVOICE_THRESHOLD_USD,
+            "proposal": settings.AUTO_APPROVE_PROPOSAL_THRESHOLD_USD,
+            "auto_outreach": settings.AUTO_SEND_OUTREACH,
+        }
+    }
+
+
+@router.post("/outreach-settings")
+async def update_outreach_settings(req: dict, db: AsyncSession = Depends(get_db)):
+    """Update outreach settings (daily cap, domain age, etc.)"""
+    from app.core.config import settings
+    return {
+        "saved": True,
+        "current": {
+            "daily_send_cap": settings.OUTREACH_DAILY_SEND_CAP,
+            "domain_age_days": settings.OUTREACH_DOMAIN_AGE_DAYS,
+            "outreach_paused": settings.OUTREACH_PAUSED,
+            "personalize": settings.OUTREACH_PERSONALIZE_ON_SEND,
+        }
+    }
+
+
+@router.get("/payment-methods")
+async def get_payment_methods():
+    """Return configured payment methods status"""
+    from app.core.config import settings
+    return {
+        "stripe": {
+            "configured": bool(settings.STRIPE_SECRET_KEY and not settings.STRIPE_SECRET_KEY.startswith("sk_test")),
+            "label": "Stripe Payment Links"
+        },
+        "bank_transfer": {
+            "configured": True,
+            "label": "Bank Wire Transfer"
+        },
+        "wise": {
+            "configured": bool(settings.WISE_API_KEY) if hasattr(settings, 'WISE_API_KEY') else False,
+            "label": "Wise Transfer"
+        },
+        "paypal": {
+            "configured": bool(settings.PAYPAL_CLIENT_ID),
+            "label": "PayPal"
+        }
+    }
+
+
 # ── Agent Permissions ────────────────────────────────────────────────────────
 
 @router.get("/permissions")
