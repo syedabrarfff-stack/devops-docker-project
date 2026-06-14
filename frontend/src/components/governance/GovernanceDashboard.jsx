@@ -36,6 +36,7 @@ function InvoicesTab() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [linkLoading, setLinkLoading] = useState(null)
   const [form, setForm] = useState({
     client_name: "", client_email: "", client_company: "",
     description: "", amount: "", tax_rate: "0", currency: "USD", notes: "", due_days: "14",
@@ -50,6 +51,19 @@ function InvoicesTab() {
       setInvoices(data.invoices || [])
     } catch (e) { console.error(e) }
     setLoading(false)
+  }
+
+  async function getPaymentLink(inv) {
+    setLinkLoading(inv.id)
+    try {
+      const data = await api.post(`/api/v1/payments/invoices/${inv.id}/payment-link`).then(r => r.data)
+      await navigator.clipboard.writeText(data.payment_url)
+      alert(`Payment link copied to clipboard:\n${data.payment_url}`)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.detail || "Failed to generate payment link")
+    }
+    setLinkLoading(null)
   }
 
   async function createInvoice() {
@@ -132,7 +146,7 @@ function InvoicesTab() {
                 <StatusBadge status={inv.status} />
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
               {inv.status === "draft" && (
                 <button onClick={() => updateStatus(inv.id, "sent")}
                   className="px-3 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-xs">
@@ -146,10 +160,24 @@ function InvoicesTab() {
                 </button>
               )}
               {["draft","sent"].includes(inv.status) && (
-                <button onClick={() => updateStatus(inv.id, "cancelled")}
-                  className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.08] text-gray-500 rounded text-xs">
-                  Cancel
-                </button>
+                <>
+                  <button
+                    onClick={() => getPaymentLink(inv)}
+                    disabled={linkLoading === inv.id}
+                    className="px-3 py-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded text-xs disabled:opacity-50">
+                    {linkLoading === inv.id ? "Generating…" : inv.payment_link ? "Copy Link" : "Get Payment Link"}
+                  </button>
+                  {inv.payment_link && (
+                    <a href={inv.payment_link} target="_blank" rel="noopener noreferrer"
+                      className="px-3 py-1 bg-purple-600/10 text-purple-300 border border-purple-500/20 rounded text-xs">
+                      Open ↗
+                    </a>
+                  )}
+                  <button onClick={() => updateStatus(inv.id, "cancelled")}
+                    className="px-3 py-1 bg-white/[0.05] hover:bg-white/[0.08] text-gray-500 rounded text-xs">
+                    Cancel
+                  </button>
+                </>
               )}
               {inv.due_date && (
                 <span className="text-xs text-gray-600 ml-auto">Due: {new Date(inv.due_date).toLocaleDateString()}</span>

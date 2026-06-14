@@ -104,6 +104,7 @@ class Settings(BaseSettings):
     APOLLO_API_KEY: Optional[str] = None
     NOTION_API_KEY: Optional[str] = None
     STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None

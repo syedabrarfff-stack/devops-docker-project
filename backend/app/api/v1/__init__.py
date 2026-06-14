@@ -36,6 +36,7 @@ from app.api.v1.routes import system
 from app.api.v1.routes import communication
 from app.api.v1.routes import ses_inbound
 from app.api.v1.routes import whitelabel
+from app.api.v1.routes import payments
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -110,3 +111,5 @@ api_router.include_router(system.router)
 api_router.include_router(communication.router)
 api_router.include_router(ses_inbound.router)
 api_router.include_router(whitelabel.router)
+api_router.include_router(payments.router)
+api_router.include_router(payments.webhook_router)
