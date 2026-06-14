@@ -61,6 +61,38 @@ async def _score_in_background(lead_id: int):
             await leads.qualify_and_score(db, lead_id)
 
 
+async def _trigger_auto_outreach(lead_id: UUID, lead, tenant_id: UUID):
+    """Background task: send auto-outreach email when lead qualifies."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.outreach.auto_outreach import trigger_auto_outreach_for_lead
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        async with AsyncSessionLocal() as db:
+            lead_data = {
+                "name": lead.contact_name or lead.company,
+                "email": lead.email,
+                "company": lead.company,
+                "quality_score": float(lead.score or 0.75),
+                "status": str(lead.status),
+                "domain_age_days": getattr(lead, "domain_age_days", 400),
+                "context": lead.notes or "",
+                "tenant_id": tenant_id,
+            }
+            result = await trigger_auto_outreach_for_lead(
+                lead_id=lead_id,
+                lead_data=lead_data,
+                db=db,
+            )
+            if result["success"]:
+                logger.info("Auto-outreach triggered for lead %s", lead_id)
+            else:
+                logger.debug("Auto-outreach skipped for lead %s: %s", lead_id, result.get("reason"))
+    except Exception as exc:
+        logger.error("Auto-outreach trigger failed: %s", exc)
+
+
 @router.get("/")
 async def list_leads(
     status: Optional[str] = None,
@@ -340,6 +372,7 @@ async def update_lead_status(
     lead_id: UUID,
     status: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
@@ -355,6 +388,11 @@ async def update_lead_status(
         raise HTTPException(404, "Lead not found")
     lead.status = next_status
     await db.commit()
+
+    # Trigger auto-outreach if lead qualifies
+    if status.lower().strip() in {"qualified", "hot", "active"}:
+        background_tasks.add_task(_trigger_auto_outreach, lead_id, lead, tenant_id)
+
     demo_package_id = None
     if status.lower().strip() in {"demo_scheduled", "demo", "call_scheduled"}:
         demo = await demo_builder.generate(

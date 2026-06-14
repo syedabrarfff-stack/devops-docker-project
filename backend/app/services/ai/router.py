@@ -188,6 +188,7 @@ ROUTING_TABLE: dict = {
         ("anthropic", "claude-sonnet"),
     ],
     TaskType.SALES: [
+        ("anthropic", "claude-sonnet"),
         ("openai", "gpt-4o"),
         ("deepseek", "deepseek-v4-pro"),
         ("mistral", "mistral-large"),
