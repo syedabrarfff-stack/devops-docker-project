@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     OUTREACH_DAILY_SEND_CAP: int = 48
     OUTREACH_DOMAIN_AGE_DAYS: int = 365
     OUTREACH_PAUSED: bool = False
+    # Autonomous Governance Thresholds
+    AUTO_APPROVE_PROPOSAL_THRESHOLD_USD: float = 5000.0
+    AUTO_APPROVE_INVOICE_THRESHOLD_USD: float = 5000.0
+    AUTO_SEND_OUTREACH: bool = True
+    AUTO_SEND_OUTREACH_WARM_LEADS_ONLY: bool = True
+    AUTO_SEND_OUTREACH_MIN_QUALITY_SCORE: float = 0.70
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://jarvis:jarvis_pass@postgres:5432/jarvis_db"

@@ -60,7 +60,10 @@ async def list_invoices(status: Optional[str] = None, db: AsyncSession = Depends
 
 @router.post("/invoices")
 async def create_invoice(req: CreateInvoiceRequest, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import create_invoice as _create
+    from app.services.governance.document_gen import create_invoice as _create, update_invoice_status
+    from app.services.governance.auto_approval import should_auto_approve_invoice
+    from app.core.config import settings
+
     async with db.begin():
         invoice = await _create(
             db,
@@ -73,7 +76,21 @@ async def create_invoice(req: CreateInvoiceRequest, db: AsyncSession = Depends(g
             notes=req.notes,
             due_days=req.due_days,
         )
-    return {"invoice": invoice, "requires_captain_approval": True}
+
+    # Check if invoice qualifies for auto-approval
+    total = float(invoice["total"])
+    auto_approved = False
+    if await should_auto_approve_invoice(total):
+        async with db.begin():
+            ok = await update_invoice_status(db, invoice["id"], "sent")
+            auto_approved = ok
+
+    approval_required = not auto_approved
+    return {
+        "invoice": invoice,
+        "auto_approved": auto_approved,
+        "requires_captain_approval": approval_required
+    }
 
 
 @router.post("/invoices/{invoice_id}/status")
@@ -96,7 +113,10 @@ async def list_proposals(status: Optional[str] = None, db: AsyncSession = Depend
 
 @router.post("/proposals/generate")
 async def generate_proposal(req: ProposalRequest, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import generate_proposal as _gen
+    from app.services.governance.document_gen import generate_proposal as _gen, update_proposal_status
+    from app.services.governance.auto_approval import should_auto_approve_proposal
+    from app.core.config import settings
+
     async with db.begin():
         proposal = await _gen(
             db,
@@ -108,7 +128,21 @@ async def generate_proposal(req: ProposalRequest, db: AsyncSession = Depends(get
             pricing=req.pricing,
             style=req.style,
         )
-    return {"proposal": proposal, "requires_captain_approval": True}
+
+    # Check if proposal qualifies for auto-approval
+    estimated_value = float(req.pricing.get("monthly_retainer", 0) or 0)
+    auto_approved = False
+    if estimated_value > 0 and await should_auto_approve_proposal(estimated_value):
+        async with db.begin():
+            ok = await update_proposal_status(db, proposal["id"], "sent")
+            auto_approved = ok
+
+    approval_required = not auto_approved
+    return {
+        "proposal": proposal,
+        "auto_approved": auto_approved,
+        "requires_captain_approval": approval_required
+    }
 
 
 @router.post("/proposals/{proposal_id}/status")
@@ -119,6 +153,50 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncS
     if not ok:
         raise HTTPException(404, "Proposal not found")
     return {"id": proposal_id, "status": req.status}
+
+
+# ── Autonomous Approval Stats ────────────────────────────────────────────────
+
+@router.get("/auto-approval-stats")
+async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select, func
+    from app.models.governance import Invoice, Proposal
+    from app.core.config import settings
+
+    # Count auto-approved invoices (sent immediately upon creation, no draft -> sent manual step)
+    invoices_result = await db.execute(
+        select(
+            func.count(Invoice.id).label("total"),
+            func.sum(Invoice.total).label("total_value"),
+        ).where(Invoice.status == "sent")
+    )
+    inv_row = invoices_result.first()
+
+    # Count auto-approved proposals
+    proposals_result = await db.execute(
+        select(
+            func.count(Proposal.id).label("total"),
+            func.sum(Proposal.value).label("total_value"),
+        ).where(Proposal.status == "sent")
+    )
+    prop_row = proposals_result.first()
+
+    return {
+        "thresholds": {
+            "invoice_usd": settings.AUTO_APPROVE_INVOICE_THRESHOLD_USD,
+            "proposal_usd": settings.AUTO_APPROVE_PROPOSAL_THRESHOLD_USD,
+            "auto_outreach_enabled": settings.AUTO_SEND_OUTREACH,
+        },
+        "auto_approved_invoices": {
+            "count": inv_row[0] or 0,
+            "total_value": float(inv_row[1] or 0),
+        },
+        "auto_approved_proposals": {
+            "count": prop_row[0] or 0,
+            "total_value": float(prop_row[1] or 0),
+        },
+        "system_status": "autonomous_governance_enabled"
+    }
 
 
 # ── Agent Permissions ────────────────────────────────────────────────────────
