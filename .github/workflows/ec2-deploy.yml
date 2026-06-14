@@ -8,6 +8,7 @@ on:
       - 'infrastructure/nginx/**'
       - 'infrastructure/docker-compose.yml'
       - 'backend/**'
+      - 'frontend/**'
       - 'scripts/**'
       - '.github/workflows/ec2-deploy.yml'
   workflow_dispatch:
@@ -20,6 +21,7 @@ on:
         options:
           - full-restart
           - backend-only
+          - frontend-only
           - nginx-reload
           - git-pull-only
           - verify-status
@@ -83,6 +85,20 @@ jobs:
               "for i in 1 2 3; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
               "for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
               "echo LATEST: $(git log --oneline -1)"]'
+
+          elif [ "$ACTION" = "frontend-only" ]; then
+            CMDS='["set -e",
+              "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
+              "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
+              "echo === LATEST: $(git log --oneline -1) ===",
+              "cd infrastructure",
+              "docker-compose -p jarvis build --no-cache frontend > /tmp/frontend_build.log 2>&1 && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_FAILED",
+              "tail -15 /tmp/frontend_build.log",
+              "docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3",
+              "sleep 5",
+              "curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL",
+              "docker-compose -p jarvis ps frontend"]'
 
           elif [ "$ACTION" = "backend-only" ]; then
             CMDS='["set -e",
@@ -149,6 +165,10 @@ jobs:
               "docker-compose -p jarvis up -d --no-deps backend 2>&1 | tail -3",
               "echo === REBUILDING NGINX ===",
               "docker-compose -p jarvis up -d --no-deps --build nginx 2>&1 | tail -3",
+              "echo === REBUILDING FRONTEND ===",
+              "docker-compose -p jarvis build --no-cache frontend > /tmp/frontend_build.log 2>&1 && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_WARN",
+              "tail -10 /tmp/frontend_build.log",
+              "docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3",
               "echo === WAITING FOR BACKEND STARTUP ===",
               "sleep 45",
               "echo === BACKEND CONTAINER STATUS ===",
@@ -310,6 +330,9 @@ jobs:
 
               echo "=== REBUILDING NGINX ==="
               docker-compose up -d --no-deps --build nginx 2>&1 | tail -5
+
+              echo "=== REBUILDING FRONTEND ==="
+              docker-compose up -d --no-deps --build frontend 2>&1 | tail -5
 
               echo "=== WAITING FOR BACKEND ==="
               sleep 25
