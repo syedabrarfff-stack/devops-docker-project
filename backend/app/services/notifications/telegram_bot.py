@@ -58,6 +58,43 @@ async def send_message(chat_id: str, text: str,
     return r.get("ok", False)
 
 
+async def handle_command(chat_id: str, cmd: str, args: list[str]) -> None:
+    """Handle incoming Telegram command."""
+    from app.core.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        if cmd == "start" or cmd == "help":
+            await send_message(chat_id, HELP_TEXT)
+        elif cmd == "status":
+            await _handle_status(chat_id)
+        elif cmd == "leads":
+            await _handle_leads(chat_id, db)
+        elif cmd == "briefing":
+            await _handle_briefing(chat_id, db)
+        elif cmd == "queue":
+            await _handle_queue(chat_id, db)
+        elif cmd == "approve" and args:
+            try:
+                aid = int(args[0])
+                await _handle_approval_callback(chat_id, aid, "approve", db)
+            except (ValueError, IndexError):
+                await send_message(chat_id, "Usage: /approve <id>")
+        elif cmd == "reject" and args:
+            try:
+                aid = int(args[0])
+                await _handle_approval_callback(chat_id, aid, "reject", db)
+            except (ValueError, IndexError):
+                await send_message(chat_id, "Usage: /reject <id>")
+        else:
+            await send_message(chat_id, "Unknown command. Try /help")
+
+
+async def handle_text_message(chat_id: str, text: str) -> None:
+    """Handle incoming free-form text message."""
+    from app.core.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        await _handle_chat(chat_id, text, db)
+
+
 async def answer_callback(callback_id: str, text: str = "") -> None:
     await _api("answerCallbackQuery", callback_query_id=callback_id, text=text)
 

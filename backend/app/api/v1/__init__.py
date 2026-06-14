@@ -37,6 +37,7 @@ from app.api.v1.routes import communication
 from app.api.v1.routes import ses_inbound
 from app.api.v1.routes import whitelabel
 from app.api.v1.routes import payments
+from app.api.v1.routes import telegram_webhook
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -113,3 +114,4 @@ api_router.include_router(ses_inbound.router)
 api_router.include_router(whitelabel.router)
 api_router.include_router(payments.router)
 api_router.include_router(payments.webhook_router)
+api_router.include_router(telegram_webhook.router)
