@@ -37,6 +37,7 @@ def run_credential_audit() -> dict:
         # ── Database ────────────────────────────────────────────────────────────
         CredentialCheck("DATABASE_URL", "Database", bool(settings.DATABASE_URL and "jarvis_pass" not in settings.DATABASE_URL), SEVERITY_CRITICAL, "PostgreSQL connection string"),
         CredentialCheck("SECRET_KEY", "App Security", bool(settings.SECRET_KEY and settings.SECRET_KEY != "change-this-in-production"), SEVERITY_CRITICAL, "Application secret key for JWT/session signing"),
+        CredentialCheck("CAPTAIN_PASSWORD", "Auth", bool(settings.CAPTAIN_PASSWORD and settings.CAPTAIN_PASSWORD not in ("CHANGE_ME_IN_ENV", "change-this-to-a-strong-password", "")), SEVERITY_CRITICAL, "Captain login password — must be set in .env"),
         # ── AI Providers ────────────────────────────────────────────────────────
         CredentialCheck("ANTHROPIC_API_KEY", "AI — Primary", bool(settings.ANTHROPIC_API_KEY), SEVERITY_HIGH, "Claude — primary reasoning + strategy engine", _mask(settings.ANTHROPIC_API_KEY)),
         CredentialCheck("OPENAI_API_KEY", "AI — Primary", bool(settings.OPENAI_API_KEY), SEVERITY_HIGH, "GPT-4o — code + general intelligence fallback", _mask(settings.OPENAI_API_KEY)),
