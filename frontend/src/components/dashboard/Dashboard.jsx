@@ -151,6 +151,45 @@ function EmptyState({ text }) {
   )
 }
 
+const AGENT_THEMES = {
+  'Darren Mitchell':  { bg: 'bg-jarvis-gold/10',  border: 'border-jarvis-gold/30',  text: 'text-jarvis-gold',  tag: 'SALES' },
+  'David Carter':     { bg: 'bg-jarvis-blue/10',  border: 'border-jarvis-blue/30',  text: 'text-jarvis-blue',  tag: 'CLOUD' },
+  'Sophia Reynolds':  { bg: 'bg-jarvis-cyan/10',  border: 'border-jarvis-cyan/30',  text: 'text-jarvis-cyan',  tag: 'AI' },
+  'Nathan Scott':     { bg: 'bg-blue-400/10',     border: 'border-blue-400/30',     text: 'text-blue-400',     tag: 'DEVOPS' },
+  'Emma Collins':     { bg: 'bg-purple-400/10',   border: 'border-purple-400/30',   text: 'text-purple-400',   tag: 'ANALYTICS' },
+  'Daniel Brooks':    { bg: 'bg-red-400/10',      border: 'border-red-400/30',      text: 'text-red-400',      tag: 'SECURITY' },
+  'Michael Hayes':    { bg: 'bg-indigo-400/10',   border: 'border-indigo-400/30',   text: 'text-indigo-400',   tag: 'ARCHITECTURE' },
+  'Lucas Reed':       { bg: 'bg-emerald-400/10',  border: 'border-emerald-400/30',  text: 'text-emerald-400',  tag: 'AUTOMATION' },
+  'Olivia Bennett':   { bg: 'bg-green-400/10',    border: 'border-green-400/30',    text: 'text-green-400',    tag: 'CLIENT SUCCESS' },
+}
+
+function AgentCard({ member }) {
+  const theme = AGENT_THEMES[member.name] || { bg: 'bg-white/[0.04]', border: 'border-white/15', text: 'text-white/60', tag: 'OPS' }
+  const initials = (member.name || '??').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div className={`rounded-2xl border ${theme.border} ${theme.bg} p-4 transition-all hover:bg-white/[0.07]`}>
+      <div className="flex items-center gap-3">
+        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border ${theme.border} ${theme.bg} text-sm font-black ${theme.text}`}>
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-white">{member.name}</p>
+            <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-green-400" />
+          </div>
+          <p className="truncate text-[11px] text-gray-400">{member.role}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className={`rounded-full border ${theme.border} ${theme.bg} px-2.5 py-0.5 text-[9px] font-black tracking-[0.18em] ${theme.text}`}>
+          {theme.tag}
+        </span>
+        <span className="truncate text-[10px] text-gray-500">{member.email || member.specialty || ''}</span>
+      </div>
+    </div>
+  )
+}
+
 function HealthRow({ label, ok, detail, source }) {
   return (
     <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
@@ -220,6 +259,7 @@ export default function Dashboard() {
     axiom: null,
     operatingIntelligence: null,
     communication: null,
+    team: [],
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -252,6 +292,7 @@ export default function Dashboard() {
         { key: 'axiom', run: () => api.get('/api/v1/departments/axiom/operating-model') },
         { key: 'operatingIntelligence', run: () => api.get('/api/v1/aionx/operating-intelligence') },
         { key: 'communication', run: () => api.get('/api/v1/communication/status') },
+        { key: 'team', run: () => api.get('/api/v1/team/members') },
       ]
 
       const results = await Promise.allSettled(requests.map((request) => request.run()))
@@ -298,6 +339,7 @@ export default function Dashboard() {
         axiom: value(21, null),
         operatingIntelligence: value(22, null),
         communication: value(23, null),
+        team: safeArray(value(24, []), 'members'),
       })
     } finally {
       setLoading(false)
@@ -567,6 +609,30 @@ export default function Dashboard() {
           onClick={() => setActiveView('communications')}
         />
       </div>
+
+      {/* ── Active Operations Team ─────────────────────────────────────────── */}
+      <Panel
+        title="Active Operations Team"
+        subtitle="9 Aliyar Solutions specialists — human identities serving every client domain"
+        icon={Users}
+        action={<button onClick={() => setActiveView('agents')} className="text-xs text-jarvis-cyan hover:text-white">Agent registry →</button>}
+      >
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-3">
+          {data.team.length === 0
+            ? Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white/10" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-24 rounded bg-white/10" />
+                      <div className="h-3 w-32 rounded bg-white/5" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            : data.team.map((member) => <AgentCard key={member.id} member={member} />)}
+        </div>
+      </Panel>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
         <div className="space-y-6">
