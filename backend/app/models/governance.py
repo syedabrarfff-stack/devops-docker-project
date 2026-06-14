@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, Boolean, ForeignKey
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 from app.models.revenue import Invoice
 
 

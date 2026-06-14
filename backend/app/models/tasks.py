@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class AgentTask(Base):

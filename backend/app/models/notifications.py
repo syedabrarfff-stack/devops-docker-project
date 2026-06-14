@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean, JSON
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class NotificationLog(Base):

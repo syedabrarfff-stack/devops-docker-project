@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Boolean, Float
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class GmailMessage(Base):

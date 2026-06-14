@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Text, DateTime, Integer, Boolean
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class OAuthToken(Base):

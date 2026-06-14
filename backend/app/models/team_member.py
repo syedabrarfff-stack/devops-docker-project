@@ -4,7 +4,7 @@ All client-facing communication originates from these identities.
 """
 from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, Text
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.models.base import JarvisBase as Base
 
 
 class TeamMember(Base):
