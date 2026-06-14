@@ -139,7 +139,7 @@ class Settings(BaseSettings):
     PAYPAL_MODE: str = "sandbox"               # sandbox | live
 
     # CORS
-    CORS_ORIGINS: str = "http://localhost,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost,http://localhost:3000,https://aliyarsolutions.com,https://www.aliyarsolutions.com"
 
     class Config:
         env_file = (".env", "../.env")
