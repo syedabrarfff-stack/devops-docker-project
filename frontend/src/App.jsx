@@ -72,6 +72,16 @@ import IntelligenceHub from './components/frontier/IntelligenceHub'
 import ConsciousnessHub from './components/consciousness/ConsciousnessHub'
 import AionxArchitecture from './components/aionx/AionxArchitecture'
 import CommunicationHub from './components/communication/CommunicationHub'
+import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
+import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
+import ApprovalQueue from './components/approvals/ApprovalQueue'
+import CalendarView from './components/calendar/CalendarView'
+import EvolutionDashboard from './components/evolution/EvolutionDashboard'
+import FrontierShell from './components/frontier/FrontierShell'
+import IntelligenceDashboard from './components/intelligence/IntelligenceDashboard'
+import SyncView from './components/sync/SyncView'
+import TeamRegistry from './components/team/TeamRegistry'
+import OnboardingWizard from './components/whitelabel/OnboardingWizard'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -116,6 +126,16 @@ export const VIEWS = {
   intelligenceHub:   { path: controlPath('/intelligence-hub'),  title: 'Intelligence Hub',  Component: IntelligenceHub },
   consciousness:     { path: controlPath('/consciousness'),      title: 'Consciousness Hub', Component: ConsciousnessHub },
   aionxArchitecture: { path: controlPath('/aionx-architecture'), title: 'AIONX Architecture', Component: AionxArchitecture },
+  agentOps:          { path: controlPath('/agent-ops'),          title: 'Agent Operations',  Component: AgentOpsCenter },
+  aiOps:             { path: controlPath('/ai-ops'),             title: 'AI Operations',     Component: AIOpsDashboard },
+  approvalQueue:     { path: controlPath('/approval-queue'),     title: 'Approval Queue',    Component: ApprovalQueue },
+  calendar:          { path: controlPath('/calendar'),           title: 'Calendar',          Component: CalendarView },
+  evolution:         { path: controlPath('/evolution'),          title: 'System Evolution',  Component: EvolutionDashboard },
+  frontierShell:     { path: controlPath('/frontier'),           title: 'Frontier Shell',    Component: FrontierShell },
+  intelligenceDash:  { path: controlPath('/intelligence'),       title: 'Intelligence',      Component: IntelligenceDashboard },
+  sync:              { path: controlPath('/sync'),               title: 'Data Sync',         Component: SyncView },
+  team:              { path: controlPath('/team'),               title: 'Team Registry',     Component: TeamRegistry },
+  whitelabel:        { path: controlPath('/whitelabel'),         title: 'White-label Setup', Component: OnboardingWizard },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

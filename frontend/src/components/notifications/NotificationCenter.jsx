@@ -123,7 +123,8 @@ export default function NotificationCenter() {
   useEffect(() => {
     load();
     // Live WS updates
-    const ws = new WebSocket(`ws://localhost:8000/api/v1/ws`);
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${window.location.host}/api/v1/ws/captain`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);

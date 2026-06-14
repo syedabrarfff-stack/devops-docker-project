@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aliyar Solutions — AI, Cloud & Growth Systems</title>
+  <meta name="description" content="Aliyar Solutions designs AI automation, cloud infrastructure, lead generation, CRM, and digital growth systems for businesses that need execution, not noise." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f3efe6; --text: #17201d; --accent: #d8b26e; --green: #47745f;
+      --muted: #5f685f; --card: rgba(255,255,255,0.65);
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+
+    /* NAV */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem; max-width: 1200px; margin: 0 auto; }
+    .logo-name { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em; }
+    .logo-tag { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.32em; color: var(--muted); }
+    .cta-btn { background: var(--text); color: #fff; border-radius: 999px; padding: 0.55rem 1.4rem; font-size: 0.875rem; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.18); transition: opacity 0.2s; }
+    .cta-btn:hover { opacity: 0.85; }
+
+    /* HERO */
+    .hero { max-width: 1200px; margin: 0 auto; padding: 4rem 2rem 5rem; display: grid; gap: 2.5rem; }
+    @media (min-width: 960px) { .hero { grid-template-columns: 1.1fr 0.9fr; align-items: center; } }
+    .badge { display: inline-flex; border: 1px solid rgba(71,116,95,0.25); background: rgba(255,255,255,0.6); border-radius: 999px; padding: 0.45rem 1.1rem; font-size: 0.8rem; font-weight: 600; color: var(--green); margin-bottom: 1.25rem; }
+    h1 { font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.05em; line-height: 0.97; }
+    .hero-sub { margin-top: 1.5rem; max-width: 38rem; font-size: 1.05rem; color: var(--muted); line-height: 1.75; }
+    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 2rem; }
+    .btn-primary { background: var(--accent); color: var(--text); border-radius: 999px; padding: 0.75rem 1.6rem; font-weight: 700; box-shadow: 0 8px 24px rgba(216,178,110,0.35); }
+    .btn-secondary { border: 1px solid rgba(23,32,29,0.15); background: rgba(255,255,255,0.6); border-radius: 999px; padding: 0.75rem 1.6rem; font-weight: 700; }
+
+    /* STACK CARD */
+    .stack-card { background: var(--text); color: #fff; border-radius: 1.75rem; padding: 1.75rem; }
+    .stack-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.32em; color: var(--accent); margin-bottom: 1.25rem; }
+    .stack-items { display: grid; gap: 0.75rem; }
+    .stack-item { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); border-radius: 1rem; padding: 1rem; }
+    .stack-item strong { display: block; font-size: 0.95rem; margin-bottom: 0.3rem; }
+    .stack-item span { font-size: 0.8rem; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+    /* SERVICES */
+    .services { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 5rem; }
+    .section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.28em; color: var(--green); }
+    .section-title { margin-top: 0.6rem; font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; letter-spacing: -0.04em; }
+    .services-grid { margin-top: 2rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .service-card { border: 1px solid rgba(23,32,29,0.1); background: var(--card); border-radius: 1.5rem; padding: 1.25rem; }
+    .service-card strong { display: block; font-size: 0.95rem; margin-bottom: 0.5rem; }
+    .service-card p { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid rgba(23,32,29,0.08); padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--muted); }
+    footer a { color: var(--green); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div>
+    <p class="logo-name">Aliyar Solutions</p>
+    <p class="logo-tag">AI, Cloud &amp; Growth</p>
+  </div>
+  <a class="cta-btn" href="/control-room/dashboard">Control Room</a>
+</nav>
+
+<section class="hero">
+  <div>
+    <p class="badge">Enterprise-grade digital operations for ambitious businesses</p>
+    <h1>Build faster systems.<br>Win better clients.<br>Operate with clarity.</h1>
+    <p class="hero-sub">
+      Aliyar Solutions designs AI automation, cloud infrastructure, lead generation,
+      CRM, websites, dashboards, and digital growth systems for teams that need
+      execution, not noise.
+    </p>
+    <div class="btn-row">
+      <a class="btn-primary" href="mailto:info@aliyarsolutions.com">Start a Project</a>
+      <a class="btn-secondary" href="#services">View Services</a>
+    </div>
+  </div>
+
+  <div class="stack-card">
+    <p class="stack-label">Operating Stack</p>
+    <div class="stack-items">
+      <div class="stack-item"><strong>AI Automation</strong><span>Workflow design, agent tooling, process intelligence</span></div>
+      <div class="stack-item"><strong>Cloud &amp; DevOps</strong><span>AWS, Docker, CI/CD, monitoring, recovery</span></div>
+      <div class="stack-item"><strong>Growth Systems</strong><span>Lead pipelines, outreach operations, conversion flows</span></div>
+      <div class="stack-item"><strong>Digital Platforms</strong><span>Websites, dashboards, portals, integrations</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="services" class="services">
+  <p class="section-label">Services</p>
+  <h2 class="section-title">What we build</h2>
+  <div class="services-grid">
+    <div class="service-card"><strong>AI Automation Systems</strong><p>Designed, integrated, and operationalized for real business outcomes.</p></div>
+    <div class="service-card"><strong>Cloud Infrastructure</strong><p>AWS architecture, Terraform, Kubernetes, and zero-downtime deployments.</p></div>
+    <div class="service-card"><strong>CRM &amp; Pipeline Automation</strong><p>Intelligent CRM setup, lead scoring, and sales workflow automation.</p></div>
+    <div class="service-card"><strong>Lead Generation Operations</strong><p>Multi-channel prospect acquisition, enrichment, and outreach sequences.</p></div>
+    <div class="service-card"><strong>Business Dashboards</strong><p>Real-time intelligence dashboards powered by your operational data.</p></div>
+    <div class="service-card"><strong>Website &amp; Portal Builds</strong><p>Fast, conversion-focused websites and client-facing portals.</p></div>
+    <div class="service-card"><strong>DevOps &amp; Monitoring</strong><p>CI/CD pipelines, health monitoring, alerting, and incident recovery.</p></div>
+    <div class="service-card"><strong>Digital Growth Strategy</strong><p>Data-driven strategy to acquire, convert, and retain customers at scale.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p>© 2026 Aliyar Solutions &nbsp;·&nbsp; <a href="mailto:info@aliyarsolutions.com">info@aliyarsolutions.com</a> &nbsp;·&nbsp; <a href="/control-room/dashboard">Team Login</a></p>
+</footer>
+
+</body>
+</html>

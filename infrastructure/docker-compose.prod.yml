@@ -212,13 +212,12 @@ services:
     <<: [*restart, *logging]
     image: prom/alertmanager:latest
     container_name: jarvis_alertmanager_prod
-    command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
+    entrypoint: ["/bin/sh", "/etc/alertmanager/alertmanager-entrypoint.sh"]
     environment:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
     volumes:
       - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../monitoring/alertmanager-entrypoint.sh:/etc/alertmanager/alertmanager-entrypoint.sh:ro
       - alertmanager_data:/alertmanager
     ports:
       - "127.0.0.1:9093:9093"

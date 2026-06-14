@@ -93,13 +93,21 @@ jobs:
             --query taskDefinition \
             > task-def.json
 
-      - name: Update image in task definition
-        id: task_def
+      - name: Update backend image in task definition
+        id: task_def_backend
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-def.json
           container-name:  backend
           image:           ${{ needs.build.outputs.backend_image }}
+
+      - name: Update frontend image in task definition
+        id: task_def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.task_def_backend.outputs.task-definition }}
+          container-name:  frontend
+          image:           ${{ needs.build.outputs.frontend_image }}
 
       - name: Deploy to ECS — Blue/Green rolling update
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1

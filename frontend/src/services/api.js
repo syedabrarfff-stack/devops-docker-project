@@ -293,7 +293,6 @@ export const validateAionxSalesAccuracy = (proposalId, payload) => api.post(`/ap
 export const validateAionxClientFit = (clientId, payload) => api.post(`/api/v1/aionx/cross-validation/client-fit/${clientId}`, payload).then(r => r.data)
 export const validateAionxStageTransition = (subjectId, payload) => api.post(`/api/v1/aionx/cross-validation/stage-transition/${subjectId}`, payload).then(r => r.data)
 export const getBatch1Workflow = () => api.get('/api/v1/batch1/workflow').then(r => r.data)
-export const getBatch1Board = () => api.get('/api/v1/batch1/board').then(r => r.data)
 export const getAxiomOperatingModel = () => api.get('/api/v1/departments/axiom/operating-model').then(r => r.data)
 export const getAxiomPulse = () => api.get('/api/v1/departments/axiom/pulse').then(r => r.data)
 
@@ -414,8 +413,6 @@ export const bulkDiscoverLeads  = (limit = 200, tenantId) => api.post('/api/v1/l
 export const batchImportLeads   = (leadsData, tenantId) => api.post('/api/v1/leads/batch-import', leadsData, { params: tenantId ? { tenant_id: tenantId } : {}, timeout: 120000 }).then(r => r.data)
 export const discoverLeadsApollo = (payload) => api.post('/api/v1/leads/discover', payload, { timeout: 90000 }).then(r => r.data)
 export const syncLeadsToHubSpot  = (tenantId) => api.post('/api/v1/crm/hubspot-sync', { tenant_id: tenantId }).then(r => r.data)
-export const getLeadStats        = () => api.get('/api/v1/leads/stats').then(r => r.data)
-
 // AIONX System Intelligence
 export const getSystemHUD       = () => api.get('/api/v1/system/hud').then(r => r.data)
 export const getFrontierStatus  = () => api.get('/api/v1/frontier/status').then(r => r.data)

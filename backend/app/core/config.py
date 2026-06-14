@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     NOTION_API_KEY: Optional[str] = None
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     WISE_API_KEY: Optional[str] = None
     PAYPAL_ENABLED: bool = False
     BANK_TRANSFER_ENABLED: bool = True
