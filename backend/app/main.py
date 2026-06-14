@@ -37,6 +37,57 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"DB init skipped: {e}")
 
+    # ── Bootstrap master tenant (idempotent) ─────────────────────────────────
+    try:
+        import uuid as _uuid
+        from app.core.database import AsyncSessionLocal
+        from app.models.tenant import Tenant, PlanTier
+        from sqlalchemy import select
+
+        async with AsyncSessionLocal() as db:
+            configured_id = settings.JARVIS_DEFAULT_TENANT_ID
+            tenant = None
+
+            if configured_id:
+                try:
+                    result = await db.execute(select(Tenant).where(Tenant.id == _uuid.UUID(configured_id)))
+                    tenant = result.scalar_one_or_none()
+                except Exception:
+                    pass
+
+            if tenant is None:
+                result = await db.execute(
+                    select(Tenant)
+                    .where(Tenant.is_active.is_(True))
+                    .order_by(Tenant.created_at.asc())
+                    .limit(1)
+                )
+                tenant = result.scalar_one_or_none()
+
+            if tenant is None:
+                tid = _uuid.UUID(configured_id) if configured_id else _uuid.uuid4()
+                tenant = Tenant(
+                    id=tid,
+                    tenant_id=tid,
+                    name=settings.COMPANY_NAME,
+                    slug="aliyar-solutions",
+                    plan_tier=PlanTier.ENTERPRISE,
+                    api_key_hash=None,
+                    settings={"limits": {"max_leads": None, "max_agents": None, "max_ai_calls": None}},
+                    is_active=True,
+                )
+                db.add(tenant)
+                await db.commit()
+                await db.refresh(tenant)
+                logger.info("✅ Master tenant bootstrapped — %s [%s]", tenant.name, tenant.id)
+
+            if not settings.JARVIS_DEFAULT_TENANT_ID:
+                settings.JARVIS_DEFAULT_TENANT_ID = str(tenant.id)
+                logger.info("✅ JARVIS_DEFAULT_TENANT_ID auto-set → %s", tenant.id)
+
+    except Exception as e:
+        logger.warning("Tenant bootstrap skipped: %s", e)
+
     # ── Auto-seed service catalog (idempotent — skips if already seeded) ──────
     try:
         from app.core.database import AsyncSessionLocal
