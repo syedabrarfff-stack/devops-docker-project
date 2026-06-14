@@ -260,6 +260,7 @@ export default function Dashboard() {
     operatingIntelligence: null,
     communication: null,
     team: [],
+    credentials: null,
   })
 
   const fetchDashboard = useCallback(async ({ soft = false } = {}) => {
@@ -293,6 +294,7 @@ export default function Dashboard() {
         { key: 'operatingIntelligence', run: () => api.get('/api/v1/aionx/operating-intelligence') },
         { key: 'communication', run: () => api.get('/api/v1/communication/status') },
         { key: 'team', run: () => api.get('/api/v1/team/members') },
+        { key: 'credentials', run: () => api.get('/api/v1/ai-ops/credentials') },
       ]
 
       const results = await Promise.allSettled(requests.map((request) => request.run()))
@@ -340,6 +342,7 @@ export default function Dashboard() {
         operatingIntelligence: value(22, null),
         communication: value(23, null),
         team: safeArray(value(24, []), 'members'),
+        credentials: value(25, null),
       })
     } finally {
       setLoading(false)
@@ -428,6 +431,12 @@ export default function Dashboard() {
   const sesConnected = !!data.communication?.ses?.connected
   const whatsappConnected = !!data.communication?.whatsapp?.connected
   const communicationLiveCount = [sesConnected, whatsappConnected].filter(Boolean).length
+  const criticalMissingCreds = data.credentials?.critical_missing || 0
+  const highMissingCreds = data.credentials?.high_missing || 0
+  const missingCredNames = (data.credentials?.checks || [])
+    .filter((c) => !c.configured && (c.severity === 'critical' || c.severity === 'high'))
+    .map((c) => c.name)
+    .slice(0, 5)
 
   if (loading) {
     return (
@@ -485,6 +494,30 @@ export default function Dashboard() {
                   </span>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {criticalMissingCreds > 0 && (
+        <div className="glass border border-red-400/30 bg-red-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="mt-0.5 text-red-300 flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-red-100">
+                {criticalMissingCreds} critical credential{criticalMissingCreds !== 1 ? 's' : ''} missing
+                {highMissingCreds > 0 ? ` + ${highMissingCreds} high-priority` : ''} — system running in limited mode
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {missingCredNames.map((name) => (
+                  <span key={name} className="rounded-full border border-red-400/20 bg-black/20 px-3 py-1 text-xs text-red-200">
+                    {name}
+                  </span>
+                ))}
+              </div>
+              <button onClick={() => setActiveView('settings')} className="mt-2 text-xs text-red-200 hover:text-white underline underline-offset-2">
+                Open Settings to configure →
+              </button>
             </div>
           </div>
         </div>
