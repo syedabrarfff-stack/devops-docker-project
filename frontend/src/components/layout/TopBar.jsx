@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic, MicOff, Volume2, VolumeX, Bell, X } from 'lucide-react'
+import { LogOut, Mic, MicOff, Volume2, VolumeX, Bell, X } from 'lucide-react'
 import { format } from 'date-fns'
 import useJarvisStore from '../../store/useJarvisStore'
 import voiceService from '../../services/voice'
@@ -273,6 +273,21 @@ export default function TopBar() {
              title={effectiveStatus.detail}>
           <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[effectiveStatus.level] || dotStyles.degraded}`} />
           {effectiveStatus.label}
+        </div>
+
+        {/* Captain badge + logout */}
+        <div className="flex items-center gap-2 pl-1">
+          <div className="flex items-center gap-1.5 rounded-full border border-[#00C8FF]/20 bg-[#00C8FF]/5 px-3 py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00C8FF]" />
+            <span className="text-[11px] font-bold tracking-[0.12em] text-[#00C8FF]/80">CAPTAIN</span>
+          </div>
+          <button
+            title="Sign out"
+            onClick={() => { localStorage.removeItem('jarvis_auth'); window.location.reload() }}
+            className="p-1.5 rounded-lg text-white/30 hover:text-red-400 transition-colors"
+          >
+            <LogOut size={14} />
+          </button>
         </div>
       </div>
     </header>

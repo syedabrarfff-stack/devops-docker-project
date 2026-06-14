@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
+import LoginPage from './components/auth/LoginPage'
 import Dashboard from './components/dashboard/Dashboard'
 import ChatInterface from './components/chat/ChatInterface'
 import MorningBriefing from './components/briefing/MorningBriefing'
@@ -188,6 +189,24 @@ function PublicWebsite() {
   )
 }
 
+function isAuthed() {
+  try {
+    const raw = localStorage.getItem('jarvis_auth')
+    if (!raw) return false
+    const { at } = JSON.parse(raw)
+    // Session lasts 7 days
+    return Date.now() - at < 7 * 24 * 60 * 60 * 1000
+  } catch {
+    return false
+  }
+}
+
+function AuthGate({ children }) {
+  const [authed, setAuthed] = useState(isAuthed)
+  if (!authed) return <LoginPage onLogin={() => setAuthed(true)} />
+  return children
+}
+
 function AppShell() {
   const { activeView, setActiveView, connectWS } = useJarvisStore()
   const location = useLocation()
@@ -241,8 +260,18 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<PublicWebsite />} />
+        {/* Legacy /command URL — redirect to control room */}
+        <Route path="/command" element={<Navigate to={VIEWS.dashboard.path} replace />} />
+        <Route path="/command/*" element={<Navigate to={VIEWS.dashboard.path} replace />} />
         <Route path="/control-room" element={<Navigate to={VIEWS.dashboard.path} replace />} />
-        <Route path="/control-room/*" element={<AppShell />} />
+        <Route
+          path="/control-room/*"
+          element={
+            <AuthGate>
+              <AppShell />
+            </AuthGate>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
