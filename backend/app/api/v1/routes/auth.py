@@ -1,15 +1,47 @@
-"""Legacy auth routes retained for compatibility.
+"""Auth routes — captain login and legacy Gmail OAuth compatibility stubs."""
+from datetime import datetime, timedelta, timezone
 
-The outbound email architecture has moved to AWS SES, so legacy mailbox OAuth
-endpoints are now deprecated and disabled.
-"""
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.services.outreach.email_transport import get_outbound_email_status
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@router.post("/login")
+async def captain_login(req: LoginRequest):
+    """Authenticate Captain and return a signed JWT for subsequent API calls."""
+    if (
+        req.username.strip().lower() != settings.CAPTAIN_USERNAME.lower()
+        or req.password != settings.CAPTAIN_PASSWORD
+    ):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": "captain",
+        "tenant_id": settings.JARVIS_DEFAULT_TENANT_ID or "captain",
+        "role": "captain",
+        "iat": now,
+        "exp": now + timedelta(days=7),
+    }
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    return {
+        "token": token,
+        "user": "captain",
+        "expires_in_days": 7,
+        "system": "JARVIS",
+    }
 
 
 @router.get("/gmail/status")

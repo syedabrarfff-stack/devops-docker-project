@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = "change-this-in-production"
     CAPTAIN_ADMIN_TOKEN: Optional[str] = None
+    # Captain authentication — override in production .env
+    CAPTAIN_USERNAME: str = "captain"
+    CAPTAIN_PASSWORD: str = "nuhabrar7"
     APP_BASE_URL: str = "http://localhost:8000"
     JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
     PILOT_READY: bool = True

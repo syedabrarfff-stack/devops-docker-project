@@ -2,8 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Loader2, Lock, Shield, User, Zap } from 'lucide-react'
 
-const CAPTAIN_USER = 'captain'
-const CAPTAIN_PASS = 'nuhabrar7'
+const LOGIN_URL = (import.meta.env.DEV ? 'http://localhost:8000' : '') + '/api/v1/auth/login'
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('')
@@ -17,19 +16,30 @@ export default function LoginPage({ onLogin }) {
     setError('')
     setLoading(true)
 
-    await new Promise((r) => setTimeout(r, 600))
+    try {
+      const res = await fetch(LOGIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim().toLowerCase(), password }),
+      })
 
-    if (
-      username.trim().toLowerCase() === CAPTAIN_USER &&
-      password === CAPTAIN_PASS
-    ) {
-      localStorage.setItem('jarvis_auth', JSON.stringify({ user: 'captain', at: Date.now() }))
-      onLogin()
-    } else {
-      setBlink(true)
-      setTimeout(() => setBlink(false), 400)
-      setError('Access denied. Verify your credentials.')
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('jarvis_auth', JSON.stringify({
+          user: 'captain',
+          at: Date.now(),
+          token: data.token || null,
+        }))
+        onLogin()
+      } else {
+        setBlink(true)
+        setTimeout(() => setBlink(false), 400)
+        setError('Access denied. Verify your credentials.')
+      }
+    } catch (_) {
+      setError('JARVIS backend unreachable. Check your connection.')
     }
+
     setLoading(false)
   }
 

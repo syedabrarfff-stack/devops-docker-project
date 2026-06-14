@@ -61,6 +61,17 @@ api.interceptors.request.use((config) => {
       config.url = `${API_PREFIX}${url}`
     }
   }
+  // Attach captain JWT if present
+  try {
+    const raw = localStorage.getItem('jarvis_auth')
+    if (raw) {
+      const { token } = JSON.parse(raw)
+      if (token) {
+        config.headers = config.headers || {}
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    }
+  } catch (_) {}
   return config
 })
 

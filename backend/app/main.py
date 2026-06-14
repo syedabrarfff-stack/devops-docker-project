@@ -250,8 +250,8 @@ async def readyz():
             "active": available,
             "configured_providers": configured,
         }
-        if not available:
-            overall_ok = False
+        # AI providers unavailable = degraded, not a hard failure.
+        # System can still serve DB, leads, outreach scheduling, and CRM operations.
     except Exception as e:
         checks["ai_providers"] = {"status": "error", "error": str(e)}
 
