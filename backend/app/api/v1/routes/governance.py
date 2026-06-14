@@ -157,6 +157,27 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncS
 
 # ── Autonomous Approval Stats ────────────────────────────────────────────────
 
+@router.post("/test-workflow")
+async def run_test_workflow(
+    prospect_name: str = "Test Prospect Inc",
+    prospect_email: str = "test@prospect.com",
+    deal_value: float = 3500,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Run complete lead→proposal→invoice→payment test workflow.
+    Validates entire autonomous acquisition cycle.
+    """
+    from app.services.governance.test_workflow import run_full_client_workflow_test
+    result = await run_full_client_workflow_test(
+        test_prospect_name=prospect_name,
+        test_prospect_email=prospect_email,
+        estimated_deal_value=deal_value,
+        db=db,
+    )
+    return result
+
+
 @router.get("/auto-approval-stats")
 async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func

@@ -349,6 +349,104 @@ function ProposalsTab() {
   )
 }
 
+// ── System Test Tab ──────────────────────────────────────────────────────────
+function SystemTestTab() {
+  const [testing, setTesting] = useState(false)
+  const [result, setResult] = useState(null)
+  const [testForm, setTestForm] = useState({
+    prospect_name: "Acme Test Corp",
+    prospect_email: "test@acme.example.com",
+    deal_value: 3500,
+  })
+
+  async function runTest() {
+    setTesting(true)
+    try {
+      const data = await api.post("/api/v1/governance/test-workflow", testForm).then(r => r.data)
+      setResult(data)
+    } catch (e) {
+      setResult({ status: "failed", error: e.response?.data?.detail || e.message })
+    }
+    setTesting(false)
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="glass rounded-xl p-5 border border-blue-500/20">
+        <h3 className="text-sm font-semibold text-blue-300 mb-4">End-to-End Workflow Test</h3>
+        <p className="text-xs text-gray-400 mb-4">Simulates complete cycle: lead → proposal → invoice → payment</p>
+        <div className="space-y-3 mb-4">
+          <input
+            value={testForm.prospect_name}
+            onChange={e => setTestForm(f => ({...f, prospect_name: e.target.value}))}
+            placeholder="Prospect name"
+            className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white placeholder-gray-500 text-sm"
+          />
+          <input
+            value={testForm.prospect_email}
+            onChange={e => setTestForm(f => ({...f, prospect_email: e.target.value}))}
+            placeholder="Email"
+            className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white placeholder-gray-500 text-sm"
+          />
+          <input
+            type="number"
+            value={testForm.deal_value}
+            onChange={e => setTestForm(f => ({...f, deal_value: parseFloat(e.target.value)}))}
+            placeholder="Estimated deal value"
+            className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white placeholder-gray-500 text-sm"
+          />
+        </div>
+        <button
+          onClick={runTest}
+          disabled={testing}
+          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded font-medium text-sm">
+          {testing ? "Running test..." : "Run Full Workflow Test"}
+        </button>
+      </div>
+
+      {result && (
+        <div className={`glass rounded-xl p-5 border ${result.status === 'completed' ? 'border-green-500/20' : 'border-red-500/20'}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`text-lg ${result.status === 'completed' ? '✓' : '✗'}`}></span>
+            <p className={`font-semibold ${result.status === 'completed' ? 'text-green-400' : 'text-red-400'}`}>
+              {result.message}
+            </p>
+          </div>
+
+          {result.prospect && (
+            <div className="space-y-2 text-xs text-gray-400 mb-4">
+              <p><span className="text-gray-500">Prospect:</span> {result.prospect.name}</p>
+              <p><span className="text-gray-500">Email:</span> {result.prospect.email}</p>
+              <p><span className="text-gray-500">Deal value:</span> ${result.prospect.estimated_value}</p>
+            </div>
+          )}
+
+          {result.proposal && (
+            <div className="space-y-2 text-xs text-gray-400 mb-4">
+              <p><span className="text-gray-500">Proposal ID:</span> {result.proposal.proposal_id}</p>
+              <p><span className="text-gray-500">Auto-approved:</span> {result.proposal.auto_approved ? '✓ Yes' : '○ Pending'}</p>
+            </div>
+          )}
+
+          {result.invoice && (
+            <div className="space-y-2 text-xs text-gray-400 mb-4">
+              <p><span className="text-gray-500">Invoice:</span> {result.invoice.invoice_number}</p>
+              <p><span className="text-gray-500">Amount:</span> ${result.invoice.total}</p>
+              <p><span className="text-gray-500">Status:</span> {result.invoice.status}</p>
+            </div>
+          )}
+
+          {result.error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded p-3">
+              <p className="text-xs text-red-300">{result.error}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Incidents Tab ─────────────────────────────────────────────────────────────
 function IncidentsTab() {
   const [incidents, setIncidents] = useState([])
@@ -495,6 +593,7 @@ export default function GovernanceDashboard() {
     { id: "invoices",  label: "Invoices" },
     { id: "proposals", label: "Proposals" },
     { id: "incidents", label: "Incidents" },
+    { id: "test",      label: "System Test" },
   ]
 
   return (
@@ -542,6 +641,7 @@ export default function GovernanceDashboard() {
       {tab === "invoices"  && <InvoicesTab />}
       {tab === "proposals" && <ProposalsTab />}
       {tab === "incidents" && <IncidentsTab />}
+      {tab === "test"      && <SystemTestTab />}
     </div>
   )
 }
