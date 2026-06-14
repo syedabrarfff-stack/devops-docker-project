@@ -25,9 +25,9 @@ class StripeValidator:
         if not self.secret_key:
             issues["secret_key_missing"] = True
             logger.error("STRIPE_SECRET_KEY not configured — payments cannot be processed")
-        elif not self.secret_key.startswith(("sk_live_", "sk_test_")):
+        elif not self.secret_key.startswith(("sk_live_", "sk_test_", "rk_live_", "rk_test_")):
             issues["secret_key_invalid_format"] = True
-            logger.error("STRIPE_SECRET_KEY has invalid format (should start with sk_live_ or sk_test_)")
+            logger.error("STRIPE_SECRET_KEY has invalid format (should start with sk_live_, sk_test_, or rk_test_)")
 
         if not self.webhook_secret:
             issues["webhook_secret_missing"] = True
