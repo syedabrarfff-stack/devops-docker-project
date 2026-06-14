@@ -139,11 +139,11 @@ async def send_outreach_email(
 
     try:
         # Send via SES
-        from app.services.email.ses_service import send_email
-        await send_email(
+        from app.services.outreach.email_transport import send_outbound_email
+        await send_outbound_email(
             to=lead_email,
             subject=subject,
-            html_body=body.replace("\n", "<br>"),
+            body=body,
             reply_to=settings.SES_REPLY_TO_EMAIL or settings.SES_FROM_EMAIL,
         )
 

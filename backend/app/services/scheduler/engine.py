@@ -531,7 +531,7 @@ async def _job_overnight_proposal_engine() -> None:
         from app.services.ai.router import ai_router
         from app.services.memory.manager import store_memory
         from sqlalchemy import select, and_
-        from app.models.leads import Lead
+        from app.models.lead import Lead
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Lead)
