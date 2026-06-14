@@ -239,10 +239,10 @@ app.add_middleware(RequestContextMiddleware)
 app.add_middleware(ObservabilityRefreshMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(","),
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Request-ID", "X-Tenant-ID", "X-API-Key"],
 )
 
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

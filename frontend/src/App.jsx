@@ -1,6 +1,38 @@
-import React, { useEffect, useState } from 'react'
+import React, { Component, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  componentDidCatch(error, info) {
+    console.error('[JARVIS] Unhandled React error:', error, info)
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-black text-white p-8">
+          <div className="max-w-lg text-center space-y-4">
+            <p className="text-2xl font-bold text-red-400">JARVIS encountered an error</p>
+            <p className="text-sm text-gray-400">{this.state.error?.message}</p>
+            <button
+              onClick={() => { this.setState({ error: null }); window.location.reload() }}
+              className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded text-sm"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
 import LoginPage from './components/auth/LoginPage'
@@ -257,23 +289,27 @@ function AppShell() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<PublicWebsite />} />
-        {/* Legacy /command URL — redirect to control room */}
-        <Route path="/command" element={<Navigate to={VIEWS.dashboard.path} replace />} />
-        <Route path="/command/*" element={<Navigate to={VIEWS.dashboard.path} replace />} />
-        <Route path="/control-room" element={<Navigate to={VIEWS.dashboard.path} replace />} />
-        <Route
-          path="/control-room/*"
-          element={
-            <AuthGate>
-              <AppShell />
-            </AuthGate>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<PublicWebsite />} />
+          {/* Legacy /command URL — redirect to control room */}
+          <Route path="/command" element={<Navigate to={VIEWS.dashboard.path} replace />} />
+          <Route path="/command/*" element={<Navigate to={VIEWS.dashboard.path} replace />} />
+          <Route path="/control-room" element={<Navigate to={VIEWS.dashboard.path} replace />} />
+          <Route
+            path="/control-room/*"
+            element={
+              <ErrorBoundary>
+                <AuthGate>
+                  <AppShell />
+                </AuthGate>
+              </ErrorBoundary>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }

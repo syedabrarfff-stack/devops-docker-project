@@ -183,6 +183,170 @@ services:
     networks:
       - jarvis_prod
 
+  # ─── Prometheus (metrics) ──────────────────────────────────────────────────
+  prometheus:
+    <<: [*restart, *logging]
+    image: prom/prometheus:latest
+    container_name: jarvis_prometheus_prod
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  # ─── Alertmanager (routing alerts → Slack) ────────────────────────────────
+  alertmanager:
+    <<: [*restart, *logging]
+    image: prom/alertmanager:latest
+    container_name: jarvis_alertmanager_prod
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    environment:
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    volumes:
+      - ../monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  # ─── Grafana (dashboards) ─────────────────────────────────────────────────
+  grafana:
+    <<: [*restart, *logging]
+    image: grafana/grafana:latest
+    container_name: jarvis_grafana_prod
+    environment:
+      GF_SECURITY_ADMIN_USER:     ${GRAFANA_ADMIN_USER:-captain}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-CHANGE_ME_IN_ENV}
+      GF_SERVER_ROOT_URL:         "%(protocol)s://%(domain)s/grafana"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP:     "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
+  # ─── Loki (log aggregation) ───────────────────────────────────────────────
+  loki:
+    <<: [*restart, *logging]
+    image: grafana/loki:latest
+    container_name: jarvis_loki_prod
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ../monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  # ─── Promtail (log shipper) ───────────────────────────────────────────────
+  promtail:
+    <<: [*restart, *logging]
+    image: grafana/promtail:latest
+    container_name: jarvis_promtail_prod
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ../monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+
+  # ─── Node Exporter (host metrics) ─────────────────────────────────────────
+  node-exporter:
+    <<: [*restart, *logging]
+    image: prom/node-exporter:latest
+    container_name: jarvis_node_exporter_prod
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "127.0.0.1:9100:9100"
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.1"
+
+  # ─── Postgres Exporter ────────────────────────────────────────────────────
+  postgres-exporter:
+    <<: [*restart, *logging]
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: jarvis_pg_exporter_prod
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jarvis}?sslmode=disable
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.1"
+
+  # ─── Redis Exporter ───────────────────────────────────────────────────────
+  redis-exporter:
+    <<: [*restart, *logging]
+    image: oliver006/redis_exporter:latest
+    container_name: jarvis_redis_exporter_prod
+    environment:
+      REDIS_ADDR:     redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-jarvis_redis_secret}
+    networks:
+      - jarvis_prod
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.1"
+
 volumes:
   postgres_data:
     name: jarvis_postgres_prod_data
@@ -192,6 +356,14 @@ volumes:
     name: jarvis_certbot_www
   certbot_conf:
     name: jarvis_certbot_conf
+  prometheus_data:
+    name: jarvis_prometheus_prod_data
+  alertmanager_data:
+    name: jarvis_alertmanager_prod_data
+  grafana_data:
+    name: jarvis_grafana_prod_data
+  loki_data:
+    name: jarvis_loki_prod_data
 
 networks:
   jarvis_prod:

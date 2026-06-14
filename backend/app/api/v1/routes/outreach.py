@@ -353,9 +353,31 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
     from sqlalchemy import select
     from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
 
+    import ipaddress
+    from urllib.parse import urlparse
+
     destination = unquote(url or "").strip()
     if not destination.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid redirect URL")
+
+    # SSRF guard — block AWS metadata, private/loopback addresses
+    _BLOCKED_HOSTS = {"169.254.169.254", "metadata.google.internal", "localhost"}
+    try:
+        parsed = urlparse(destination)
+        host = (parsed.hostname or "").lower()
+        if host in _BLOCKED_HOSTS:
+            raise HTTPException(status_code=400, detail="Redirect target not allowed")
+        try:
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise HTTPException(status_code=400, detail="Redirect target not allowed")
+        except ValueError:
+            pass  # hostname string, not IP — allow
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid redirect URL")
+
     now = datetime.now(UTC)
     outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
     if outreach:

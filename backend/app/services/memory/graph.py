@@ -379,13 +379,24 @@ async def _seed_catalog_if_empty(session) -> None:
     await session.flush()
 
 
+_VECTOR_TABLE_WHITELIST = frozenset({
+    "memory_graph_nodes",
+    "memory_operational",
+    "memory_strategic",
+    "memories",
+    "civilization_memory",
+})
+
+
 async def _write_vector_embedding(session, table_name: str, row_id: uuid.UUID, embedding: list[float]) -> None:
     if settings.DATABASE_URL.startswith("sqlite"):
         return
+    if table_name not in _VECTOR_TABLE_WHITELIST:
+        raise ValueError(f"table_name '{table_name}' is not whitelisted for vector embedding writes")
     try:
         await session.execute(
             text(
-                f"UPDATE {table_name} "
+                f"UPDATE {table_name} "  # noqa: S608 — table_name whitelisted above
                 "SET embedding_vector = CAST(:embedding AS vector) "
                 "WHERE id = CAST(:row_id AS uuid)"
             ),

@@ -6,43 +6,150 @@ groups:
         for: 1m
         labels:
           severity: critical
+          service: backend
         annotations:
           summary: "JARVIS backend is DOWN"
-          description: "Backend has been unreachable for more than 1 minute."
+          description: "Backend has been unreachable for more than 1 minute. Revenue operations halted."
 
       - alert: HighCPU
         expr: rate(process_cpu_seconds_total[5m]) * 100 > 85
         for: 5m
         labels:
           severity: warning
+          service: backend
         annotations:
           summary: "High CPU usage on JARVIS backend"
-          description: "CPU has been above 85% for 5 minutes."
+          description: "CPU has been above 85% for 5 minutes. May indicate runaway task."
 
       - alert: PostgresDown
         expr: up{job="postgres"} == 0
         for: 1m
         labels:
           severity: critical
+          service: postgres
         annotations:
           summary: "PostgreSQL database is DOWN"
+          description: "All JARVIS operations requiring data persistence are unavailable."
 
       - alert: RedisDown
         expr: up{job="redis"} == 0
         for: 1m
         labels:
           severity: critical
+          service: redis
         annotations:
           summary: "Redis cache is DOWN"
+          description: "Session cache, rate limiting, and async task queue are unavailable."
 
       - alert: HighMemory
         expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
         for: 5m
         labels:
           severity: warning
+          service: host
         annotations:
           summary: "High memory usage"
-          description: "Memory usage above 90% for 5 minutes."
+          description: "Memory usage above 90% for 5 minutes. Risk of OOM kill."
+
+      - alert: CriticalMemory
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 97
+        for: 2m
+        labels:
+          severity: critical
+          service: host
+        annotations:
+          summary: "Critical memory usage — OOM imminent"
+          description: "Memory above 97%. System may crash within minutes."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          service: host
+        annotations:
+          summary: "Low disk space"
+          description: "Root filesystem has less than 20% free. PostgreSQL WAL and logs will fill it."
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          service: host
+        annotations:
+          summary: "CRITICAL: disk space below 10%"
+          description: "Database writes and log rotation may fail. Immediate action required."
+
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: nginx
+        annotations:
+          summary: "Nginx reverse proxy is DOWN"
+          description: "All external traffic is blocked. aliyarsolutions.com is unreachable."
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="jarvis-backend"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High API response time (p95 > 5s)"
+          description: "95th percentile API latency is above 5 seconds. Client-facing degradation."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="jarvis-backend",status=~"5.."}[5m]) / rate(http_requests_total{job="jarvis-backend"}[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          service: backend
+        annotations:
+          summary: "High backend error rate (>5%)"
+          description: "More than 5% of API requests are returning 5xx errors."
+
+      - alert: PostgresConnectionsHigh
+        expr: pg_stat_database_numbackends{datname="jarvis"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "PostgreSQL connection count high"
+          description: "More than 80 active connections. Risk of connection pool exhaustion."
+
+      - alert: PostgresDiskHigh
+        expr: pg_database_size_bytes{datname="jarvis"} > 8589934592
+        for: 10m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "PostgreSQL database size > 8GB"
+          description: "Database growing large. Consider archiving old outreach data."
+
+      - alert: SSLCertExpiringSoon
+        expr: (ssl_certificate_expiry_seconds - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          service: nginx
+        annotations:
+          summary: "SSL certificate expiring in less than 30 days"
+          description: "Let's Encrypt renewal may have failed. Check certbot logs."
+
+      - alert: SSLCertExpiryCritical
+        expr: (ssl_certificate_expiry_seconds - time()) / 86400 < 7
+        for: 30m
+        labels:
+          severity: critical
+          service: nginx
+        annotations:
+          summary: "SSL certificate expiring in less than 7 DAYS"
+          description: "URGENT: Certificate will expire soon. aliyarsolutions.com will show security warnings."
 
   - name: jarvis.ai
     rules:
@@ -51,15 +158,49 @@ groups:
         for: 2m
         labels:
           severity: critical
+          service: ai
         annotations:
           summary: "All AI providers are unavailable"
-          description: "No AI providers are responding. JARVIS intelligence is offline."
+          description: "No AI providers responding. Proposal generation and outreach degraded to templates."
 
       - alert: AICostSurge
         expr: jarvis_ai_daily_cost_usd > 50
         for: 1m
         labels:
           severity: warning
+          service: ai
         annotations:
           summary: "AI cost surge detected"
-          description: "Daily AI spending has exceeded $50. Captain review required."
+          description: "Daily AI spending has exceeded $50. Captain review required immediately."
+
+      - alert: AICostCritical
+        expr: jarvis_ai_daily_cost_usd > 100
+        for: 1m
+        labels:
+          severity: critical
+          service: ai
+        annotations:
+          summary: "AI cost exceeded $100/day"
+          description: "Daily AI spending is critical. Possible runaway loop or abuse. Check immediately."
+
+  - name: jarvis.business
+    rules:
+      - alert: ApprovalsBacklogHigh
+        expr: jarvis_approvals_pending > 10
+        for: 30m
+        labels:
+          severity: warning
+          service: workflow
+        annotations:
+          summary: "High approval backlog"
+          description: "{{ $value }} approvals pending. Captain action required to unblock pipeline."
+
+      - alert: OutreachQueueStalled
+        expr: increase(jarvis_leads_discovered_total[24h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: outreach
+        annotations:
+          summary: "No new leads discovered in 24 hours"
+          description: "Lead discovery may have stalled. Check scheduler and Apollo API key."

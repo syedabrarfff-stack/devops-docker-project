@@ -71,7 +71,10 @@ api.interceptors.request.use((config) => {
         config.headers.Authorization = `Bearer ${token}`
       }
     }
-  } catch (_) {}
+  } catch (err) {
+    console.warn('[JARVIS] Could not parse stored auth token — clearing session', err)
+    localStorage.removeItem('jarvis_auth')
+  }
   return config
 })
 

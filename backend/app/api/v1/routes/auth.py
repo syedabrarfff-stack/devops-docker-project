@@ -1,8 +1,9 @@
 """Auth routes — captain login and legacy Gmail OAuth compatibility stubs."""
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,14 +18,22 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+    @field_validator("username", "password")
+    @classmethod
+    def no_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        return v
+
 
 @router.post("/login")
 async def captain_login(req: LoginRequest):
     """Authenticate Captain and return a signed JWT for subsequent API calls."""
-    if (
-        req.username.strip().lower() != settings.CAPTAIN_USERNAME.lower()
-        or req.password != settings.CAPTAIN_PASSWORD
-    ):
+    username_ok = secrets.compare_digest(
+        req.username.strip().lower(), settings.CAPTAIN_USERNAME.lower()
+    )
+    password_ok = secrets.compare_digest(req.password, settings.CAPTAIN_PASSWORD)
+    if not (username_ok and password_ok):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     now = datetime.now(timezone.utc)
@@ -32,8 +41,9 @@ async def captain_login(req: LoginRequest):
         "sub": "captain",
         "tenant_id": settings.JARVIS_DEFAULT_TENANT_ID or "captain",
         "role": "captain",
-        "iat": now,
-        "exp": now + timedelta(days=7),
+        "jti": secrets.token_hex(16),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(days=7)).timestamp()),
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {
