@@ -108,17 +108,19 @@ jobs:
 
           else
             # full-restart — clone if missing, install docker-compose, build, migrate, trigger
-            CMDS='["set -e",
+            # NOTE: No 'set -e' here — we want to capture all output even on failure.
+            # Each critical step is individually gated with explicit exit codes.
+            CMDS='[
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && [ -f /opt/jarvis/infrastructure/docker-compose.yml ] && DEPLOY_DIR=/opt/jarvis || true",
               "if [ ! -f $DEPLOY_DIR/infrastructure/docker-compose.yml ]; then apt-get install -y git curl 2>/dev/null || true; git clone https://github.com/syedabrarfff-stack/devops-docker-project.git /opt/jarvis 2>&1 | tail -3; DEPLOY_DIR=/opt/jarvis; fi",
               "which docker-compose 2>/dev/null || (curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose)",
               "echo === DEPLOY DIR: $DEPLOY_DIR ===",
               "cd $DEPLOY_DIR",
-              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git fetch attempt $i/5 failed, retrying in 20s...\" && sleep 20); done",
+              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git fetch attempt $i/5 failed\" && sleep 20); done",
               "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1 || true",
-              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git pull attempt $i/5 failed, retrying in 20s...\" && sleep 20); done",
-              "echo === LATEST COMMIT: $(git log --oneline -1) ===",
+              "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git pull attempt $i/5 failed\" && sleep 20); done",
+              "echo === LATEST: $(git log --oneline -1) ===",
               "[ -f $DEPLOY_DIR/.env ] || cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env",
               "mkdir -p $DEPLOY_DIR/jarvis-data/daily $DEPLOY_DIR/jarvis-data/outputs",
               "cd $DEPLOY_DIR/infrastructure",
@@ -126,22 +128,26 @@ jobs:
               "docker stop jarvis_backend jarvis_nginx 2>/dev/null || true",
               "docker rm jarvis_backend jarvis_nginx 2>/dev/null || true",
               "echo === STARTING DEPS ===",
-              "docker-compose -p jarvis up -d postgres redis 2>&1 | tail -5",
-              "sleep 20",
+              "docker-compose -p jarvis up -d postgres redis 2>&1 | tail -3",
+              "sleep 15",
               "echo === REBUILDING BACKEND ===",
-              "docker-compose -p jarvis build backend 2>&1 && echo BUILD_OK || (echo BUILD_FAILED && exit 1)",
-              "docker-compose -p jarvis up -d --no-deps backend 2>&1 | tail -5",
+              "docker-compose -p jarvis build --no-cache backend 2>&1 | tail -20 && echo BUILD_OK || echo BUILD_FAILED",
+              "docker-compose -p jarvis up -d --no-deps backend 2>&1 | tail -3",
               "echo === REBUILDING NGINX ===",
-              "docker-compose -p jarvis up -d --no-deps --build nginx 2>&1 | tail -5",
+              "docker-compose -p jarvis up -d --no-deps --build nginx 2>&1 | tail -3",
               "echo === WAITING FOR BACKEND STARTUP ===",
-              "sleep 40",
+              "sleep 45",
+              "echo === BACKEND CONTAINER STATUS ===",
+              "docker inspect jarvis_backend --format={{.State.Status}} 2>/dev/null || echo no_container",
               "echo === RUNNING ALEMBIC MIGRATIONS ===",
-              "docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 || docker exec jarvis_backend alembic upgrade head 2>&1 || echo MIGRATION_ATTEMPTED",
+              "docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -10 || docker exec jarvis_backend alembic upgrade head 2>&1 | tail -10 || echo MIGRATION_ATTEMPTED",
               "sleep 5",
               "echo === HEALTH CHECKS ===",
               "curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL",
-              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || (echo BACKEND_HEALTH_FAIL && docker logs jarvis_backend --tail=80 2>&1 || true)",
-              "curl -sf http://localhost:8000/readyz && echo BACKEND_READYZ_OK || echo BACKEND_READYZ_FAIL",
+              "curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || echo BACKEND_HEALTH_FAIL",
+              "curl -sf http://localhost:8000/readyz 2>/dev/null | python3 -c \"import json,sys; d=json.load(sys.stdin); print(\\\"READYZ_OK\\\" if d.get(\\\"status\\\") == \\\"ok\\\" else \\\"READYZ_DEGRADED: \\\" + str({k:v[\\\"status\\\"] for k,v in d.get(\\\"checks\\\",{}).items() if v.get(\\\"status\\\") != \\\"ok\\\"}))\" 2>/dev/null || echo BACKEND_READYZ_FAIL",
+              "echo === BACKEND LOGS TAIL ===",
+              "docker logs jarvis_backend --tail=30 2>&1 | tail -30",
               "echo === TRIGGERING PIPELINE ===",
               "curl -sf -X POST http://localhost:8000/api/v1/leads/bulk-discover?limit=200 && echo BULK_DISCOVER_TRIGGERED || echo BULK_DISCOVER_FAIL",
               "curl -sf -X POST http://localhost:8000/api/v1/crm/hubspot-sync && echo HUBSPOT_SYNC_TRIGGERED || echo HUBSPOT_SYNC_FAIL",
@@ -181,12 +187,29 @@ jobs:
           done
 
           echo "=== SSM Result: $STATUS ==="
-          echo "$RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("StandardOutputContent",""))' 2>/dev/null
+          OUTPUT=$(echo "$RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("StandardOutputContent",""))' 2>/dev/null)
+          echo "$OUTPUT"
           STDERR=$(echo "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("StandardErrorContent",""))' 2>/dev/null)
           [ -n "$STDERR" ] && echo "STDERR: $STDERR"
-          if [ "$STATUS" = "Success" ]; then
-            echo "=== DEPLOY SUCCEEDED ==="
-            exit 0
+          if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ]; then
+            # With 'no set -e' in CMDS, SSM may succeed even if backend health failed.
+            # Parse the output to determine real deploy outcome.
+            BACKEND_UP=$(echo "$OUTPUT" | grep -c "BACKEND_HEALTH_OK" || true)
+            BUILD_FAILED=$(echo "$OUTPUT" | grep -c "BUILD_FAILED" || true)
+            if [ "$BACKEND_UP" -gt 0 ]; then
+              echo "=== DEPLOY SUCCEEDED — backend is UP ==="
+              exit 0
+            elif [ "$BUILD_FAILED" -gt 0 ]; then
+              echo "=== BUILD FAILED — check output above for Docker build errors ==="
+              exit 1
+            elif [ "$STATUS" = "Success" ]; then
+              echo "=== SSM succeeded but backend health unknown — check DEPLOY_COMPLETE ==="
+              echo "$OUTPUT" | grep -E "HEALTH_OK|HEALTH_FAIL|READYZ|BUILD_|DEPLOY_COMPLETE" || true
+              exit 1
+            else
+              echo "=== SSM FAILED — check output above ==="
+              exit 1
+            fi
           elif [ "$STATUS" = "InProgress" ]; then
             echo "=== SSM STILL RUNNING — Docker build >13 min on EC2 (normal). Deploy continues on server. ==="
             echo "=== Waiting 90s for build to finish, then checking status... ==="
