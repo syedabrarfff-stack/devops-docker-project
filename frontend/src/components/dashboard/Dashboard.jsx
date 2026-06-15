@@ -235,6 +235,7 @@ export default function Dashboard() {
   const [briefExpanded, setBriefExpanded] = useState(false)
   const [criticalAlert, setCriticalAlert] = useState(null)
   const [dashboardIssues, setDashboardIssues] = useState([])
+  const [warRoom, setWarRoom] = useState(null)
   const [data, setData] = useState({
     revenue: null,
     mrrChart: [],
@@ -349,6 +350,10 @@ export default function Dashboard() {
       setRefreshing(false)
     }
   }, [setPendingApprovals, setSystemHealth])
+
+  useEffect(() => {
+    api.get('/api/v1/revenue/war-room').then((r) => setWarRoom(r.data)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetchDashboard()
@@ -563,11 +568,11 @@ export default function Dashboard() {
         <MetricCard
           icon={BriefcaseBusiness}
           label="Pipeline Value"
-          value={money(data.pipeline?.pipeline_value || data.pipeline?.total_value || data.pipeline?.open_value)}
-          detail="Open opportunities from CRM"
+          value={money(warRoom?.pipeline?.weighted_pipeline_usd || data.pipeline?.pipeline_value || data.pipeline?.total_value || data.pipeline?.open_value)}
+          detail={warRoom ? `${warRoom.pipeline?.total_leads || 0} leads · ARR ${money(warRoom.arr?.arr_usd)}` : 'Open opportunities'}
           tone="blue"
           source="live"
-          onClick={() => setActiveView('leads')}
+          onClick={() => setActiveView('revenueIntel')}
         />
         <MetricCard
           icon={CheckSquare}
