@@ -3,6 +3,7 @@
 # AWS Production Infrastructure
 # Primary region: ap-south-2 (Hyderabad)
 # Backup region:  ap-south-1 (Mumbai) — Phase 2
+# terraform-apply.yml auto-triggers when this file changes
 ################################################################################
 
 terraform {

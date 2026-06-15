@@ -1,6 +1,13 @@
 name: JARVIS — Terraform Apply (ECS Infrastructure)
 
 on:
+  push:
+    branches:
+      - claude/jarvis-cans-api-integration-ZThTD
+      - main
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-apply.yml'
   workflow_dispatch:
     inputs:
       action:
@@ -128,6 +135,32 @@ jobs:
           echo "::add-mask::$CAPTAIN_PASSWORD"
 
           echo "=== Writing terraform.tfvars ==="
+          # Read remaining API keys from Secrets Manager if available
+          ANTHROPIC_KEY=""
+          NVIDIA_KEY=""
+          STRIPE_SECRET=""
+          STRIPE_PUB=""
+          SLACK_URL=""
+          TG_TOKEN=""
+          TG_CHAT=""
+          GOOGLE_MAPS=""
+          if [ "$SM_SECRET" != "NOT_FOUND" ]; then
+            ANTHROPIC_KEY=$(echo "$SM_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin).get('ANTHROPIC_API_KEY',''))" 2>/dev/null || echo "")
+            NVIDIA_KEY=$(echo "$SM_SECRET"    | python3 -c "import json,sys; print(json.load(sys.stdin).get('NVIDIA_API_KEY',''))" 2>/dev/null || echo "")
+            STRIPE_SECRET=$(echo "$SM_SECRET" | python3 -c "import json,sys; print(json.load(sys.stdin).get('STRIPE_SECRET_KEY',''))" 2>/dev/null || echo "")
+            STRIPE_PUB=$(echo "$SM_SECRET"    | python3 -c "import json,sys; print(json.load(sys.stdin).get('STRIPE_PUBLISHABLE_KEY',''))" 2>/dev/null || echo "")
+            SLACK_URL=$(echo "$SM_SECRET"     | python3 -c "import json,sys; print(json.load(sys.stdin).get('SLACK_WEBHOOK_URL',''))" 2>/dev/null || echo "")
+            TG_TOKEN=$(echo "$SM_SECRET"      | python3 -c "import json,sys; print(json.load(sys.stdin).get('TELEGRAM_BOT_TOKEN',''))" 2>/dev/null || echo "")
+            TG_CHAT=$(echo "$SM_SECRET"       | python3 -c "import json,sys; print(json.load(sys.stdin).get('TELEGRAM_CHAT_ID',''))" 2>/dev/null || echo "")
+            GOOGLE_MAPS=$(echo "$SM_SECRET"   | python3 -c "import json,sys; print(json.load(sys.stdin).get('GOOGLE_MAPS_API_KEY',''))" 2>/dev/null || echo "")
+          fi
+
+          # Mask additional secrets
+          [ -n "$ANTHROPIC_KEY" ] && echo "::add-mask::$ANTHROPIC_KEY"
+          [ -n "$STRIPE_SECRET" ] && echo "::add-mask::$STRIPE_SECRET"
+          [ -n "$SLACK_URL" ]     && echo "::add-mask::$SLACK_URL"
+          [ -n "$TG_TOKEN" ]      && echo "::add-mask::$TG_TOKEN"
+
           cat > terraform.tfvars <<TFVARS
           project     = "jarvis"
           environment = "production"
@@ -145,19 +178,19 @@ jobs:
 
           redis_node_type = "cache.t3.micro"
 
-          anthropic_api_key  = ""
-          openai_api_key     = ""
-          deepseek_api_key   = ""
-          groq_api_key       = ""
-          mistral_api_key    = ""
-          moonshot_api_key   = ""
-          zhipuai_api_key    = ""
-          dashscope_api_key  = ""
-          minimax_api_key    = ""
-          google_api_key     = ""
-          google_maps_api_key = ""
+          anthropic_api_key   = "${ANTHROPIC_KEY}"
+          openai_api_key      = ""
+          deepseek_api_key    = ""
+          groq_api_key        = ""
+          mistral_api_key     = ""
+          moonshot_api_key    = ""
+          zhipuai_api_key     = ""
+          dashscope_api_key   = ""
+          minimax_api_key     = ""
+          google_api_key      = ""
+          google_maps_api_key = "${GOOGLE_MAPS}"
 
-          nvidia_api_key   = ""
+          nvidia_api_key   = "${NVIDIA_KEY}"
           nvidia_api_key_b = ""
           nvidia_api_key_c = ""
           nvidia_api_key_d = ""
@@ -168,20 +201,20 @@ jobs:
           nvidia_api_key_i = ""
           nvidia_api_key_j = ""
 
-          stripe_secret_key      = ""
-          stripe_publishable_key = ""
+          stripe_secret_key      = "${STRIPE_SECRET}"
+          stripe_publishable_key = "${STRIPE_PUB}"
           stripe_webhook_secret  = ""
 
-          slack_webhook_url  = ""
-          telegram_bot_token = ""
-          telegram_chat_id   = ""
+          slack_webhook_url  = "${SLACK_URL}"
+          telegram_bot_token = "${TG_TOKEN}"
+          telegram_chat_id   = "${TG_CHAT}"
 
-          n8n_base_url    = ""
-          n8n_webhook_url = ""
+          n8n_base_url    = "https://automation.aliyarsolutions.com"
+          n8n_webhook_url = "https://automation.aliyarsolutions.com/webhook"
 
-          evolution_api_key    = ""
-          evolution_api_url    = ""
-          evolution_public_url = ""
+          evolution_api_key    = "jarvis-master-key"
+          evolution_api_url    = "https://aliyarsolutions.com/evolution"
+          evolution_public_url = "https://aliyarsolutions.com/evolution"
 
           apollo_api_key = ""
 
@@ -211,7 +244,7 @@ jobs:
             -no-color 2>&1 | tail -100
 
       - name: Terraform Apply
-        if: github.event.inputs.action != 'plan-only' && github.event.inputs.action != 'destroy'
+        if: github.event.inputs.action != 'plan-only' && github.event.inputs.action != 'destroy' && github.event_name != 'pull_request'
         working-directory: infra/terraform
         run: |
           terraform apply -auto-approve tfplan
@@ -220,7 +253,7 @@ jobs:
           terraform output -no-color 2>/dev/null || true
 
       - name: Capture and display key outputs
-        if: github.event.inputs.action != 'plan-only' && github.event.inputs.action != 'destroy'
+        if: github.event.inputs.action != 'plan-only' && github.event.inputs.action != 'destroy' && github.event_name != 'pull_request'
         working-directory: infra/terraform
         run: |
           ALB_DNS=$(terraform output -raw alb_dns_name 2>/dev/null || echo "not_available")
