@@ -18,6 +18,8 @@ env:
   ECR_FRONTEND: jarvis-production-frontend
   ECS_CLUSTER:  jarvis-production-cluster
   ECS_SERVICE:  jarvis-production-backend
+  # Node.js 24 compat: remove when aws-actions releases Node.js 24 builds
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   TASK_FAMILY:  jarvis-production-backend
 
 jobs:
