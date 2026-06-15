@@ -5,6 +5,7 @@
 secrets/
 secrets/**
 !secrets/.gitkeep
+infrastructure/nginx/.htpasswd
 
 # ─── Logs & Backups ──────────────────────────────────────────────
 logs/
