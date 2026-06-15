@@ -155,11 +155,61 @@ class MultiPathDiscovery:
         industry: str,
         limit: int,
     ) -> list[dict]:
-        """Web search discovery — general internet search for company mentions."""
-        # This would integrate with a web search API (Serper, Jina, etc.)
-        # For now, return empty to indicate method available but not configured
-        logger.debug("Web search discovery not yet configured")
-        return []
+        """Web search via DuckDuckGo lite — no API key required."""
+        search_query = f"{industry or query} company agency"
+        leads = []
+        try:
+            async with httpx.AsyncClient(
+                timeout=15.0,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; JARVIS-LeadDiscovery/1.0)"},
+                follow_redirects=True,
+            ) as client:
+                # DuckDuckGo Instant Answer API (free, no key)
+                resp = await client.get(
+                    "https://api.duckduckgo.com/",
+                    params={
+                        "q": search_query,
+                        "format": "json",
+                        "no_html": "1",
+                        "skip_disambig": "1",
+                    },
+                )
+                if resp.status_code != 200:
+                    return []
+                data = resp.json()
+
+                # Extract company names from RelatedTopics
+                for topic in (data.get("RelatedTopics") or [])[:limit]:
+                    text = topic.get("Text") or ""
+                    url = topic.get("FirstURL") or ""
+                    if not text:
+                        continue
+                    name = text.split(" - ")[0].strip() or text[:60].strip()
+                    if len(name) < 3 or len(name) > 120:
+                        continue
+                    leads.append({
+                        "company": name,
+                        "company_name": name,
+                        "website": url if url.startswith("http") else None,
+                        "source": "duckduckgo_web_search",
+                        "industry": industry,
+                        "description": text[:200],
+                    })
+
+                # Also check Abstract for a direct match
+                if data.get("AbstractText") and data.get("AbstractURL"):
+                    leads.insert(0, {
+                        "company": data.get("Heading") or query,
+                        "company_name": data.get("Heading") or query,
+                        "website": data.get("AbstractURL"),
+                        "source": "duckduckgo_web_search",
+                        "industry": industry,
+                        "description": (data.get("AbstractText") or "")[:200],
+                    })
+
+        except Exception as exc:
+            logger.warning("DuckDuckGo web search failed: %s", exc)
+        return leads[:limit]
 
     async def _discover_linkedin(
         self,
@@ -167,21 +217,70 @@ class MultiPathDiscovery:
         industry: str,
         limit: int,
     ) -> list[dict]:
-        """LinkedIn discovery — professional network targeting."""
-        # This would require LinkedIn API access or scraping
-        # For now, return empty to indicate method available
-        logger.debug("LinkedIn discovery not yet configured")
-        return []
+        """LinkedIn company discovery via Clearbit autocomplete (free tier)."""
+        leads = []
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://autocomplete.clearbit.com/v1/companies/suggest",
+                    params={"query": f"{industry or query}"},
+                    headers={"User-Agent": "JARVIS-LeadDiscovery/1.0"},
+                )
+                if resp.status_code == 200:
+                    for company in resp.json()[:limit]:
+                        name = company.get("name") or ""
+                        if not name:
+                            continue
+                        leads.append({
+                            "company": name,
+                            "company_name": name,
+                            "website": company.get("domain") and f"https://{company['domain']}",
+                            "industry": industry,
+                            "source": "clearbit_linkedin_fallback",
+                            "enrichment_data": {
+                                "logo": company.get("logo"),
+                                "domain": company.get("domain"),
+                            },
+                        })
+        except Exception as exc:
+            logger.warning("Clearbit/LinkedIn fallback failed: %s", exc)
+        return leads[:limit]
 
     async def _discover_referral_network(
         self,
         query: str,
         limit: int,
     ) -> list[dict]:
-        """Referral network discovery — warm introductions from partners."""
-        # This would integrate with referral/partnership network
-        logger.debug("Referral network discovery not yet configured")
-        return []
+        """GitHub org discovery — active open-source companies in tech."""
+        leads = []
+        try:
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                resp = await client.get(
+                    "https://api.github.com/search/repositories",
+                    params={
+                        "q": f"{query} in:description language:python stars:>50",
+                        "sort": "updated",
+                        "per_page": min(limit, 30),
+                    },
+                    headers={"Accept": "application/vnd.github+json"},
+                )
+                if resp.status_code == 200:
+                    for item in resp.json().get("items", [])[:limit]:
+                        owner = item.get("owner") or {}
+                        org_name = owner.get("login") or ""
+                        if not org_name or owner.get("type") != "Organization":
+                            continue
+                        leads.append({
+                            "company": org_name,
+                            "company_name": org_name,
+                            "website": item.get("homepage") or f"https://github.com/{org_name}",
+                            "source": "github_org_network",
+                            "industry": "technology",
+                            "description": (item.get("description") or "")[:200],
+                        })
+        except Exception as exc:
+            logger.warning("GitHub org discovery failed: %s", exc)
+        return leads[:limit]
 
 
 multi_path_discovery = MultiPathDiscovery()
