@@ -1,6 +1,6 @@
 ################################################################################
 # JARVIS — Aliyar Solutions
-# AWS Production Infrastructure
+# AWS Production Infrastructure — AdministratorAccess granted 2026-06-15
 # Primary region: ap-south-2 (Hyderabad)
 # Backup region:  ap-south-1 (Mumbai) — Phase 2
 # terraform-apply.yml auto-triggers when this file changes
