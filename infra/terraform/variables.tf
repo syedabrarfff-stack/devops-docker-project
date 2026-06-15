@@ -162,3 +162,57 @@ variable "apollo_api_key" {
   sensitive = true
   default   = ""
 }
+
+# ── Core auth ─────────────────────────────────────────────────────────────────
+variable "captain_username" {
+  type      = string
+  sensitive = true
+  default   = "captain"
+}
+
+variable "captain_password" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "jarvis_default_tenant_id" {
+  type    = string
+  default = ""
+}
+
+# ── NVIDIA NIM 10-key rotation ────────────────────────────────────────────────
+variable "nvidia_api_key"   { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_b" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_c" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_d" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_e" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_f" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_g" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_h" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_i" { type = string; sensitive = true; default = "" }
+variable "nvidia_api_key_j" { type = string; sensitive = true; default = "" }
+
+# ── Additional AI providers ───────────────────────────────────────────────────
+variable "deepseek_api_key"  { type = string; sensitive = true; default = "" }
+variable "groq_api_key"      { type = string; sensitive = true; default = "" }
+variable "mistral_api_key"   { type = string; sensitive = true; default = "" }
+variable "moonshot_api_key"  { type = string; sensitive = true; default = "" }
+variable "zhipuai_api_key"   { type = string; sensitive = true; default = "" }
+variable "dashscope_api_key" { type = string; sensitive = true; default = "" }
+variable "minimax_api_key"   { type = string; sensitive = true; default = "" }
+variable "google_maps_api_key" { type = string; sensitive = true; default = "" }
+
+# ── Payments ──────────────────────────────────────────────────────────────────
+variable "stripe_secret_key"      { type = string; sensitive = true; default = "" }
+variable "stripe_publishable_key" { type = string; sensitive = true; default = "" }
+variable "stripe_webhook_secret"  { type = string; sensitive = true; default = "" }
+
+# ── Automation & Notifications ────────────────────────────────────────────────
+variable "n8n_base_url"    { type = string; default = "" }
+variable "n8n_webhook_url" { type = string; default = "" }
+
+# ── WhatsApp / Evolution ──────────────────────────────────────────────────────
+variable "evolution_api_key"    { type = string; sensitive = true; default = "" }
+variable "evolution_api_url"    { type = string; default = "" }
+variable "evolution_public_url" { type = string; default = "" }

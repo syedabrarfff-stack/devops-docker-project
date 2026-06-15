@@ -152,12 +152,13 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group" "backend" {
   name        = "${local.prefix}-sg-backend"
-  description = "JARVIS backend ECS tasks"
+  description = "JARVIS ECS tasks — ALB hits port 80 (frontend nginx), backend on 8000 stays internal"
   vpc_id      = aws_vpc.main.id
 
+  # ALB routes to frontend nginx on port 80
   ingress {
-    from_port       = 8000
-    to_port         = 8000
+    from_port       = 80
+    to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
@@ -308,7 +309,7 @@ resource "aws_lb" "main" {
 
 resource "aws_lb_target_group" "backend" {
   name        = "${local.prefix}-tg-backend"
-  port        = 8000
+  port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -432,16 +433,62 @@ resource "aws_secretsmanager_secret" "jarvis" {
 resource "aws_secretsmanager_secret_version" "jarvis" {
   secret_id = aws_secretsmanager_secret.jarvis.id
   secret_string = jsonencode({
-    SECRET_KEY         = var.secret_key
-    DATABASE_URL       = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
-    REDIS_URL          = "redis://${aws_elasticache_cluster.redis.cache_nodes[0].address}:6379"
+    # Core auth
+    SECRET_KEY              = var.secret_key
+    CAPTAIN_USERNAME        = var.captain_username
+    CAPTAIN_PASSWORD        = var.captain_password
+    JARVIS_DEFAULT_TENANT_ID = var.jarvis_default_tenant_id
+
+    # Database (auto-built from Terraform outputs)
+    DATABASE_URL = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.address}:5432/${var.db_name}"
+    REDIS_URL    = "redis://${aws_elasticache_cluster.redis.cache_nodes[0].address}:6379/0"
+
+    # AI providers
     ANTHROPIC_API_KEY  = var.anthropic_api_key
-    GOOGLE_API_KEY     = var.google_api_key
     OPENAI_API_KEY     = var.openai_api_key
+    DEEPSEEK_API_KEY   = var.deepseek_api_key
+    GROQ_API_KEY       = var.groq_api_key
+    MISTRAL_API_KEY    = var.mistral_api_key
+    MOONSHOT_API_KEY   = var.moonshot_api_key
+    ZHIPUAI_API_KEY    = var.zhipuai_api_key
+    DASHSCOPE_API_KEY  = var.dashscope_api_key
+    MINIMAX_API_KEY    = var.minimax_api_key
+    GOOGLE_API_KEY     = var.google_api_key
+    GOOGLE_MAPS_API_KEY = var.google_maps_api_key
+
+    # NVIDIA NIM — 10-key rotation
+    NVIDIA_API_KEY   = var.nvidia_api_key
+    NVIDIA_API_KEY_B = var.nvidia_api_key_b
+    NVIDIA_API_KEY_C = var.nvidia_api_key_c
+    NVIDIA_API_KEY_D = var.nvidia_api_key_d
+    NVIDIA_API_KEY_E = var.nvidia_api_key_e
+    NVIDIA_API_KEY_F = var.nvidia_api_key_f
+    NVIDIA_API_KEY_G = var.nvidia_api_key_g
+    NVIDIA_API_KEY_H = var.nvidia_api_key_h
+    NVIDIA_API_KEY_I = var.nvidia_api_key_i
+    NVIDIA_API_KEY_J = var.nvidia_api_key_j
+
+    # Payments
+    STRIPE_SECRET_KEY      = var.stripe_secret_key
+    STRIPE_PUBLISHABLE_KEY = var.stripe_publishable_key
+    STRIPE_WEBHOOK_SECRET  = var.stripe_webhook_secret
+
+    # Notifications
+    SLACK_WEBHOOK_URL  = var.slack_webhook_url
     TELEGRAM_BOT_TOKEN = var.telegram_bot_token
     TELEGRAM_CHAT_ID   = var.telegram_chat_id
-    SLACK_WEBHOOK_URL  = var.slack_webhook_url
-    APOLLO_API_KEY     = var.apollo_api_key
+
+    # Automation
+    N8N_BASE_URL    = var.n8n_base_url
+    N8N_WEBHOOK_URL = var.n8n_webhook_url
+
+    # WhatsApp / Evolution
+    EVOLUTION_API_KEY    = var.evolution_api_key
+    EVOLUTION_API_URL    = var.evolution_api_url
+    EVOLUTION_PUBLIC_URL = var.evolution_public_url
+
+    # Lead discovery
+    APOLLO_API_KEY = var.apollo_api_key
   })
 }
 

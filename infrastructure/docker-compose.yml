@@ -177,12 +177,14 @@ services:
     image: jarvis_frontend:latest
     container_name: jarvis_frontend
     restart: unless-stopped
+    environment:
+      BACKEND_HOST: backend
     ports:
       - "127.0.0.1:3002:80"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 5s
       retries: 3
