@@ -210,6 +210,26 @@ async def record_captain_decision(body: MirrorDecisionBody, request: Request):
     }
 
 
+@router.post("/seed-demo")
+async def seed_demo_data(request: Request, tenant_id: Optional[UUID] = None):
+    """
+    Populate the tenant with realistic demo data — clients, invoices, leads,
+    and 90 days of revenue snapshots. Idempotent: safe to call multiple times.
+    """
+    from app.services.demos.seeder import seed_demo_data as _seed
+    from app.core.database import AsyncSessionLocal
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    async with AsyncSessionLocal() as session:
+        counts = await _seed(resolved, session)
+    return {
+        "status": "seeded",
+        "tenant_id": str(resolved),
+        "created": counts,
+        "message": "Demo data ready — Revenue Command Center is now live.",
+    }
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
 
