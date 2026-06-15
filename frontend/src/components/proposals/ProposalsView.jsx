@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Send, Sparkles } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Send, Sparkles } from 'lucide-react'
 import api from '../../services/api'
 
 const SERVICE_TYPES = [
@@ -46,6 +46,104 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const PACKAGE_TIERS = ['starter', 'growth', 'enterprise', 'custom']
+
+function ConvertToClientModal({ proposal, onClose, onSuccess }) {
+  const [form, setForm] = useState({
+    company_name: proposal.client_company || proposal.client_name || '',
+    contact_name: proposal.client_name || '',
+    email: proposal.client_email || '',
+    package_tier: 'growth',
+    mrr_usd: proposal.pricing?.monthly_retainer || '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const set = (k) => (v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setErr(null)
+    try {
+      const res = await api.post('/api/v1/clients', {
+        company_name: form.company_name.trim(),
+        contact_name: form.contact_name.trim() || undefined,
+        email: form.email.trim() || undefined,
+        package_tier: form.package_tier || undefined,
+        mrr_usd: parseFloat(form.mrr_usd) || 0,
+        status: 'active',
+      })
+      onSuccess(res.data.client)
+    } catch (error) {
+      setErr(error.response?.data?.detail || error.message || 'Client creation failed')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+         onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0c1418] p-6 shadow-2xl"
+           onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold text-white mb-1">Onboard as Client</h2>
+        <p className="text-xs text-gray-500 mb-5">
+          Convert this accepted proposal into a live client record. MRR posts immediately to the Revenue Dashboard.
+        </p>
+        {err && (
+          <div className="mb-4 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{err}</div>
+        )}
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-gray-400">Company Name *</label>
+            <input required value={form.company_name} onChange={e => set('company_name')(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Contact Name</label>
+              <input value={form.contact_name} onChange={e => set('contact_name')(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Email</label>
+              <input type="email" value={form.email} onChange={e => set('email')(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Package Tier</label>
+              <select value={form.package_tier} onChange={e => set('package_tier')(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-[#0f1a1e] px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60">
+                {PACKAGE_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Monthly MRR ($)</label>
+              <input type="number" min="0" value={form.mrr_usd} onChange={e => set('mrr_usd')(e.target.value)}
+                placeholder="3500"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 rounded-xl border border-white/10 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={busy || !form.company_name.trim()}
+              className="flex-1 btn-primary inline-flex items-center justify-center gap-2">
+              {busy
+                ? <><Loader2 size={14} className="animate-spin" /> Creating…</>
+                : <><CheckCircle2 size={14} /> Activate Client</>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function Field({ label, children }) {
   return (
     <div className="space-y-1.5">
@@ -79,7 +177,7 @@ function SelectInput({ value, onChange, children }) {
   )
 }
 
-function ProposalCard({ proposal, onRefresh }) {
+function ProposalCard({ proposal, onRefresh, onConvert }) {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
   const pricing = proposal.pricing || {}
@@ -171,7 +269,7 @@ function ProposalCard({ proposal, onRefresh }) {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {proposal.status === 'draft' && (
               <button
                 type="button"
@@ -204,6 +302,16 @@ function ProposalCard({ proposal, onRefresh }) {
                 </button>
               </>
             )}
+            {proposal.status === 'accepted' && onConvert && (
+              <button
+                type="button"
+                onClick={() => onConvert(proposal)}
+                className="inline-flex items-center gap-1.5 rounded border border-jarvis-cyan/40 bg-jarvis-cyan/10 px-3 py-1.5 text-xs font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 transition-colors"
+              >
+                <CheckCircle2 size={11} />
+                Onboard as Client →
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -217,6 +325,8 @@ export default function ProposalsView() {
   const [generating, setGenerating] = useState(false)
   const [generatedProposal, setGeneratedProposal] = useState(null)
   const [error, setError] = useState(null)
+  const [convertTarget, setConvertTarget] = useState(null)
+  const [clientCreated, setClientCreated] = useState(null)
 
   const [form, setForm] = useState({
     client_name: '',
@@ -401,12 +511,39 @@ export default function ProposalsView() {
           ) : (
             <div className="space-y-3 max-h-[620px] overflow-y-auto pr-1">
               {proposals.map(p => (
-                <ProposalCard key={p.id} proposal={p} onRefresh={load} />
+                <ProposalCard key={p.id} proposal={p} onRefresh={load} onConvert={setConvertTarget} />
               ))}
             </div>
           )}
         </section>
       </div>
+
+      {convertTarget && (
+        <ConvertToClientModal
+          proposal={convertTarget}
+          onClose={() => setConvertTarget(null)}
+          onSuccess={(client) => {
+            setConvertTarget(null)
+            setClientCreated(client)
+          }}
+        />
+      )}
+
+      {clientCreated && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-green-400/30 bg-[#0c1418] p-4 shadow-2xl max-w-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <CheckCircle2 size={16} className="text-green-400 shrink-0" />
+            <p className="text-sm font-semibold text-white">Client Activated</p>
+            <button onClick={() => setClientCreated(null)} className="ml-auto text-xs text-gray-500 hover:text-white transition-colors">✕</button>
+          </div>
+          <p className="text-xs text-gray-400">
+            <span className="text-white font-medium">{clientCreated.company_name}</span> is now live in the Revenue Dashboard.
+          </p>
+          {clientCreated.mrr_usd > 0 && (
+            <p className="text-xs text-jarvis-gold mt-1">+${clientCreated.mrr_usd.toLocaleString()}/mo MRR added.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

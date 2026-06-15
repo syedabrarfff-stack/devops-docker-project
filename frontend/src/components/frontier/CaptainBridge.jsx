@@ -4,6 +4,7 @@ import {
   ActionCard,
   DEFAULT_TENANT,
   FrontierShell,
+  Input,
   ResultBox,
   RunButton,
   Textarea,
@@ -16,6 +17,34 @@ export default function CaptainBridge() {
   const [decision, setDecision] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [clientForm, setClientForm] = useState({
+    company_name: '', contact_name: '', email: '', package_tier: 'growth', mrr_usd: '',
+  })
+  const [clientLoading, setClientLoading] = useState(false)
+
+  const setClient = (k) => (v) => setClientForm(f => ({ ...f, [k]: v }))
+
+  const submitClient = async (e) => {
+    e.preventDefault()
+    if (!clientForm.company_name.trim()) return
+    setClientLoading(true)
+    try {
+      const response = await api.post('/api/v1/clients', {
+        company_name: clientForm.company_name.trim(),
+        contact_name: clientForm.contact_name.trim() || undefined,
+        email: clientForm.email.trim() || undefined,
+        package_tier: clientForm.package_tier || undefined,
+        mrr_usd: parseFloat(clientForm.mrr_usd) || 0,
+        status: 'active',
+        tenant_id: DEFAULT_TENANT,
+      })
+      setResult(response.data)
+      setClientForm({ company_name: '', contact_name: '', email: '', package_tier: 'growth', mrr_usd: '' })
+    } catch (error) {
+      setResult({ error: error.response?.data?.detail || error.message })
+    }
+    setClientLoading(false)
+  }
 
   const endpoints = useMemo(() => [
     { key: 'situation', label: 'Situation report', path: '/api/v1/captain/situation', params: { tenant_id: DEFAULT_TENANT } },
@@ -71,6 +100,29 @@ export default function CaptainBridge() {
             <form onSubmit={(event) => { event.preventDefault(); submit('/api/v1/captain/evaluate-decision', { decision, context: {} }) }}>
               <Textarea value={decision} onChange={setDecision} placeholder="Example: send live outreach to 20 healthcare leads today." />
               <RunButton loading={loading} disabled={!decision.trim()}>Evaluate</RunButton>
+            </form>
+          </ActionCard>
+
+          <ActionCard title="Onboard New Client" subtitle="Register a won deal as a live client. MRR posts immediately to the Revenue Dashboard.">
+            <form onSubmit={submitClient} className="space-y-2">
+              <Input value={clientForm.company_name} onChange={setClient('company_name')} placeholder="Company name *" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={clientForm.contact_name} onChange={setClient('contact_name')} placeholder="Contact name" />
+                <Input value={clientForm.email} onChange={setClient('email')} placeholder="Email" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={clientForm.package_tier}
+                  onChange={e => setClient('package_tier')(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-jarvis-cyan/60"
+                >
+                  {['starter', 'growth', 'enterprise', 'custom'].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <Input value={clientForm.mrr_usd} onChange={setClient('mrr_usd')} placeholder="Monthly MRR ($)" />
+              </div>
+              <RunButton loading={clientLoading} disabled={!clientForm.company_name.trim()}>Activate Client</RunButton>
             </form>
           </ActionCard>
 
