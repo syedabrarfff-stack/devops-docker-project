@@ -74,6 +74,25 @@ export default function CaptainBridge() {
             </form>
           </ActionCard>
 
+          <ActionCard
+            title="Seed Demo Data"
+            subtitle="One-click: populate the Revenue Command Center with 8 clients, 25 pipeline leads, and 90 days of MRR history. Idempotent — safe to run again."
+          >
+            <div className="space-y-3">
+              <p className="text-xs text-white/40">
+                Creates realistic Aliyar Solutions demo data so the dashboard is live and impressive for any prospect call. Skips records that already exist.
+              </p>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => submit('/api/v1/captain/seed-demo', {})}
+                className="w-full rounded border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
+              >
+                {loading ? 'Seeding…' : 'Seed Demo Data →'}
+              </button>
+            </div>
+          </ActionCard>
+
           <div className="xl:col-span-2">
             <ActionCard title="Latest result" subtitle="Output from the last Captain Bridge action.">
               <ResultBox result={result} />
