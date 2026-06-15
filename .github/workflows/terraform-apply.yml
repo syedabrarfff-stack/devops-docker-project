@@ -289,13 +289,7 @@ jobs:
               -backend-config="dynamodb_table=$TF_LOCK_TABLE"
           else
             echo "⚠️ S3 not available — overriding to local backend"
-            cat > backend_override.tf <<'BACKEND_EOF'
-terraform {
-  backend "local" {
-    path = "terraform.tfstate"
-  }
-}
-BACKEND_EOF
+            printf 'terraform {\n  backend "local" {\n    path = "terraform.tfstate"\n  }\n}\n' > backend_override.tf
             terraform init -reconfigure
           fi
 
