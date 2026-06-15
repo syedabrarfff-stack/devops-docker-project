@@ -216,7 +216,7 @@ jobs:
           project     = "jarvis"
           environment = "production"
           aws_region  = "ap-south-2"
-          domain_name = "aliyarsolutions.com"
+          domain_name = ""
 
           secret_key               = "${SECRET_KEY}"
           captain_username         = "captain"
