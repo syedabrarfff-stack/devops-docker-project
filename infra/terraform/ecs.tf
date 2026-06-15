@@ -161,6 +161,8 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "ZHIPUAI_API_KEY",      valueFrom = "${local.secret_arn}:ZHIPUAI_API_KEY::" },
         { name = "DASHSCOPE_API_KEY",    valueFrom = "${local.secret_arn}:DASHSCOPE_API_KEY::" },
         { name = "MINIMAX_API_KEY",      valueFrom = "${local.secret_arn}:MINIMAX_API_KEY::" },
+        { name = "GOOGLE_API_KEY",       valueFrom = "${local.secret_arn}:GOOGLE_API_KEY::" },
+        { name = "APOLLO_API_KEY",       valueFrom = "${local.secret_arn}:APOLLO_API_KEY::" },
         { name = "STRIPE_SECRET_KEY",    valueFrom = "${local.secret_arn}:STRIPE_SECRET_KEY::" },
         { name = "STRIPE_PUBLISHABLE_KEY", valueFrom = "${local.secret_arn}:STRIPE_PUBLISHABLE_KEY::" },
         { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${local.secret_arn}:STRIPE_WEBHOOK_SECRET::" },

@@ -228,7 +228,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="JARVIS — Aliyar Solutions",
     description="Autonomous AI Operating System",
-    version="1.0.0",
+    version=settings.APP_VERSION,
     lifespan=lifespan,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url=None,
