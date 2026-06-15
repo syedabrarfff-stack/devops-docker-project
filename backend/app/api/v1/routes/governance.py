@@ -2,7 +2,9 @@
 JARVIS Governance API — invoices, proposals, contracts, agent permissions.
 All financial and client-facing actions require Captain approval before execution.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,9 +55,13 @@ class StatusUpdate(BaseModel):
 # ── Invoices ─────────────────────────────────────────────────────────────────
 
 @router.get("/invoices")
-async def list_invoices(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_invoices(
+    status: Optional[str] = None,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import get_invoices
-    return {"invoices": await get_invoices(db, status=status)}
+    return {"invoices": await get_invoices(db, status=status, tenant_id=tenant_id)}
 
 
 @router.post("/invoices")
@@ -94,13 +100,13 @@ async def create_invoice(req: CreateInvoiceRequest, db: AsyncSession = Depends(g
 
 
 @router.post("/invoices/{invoice_id}/status")
-async def update_invoice_status(invoice_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import update_invoice_status as _update
     async with db.begin():
         ok = await _update(db, invoice_id, req.status)
     if not ok:
         raise HTTPException(404, "Invoice not found")
-    return {"id": invoice_id, "status": req.status}
+    return {"id": str(invoice_id), "status": req.status}
 
 
 # ── Proposals ─────────────────────────────────────────────────────────────────

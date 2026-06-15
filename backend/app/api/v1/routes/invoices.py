@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
-from app.models.revenue import Invoice
+from app.core.database import AsyncSessionLocal
+from app.models.revenue import Invoice, InvoiceStatus
 from app.services.governance.invoice_engine import invoice_engine
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -27,6 +29,31 @@ class InvoiceTenantRequest(BaseModel):
 class InvoicePaymentRequest(BaseModel):
     amount: float = Field(gt=0)
     tenant_id: Optional[UUID] = None
+
+
+@router.get("/")
+async def list_invoices(
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    status: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """List invoices for a tenant, newest first."""
+    tid = _resolve_tenant_id(request, tenant_id)
+    async with AsyncSessionLocal() as session:
+        q = (
+            select(Invoice)
+            .where(Invoice.tenant_id == tid)
+            .order_by(Invoice.created_at.desc())
+            .limit(limit)
+        )
+        if status:
+            try:
+                q = q.where(Invoice.status == InvoiceStatus(status.upper()))
+            except ValueError:
+                pass
+        rows = (await session.execute(q)).scalars().all()
+    return {"invoices": [_serialize_invoice(inv) for inv in rows], "total": len(rows)}
 
 
 @router.post("/generate")

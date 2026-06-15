@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, Send } from 'lucide-react'
 import api from '../../services/api'
 
-export const DEFAULT_TENANT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+export const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
 
 function countRecords(value) {
   if (Array.isArray(value)) return value.length
