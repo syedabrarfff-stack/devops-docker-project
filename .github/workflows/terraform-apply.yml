@@ -288,8 +288,15 @@ jobs:
               -backend-config="encrypt=true" \
               -backend-config="dynamodb_table=$TF_LOCK_TABLE"
           else
-            echo "⚠️ S3 not available — using local state (run iam-setup.yml first for persistent state)"
-            terraform init -backend=false
+            echo "⚠️ S3 not available — overriding to local backend"
+            cat > backend_override.tf <<'BACKEND_EOF'
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}
+BACKEND_EOF
+            terraform init -reconfigure
           fi
 
       - name: Terraform Plan
