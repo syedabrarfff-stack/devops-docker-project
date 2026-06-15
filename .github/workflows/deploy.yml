@@ -21,12 +21,17 @@ env:
   # Node.js 24 compat: remove when aws-actions releases Node.js 24 builds
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   TASK_FAMILY:  jarvis-production-backend
+  APP_BASE_URL: https://aliyarsolutions.com
+  OIDC_ROLE:    arn:aws:iam::824232273953:role/JarvisGitHubActionsRole
 
 jobs:
   # ── Build & push Docker images ─────────────────────────────────────────────
   build:
     name: Build & Push Images
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       backend_image:  ${{ steps.backend.outputs.image }}
       frontend_image: ${{ steps.frontend.outputs.image }}
@@ -34,12 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          role-to-assume:    ${{ env.OIDC_ROLE }}
+          role-session-name: JarvisECSBuild
+          aws-region:        ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr_login
@@ -76,16 +81,19 @@ jobs:
     name: Run Alembic Migrations
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          role-to-assume:    ${{ env.OIDC_ROLE }}
+          role-session-name: JarvisECSMigrate
+          aws-region:        ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr_login
@@ -166,16 +174,19 @@ jobs:
     needs: [build, migrate]
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          role-to-assume:    ${{ env.OIDC_ROLE }}
+          role-session-name: JarvisECSDeploy
+          aws-region:        ${{ env.AWS_REGION }}
 
       - name: Download current task definition
         run: |
@@ -213,8 +224,8 @@ jobs:
         run: |
           echo "Waiting 30s for ECS tasks to stabilise…"
           sleep 30
-          HEALTH_URL="${{ secrets.APP_BASE_URL }}/health"
-          READYZ_URL="${{ secrets.APP_BASE_URL }}/readyz"
+          HEALTH_URL="${{ env.APP_BASE_URL }}/health"
+          READYZ_URL="${{ env.APP_BASE_URL }}/readyz"
           echo "Checking liveness: $HEALTH_URL"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || echo "000")
           if [ "$STATUS" != "200" ]; then
@@ -233,7 +244,7 @@ jobs:
         run: |
           curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"text\":\"✅ *JARVIS deployed* — \`${{ github.sha }}\` → ECS ap-south-2\\nTriggered by: ${{ github.actor }}\\nURL: ${{ secrets.APP_BASE_URL }}\"}" || true
+            -d "{\"text\":\"✅ *JARVIS deployed* — \`${{ github.sha }}\` → ECS ap-south-2\\nTriggered by: ${{ github.actor }}\\nURL: ${{ env.APP_BASE_URL }}\"}" || true
 
       - name: Notify Captain — Slack failure
         if: failure()
@@ -262,6 +273,9 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -270,12 +284,12 @@ jobs:
         with:
           terraform_version: 1.9.0
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          role-to-assume:    ${{ env.OIDC_ROLE }}
+          role-session-name: JarvisTerraformPlan
+          aws-region:        ${{ env.AWS_REGION }}
 
       - name: Terraform init
         working-directory: infra/terraform

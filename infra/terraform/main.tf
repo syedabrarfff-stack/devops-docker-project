@@ -13,14 +13,13 @@ terraform {
       version = "~> 5.0"
     }
   }
-  # Uncomment to use S3 backend for team state management:
-  # backend "s3" {
-  #   bucket         = "jarvis-terraform-state"
-  #   key            = "production/terraform.tfstate"
-  #   region         = "ap-south-2"
-  #   encrypt        = true
-  #   dynamodb_table = "jarvis-terraform-locks"
-  # }
+  backend "s3" {
+    bucket         = "jarvis-terraform-state-824232273953"
+    key            = "production/terraform.tfstate"
+    region         = "ap-south-2"
+    encrypt        = true
+    dynamodb_table = "jarvis-terraform-locks"
+  }
 }
 
 provider "aws" {
