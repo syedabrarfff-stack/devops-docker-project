@@ -1,4 +1,4 @@
-name: JARVIS — IAM Bootstrap (Grant OIDC Role Full Deploy Permissions)
+name: JARVIS — IAM Bootstrap (Grant OIDC Role AdministratorAccess)
 
 on:
   push:
