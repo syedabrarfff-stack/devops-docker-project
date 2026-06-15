@@ -248,3 +248,5 @@ export function ResultBox({ result }) {
     </pre>
   )
 }
+
+export default FrontierShell

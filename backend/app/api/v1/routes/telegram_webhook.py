@@ -15,7 +15,7 @@ from app.services.notifications.telegram_bot import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/telegram", tags=["telegram"])
+router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
 @router.post("/register")

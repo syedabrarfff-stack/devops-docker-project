@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --silent
+RUN npm config set strict-ssl false && npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build
 

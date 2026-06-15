@@ -2,9 +2,10 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, field_validator
-from jose import jwt
+from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -12,6 +13,27 @@ from app.core.database import get_db
 from app.services.outreach.email_transport import get_outbound_email_status
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+async def get_current_captain(
+    credentials: HTTPAuthorizationCredentials | None = Security(_bearer),
+) -> dict:
+    """FastAPI dependency — validates Captain JWT and returns payload."""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+        )
+        if payload.get("role") != "captain":
+            raise HTTPException(status_code=403, detail="Not authorised")
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 class LoginRequest(BaseModel):
