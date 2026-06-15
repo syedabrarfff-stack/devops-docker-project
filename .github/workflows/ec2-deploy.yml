@@ -75,6 +75,7 @@ jobs:
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && git clean -f -- public-site/ 2>/dev/null || true",
               "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
               "cd infrastructure && docker-compose exec -T nginx nginx -s reload || docker-compose restart nginx",
               "curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL"]'
@@ -84,6 +85,7 @@ jobs:
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
               "cd $DEPLOY_DIR",
+              "git clean -f -- public-site/ 2>/dev/null || true",
               "for i in 1 2 3; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
               "for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo Retry $i/3 && sleep 15); done",
               "echo LATEST: $(git log --oneline -1)"]'
@@ -92,6 +94,7 @@ jobs:
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && git clean -f -- public-site/ 2>/dev/null || true",
               "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
               "echo === LATEST: $(git log --oneline -1) ===",
               "cd infrastructure",
@@ -106,6 +109,7 @@ jobs:
             CMDS='["set -e",
               "DEPLOY_DIR=/home/ubuntu/devops-docker-project",
               "[ -d /opt/jarvis ] && DEPLOY_DIR=/opt/jarvis || true",
+              "cd $DEPLOY_DIR && git clean -f -- public-site/ 2>/dev/null || true",
               "cd $DEPLOY_DIR && for i in 1 2 3; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"Retry $i/3\" && sleep 15); done",
               "cd infrastructure",
               "docker stop jarvis_backend 2>/dev/null || true",
@@ -142,6 +146,7 @@ jobs:
               "cd $DEPLOY_DIR",
               "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git fetch attempt $i/5 failed\" && sleep 20); done",
               "git checkout claude/jarvis-cans-api-integration-ZThTD 2>&1 || true",
+              "git clean -f -- public-site/ 2>/dev/null || rm -f $DEPLOY_DIR/public-site/index.html 2>/dev/null || true",
               "for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo \"git pull attempt $i/5 failed\" && sleep 20); done",
               "echo === LATEST: $(git log --oneline -1) ===",
               "[ -f $DEPLOY_DIR/.env ] || cp $DEPLOY_DIR/.env.example $DEPLOY_DIR/.env",
@@ -156,8 +161,8 @@ jobs:
               "docker-compose -p jarvis up -d postgres redis 2>&1 | tail -3",
               "sleep 15",
               "echo === CLEARING PYCACHE (prevents stale bytecode in Docker build) ===",
-              "find $DEPLOY_DIR/backend -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true",
-              "find $DEPLOY_DIR/backend -name '*.pyc' -delete 2>/dev/null || true",
+              "find $DEPLOY_DIR/backend -type d -name __pycache__ | xargs -r rm -rf 2>/dev/null || true",
+              "find $DEPLOY_DIR/backend -name '*.pyc' | xargs -r rm -f 2>/dev/null || true",
               "echo === REBUILDING BACKEND ===",
               "rm -f /tmp/build_ok /tmp/build_failed",
               "docker-compose -p jarvis build --no-cache backend > /tmp/build.log 2>&1 && touch /tmp/build_ok || touch /tmp/build_failed",
@@ -312,6 +317,7 @@ jobs:
             cd $DEPLOY_DIR
             for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo "git fetch attempt $i/5 failed, retrying..." && sleep 15); done
             git checkout claude/jarvis-cans-api-integration-ZThTD || true
+            git clean -f -- public-site/ 2>/dev/null || rm -f $DEPLOY_DIR/public-site/index.html 2>/dev/null || true
             for i in 1 2 3 4 5; do git -c http.postBuffer=524288000 pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || (echo "git pull attempt $i/5 failed, retrying..." && sleep 15); done
             echo "=== LATEST: $(git log --oneline -1) ==="
 
