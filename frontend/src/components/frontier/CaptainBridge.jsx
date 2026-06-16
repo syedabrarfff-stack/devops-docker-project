@@ -53,6 +53,7 @@ export default function CaptainBridge() {
     { key: 'state', label: 'Captain state', path: '/api/v1/captain/state', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'decisionLoad', label: 'Decision load', path: '/api/v1/captain/decision-load', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'warRoom', label: 'War-room brief', path: '/api/v1/captain/war-room-brief', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'pilotStatus', label: 'Pilot mode status', path: '/api/v1/pilot/status', params: { tenant_id: DEFAULT_TENANT } },
   ], [])
 
   async function submit(path, body) {
@@ -141,6 +142,22 @@ export default function CaptainBridge() {
                 className="w-full rounded border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
               >
                 {loading ? 'Seeding…' : 'Seed Demo Data →'}
+              </button>
+            </div>
+          </ActionCard>
+
+          <ActionCard title="Activate Pilot Mode" subtitle="Enable JARVIS autonomous pilot — activates self-directed outreach, lead scoring, and decision-making for this tenant.">
+            <div className="space-y-3">
+              <p className="text-xs text-white/40">
+                Pilot mode lets JARVIS run full autonomous cycles: discover leads, send outreach, score pipeline, and escalate only when Captain approval is required.
+              </p>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => submit('/api/v1/pilot/activate', {})}
+                className="w-full rounded border border-jarvis-cyan/40 bg-jarvis-cyan/10 px-4 py-2 text-sm font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 disabled:opacity-40 transition-colors"
+              >
+                {loading ? 'Activating…' : 'Activate Pilot Mode →'}
               </button>
             </div>
           </ActionCard>

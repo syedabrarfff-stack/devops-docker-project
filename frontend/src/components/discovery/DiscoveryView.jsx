@@ -66,6 +66,9 @@ export default function DiscoveryView() {
     limit: 10,
   })
   const [localResult, setLocalResult] = useState(null)
+  const [freeSourceResult, setFreeSourceResult] = useState(null)
+  const [scoutResult, setScoutResult] = useState(null)
+  const [scoutStatus, setScoutStatus] = useState(null)
 
   async function load() {
     const [s, t] = await Promise.allSettled([
@@ -91,6 +94,44 @@ export default function DiscoveryView() {
       setNotice({ tone: 'err', text: e.response?.data?.detail || e.message || 'Bulk discovery failed.' })
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function runFreeSourceDiscover() {
+    setBusy(true)
+    setFreeSourceResult(null)
+    try {
+      const result = await api.post('/api/v1/discover/free-sources', { limit: 50 }).then(r => r.data)
+      setFreeSourceResult(result)
+      setNotice({ tone: 'ok', text: `Free-source discovery done — ${result.count || result.leads?.length || 0} prospects found.` })
+      setTimeout(load, 5000)
+    } catch (e) {
+      setNotice({ tone: 'err', text: e.response?.data?.detail || e.message || 'Free-source discovery failed.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function runScoutNetwork() {
+    setBusy(true)
+    setScoutResult(null)
+    try {
+      const result = await api.post('/api/v1/scouts/run', {}).then(r => r.data)
+      setScoutResult(result)
+      setNotice({ tone: 'ok', text: result.message || 'Scout network activated.' })
+    } catch (e) {
+      setNotice({ tone: 'err', text: e.response?.data?.detail || e.message || 'Scout network failed.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function checkScoutStatus() {
+    try {
+      const r = await api.get('/api/v1/scouts/status')
+      setScoutStatus(r.data)
+    } catch (e) {
+      setScoutStatus({ error: e.response?.data?.detail || e.message })
     }
   }
 
@@ -225,6 +266,46 @@ export default function DiscoveryView() {
           </pre>
         )}
       </section>
+
+      {/* Free Source Discovery + Scout Network */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="glass p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-white">Free-Source Discovery</h2>
+            <p className="mt-1 text-xs text-gray-500">Scrape 50 leads from free public sources — no Apollo credits used.</p>
+          </div>
+          <button onClick={runFreeSourceDiscover} disabled={busy} className="btn-primary inline-flex items-center gap-2">
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+            Run Free Discovery
+          </button>
+          {freeSourceResult && (
+            <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-gray-300">
+              {JSON.stringify(freeSourceResult, null, 2)}
+            </pre>
+          )}
+        </section>
+
+        <section className="glass p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-bold text-white">Scout Agent Network</h2>
+            <p className="mt-1 text-xs text-gray-500">Activate the autonomous scout network to monitor target industries for new prospects.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={runScoutNetwork} disabled={busy} className="btn-primary inline-flex items-center gap-2">
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+              Activate Scouts
+            </button>
+            <button onClick={checkScoutStatus} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 transition-colors">
+              Status
+            </button>
+          </div>
+          {(scoutResult || scoutStatus) && (
+            <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-gray-300">
+              {JSON.stringify(scoutResult || scoutStatus, null, 2)}
+            </pre>
+          )}
+        </section>
+      </div>
 
       {/* Today's leads */}
       {todayLeads.length > 0 && (
