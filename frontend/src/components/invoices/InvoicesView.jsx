@@ -52,8 +52,8 @@ const EMPTY_INVOICE = {
   tax_rate: 0, currency: 'USD', notes: '', due_days: 14,
 }
 
-function CreateInvoiceModal({ onClose, onCreated }) {
-  const [form, setForm] = useState(EMPTY_INVOICE)
+function CreateInvoiceModal({ onClose, onCreated, prefill = {} }) {
+  const [form, setForm] = useState(() => ({ ...EMPTY_INVOICE, ...prefill }))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -248,6 +248,7 @@ export default function InvoicesView() {
   const [actionLoading, setActionLoading] = useState({})
   const [error, setError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [invoicePrefill, setInvoicePrefill] = useState({})
   const [statusFilter, setStatusFilter] = useState('')
 
   const load = useCallback(async () => {
@@ -292,8 +293,21 @@ export default function InvoicesView() {
     setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
   }
 
+  const openInvoiceForClient = (client) => {
+    setInvoicePrefill({
+      client_name: client.contact_name || client.company_name,
+      client_company: client.company_name,
+      client_email: client.email || '',
+      items: client.mrr_usd > 0
+        ? [{ description: `Monthly Retainer — ${client.package_tier ? client.package_tier.charAt(0).toUpperCase() + client.package_tier.slice(1) : 'Growth'} Package`, qty: 1, unit_price: client.mrr_usd, amount: client.mrr_usd }]
+        : EMPTY_INVOICE.items,
+    })
+    setShowCreate(true)
+  }
+
   const handleCreated = async () => {
     setShowCreate(false)
+    setInvoicePrefill({})
     await load()
   }
 
@@ -313,7 +327,7 @@ export default function InvoicesView() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] p-6 pb-10 space-y-6">
-      {showCreate && <CreateInvoiceModal onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
+      {showCreate && <CreateInvoiceModal onClose={() => { setShowCreate(false); setInvoicePrefill({}) }} onCreated={handleCreated} prefill={invoicePrefill} />}
 
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -524,7 +538,8 @@ export default function InvoicesView() {
                     <th className="pb-3 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">MRR</th>
                     <th className="pb-3 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
                     <th className="pb-3 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Since</th>
+                    <th className="pb-3 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Since</th>
+                    <th className="pb-3 text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -551,8 +566,18 @@ export default function InvoicesView() {
                       <td className="py-4 pr-4">
                         <StatusBadge status={client.status} cfg={CLIENT_STATUS_CFG} />
                       </td>
-                      <td className="py-4 text-xs text-gray-400">
+                      <td className="py-4 pr-4 text-xs text-gray-400">
                         {fmtDate(client.started_at || client.created_at)}
+                      </td>
+                      <td className="py-4">
+                        <button
+                          type="button"
+                          onClick={() => openInvoiceForClient(client)}
+                          className="inline-flex items-center gap-1 rounded border border-jarvis-cyan/30 bg-jarvis-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 transition-colors whitespace-nowrap"
+                        >
+                          <FileText size={10} />
+                          New Invoice
+                        </button>
                       </td>
                     </tr>
                   ))}
