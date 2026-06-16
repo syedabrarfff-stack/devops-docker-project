@@ -12,6 +12,8 @@ import {
 export default function IntelligenceHub() {
   const [draft, setDraft] = useState('')
   const [learning, setLearning] = useState('')
+  const [innovationTitle, setInnovationTitle] = useState('')
+  const [innovationDesc, setInnovationDesc] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -58,6 +60,27 @@ export default function IntelligenceHub() {
         score: 90,
       })
       setResult(response.data)
+    } catch (error) {
+      setResult({ error: error.response?.data?.detail || error.message })
+    }
+    setLoading(false)
+  }
+
+  async function proposeInnovation(event) {
+    event.preventDefault()
+    setLoading(true)
+    try {
+      const response = await api.post('/api/v1/innovation/propose', {
+        tenant_id: DEFAULT_TENANT,
+        title: innovationTitle,
+        description: innovationDesc,
+        impact_score: 80,
+        feasibility_score: 75,
+        proposed_by: 'CAPTAIN',
+      })
+      setResult(response.data)
+      setInnovationTitle('')
+      setInnovationDesc('')
     } catch (error) {
       setResult({ error: error.response?.data?.detail || error.message })
     }
@@ -118,10 +141,17 @@ export default function IntelligenceHub() {
                 <RunButton loading={loading} disabled={!learning.trim()}>Teach</RunButton>
               </form>
             </ActionCard>
-            <ActionCard title="Latest intelligence result" subtitle="Output from the last enhancement or learning action.">
-              <ResultBox result={result} />
+            <ActionCard title="Propose Innovation" subtitle="Add a new improvement idea to the JARVIS innovation queue for evaluation.">
+              <form onSubmit={proposeInnovation} className="space-y-3">
+                <Textarea value={innovationTitle} onChange={setInnovationTitle} placeholder="Innovation title (e.g. 'Auto-tag leads by industry on import')" />
+                <Textarea value={innovationDesc} onChange={setInnovationDesc} placeholder="Describe the improvement and expected impact." />
+                <RunButton loading={loading} disabled={!innovationTitle.trim() || !innovationDesc.trim()}>Propose</RunButton>
+              </form>
             </ActionCard>
           </div>
+          <ActionCard title="Latest intelligence result" subtitle="Output from the last action.">
+            <ResultBox result={result} />
+          </ActionCard>
         </div>
       )}
     </FrontierShell>
