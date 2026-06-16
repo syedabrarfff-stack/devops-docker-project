@@ -322,7 +322,7 @@ async def run_scout_network():
 async def scout_network_status():
     """Return scout agent profiles and next scheduled run."""
     from app.services.leads.scout_network import SCOUT_PROFILES
-    from app.services.scheduler.engine import get_jobs
+    from app.services.scheduler.scheduler import get_jobs
     jobs = {j["id"]: j for j in get_jobs()}
     scout_job = jobs.get("daily_scout_network", {})
     return {

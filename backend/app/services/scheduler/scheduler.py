@@ -117,6 +117,7 @@ PRODUCTION_JOB_IDS = (
     "weekly_market_scan",
     "daily_connector_hub_ingestion",
     "daily_market_intelligence",
+    "self_healer",
 )
 
 AIONX_JOB_IDS = (
@@ -318,7 +319,17 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "daily_connector_hub_ingestion", "func": daily_connector_hub_ingestion, "hour": 14, "minute": 30},
         # Market Intelligence — 04:00 UTC (09:30 IST) — generate daily market reports
         {"job_id": "daily_market_intelligence", "func": daily_market_intelligence, "hour": 4, "minute": 0},
+        # Self-Healer — every 15 minutes — circuit breaker reset, pipeline refill, scheduler resurrection
+        {"job_id": "self_healer", "func": _job_self_healer, "kind": "interval", "minutes": 15},
     ]
+
+
+async def _job_self_healer() -> None:
+    try:
+        from app.services.monitoring.self_healer import run_self_healing_cycle
+        await run_self_healing_cycle()
+    except Exception as exc:
+        logger.warning("Self-healer job failed: %s", exc)
 
 
 def _remove_deprecated_jobs() -> None:

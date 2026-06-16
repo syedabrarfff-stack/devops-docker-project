@@ -23,8 +23,8 @@ graceful_timeout = int(os.getenv("GUNICORN_GRACEFUL_TIMEOUT", "45"))
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 preload_app = True      # load app once before forking → smaller per-worker RAM
-max_requests = 500      # recycle workers after N requests → prevents memory leaks
-max_requests_jitter = 50
+max_requests = int(os.getenv("GUNICORN_MAX_REQUESTS", "500"))
+max_requests_jitter = int(os.getenv("GUNICORN_MAX_REQUESTS_JITTER", "50"))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 accesslog = "-"

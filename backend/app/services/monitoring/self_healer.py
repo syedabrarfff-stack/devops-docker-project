@@ -19,11 +19,11 @@ from datetime import UTC, datetime, timedelta
 logger = logging.getLogger(__name__)
 
 _CRITICAL_JOBS = [
-    "daily_briefing",
-    "lead_scoring_sweep",
-    "outreach_processor",
-    "overnight_lead_discovery",
-    "overnight_cold_outreach",
+    "daily_morning_briefing",
+    "daily_lead_scoring",
+    "daily_lead_discovery",
+    "daily_follow_up_check",
+    "speed_to_lead_5min",
 ]
 
 
@@ -120,7 +120,7 @@ async def _heal_lead_pipeline(report: dict) -> None:
 async def _heal_scheduler_jobs(report: dict) -> None:
     """Detect paused or missing critical jobs and resume them."""
     try:
-        from app.services.scheduler.engine import get_scheduler, get_jobs
+        from app.services.scheduler.scheduler import get_scheduler, get_jobs
 
         scheduler = get_scheduler()
         if not scheduler.running:
