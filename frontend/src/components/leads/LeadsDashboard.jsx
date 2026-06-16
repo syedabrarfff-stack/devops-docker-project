@@ -513,6 +513,7 @@ export default function LeadsDashboard() {
   const [showDiscover, setShowDiscover] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [discoverForm, setDiscoverForm] = useState({ industry: '', country: 'usa', query: '', limit: 20 });
+  const [bulkDiscovering, setBulkDiscovering] = useState(false);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -578,6 +579,21 @@ export default function LeadsDashboard() {
     }
   }
 
+  async function bulkDiscover() {
+    setBulkDiscovering(true);
+    try {
+      const r = await api.post(`/api/v1/leads/bulk-discover?limit=200&tenant_id=${DEFAULT_TENANT}`);
+      setNotice({
+        tone: "success",
+        text: `🚀 Bulk discovery started — targeting ${r.data?.packages_targeted || 25} service packages. ~${r.data?.estimated_leads || 200} leads inbound. Check back in 60s.`,
+      });
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Bulk discovery failed.") });
+    } finally {
+      setBulkDiscovering(false);
+    }
+  }
+
   async function discoverLeads() {
     setDiscovering(true);
     try {
@@ -618,6 +634,14 @@ export default function LeadsDashboard() {
             className="px-4 py-2 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             {bulkScoring ? "Scoring..." : "Bulk Score AI"}
+          </button>
+          <button
+            onClick={bulkDiscover}
+            disabled={bulkDiscovering}
+            className="px-4 py-2 border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
+            title="Background discovery across all 25 Aliyar Solutions service packages"
+          >
+            {bulkDiscovering ? "Starting…" : "🚀 Bulk Discover"}
           </button>
           <button
             onClick={() => setShowDiscover(true)}
