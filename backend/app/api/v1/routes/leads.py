@@ -51,7 +51,26 @@ async def create_lead(
     await db.commit()
     if auto_score:
         background_tasks.add_task(_score_in_background, lead.id)
+    background_tasks.add_task(_notify_captain_new_lead, lead.company, lead.email, body.source, lead.contact_name)
     return {"id": lead.id, "company": lead.company, "status": lead.status}
+
+
+async def _notify_captain_new_lead(company: str, email: str | None, source: str | None, contact: str | None) -> None:
+    try:
+        from app.services.notifications.telegram import notify_telegram
+        src_label = "🌐 Website Contact" if source == "website_contact" else f"📥 {source or 'manual'}"
+        contact_line = f"\n👤 *Contact:* {contact}" if contact else ""
+        email_line = f"\n📧 *Email:* {email}" if email else ""
+        msg = (
+            f"🔔 *New Lead — {company}*\n"
+            f"*Source:* {src_label}"
+            f"{contact_line}"
+            f"{email_line}\n\n"
+            "Open JARVIS → Leads to score and action."
+        )
+        await notify_telegram(msg)
+    except Exception:
+        pass
 
 
 async def _score_in_background(lead_id: int):
