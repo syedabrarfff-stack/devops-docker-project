@@ -74,6 +74,12 @@ export default function TaskQueue() {
   const [delegateForm, setDelegateForm] = useState({ to_agent: 'jarvis', message: '', task_type: 'general', priority: 5 });
   const [delegating, setDelegating] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
+  const [inboxAgent, setInboxAgent] = useState('jarvis');
+  const [inbox, setInbox] = useState(null);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [msgForm, setMsgForm] = useState({ from_agent: 'CAPTAIN', to_agent: 'jarvis', content: '', message_type: 'directive' });
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgResult, setMsgResult] = useState(null);
 
   useEffect(() => {
     loadAll();
@@ -130,6 +136,26 @@ export default function TaskQueue() {
     await loadAll();
   }
 
+  async function loadInbox() {
+    setInboxLoading(true);
+    try {
+      const r = await api.get(`/tasks/messages/inbox/${inboxAgent}`, { params: { unread_only: false } });
+      setInbox(r.data);
+    } catch (e) { setInbox({ error: e.response?.data?.detail || e.message }); }
+    setInboxLoading(false);
+  }
+
+  async function sendMessage() {
+    if (!msgForm.content.trim()) return;
+    setMsgSending(true);
+    try {
+      const r = await api.post('/tasks/messages/send', msgForm);
+      setMsgResult({ ok: true, data: r.data });
+      setMsgForm(f => ({ ...f, content: '' }));
+    } catch (e) { setMsgResult({ ok: false, error: e.response?.data?.detail || e.message }); }
+    setMsgSending(false);
+  }
+
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
 
   return (
@@ -161,7 +187,7 @@ export default function TaskQueue() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit">
-        {["tasks", "agents"].map(t => (
+        {["tasks", "agents", "messages"].map(t => (
           <button key={t} onClick={() => setTab(t)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all capitalize ${tab === t ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>{t}</button>
         ))}
       </div>
@@ -245,6 +271,79 @@ export default function TaskQueue() {
                 <pre className="rounded-lg border border-white/10 bg-black/20 p-2 text-[10px] text-gray-300 max-h-24 overflow-auto">
                   {JSON.stringify(broadcastResult, null, 2)}
                 </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Messages Tab */}
+      {tab === "messages" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Inbox */}
+            <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Agent Inbox</p>
+              <div className="flex gap-2">
+                <select value={inboxAgent} onChange={e => setInboxAgent(e.target.value)}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500/50">
+                  {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+                </select>
+                <button onClick={loadInbox} disabled={inboxLoading}
+                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-xs hover:bg-white/10 disabled:opacity-40 transition-colors">
+                  {inboxLoading ? '…' : 'Load'}
+                </button>
+              </div>
+              {inbox && (
+                inbox.error ? (
+                  <p className="text-xs text-red-400">{inbox.error}</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {(Array.isArray(inbox) ? inbox : inbox.messages || []).length === 0 ? (
+                      <p className="text-xs text-gray-500">Inbox is empty.</p>
+                    ) : (Array.isArray(inbox) ? inbox : inbox.messages || []).map((msg, i) => (
+                      <div key={msg.id || i} className="rounded-lg border border-white/10 bg-black/20 p-2.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-jarvis-cyan font-mono">{msg.from_agent} → {msg.to_agent}</span>
+                          <span className="text-[10px] text-gray-600">{msg.message_type}</span>
+                        </div>
+                        <p className="text-xs text-gray-300">{msg.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Send Message */}
+            <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Send to Agent</p>
+              <div className="grid grid-cols-2 gap-2">
+                <select value={msgForm.from_agent} onChange={e => setMsgForm(f => ({ ...f, from_agent: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500/50">
+                  <option value="CAPTAIN">CAPTAIN</option>
+                  {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+                </select>
+                <select value={msgForm.to_agent} onChange={e => setMsgForm(f => ({ ...f, to_agent: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500/50">
+                  {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+                </select>
+              </div>
+              <select value={msgForm.message_type} onChange={e => setMsgForm(f => ({ ...f, message_type: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500/50">
+                {['directive', 'question', 'update', 'escalation', 'acknowledgement'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <textarea value={msgForm.content} onChange={e => setMsgForm(f => ({ ...f, content: e.target.value }))}
+                placeholder="Message content…" rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
+              <button onClick={sendMessage} disabled={msgSending || !msgForm.content.trim()}
+                className="w-full py-2 rounded-lg bg-blue-600/80 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-medium transition-colors">
+                {msgSending ? 'Sending…' : 'Send Message →'}
+              </button>
+              {msgResult && (
+                <p className={`text-xs ${msgResult.ok ? 'text-green-400' : 'text-red-400'}`}>
+                  {msgResult.ok ? `Sent. ID: ${msgResult.data?.id || '—'}` : msgResult.error}
+                </p>
               )}
             </div>
           </div>

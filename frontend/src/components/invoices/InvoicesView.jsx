@@ -250,6 +250,8 @@ export default function InvoicesView() {
   const [showCreate, setShowCreate] = useState(false)
   const [invoicePrefill, setInvoicePrefill] = useState({})
   const [paymentLinks, setPaymentLinks] = useState({})
+  const [bankDetails, setBankDetails] = useState({})
+  const [wiseLinks, setWiseLinks] = useState({})
   const [statusFilter, setStatusFilter] = useState('')
   const [clientStatusUpdating, setClientStatusUpdating] = useState({})
 
@@ -291,6 +293,28 @@ export default function InvoicesView() {
       setPaymentLinks(prev => ({ ...prev, [invoice.id]: r.data.payment_url }))
     } catch (err) {
       console.error('Payment link failed:', err)
+    }
+    setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
+  }
+
+  const getBankTransfer = async (invoice) => {
+    setActionLoading(prev => ({ ...prev, [invoice.id]: 'bank' }))
+    try {
+      const r = await api.post(`/api/v1/payments/invoices/${invoice.id}/bank-transfer`)
+      setBankDetails(prev => ({ ...prev, [invoice.id]: r.data }))
+    } catch (err) {
+      setBankDetails(prev => ({ ...prev, [invoice.id]: { error: err.response?.data?.detail || err.message } }))
+    }
+    setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
+  }
+
+  const getWiseTransfer = async (invoice) => {
+    setActionLoading(prev => ({ ...prev, [invoice.id]: 'wise' }))
+    try {
+      const r = await api.post(`/api/v1/payments/invoices/${invoice.id}/wise-transfer`)
+      setWiseLinks(prev => ({ ...prev, [invoice.id]: r.data }))
+    } catch (err) {
+      setWiseLinks(prev => ({ ...prev, [invoice.id]: { error: err.response?.data?.detail || err.message } }))
     }
     setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
   }
@@ -535,6 +559,45 @@ export default function InvoicesView() {
                                   >
                                     {busy === 'linking' ? <Loader2 size={11} className="animate-spin" /> : <Link size={11} />}
                                     Pay Link
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {(st === 'sent' || st === 'overdue') && (
+                              <>
+                                {bankDetails[inv.id] ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-cyan-400 cursor-pointer" title={JSON.stringify(bankDetails[inv.id], null, 2)}>
+                                    🏦 Bank Details ↗
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={!!busy}
+                                    onClick={() => getBankTransfer(inv)}
+                                    className="inline-flex items-center gap-1.5 rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-40 transition-colors"
+                                  >
+                                    {busy === 'bank' ? <Loader2 size={11} className="animate-spin" /> : '🏦'}
+                                    Bank
+                                  </button>
+                                )}
+                                {wiseLinks[inv.id] ? (
+                                  <a
+                                    href={wiseLinks[inv.id]?.payment_url || '#'}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                                  >
+                                    <Link size={11} /> Wise
+                                  </a>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={!!busy}
+                                    onClick={() => getWiseTransfer(inv)}
+                                    className="inline-flex items-center gap-1.5 rounded border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
+                                  >
+                                    {busy === 'wise' ? <Loader2 size={11} className="animate-spin" /> : <Link size={11} />}
+                                    Wise
                                   </button>
                                 )}
                               </>

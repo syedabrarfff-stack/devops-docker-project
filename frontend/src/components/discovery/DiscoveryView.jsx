@@ -69,6 +69,7 @@ export default function DiscoveryView() {
   const [freeSourceResult, setFreeSourceResult] = useState(null)
   const [scoutResult, setScoutResult] = useState(null)
   const [scoutStatus, setScoutStatus] = useState(null)
+  const [discoverRunResult, setDiscoverRunResult] = useState(null)
 
   async function load() {
     const [s, t] = await Promise.allSettled([
@@ -132,6 +133,26 @@ export default function DiscoveryView() {
       setScoutStatus(r.data)
     } catch (e) {
       setScoutStatus({ error: e.response?.data?.detail || e.message })
+    }
+  }
+
+  async function runDiscoverEngine() {
+    setBusy(true)
+    setDiscoverRunResult(null)
+    try {
+      const defaultTargets = [
+        { industry: 'SaaS', location: 'USA', limit: 25 },
+        { industry: 'Healthcare', location: 'UK', limit: 25 },
+        { industry: 'E-commerce', location: 'UAE', limit: 25 },
+      ]
+      const result = await api.post('/api/v1/discover/run', { targets: defaultTargets }).then(r => r.data)
+      setDiscoverRunResult(result)
+      setNotice({ tone: 'ok', text: `Discovery engine ran — ${result.inserted ?? 0} leads inserted across ${result.targets ?? 0} targets.` })
+      setTimeout(load, 5000)
+    } catch (e) {
+      setNotice({ tone: 'err', text: e.response?.data?.detail || e.message || 'Discovery engine failed.' })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -306,6 +327,27 @@ export default function DiscoveryView() {
           )}
         </section>
       </div>
+
+      {/* Discovery Engine — targeted run */}
+      <section className="glass p-5 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-bold text-white">Discovery Engine — Targeted Run</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              Run the discovery engine with 3 pre-configured ICP targets (SaaS/USA, Healthcare/UK, E-commerce/UAE). Returns total leads inserted.
+            </p>
+          </div>
+          <button onClick={runDiscoverEngine} disabled={busy} className="btn-primary shrink-0 inline-flex items-center gap-2">
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+            Run Engine
+          </button>
+        </div>
+        {discoverRunResult && (
+          <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-gray-300">
+            {JSON.stringify(discoverRunResult, null, 2)}
+          </pre>
+        )}
+      </section>
 
       {/* Today's leads */}
       {todayLeads.length > 0 && (
