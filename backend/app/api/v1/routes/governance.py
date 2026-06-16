@@ -106,6 +106,12 @@ async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSe
         ok = await _update(db, invoice_id, req.status)
     if not ok:
         raise HTTPException(404, "Invoice not found")
+    if req.status == "paid":
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(f"✅ *Invoice Paid*\nInvoice `{str(invoice_id)[:8]}…` has been marked as paid. Update revenue dashboard.")
+        except Exception:
+            pass
     return {"id": str(invoice_id), "status": req.status}
 
 
@@ -153,11 +159,24 @@ async def generate_proposal(req: ProposalRequest, db: AsyncSession = Depends(get
 
 @router.post("/proposals/{proposal_id}/status")
 async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import update_proposal_status as _update
+    from app.services.governance.document_gen import update_proposal_status as _update, get_proposals
     async with db.begin():
         ok = await _update(db, proposal_id, req.status)
     if not ok:
         raise HTTPException(404, "Proposal not found")
+    if req.status in ("accepted", "won"):
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            proposals = await get_proposals(db)
+            p = next((x for x in proposals if x.get("id") == proposal_id), {})
+            company = p.get("client_company") or p.get("client_name") or "Client"
+            mrr = p.get("pricing", {}).get("monthly_retainer", 0) or 0
+            mrr_text = f"\n💰 *MRR:* ${mrr:,.0f}/mo" if mrr else ""
+            await notify_telegram(
+                f"🎯 *Proposal Won — {company}*{mrr_text}\n\nConvert to client in JARVIS → Proposals."
+            )
+        except Exception:
+            pass
     return {"id": proposal_id, "status": req.status}
 
 

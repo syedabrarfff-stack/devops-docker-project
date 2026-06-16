@@ -89,6 +89,19 @@ async def record_invoice_payment(invoice_id: UUID, request: Request, body: Invoi
         invoice = await invoice_engine.record_payment(invoice_id, amount=body.amount, tenant_id=tenant_id)
     except ValueError as exc:
         raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
+    try:
+        from app.services.notifications.telegram import notify_telegram
+        inv_num = invoice.invoice_number or str(invoice_id)[:8]
+        amt = body.amount or 0
+        client = invoice.client_company or invoice.client_name or "Client"
+        await notify_telegram(
+            f"✅ *Payment Received — {client}*\n"
+            f"*Invoice:* `{inv_num}`\n"
+            f"*Amount:* ${amt:,.0f}\n\n"
+            "Revenue dashboard updated."
+        )
+    except Exception:
+        pass
     return {"invoice": _serialize_invoice(invoice), "payment_recorded": True}
 
 
