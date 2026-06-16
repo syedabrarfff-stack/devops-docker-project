@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileText, Loader2, Plus, RefreshCw, Send, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileText, Link, Loader2, Plus, RefreshCw, Send, XCircle } from 'lucide-react'
 import api from '../../services/api'
 
 const STATUS_CONFIG = {
@@ -249,6 +249,7 @@ export default function InvoicesView() {
   const [error, setError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [invoicePrefill, setInvoicePrefill] = useState({})
+  const [paymentLinks, setPaymentLinks] = useState({})
   const [statusFilter, setStatusFilter] = useState('')
 
   const load = useCallback(async () => {
@@ -278,6 +279,17 @@ export default function InvoicesView() {
       await load()
     } catch (err) {
       console.error('Send invoice failed:', err)
+    }
+    setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
+  }
+
+  const generatePaymentLink = async (invoice) => {
+    setActionLoading(prev => ({ ...prev, [invoice.id]: 'linking' }))
+    try {
+      const r = await api.post(`/api/v1/payments/invoices/${invoice.id}/payment-link`)
+      setPaymentLinks(prev => ({ ...prev, [invoice.id]: r.data.payment_url }))
+    } catch (err) {
+      console.error('Payment link failed:', err)
     }
     setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
   }
@@ -483,15 +495,37 @@ export default function InvoicesView() {
                               </button>
                             )}
                             {(st === 'sent' || st === 'overdue') && (
-                              <button
-                                type="button"
-                                disabled={!!busy}
-                                onClick={() => markPaid(inv)}
-                                className="inline-flex items-center gap-1.5 rounded border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-300 hover:bg-green-500/20 disabled:opacity-40 transition-colors"
-                              >
-                                {busy === 'paying' ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
-                                Mark Paid
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={!!busy}
+                                  onClick={() => markPaid(inv)}
+                                  className="inline-flex items-center gap-1.5 rounded border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-300 hover:bg-green-500/20 disabled:opacity-40 transition-colors"
+                                >
+                                  {busy === 'paying' ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
+                                  Mark Paid
+                                </button>
+                                {paymentLinks[inv.id] ? (
+                                  <a
+                                    href={paymentLinks[inv.id]}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded border border-jarvis-gold/40 bg-jarvis-gold/10 px-3 py-1 text-xs font-medium text-jarvis-gold hover:bg-jarvis-gold/20 transition-colors"
+                                  >
+                                    <Link size={11} /> Pay Link
+                                  </a>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={!!busy}
+                                    onClick={() => generatePaymentLink(inv)}
+                                    className="inline-flex items-center gap-1.5 rounded border border-purple-500/40 bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 transition-colors"
+                                  >
+                                    {busy === 'linking' ? <Loader2 size={11} className="animate-spin" /> : <Link size={11} />}
+                                    Pay Link
+                                  </button>
+                                )}
+                              </>
                             )}
                             {st === 'paid' && (
                               <span className="inline-flex items-center gap-1 text-xs text-green-400">
