@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { api } from "../../services/api";
 import useJarvisStore from "../../store/useJarvisStore";
 
+const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
+
 const TIER_COLORS = { A: "text-red-400 bg-red-500/10 border-red-500/30", B: "text-orange-400 bg-orange-500/10 border-orange-500/30", C: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", D: "text-gray-400 bg-gray-500/10 border-gray-500/30" };
 const STATUS_COLORS = { new: "text-blue-400", qualified: "text-green-400", contacted: "text-yellow-400", replied: "text-purple-400", interested: "text-teal-400", proposal: "text-orange-400", closed: "text-green-500", disqualified: "text-red-400" };
 
@@ -49,7 +51,265 @@ function ScoreBar({ score }) {
   );
 }
 
-function LeadRow({ lead, onScore, onProposal }) {
+function CallBriefModal({ lead, onClose }) {
+  const [tab, setTab] = useState('brief')
+  const [brief, setBrief] = useState(null)
+  const [support, setSupport] = useState(null)
+  const [briefLoading, setBriefLoading] = useState(true)
+  const [debrief, setDebrief] = useState({ call_outcome: 'follow-up', notes: '', next_action: '' })
+  const [debriefSent, setDebriefSent] = useState(false)
+  const [debriefErr, setDebriefErr] = useState(null)
+  const [debriefing, setDebriefing] = useState(false)
+
+  useEffect(() => {
+    api.post('/api/v1/calls/pre-brief', { lead_id: lead.id, tenant_id: DEFAULT_TENANT })
+      .then(r => setBrief(r.data))
+      .catch(e => setBrief({ error: e?.response?.data?.detail || 'Failed to generate brief' }))
+      .finally(() => setBriefLoading(false))
+  }, [lead.id])
+
+  async function handleTabSupport() {
+    setTab('support')
+    if (support) return
+    try {
+      const r = await api.get(`/api/v1/calls/live-support/${lead.id}`, { params: { tenant_id: DEFAULT_TENANT } })
+      setSupport(r.data)
+    } catch (e) {
+      setSupport({ error: e?.response?.data?.detail || 'Failed to load live support' })
+    }
+  }
+
+  async function submitDebrief() {
+    if (!debrief.notes.trim()) return
+    setDebriefing(true); setDebriefErr(null)
+    try {
+      await api.post('/api/v1/calls/debrief', {
+        lead_id: lead.id,
+        call_outcome: debrief.call_outcome,
+        notes: debrief.notes,
+        next_action: debrief.next_action || undefined,
+        tenant_id: DEFAULT_TENANT,
+      })
+      setDebriefSent(true)
+    } catch (e) {
+      setDebriefErr(e?.response?.data?.detail || 'Debrief failed')
+    }
+    setDebriefing(false)
+  }
+
+  const company = leadCompany(lead)
+  const score = brief?.jarvis_confidence_score
+  const scoreColor = score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400'
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-end z-50 p-4" onClick={onClose}>
+      <div
+        className="glass rounded-2xl border border-white/10 w-full max-w-lg h-[calc(100vh-2rem)] overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-white/5">
+          <div>
+            <p className="text-xs text-purple-400 font-semibold uppercase tracking-wider mb-0.5">📞 Call Intelligence</p>
+            <p className="text-white font-bold">{company}</p>
+            {lead.contact_name && <p className="text-gray-400 text-sm">{lead.contact_name}</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none transition-colors">×</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-white/5">
+          {[
+            { id: 'brief', label: '📋 Pre-Brief', onClick: () => setTab('brief') },
+            { id: 'support', label: '🎯 Live Support', onClick: handleTabSupport },
+            { id: 'debrief', label: '✍️ Debrief', onClick: () => setTab('debrief') },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={t.onClick}
+              className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${tab === t.id ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Pre-Brief */}
+          {tab === 'brief' && (
+            briefLoading ? (
+              <div className="text-center text-gray-500 py-12">Generating intelligence brief…</div>
+            ) : brief?.error ? (
+              <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">{brief.error}</div>
+            ) : brief ? (
+              <>
+                {score != null && (
+                  <div className="glass rounded-xl p-4 border border-white/5 text-center">
+                    <p className="text-xs text-gray-500 mb-1">JARVIS Confidence</p>
+                    <p className={`text-3xl font-black ${scoreColor}`}>{score}<span className="text-base text-gray-500">/100</span></p>
+                  </div>
+                )}
+
+                {brief.pricing_anchor && (
+                  <div className="glass rounded-xl p-4 border border-jarvis-gold/20">
+                    <p className="text-xs text-jarvis-gold font-semibold mb-2">💰 PRICING ANCHOR</p>
+                    <p className="text-white text-sm">{brief.pricing_anchor}</p>
+                  </div>
+                )}
+
+                {brief.what_to_say && (
+                  <div className="glass rounded-xl p-4 border border-white/5">
+                    <p className="text-xs text-jarvis-cyan font-semibold mb-2">✅ WHAT TO SAY</p>
+                    {Array.isArray(brief.what_to_say)
+                      ? <ul className="space-y-1.5">{brief.what_to_say.map((s, i) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-jarvis-cyan mt-0.5 shrink-0">›</span>{s}</li>)}</ul>
+                      : <p className="text-sm text-gray-300">{brief.what_to_say}</p>
+                    }
+                  </div>
+                )}
+
+                {brief.what_not_to_say?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-red-500/20">
+                    <p className="text-xs text-red-400 font-semibold mb-2">🚫 AVOID</p>
+                    <ul className="space-y-1">{brief.what_not_to_say.map((s, i) => <li key={i} className="text-sm text-gray-400">— {s}</li>)}</ul>
+                  </div>
+                )}
+
+                {brief.objection_handlers?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-white/5">
+                    <p className="text-xs text-orange-400 font-semibold mb-2">🛡️ OBJECTION HANDLERS</p>
+                    <div className="space-y-3">
+                      {brief.objection_handlers.map((obj, i) => (
+                        <div key={i} className="text-sm">
+                          <p className="text-gray-400 italic">"{obj.objection}"</p>
+                          <p className="text-gray-200 mt-1 pl-3 border-l border-orange-500/30">{obj.response}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {brief.known_issues?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-white/5">
+                    <p className="text-xs text-yellow-400 font-semibold mb-2">⚠️ KNOWN ISSUES</p>
+                    <ul className="space-y-1">{brief.known_issues.map((s, i) => <li key={i} className="text-sm text-gray-400">• {s}</li>)}</ul>
+                  </div>
+                )}
+              </>
+            ) : null
+          )}
+
+          {/* Live Support */}
+          {tab === 'support' && (
+            !support ? (
+              <div className="text-center text-gray-500 py-12">Loading live support…</div>
+            ) : support?.error ? (
+              <div className="text-red-400 text-sm p-4 bg-red-500/10 rounded-xl">{support.error}</div>
+            ) : (
+              <>
+                {support.questions_to_ask?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-jarvis-cyan/20">
+                    <p className="text-xs text-jarvis-cyan font-semibold mb-2">❓ QUESTIONS TO ASK</p>
+                    <ul className="space-y-2">{support.questions_to_ask.map((q, i) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-jarvis-cyan shrink-0">{i+1}.</span>{q}</li>)}</ul>
+                  </div>
+                )}
+
+                {support.how_to_close?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-green-500/20">
+                    <p className="text-xs text-green-400 font-semibold mb-2">🎯 HOW TO CLOSE</p>
+                    <ul className="space-y-2">{support.how_to_close.map((c, i) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-green-400 shrink-0">›</span>{c}</li>)}</ul>
+                  </div>
+                )}
+
+                {support.danger_phrases_to_avoid?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-red-500/20">
+                    <p className="text-xs text-red-400 font-semibold mb-2">🚫 NEVER SAY THIS</p>
+                    <ul className="space-y-1">{support.danger_phrases_to_avoid.map((p, i) => <li key={i} className="text-sm text-gray-400 line-through">"{p}"</li>)}</ul>
+                  </div>
+                )}
+
+                {support.objection_responses?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-white/5">
+                    <p className="text-xs text-orange-400 font-semibold mb-2">🛡️ LIVE OBJECTIONS</p>
+                    <div className="space-y-3">
+                      {support.objection_responses.map((obj, i) => (
+                        <div key={i} className="text-sm">
+                          <p className="text-gray-400 italic">"{obj.objection}"</p>
+                          <p className="text-gray-200 mt-1 pl-3 border-l border-orange-500/30">{obj.response}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          )}
+
+          {/* Debrief */}
+          {tab === 'debrief' && (
+            debriefSent ? (
+              <div className="text-center py-12 space-y-3">
+                <p className="text-3xl">✅</p>
+                <p className="text-white font-semibold">Debrief logged.</p>
+                <p className="text-gray-400 text-sm">JARVIS has updated the lead record and learning database.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wider block mb-2">Call Outcome</label>
+                  <div className="flex gap-2">
+                    {[['won', '🏆 Won'], ['lost', '❌ Lost'], ['follow-up', '🔄 Follow-up']].map(([v, l]) => (
+                      <button
+                        key={v}
+                        onClick={() => setDebrief(d => ({ ...d, call_outcome: v }))}
+                        className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-colors ${debrief.call_outcome === v ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'border-white/10 text-gray-500 hover:text-gray-300'}`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wider block mb-2">Call Notes *</label>
+                  <textarea
+                    rows={4}
+                    value={debrief.notes}
+                    onChange={e => setDebrief(d => ({ ...d, notes: e.target.value }))}
+                    placeholder="What was discussed? Key pain points confirmed? Budget mentioned?"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-purple-500/50 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500 uppercase tracking-wider block mb-2">Next Action</label>
+                  <input
+                    value={debrief.next_action}
+                    onChange={e => setDebrief(d => ({ ...d, next_action: e.target.value }))}
+                    placeholder="Send proposal, schedule demo, follow up in 3 days..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-purple-500/50"
+                  />
+                </div>
+
+                {debriefErr && <p className="text-red-400 text-sm">{debriefErr}</p>}
+
+                <button
+                  onClick={submitDebrief}
+                  disabled={debriefing || !debrief.notes.trim()}
+                  className="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-semibold text-sm transition-colors"
+                >
+                  {debriefing ? 'Logging…' : 'Log Debrief →'}
+                </button>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LeadRow({ lead, onScore, onProposal, onCallBrief }) {
   const [scoring, setScoring] = useState(false);
 
   async function handleScore() {
@@ -122,7 +382,7 @@ function LeadRow({ lead, onScore, onProposal }) {
 
       <div className="flex items-center justify-between mt-3 gap-2">
         <span className="text-xs text-gray-600">Source: {lead.source}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {lead.score === 0 && (
             <button
               onClick={handleScore}
@@ -133,12 +393,20 @@ function LeadRow({ lead, onScore, onProposal }) {
             </button>
           )}
           {(lead.score || 0) >= 50 && (
-            <button
-              onClick={() => onProposal(lead)}
-              className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
-            >
-              Generate Proposal →
-            </button>
+            <>
+              <button
+                onClick={() => onCallBrief(lead)}
+                className="text-xs px-3 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors font-semibold"
+              >
+                📞 Call Brief
+              </button>
+              <button
+                onClick={() => onProposal(lead)}
+                className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
+              >
+                Generate Proposal →
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -156,6 +424,7 @@ export default function LeadsDashboard() {
   const [newLead, setNewLead] = useState({ company: "", contact_name: "", email: "", industry: "", country: "" });
   const [bulkScoring, setBulkScoring] = useState(false);
   const [notice, setNotice] = useState(null);
+  const [callBriefLead, setCallBriefLead] = useState(null);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -290,10 +559,13 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} />)
           )}
         </div>
       )}
+
+      {/* Call Brief Panel */}
+      {callBriefLead && <CallBriefModal lead={callBriefLead} onClose={() => setCallBriefLead(null)} />}
 
       {/* Add Lead Modal */}
       {showAdd && (
