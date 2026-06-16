@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
   getJarvisMemory, getJarvisMemoryStats, storeJarvisMemory,
-  triggerEvolution, getEvolutionLog,
+  triggerEvolution, getEvolutionLog, getJarvisSelfImprovement,
+  enhanceIdea, spawnAgentTeam, getJarvisAuthority,
 } from '../../services/api'
+import api from '../../services/api'
 
 const MEMORY_TYPE_COLORS = {
   episodic:    { bg: 'bg-blue-500/20',   text: 'text-blue-400',   label: 'Episodic' },
@@ -13,7 +15,7 @@ const MEMORY_TYPE_COLORS = {
 }
 
 export default function EvolutionDashboard() {
-  const [tab, setTab] = useState('memory') // memory | evolution | teach
+  const [tab, setTab] = useState('memory') // memory | evolution | teach | capabilities
   const [memories, setMemories] = useState([])
   const [stats, setStats] = useState(null)
   const [evolutionLog, setEvolutionLog] = useState([])
@@ -94,6 +96,33 @@ export default function EvolutionDashboard() {
     }
   }
 
+  // Capabilities tab state and handlers
+  const [capLoading, setCapLoading] = useState(false)
+  const [capResult, setCapResult] = useState(null)
+  const [selfImprovement, setSelfImprovement] = useState(null)
+  const [authority, setAuthority] = useState(null)
+  const [ideaText, setIdeaText] = useState('')
+  const [spawnTask, setSpawnTask] = useState('')
+  const [capError, setCapError] = useState(null)
+
+  useEffect(() => {
+    if (tab === 'capabilities' && !selfImprovement) {
+      getJarvisSelfImprovement().then(d => setSelfImprovement(d)).catch(() => {})
+      getJarvisAuthority().then(d => setAuthority(d)).catch(() => {})
+    }
+  }, [tab])
+
+  async function runCapability(label, fn) {
+    setCapLoading(true); setCapResult(null); setCapError(null)
+    try {
+      const r = await fn()
+      setCapResult({ label, ...r })
+    } catch (err) {
+      setCapError({ label, error: err.message })
+    }
+    setCapLoading(false)
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden p-6">
       {/* Header */}
@@ -128,6 +157,7 @@ export default function EvolutionDashboard() {
           { id: 'memory', label: 'Memory Bank' },
           { id: 'evolution', label: 'Evolution Log' },
           { id: 'teach', label: 'Teach JARVIS' },
+          { id: 'capabilities', label: 'Capabilities' },
         ].map(t => (
           <button
             key={t.id}
@@ -341,6 +371,78 @@ export default function EvolutionDashboard() {
                 <strong className="text-slate-400">How it works:</strong> Every time JARVIS responds to you, it first searches its memory bank for relevant context. Instructions are always included. Semantic facts are included when relevant. Learnings are surfaced when a similar situation arises.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Capabilities Tab */}
+        {tab === 'capabilities' && (
+          <div className="space-y-5">
+            {/* Authority */}
+            {authority && (
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">JARVIS Authority Level</p>
+                <pre className="text-xs text-slate-300 overflow-auto max-h-40">{JSON.stringify(authority, null, 2)}</pre>
+              </div>
+            )}
+
+            {/* Self-Improvement */}
+            {selfImprovement && (
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-400/70 mb-2">Self-Improvement Recommendations</p>
+                <pre className="text-xs text-slate-300 overflow-auto max-h-40">{JSON.stringify(selfImprovement, null, 2)}</pre>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Enhance Idea */}
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-purple-400/70">Enhance Idea with AI</p>
+                <textarea
+                  value={ideaText}
+                  onChange={e => setIdeaText(e.target.value)}
+                  placeholder="Paste any idea, strategy, or concept to enhance…"
+                  rows={3}
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-4 py-3 text-white text-xs focus:outline-none focus:border-purple-500/50 resize-none placeholder-slate-600"
+                />
+                <button
+                  onClick={() => runCapability('Enhanced Idea', () => enhanceIdea(ideaText))}
+                  disabled={capLoading || !ideaText.trim()}
+                  className="w-full py-2 rounded-xl bg-purple-600/80 hover:bg-purple-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Processing…' : '✨ Enhance'}
+                </button>
+              </div>
+
+              {/* Spawn Agent Team */}
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-cyan-400/70">Spawn Agent Team</p>
+                <textarea
+                  value={spawnTask}
+                  onChange={e => setSpawnTask(e.target.value)}
+                  placeholder="Describe the task for the agent team to execute…"
+                  rows={3}
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-4 py-3 text-white text-xs focus:outline-none focus:border-cyan-500/50 resize-none placeholder-slate-600"
+                />
+                <button
+                  onClick={() => runCapability('Agent Team', () => spawnAgentTeam(spawnTask))}
+                  disabled={capLoading || !spawnTask.trim()}
+                  className="w-full py-2 rounded-xl bg-cyan-600/80 hover:bg-cyan-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Spawning…' : '⚡ Spawn Team'}
+                </button>
+              </div>
+            </div>
+
+            {(capResult || capError) && (
+              <div className={`rounded-xl border p-4 ${capError ? 'border-red-500/25 bg-red-500/10' : 'border-slate-700/40 bg-slate-800/40'}`}>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {capError ? `Error — ${capError.label}` : `Result — ${capResult?.label}`}
+                </p>
+                <pre className="text-xs text-slate-300 overflow-auto max-h-60">
+                  {JSON.stringify(capResult || capError, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         )}
 
