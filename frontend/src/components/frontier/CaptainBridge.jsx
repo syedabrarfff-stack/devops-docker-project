@@ -63,6 +63,7 @@ export default function CaptainBridge() {
   const [mirrorDecision, setMirrorDecision] = useState({ decision: '', context: '', outcome: '', confidence: 8 })
   const [mirrorPredictQ, setMirrorPredictQ] = useState('')
   const [expForm, setExpForm] = useState({ name: '', hypothesis: '', variant_a: '', variant_b: '' })
+  const [expActionId, setExpActionId] = useState('')
 
   async function submit(path, body) {
     setLoading(true)
@@ -194,6 +195,36 @@ export default function CaptainBridge() {
               <Textarea value={expForm.variant_b} onChange={v => setExpForm(p => ({ ...p, variant_b: v }))} placeholder="Variant B — challenger message" />
               <RunButton loading={loading} disabled={!expForm.name.trim() || !expForm.variant_a.trim()}>Create Experiment</RunButton>
             </form>
+          </ActionCard>
+
+          <ActionCard title="Experiment Actions" subtitle="Record an outcome, assign a variant to a prospect, or promote the winning variant of an A/B experiment.">
+            <div className="space-y-2">
+              <Input value={expActionId} onChange={setExpActionId} placeholder="Experiment ID (UUID)" />
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" disabled={loading || !expActionId.trim()}
+                  onClick={() => submit(`/api/v1/experiments/${expActionId.trim()}/promote`, {})}
+                  className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors">
+                  Promote Winner
+                </button>
+                <button type="button" disabled={loading || !expActionId.trim()}
+                  onClick={() => {
+                    const prospectId = window.prompt('Prospect ID to assign variant to:')
+                    if (prospectId) submit(`/api/v1/experiments/${expActionId.trim()}/assign`, { prospect_id: prospectId })
+                  }}
+                  className="rounded-xl border border-blue-500/30 bg-blue-500/10 py-2 text-xs font-bold text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors">
+                  Assign Variant
+                </button>
+                <button type="button" disabled={loading || !expActionId.trim()}
+                  onClick={() => {
+                    const variant = window.prompt('Variant label (A or B):')
+                    const converted = window.confirm('Was this a conversion?')
+                    if (variant !== null) submit(`/api/v1/experiments/${expActionId.trim()}/outcome`, { variant_label: variant, converted })
+                  }}
+                  className="rounded-xl border border-purple-500/30 bg-purple-500/10 py-2 text-xs font-bold text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 transition-colors">
+                  Record Outcome
+                </button>
+              </div>
+            </div>
           </ActionCard>
 
           <div className="xl:col-span-2">

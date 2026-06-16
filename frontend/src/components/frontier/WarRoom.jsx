@@ -16,13 +16,24 @@ const SEV_CFG = {
   low:      'border-gray-600 bg-gray-600/10 text-gray-400',
 }
 
-function ThreatCard({ threat }) {
+function ThreatCard({ threat, onResolve }) {
   const cls = SEV_CFG[threat.severity] || SEV_CFG.low
   return (
     <div className={`rounded-xl border p-3 space-y-1 ${cls}`}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold">{threat.title || threat.threat_type || 'Threat'}</p>
-        <span className="text-[10px] font-bold uppercase opacity-70">{threat.severity}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase opacity-70">{threat.severity}</span>
+          {threat.id && (
+            <button
+              type="button"
+              onClick={() => onResolve && onResolve(threat.id)}
+              className="rounded border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-bold hover:bg-white/20 transition-colors"
+            >
+              Resolve
+            </button>
+          )}
+        </div>
       </div>
       {threat.description && <p className="text-xs opacity-70 leading-5">{threat.description}</p>}
       {threat.recommended_action && <p className="text-xs opacity-60">→ {threat.recommended_action}</p>}
@@ -59,6 +70,20 @@ export default function WarRoom() {
   }, [])
 
   useEffect(() => { loadThreats() }, [loadThreats])
+
+  async function resolveThreat(threatId) {
+    const resolution = window.prompt('Resolution note:')
+    if (resolution === null) return
+    try {
+      await api.post(`/api/v1/frontier/threats/${threatId}/resolve`, {
+        tenant_id: DEFAULT_TENANT,
+        resolution_notes: resolution,
+      })
+      await loadThreats()
+    } catch (err) {
+      setResult({ error: err.response?.data?.detail || err.message })
+    }
+  }
 
   async function scanThreats(event) {
     event.preventDefault()
@@ -119,7 +144,7 @@ export default function WarRoom() {
               <p className="text-xs text-white/30 text-center py-4">No active threats detected. Click Scan Now to check.</p>
             ) : (
               <div className="space-y-2">
-                {threats.map((t, i) => <ThreatCard key={i} threat={t} />)}
+                {threats.map((t, i) => <ThreatCard key={i} threat={t} onResolve={resolveThreat} />)}
               </div>
             )}
           </div>

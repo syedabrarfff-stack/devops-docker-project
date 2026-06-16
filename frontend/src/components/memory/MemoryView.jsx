@@ -482,6 +482,48 @@ export default function MemoryView() {
                 Seed Human Intel
               </button>
             </div>
+            <div className="glass p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/50">Memory Board</p>
+              <p className="text-xs text-gray-400">View pinned strategic insights and key memory anchors across the system.</p>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => adminAction('Memory Board', () => api.get('/api/v1/memory/board'))}
+                  disabled={adminLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 disabled:opacity-40 transition-colors"
+                >
+                  {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Database size={13} />}
+                  View Board
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adminAction('Memory Workflow', () => api.get('/api/v1/memory/workflow'))}
+                  disabled={adminLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 disabled:opacity-40 transition-colors"
+                >
+                  {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                  View Workflow
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adminAction('Memory Providers', () => api.get('/api/v1/memory/providers'))}
+                  disabled={adminLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 disabled:opacity-40 transition-colors"
+                >
+                  {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
+                  View Providers
+                </button>
+                <button
+                  type="button"
+                  onClick={() => adminAction('Memory Summarize', () => api.post('/api/v1/memory/summarize', {}))}
+                  disabled={adminLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-40 transition-colors"
+                >
+                  {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                  Summarize Memory
+                </button>
+              </div>
+            </div>
           </div>
 
           {adminResult && (
