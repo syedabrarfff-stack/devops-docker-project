@@ -60,6 +60,25 @@ function CallBriefModal({ lead, onClose }) {
   const [debriefSent, setDebriefSent] = useState(false)
   const [debriefErr, setDebriefErr] = useState(null)
   const [debriefing, setDebriefing] = useState(false)
+  const [pdfTier, setPdfTier] = useState('GROWTH')
+  const [pdfGenerating, setPdfGenerating] = useState(false)
+  const [pdfResult, setPdfResult] = useState(null)
+  const [pdfErr, setPdfErr] = useState(null)
+
+  async function generatePdfProposal() {
+    setPdfGenerating(true); setPdfErr(null); setPdfResult(null)
+    try {
+      const r = await api.post('/api/v1/proposals/generate', {
+        lead_id: lead.id,
+        package_tier: pdfTier,
+        tenant_id: DEFAULT_TENANT,
+      })
+      setPdfResult(r.data)
+    } catch (e) {
+      setPdfErr(e?.response?.data?.detail || 'PDF generation failed')
+    }
+    setPdfGenerating(false)
+  }
 
   useEffect(() => {
     api.post('/api/v1/calls/pre-brief', { lead_id: lead.id, tenant_id: DEFAULT_TENANT })
@@ -115,6 +134,40 @@ function CallBriefModal({ lead, onClose }) {
             {lead.contact_name && <p className="text-gray-400 text-sm">{lead.contact_name}</p>}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none transition-colors">×</button>
+        </div>
+
+        {/* PDF Proposal Generator */}
+        <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02]">
+          <p className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wider">📄 Generate PDF Proposal</p>
+          {pdfResult ? (
+            <div className="rounded-xl border border-green-500/25 bg-green-500/10 p-3 text-sm">
+              <p className="text-green-300 font-semibold">✅ Proposal generated!</p>
+              <p className="text-gray-400 text-xs mt-1">Proposal #{pdfResult.invoice_number || pdfResult.proposal_id} · Awaiting Captain approval</p>
+              {pdfResult.pdf_url && (
+                <a href={pdfResult.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-jarvis-cyan mt-1 block hover:underline">View PDF →</a>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select
+                value={pdfTier}
+                onChange={e => setPdfTier(e.target.value)}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-purple-500/50"
+              >
+                <option value="STARTER">Starter — $2.5K setup + $750/mo</option>
+                <option value="GROWTH">Growth — $6.5K setup + $2.5K/mo</option>
+                <option value="ENTERPRISE">Enterprise — $15K setup + $5K/mo</option>
+              </select>
+              <button
+                onClick={generatePdfProposal}
+                disabled={pdfGenerating}
+                className="px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
+              >
+                {pdfGenerating ? 'Generating…' : 'Generate PDF →'}
+              </button>
+            </div>
+          )}
+          {pdfErr && <p className="text-red-400 text-xs mt-1">{pdfErr}</p>}
         </div>
 
         {/* Tabs */}
