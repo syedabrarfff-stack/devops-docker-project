@@ -309,8 +309,9 @@ function CallBriefModal({ lead, onClose }) {
   )
 }
 
-function LeadRow({ lead, onScore, onProposal, onCallBrief }) {
+function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach }) {
   const [scoring, setScoring] = useState(false);
+  const [queuing, setQueuing] = useState(false);
 
   async function handleScore() {
     setScoring(true);
@@ -395,6 +396,17 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief }) {
           {(lead.score || 0) >= 50 && (
             <>
               <button
+                onClick={async () => {
+                  setQueuing(true)
+                  try { await api.post(`/api/v1/outreach/queue/${lead.id}`) } catch {}
+                  setQueuing(false)
+                }}
+                disabled={queuing}
+                className="text-xs px-3 py-1 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 transition-colors font-semibold disabled:opacity-50"
+              >
+                {queuing ? "Queueing…" : "📧 Outreach"}
+              </button>
+              <button
                 onClick={() => onCallBrief(lead)}
                 className="text-xs px-3 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors font-semibold"
               >
@@ -404,7 +416,7 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief }) {
                 onClick={() => onProposal(lead)}
                 className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
               >
-                Generate Proposal →
+                Proposal →
               </button>
             </>
           )}

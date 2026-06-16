@@ -222,6 +222,7 @@ function CustomTooltip({ active, payload, label }) {
 export default function Dashboard() {
   const {
     setActiveView,
+    setProposalPrefill,
     pendingApprovals,
     setPendingApprovals,
     notifications,
@@ -817,15 +818,33 @@ export default function Dashboard() {
                           {[lead.industry, lead.country, lead.contact_name].filter(Boolean).join(' | ') || 'No enrichment summary yet'}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="rounded-full border border-jarvis-gold/30 bg-jarvis-gold/10 px-3 py-1 text-xs font-semibold text-jarvis-gold">
                           Score {Number(lead.score || 0).toFixed(0)}
                         </span>
-                        <button onClick={() => setActiveView('proposals')} className="btn-primary py-1.5 text-xs">
-                          Proposal
+                        <button
+                          onClick={() => {
+                            setProposalPrefill({
+                              client_name: lead.contact_name || '',
+                              client_email: lead.email || '',
+                              client_company: lead.company_name || lead.company || '',
+                              service_type: lead.opportunity_type || lead.pain_points?.[0] || '',
+                              context: [lead.notes, lead.pain_points?.join(', ')].filter(Boolean).join('\n'),
+                            })
+                            setActiveView('proposals')
+                          }}
+                          className="btn-primary py-1.5 text-xs"
+                        >
+                          Proposal →
                         </button>
-                        <button onClick={() => setActiveView('outreach')} className="btn-primary py-1.5 text-xs">
-                          Outreach
+                        <button
+                          onClick={async () => {
+                            try { await api.post(`/api/v1/outreach/queue/${lead.id}`) } catch {}
+                            setActiveView('outreach')
+                          }}
+                          className="btn-primary py-1.5 text-xs"
+                        >
+                          Queue Outreach
                         </button>
                       </div>
                     </div>
