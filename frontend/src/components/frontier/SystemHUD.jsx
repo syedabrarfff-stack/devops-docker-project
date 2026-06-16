@@ -106,6 +106,15 @@ export default function SystemHUD() {
               </RunButton>
             </ActionCard>
 
+            <ActionCard title="Self-Heal Now" subtitle="Run the JARVIS autonomous self-healing cycle immediately: reset open circuit breakers, refill lead pipeline, resurrect missing scheduler jobs, verify Redis.">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Self-Heal', () => api.post('/api/v1/system/self-heal'))}
+              >
+                Run Self-Heal
+              </RunButton>
+            </ActionCard>
+
             <ActionCard title="Reset AI Provider" subtitle="Reset circuit breaker for a specific AI provider (claude, gpt-4o, gemini, etc.) after a failure.">
               <div className="space-y-2">
                 <select
