@@ -184,6 +184,7 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sending, setSending] = useState(false)
+  const [approving, setApproving] = useState(false)
   const [sendMsg, setSendMsg] = useState(null)
   const pricing = proposal.pricing || {}
   const monthly = pricing.monthly_retainer || 0
@@ -197,6 +198,19 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
       console.error('Status update failed:', err)
     }
     setBusy(false)
+  }
+
+  const approveProposal = async () => {
+    setApproving(true)
+    setSendMsg(null)
+    try {
+      await api.post(`/api/v1/proposals/${proposal.id}/approve`, { tenant_id: DEFAULT_TENANT })
+      setSendMsg('approved')
+      await onRefresh()
+    } catch (err) {
+      setSendMsg(err.response?.data?.detail || 'Approval failed')
+    }
+    setApproving(false)
   }
 
   const sendEmail = async () => {
@@ -287,18 +301,30 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
             </div>
           )}
 
-          {sendMsg && sendMsg !== 'sent' && (
+          {sendMsg && sendMsg !== 'sent' && sendMsg !== 'approved' && (
             <p className="text-xs text-red-400 px-1">{sendMsg}</p>
           )}
           {sendMsg === 'sent' && (
             <p className="text-xs text-green-400 flex items-center gap-1 px-1"><MailCheck size={11} /> Email delivered</p>
+          )}
+          {sendMsg === 'approved' && (
+            <p className="text-xs text-jarvis-gold flex items-center gap-1 px-1">✓ Captain approved — ready to send</p>
           )}
           <div className="flex items-center gap-2 flex-wrap">
             {proposal.status === 'draft' && (
               <>
                 <button
                   type="button"
-                  disabled={sending || busy}
+                  disabled={approving || busy || sending}
+                  onClick={approveProposal}
+                  className="inline-flex items-center gap-1.5 rounded border border-jarvis-gold/40 bg-jarvis-gold/10 px-3 py-1.5 text-xs font-semibold text-jarvis-gold hover:bg-jarvis-gold/20 disabled:opacity-40 transition-colors"
+                >
+                  {approving ? <Loader2 size={11} className="animate-spin" /> : null}
+                  Captain Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={sending || busy || approving}
                   onClick={sendEmail}
                   className="inline-flex items-center gap-1.5 rounded border border-jarvis-cyan/40 bg-jarvis-cyan/10 px-3 py-1.5 text-xs font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 disabled:opacity-40 transition-colors"
                 >
@@ -307,7 +333,7 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
                 </button>
                 <button
                   type="button"
-                  disabled={busy || sending}
+                  disabled={busy || sending || approving}
                   onClick={() => updateStatus('sent')}
                   className="inline-flex items-center gap-1.5 rounded border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors"
                 >
