@@ -151,6 +151,55 @@ export default function IntelligenceHub() {
               </form>
             </ActionCard>
           </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <ActionCard title="Seed Innovation Queue" subtitle="Populate the innovation queue with starter improvement ideas for JARVIS.">
+              <RunButton
+                loading={loading}
+                onClick={async (e) => {
+                  e.preventDefault(); setLoading(true)
+                  try {
+                    const r = await api.post('/api/v1/innovation/seed', { tenant_id: DEFAULT_TENANT })
+                    setResult(r.data)
+                  } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                  setLoading(false)
+                }}
+              >
+                Seed Queue
+              </RunButton>
+            </ActionCard>
+            <ActionCard title="Weekly Innovation Review" subtitle="Run the AI-driven weekly review of queued innovation items.">
+              <RunButton
+                loading={loading}
+                onClick={async (e) => {
+                  e.preventDefault(); setLoading(true)
+                  try {
+                    const r = await api.post('/api/v1/innovation/weekly-review', { tenant_id: DEFAULT_TENANT })
+                    setResult(r.data)
+                  } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                  setLoading(false)
+                }}
+              >
+                Run Weekly Review
+              </RunButton>
+            </ActionCard>
+            <ActionCard title="Mark Innovation Deployed" subtitle="Record that a queued innovation item has been shipped to production.">
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const itemId = e.target.querySelector('input').value.trim()
+                if (!itemId) return
+                setLoading(true)
+                try {
+                  const r = await api.post(`/api/v1/innovation/${itemId}/deployed`, { tenant_id: DEFAULT_TENANT })
+                  setResult(r.data)
+                } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                setLoading(false)
+              }} className="space-y-3">
+                <input name="item_id" placeholder="Innovation item ID (UUID)"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-jarvis-cyan/60 transition-colors" />
+                <RunButton loading={loading}>Mark Deployed</RunButton>
+              </form>
+            </ActionCard>
+          </div>
           <ActionCard title="Latest intelligence result" subtitle="Output from the last action.">
             <ResultBox result={result} />
           </ActionCard>
