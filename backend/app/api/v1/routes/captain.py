@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/captain", tags=["captain"])
 
 # ── Secondary router for /voice endpoints ─────────────────────────────────────
@@ -174,7 +176,8 @@ async def captain_mirror_profile(request: Request, tenant_id: Optional[UUID] = N
     resolved = _resolve_tenant_id(request, tenant_id)
     try:
         state = await captain_bridge.current_state(resolved)
-    except Exception:
+    except Exception as exc:
+        logger.error("captain_bridge.current_state failed for tenant %s: %s", resolved, exc, exc_info=True)
         state = {}
 
     return {

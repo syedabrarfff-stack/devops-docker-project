@@ -73,7 +73,7 @@ async def _notify_captain_new_lead(company: str, email: str | None, source: str 
         pass
 
 
-async def _score_in_background(lead_id: int):
+async def _score_in_background(lead_id: UUID):
     from app.core.database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         async with db.begin():

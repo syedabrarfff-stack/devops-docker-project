@@ -30,7 +30,7 @@ RUN DATABASE_URL="postgresql+asyncpg://t:t@localhost/t" \
 EXPOSE 8000
 
 HEALTHCHECK --interval=20s --timeout=10s --start-period=40s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f --max-time 5 http://localhost:8000/health || exit 1
 
 # Use gunicorn with uvicorn workers — production-grade process manager.
 # Auto-restarts crashed workers; --preload reduces per-worker memory.
