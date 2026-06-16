@@ -64,6 +64,8 @@ function CallBriefModal({ lead, onClose }) {
   const [pdfGenerating, setPdfGenerating] = useState(false)
   const [pdfResult, setPdfResult] = useState(null)
   const [pdfErr, setPdfErr] = useState(null)
+  const [psych, setPsych] = useState(null)
+  const [psychLoading, setPsychLoading] = useState(false)
 
   async function generatePdfProposal() {
     setPdfGenerating(true); setPdfErr(null); setPdfResult(null)
@@ -95,6 +97,24 @@ function CallBriefModal({ lead, onClose }) {
       setSupport(r.data)
     } catch (e) {
       setSupport({ error: e?.response?.data?.detail || 'Failed to load live support' })
+    }
+  }
+
+  async function handleTabPsych() {
+    setTab('psych')
+    if (psych) return
+    setPsychLoading(true)
+    try {
+      const r = await api.post('/api/v1/intelligence/prospect-psychology', {
+        lead_id: lead.id,
+        tenant_id: DEFAULT_TENANT,
+        use_ai: true,
+      })
+      setPsych(r.data?.profile || r.data)
+    } catch (e) {
+      setPsych({ error: e?.response?.data?.detail || 'Psychology analysis failed' })
+    } finally {
+      setPsychLoading(false)
     }
   }
 
@@ -174,7 +194,8 @@ function CallBriefModal({ lead, onClose }) {
         <div className="flex border-b border-white/5">
           {[
             { id: 'brief', label: '📋 Pre-Brief', onClick: () => setTab('brief') },
-            { id: 'support', label: '🎯 Live Support', onClick: handleTabSupport },
+            { id: 'support', label: '🎯 Live', onClick: handleTabSupport },
+            { id: 'psych', label: '🧠 Psychology', onClick: handleTabPsych },
             { id: 'debrief', label: '✍️ Debrief', onClick: () => setTab('debrief') },
           ].map(t => (
             <button
@@ -295,6 +316,60 @@ function CallBriefModal({ lead, onClose }) {
                   </div>
                 )}
               </>
+            )
+          )}
+
+          {/* Psychology */}
+          {tab === 'psych' && (
+            psychLoading ? (
+              <div className="text-center text-gray-500 py-12">Analysing buyer psychology…</div>
+            ) : psych?.error ? (
+              <div className="text-red-400 text-sm p-4">{psych.error}</div>
+            ) : psych ? (
+              <div className="space-y-4">
+                {psych.personality_type && (
+                  <div className="glass rounded-xl p-4 border border-purple-500/20">
+                    <p className="text-xs text-purple-400 font-semibold mb-1 uppercase tracking-wider">Personality Type</p>
+                    <p className="text-white font-bold">{psych.personality_type}</p>
+                    {psych.decision_style && <p className="text-gray-400 text-sm mt-1">{psych.decision_style}</p>}
+                  </div>
+                )}
+                {psych.buying_motivators?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-green-500/20">
+                    <p className="text-xs text-green-400 font-semibold mb-2 uppercase tracking-wider">💡 Buying Motivators</p>
+                    <ul className="space-y-1">{psych.buying_motivators.map((m, i) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-green-400">›</span>{m}</li>)}</ul>
+                  </div>
+                )}
+                {psych.risk_profile && (
+                  <div className="glass rounded-xl p-4 border border-yellow-500/20">
+                    <p className="text-xs text-yellow-400 font-semibold mb-1 uppercase tracking-wider">Risk Profile</p>
+                    <p className="text-gray-300 text-sm">{typeof psych.risk_profile === 'string' ? psych.risk_profile : JSON.stringify(psych.risk_profile)}</p>
+                  </div>
+                )}
+                {psych.communication_preference && (
+                  <div className="glass rounded-xl p-4 border border-jarvis-cyan/20">
+                    <p className="text-xs text-jarvis-cyan font-semibold mb-1 uppercase tracking-wider">Communication Style</p>
+                    <p className="text-gray-300 text-sm">{psych.communication_preference}</p>
+                  </div>
+                )}
+                {psych.objection_triggers?.length > 0 && (
+                  <div className="glass rounded-xl p-4 border border-red-500/20">
+                    <p className="text-xs text-red-400 font-semibold mb-2 uppercase tracking-wider">⚠️ Objection Triggers</p>
+                    <ul className="space-y-1">{psych.objection_triggers.map((t, i) => <li key={i} className="text-sm text-gray-300 flex gap-2"><span className="text-red-400">›</span>{t}</li>)}</ul>
+                  </div>
+                )}
+                {psych.recommended_approach && (
+                  <div className="glass rounded-xl p-4 border border-white/10">
+                    <p className="text-xs text-gray-400 font-semibold mb-1 uppercase tracking-wider">Recommended Approach</p>
+                    <p className="text-gray-300 text-sm leading-relaxed">{psych.recommended_approach}</p>
+                  </div>
+                )}
+                {!psych.personality_type && !psych.buying_motivators && (
+                  <pre className="text-xs text-gray-400 whitespace-pre-wrap">{JSON.stringify(psych, null, 2)}</pre>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-12">Click the Psychology tab to analyse this prospect.</div>
             )
           )}
 
