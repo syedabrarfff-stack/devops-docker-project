@@ -5,12 +5,12 @@ import {
   Zap, Activity, UserCircle, Target, Mail, ListTodo, Bell, Clock,
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
-  DollarSign, Cpu, MessageCircle,
-  Network,
+  DollarSign, Cpu, MessageCircle, Network, MonitorDot,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
 const NAV = [
+  { id: 'commandCenter',  path: '/control-room/command-center', label: 'Command Center', icon: MonitorDot },
   { id: 'dashboard',      path: '/control-room/dashboard', label: 'Dashboard',     icon: LayoutDashboard },
   { id: 'chat',           path: '/control-room/chat', label: 'Chat',          icon: MessageSquare },
   { id: 'briefing',       path: '/control-room/briefing', label: 'Briefings',     icon: Newspaper },

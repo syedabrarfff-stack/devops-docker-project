@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 const VIEW_PATHS = {
+  commandCenter: '/control-room/command-center',
   dashboard: '/control-room/dashboard',
   chat: '/control-room/chat',
   briefing: '/control-room/briefing',

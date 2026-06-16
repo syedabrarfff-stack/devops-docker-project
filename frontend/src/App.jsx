@@ -37,6 +37,7 @@ import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
 import LoginPage from './components/auth/LoginPage'
 import Dashboard from './components/dashboard/Dashboard'
+import CommandCenter from './components/dashboard/CommandCenter'
 import ChatInterface from './components/chat/ChatInterface'
 import MorningBriefing from './components/briefing/MorningBriefing'
 import Approvals from './components/approvals/Approvals'
@@ -89,6 +90,7 @@ const controlPath = (path) => `${CONTROL_ROOM_BASE}${path === '/' ? '/dashboard'
 const EmailRedirect = () => <Navigate to={controlPath('/email')} replace />
 
 export const VIEWS = {
+  commandCenter: { path: controlPath('/command-center'), title: 'Command Center',        Component: CommandCenter },
   dashboard:     { path: controlPath('/'),              title: 'Executive Dashboard',    Component: Dashboard },
   chat:          { path: controlPath('/chat'),          title: 'Private Command Chat',   Component: ChatInterface },
   briefing:      { path: controlPath('/briefing'),      title: 'Morning Briefings',      Component: MorningBriefing },
