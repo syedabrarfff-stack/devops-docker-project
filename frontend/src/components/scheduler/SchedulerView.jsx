@@ -49,6 +49,8 @@ export default function SchedulerView() {
   const [dbJobs, setDbJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("jobs");
+  const [failures, setFailures] = useState(null);
+  const [failuresLoading, setFailuresLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [newJobType, setNewJobType] = useState("cron");
   const [form, setForm] = useState({
@@ -99,6 +101,15 @@ export default function SchedulerView() {
   async function handleDelete(id) {
     await api.delete(`/api/v1/scheduler/jobs/${id}`);
     load();
+  }
+
+  async function loadFailures() {
+    setFailuresLoading(true);
+    try {
+      const r = await api.get("/api/v1/scheduler/failures");
+      setFailures(r.data);
+    } catch (e) { setFailures({ error: e.response?.data?.detail || e.message }); }
+    setFailuresLoading(false);
   }
 
   const dbJobMap = Object.fromEntries(dbJobs.map(j => [j.job_id, j]));
@@ -176,6 +187,22 @@ export default function SchedulerView() {
           )}
         </div>
       )}
+
+      {/* Job Failures */}
+      <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wider text-white/40">Job Failures</p>
+          <button onClick={loadFailures} disabled={failuresLoading}
+            className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white text-xs transition-colors disabled:opacity-40">
+            {failuresLoading ? 'Loading…' : '↺ Load Failures'}
+          </button>
+        </div>
+        {failures && (
+          <pre className="text-xs text-gray-300 overflow-auto max-h-48 rounded-lg border border-white/10 bg-black/20 p-3">
+            {JSON.stringify(failures, null, 2)}
+          </pre>
+        )}
+      </div>
 
       {/* New Job Modal */}
       {showNew && (
