@@ -3,6 +3,7 @@ import {
   getJarvisMemory, getJarvisMemoryStats, storeJarvisMemory,
   triggerEvolution, getEvolutionLog, getJarvisSelfImprovement,
   enhanceIdea, spawnAgentTeam, getJarvisAuthority,
+  getJarvisBriefing, getJarvisGreeting, logOutcome, resolveOutcome,
 } from '../../services/api'
 import api from '../../services/api'
 
@@ -104,6 +105,10 @@ export default function EvolutionDashboard() {
   const [ideaText, setIdeaText] = useState('')
   const [spawnTask, setSpawnTask] = useState('')
   const [capError, setCapError] = useState(null)
+  const [outcomeForm, setOutcomeForm] = useState({ action_type: 'decision', action_detail: '', action_ref: '', importance: '0.6' })
+  const [resolveForm, setResolveForm] = useState({ outcome_id: '', outcome: '', note: '' })
+  const setOF = k => v => setOutcomeForm(f => ({ ...f, [k]: v }))
+  const setRF = k => v => setResolveForm(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
     if (tab === 'capabilities' && !selfImprovement) {
@@ -429,6 +434,117 @@ export default function EvolutionDashboard() {
                   className="w-full py-2 rounded-xl bg-cyan-600/80 hover:bg-cyan-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
                 >
                   {capLoading ? 'Spawning…' : '⚡ Spawn Team'}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick reads */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-yellow-400/70">JARVIS Briefing</p>
+                <p className="text-xs text-slate-400">Morning intelligence brief — pipeline, threats, scheduled tasks.</p>
+                <button
+                  onClick={() => runCapability('JARVIS Briefing', getJarvisBriefing)}
+                  disabled={capLoading}
+                  className="w-full py-2 rounded-xl bg-yellow-600/80 hover:bg-yellow-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Loading…' : 'Get Briefing'}
+                </button>
+              </div>
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-green-400/70">JARVIS Greeting</p>
+                <p className="text-xs text-slate-400">Context-aware greeting from JARVIS for the current session.</p>
+                <button
+                  onClick={() => runCapability('JARVIS Greeting', getJarvisGreeting)}
+                  disabled={capLoading}
+                  className="w-full py-2 rounded-xl bg-green-600/80 hover:bg-green-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Loading…' : 'Get Greeting'}
+                </button>
+              </div>
+            </div>
+
+            {/* Outcome tracking */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-400/70">Log JARVIS Outcome</p>
+                <select
+                  value={outcomeForm.action_type}
+                  onChange={e => setOF('action_type')(e.target.value)}
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none"
+                >
+                  {['decision', 'outreach', 'proposal', 'research', 'automation', 'escalation', 'client_action', 'system_action'].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <textarea
+                  value={outcomeForm.action_detail}
+                  onChange={e => setOF('action_detail')(e.target.value)}
+                  placeholder="What action did JARVIS take?"
+                  rows={2}
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none resize-none placeholder-slate-600"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={outcomeForm.action_ref}
+                    onChange={e => setOF('action_ref')(e.target.value)}
+                    placeholder="Reference ID (opt)"
+                    className="bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none placeholder-slate-600"
+                  />
+                  <input
+                    type="number" step="0.1" min="0" max="1"
+                    value={outcomeForm.importance}
+                    onChange={e => setOF('importance')(e.target.value)}
+                    placeholder="Importance 0-1"
+                    className="bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none placeholder-slate-600"
+                  />
+                </div>
+                <button
+                  onClick={() => runCapability('Log Outcome', () => logOutcome(
+                    outcomeForm.action_type,
+                    outcomeForm.action_detail,
+                    outcomeForm.action_ref || null,
+                    parseFloat(outcomeForm.importance) || 0.6,
+                  ))}
+                  disabled={capLoading || !outcomeForm.action_detail.trim()}
+                  className="w-full py-2 rounded-xl bg-orange-600/80 hover:bg-orange-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Logging…' : 'Log Outcome'}
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-rose-400/70">Resolve Outcome</p>
+                <p className="text-xs text-slate-400">Mark what actually happened so JARVIS learns from this action.</p>
+                <input
+                  value={resolveForm.outcome_id}
+                  onChange={e => setRF('outcome_id')(e.target.value)}
+                  placeholder="Outcome ID (from Log response)"
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none placeholder-slate-600"
+                />
+                <input
+                  value={resolveForm.outcome}
+                  onChange={e => setRF('outcome')(e.target.value)}
+                  placeholder="What happened? (e.g. 'won', 'declined', 'no response')"
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none placeholder-slate-600"
+                />
+                <textarea
+                  value={resolveForm.note}
+                  onChange={e => setRF('note')(e.target.value)}
+                  placeholder="Captain's note (optional — why this happened)"
+                  rows={2}
+                  className="w-full bg-slate-900/50 border border-slate-600/40 rounded-xl px-3 py-2 text-white text-xs outline-none resize-none placeholder-slate-600"
+                />
+                <button
+                  onClick={() => runCapability('Resolve Outcome', () => resolveOutcome(
+                    resolveForm.outcome_id.trim(),
+                    resolveForm.outcome.trim(),
+                    resolveForm.note.trim() || null,
+                  ))}
+                  disabled={capLoading || !resolveForm.outcome_id.trim() || !resolveForm.outcome.trim()}
+                  className="w-full py-2 rounded-xl bg-rose-600/80 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-medium transition-colors"
+                >
+                  {capLoading ? 'Resolving…' : 'Resolve & Teach JARVIS'}
                 </button>
               </div>
             </div>

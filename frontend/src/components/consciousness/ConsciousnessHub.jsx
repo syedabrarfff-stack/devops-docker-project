@@ -198,6 +198,20 @@ export default function ConsciousnessHub() {
             return r.data
           })} />
         </ActionCard>
+        <ActionCard title="Competitive Briefing" description="Generate a full competitive briefing from decoded competitor profiles.">
+          <RunButton label="Generate Briefing" loading={loading} onClick={() => run(async () => {
+            const r = await api.post('/api/v1/consciousness/competitor/briefing', [
+              {
+                company_name: inputText || 'Competitor Inc',
+                pricing_model: 'enterprise',
+                target_market: 'mid-market',
+                weaknesses: ['slow implementation', 'high price'],
+                strengths: ['brand recognition'],
+              },
+            ])
+            return r.data
+          })} />
+        </ActionCard>
         <ActionCard title="Competitive Stances" description="The 6 attack positions JARVIS can take.">
           <RunButton label="View Stances" loading={loading} onClick={() => run(async () => {
             const r = await api.get('/api/v1/consciousness/competitive-stances')
@@ -229,6 +243,16 @@ export default function ConsciousnessHub() {
             return r.data
           })} />
         </ActionCard>
+        <ActionCard title="Relationship Health" description="Assess the health of a client relationship from interaction history.">
+          <RunButton label="Assess (Demo)" loading={loading} onClick={() => run(async () => {
+            const r = await api.post('/api/v1/consciousness/heart/relationship-health', [
+              { type: 'email', direction: 'outbound', sentiment: 'positive', days_ago: 5 },
+              { type: 'call', direction: 'inbound', sentiment: 'neutral', days_ago: 12 },
+              { type: 'proposal', direction: 'outbound', sentiment: 'positive', days_ago: 20 },
+            ])
+            return r.data
+          })} />
+        </ActionCard>
         <ActionCard title="Emotional Drivers Reference" description="All 8 buying motivation profiles.">
           <RunButton label="View Drivers" loading={loading} onClick={() => run(async () => {
             const r = await api.get('/api/v1/consciousness/heart/emotional-drivers')
@@ -251,6 +275,15 @@ export default function ConsciousnessHub() {
               hot_leads: 3,
               days_since_launch: 14,
             })
+            return r.data
+          })} />
+        </ActionCard>
+        <ActionCard title="Trajectory Assessment" description="Assess growth trajectory from historical monthly states.">
+          <RunButton label="Assess Trajectory" loading={loading} onClick={() => run(async () => {
+            const r = await api.post('/api/v1/consciousness/vision/trajectory', [
+              { month: 1, clients_signed: 0, monthly_recurring_revenue: 0, hot_leads: 3 },
+              { month: 2, clients_signed: 1, monthly_recurring_revenue: 3000, hot_leads: 7 },
+            ])
             return r.data
           })} />
         </ActionCard>
@@ -284,6 +317,18 @@ export default function ConsciousnessHub() {
                 pain_points: ['manual reporting taking 8 hours/week', 'no automated lead follow-up'],
               },
               recommended_tier: 'GROWTH',
+            })
+            return r.data
+          })} />
+        </ActionCard>
+        <ActionCard title="Auto-Select Tier" description="JARVIS recommends the right pricing tier for a lead.">
+          <RunButton label="Select Tier (VaultPay)" loading={loading} onClick={() => run(async () => {
+            const r = await api.post('/api/v1/consciousness/offer/select-tier', {
+              company_name: 'VaultPay',
+              industry: 'FinTech',
+              employee_count: 45,
+              annual_revenue_estimate: 2000000,
+              pain_severity: 'high',
             })
             return r.data
           })} />
@@ -354,6 +399,18 @@ export default function ConsciousnessHub() {
             })
           }} />
         </ActionCard>
+        <ActionCard title="Dimension Deep Dive" description="Get the detailed upgrade plan for a specific dimension.">
+          <input
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            placeholder="Dimension: outreach, conversion, delivery, intelligence..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white/80 outline-none mb-2"
+          />
+          <RunButton label="Deep Dive" loading={loading} onClick={() => run(async () => {
+            const r = await api.get(`/api/v1/consciousness/upgrade/dimension/${inputText || 'outreach'}`)
+            return r.data
+          })} />
+        </ActionCard>
         <ActionCard title="Council of Giants Benchmarks" description="How JARVIS measures against the 15 Giants' standards.">
           <RunButton label="View Benchmarks" loading={loading} onClick={() => run(async () => {
             const r = await api.get('/api/v1/consciousness/upgrade/giants-benchmarks')
@@ -377,6 +434,12 @@ export default function ConsciousnessHub() {
         <ActionCard title="Active Priorities" description="What Captain is focused on right now.">
           <RunButton label="View Priorities" loading={loading} onClick={() => run(async () => {
             const r = await api.get('/api/v1/consciousness/captain/priorities')
+            return r.data
+          })} />
+        </ActionCard>
+        <ActionCard title="Never-Do List" description="The hard lines Captain has set — actions JARVIS must never take autonomously.">
+          <RunButton label="View Never-Do List" loading={loading} onClick={() => run(async () => {
+            const r = await api.get('/api/v1/consciousness/captain/never-do')
             return r.data
           })} />
         </ActionCard>
