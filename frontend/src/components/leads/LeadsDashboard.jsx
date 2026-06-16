@@ -365,6 +365,7 @@ function CallBriefModal({ lead, onClose }) {
 function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach }) {
   const [scoring, setScoring] = useState(false);
   const [queuing, setQueuing] = useState(false);
+  const [linkedInSending, setLinkedInSending] = useState(false);
 
   async function handleScore() {
     setScoring(true);
@@ -465,6 +466,25 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach }) {
               >
                 📞 Call Brief
               </button>
+              {lead.linkedin_url && (
+                <button
+                  onClick={async () => {
+                    setLinkedInSending(true)
+                    try {
+                      await api.post('/api/v1/outreach/linkedin/send', {
+                        lead_id: lead.id,
+                        message_type: 1,
+                        tenant_id: DEFAULT_TENANT,
+                      })
+                    } catch {}
+                    setLinkedInSending(false)
+                  }}
+                  disabled={linkedInSending}
+                  className="text-xs px-3 py-1 rounded-lg bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 transition-colors font-semibold disabled:opacity-50"
+                >
+                  {linkedInSending ? "Sending…" : "🔗 LinkedIn"}
+                </button>
+              )}
               <button
                 onClick={() => onProposal(lead)}
                 className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
