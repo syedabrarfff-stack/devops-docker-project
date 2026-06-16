@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 
+const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1';
+
 const STATUS_COLOR = {
   scheduled: "text-blue-400 bg-blue-500/10 border-blue-500/20",
   sent: "text-green-400 bg-green-500/10 border-green-500/20",
@@ -89,6 +91,8 @@ export default function OutreachDashboard() {
   const [engine, setEngine] = useState(null);
   const [starting, setStarting] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [speeding, setSpeeding] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [lastRun, setLastRun] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -196,6 +200,43 @@ export default function OutreachDashboard() {
     }
   }
 
+  async function speedToLead() {
+    setSpeeding(true);
+    try {
+      const r = await api.post("/api/v1/outreach/speed-to-lead/trigger", {
+        tenant_id: DEFAULT_TENANT,
+        lookback_minutes: 5,
+      });
+      const triggered = r.data?.triggered ?? r.data?.queued ?? 0;
+      setNotice({ tone: "success", text: `⚡ Speed-to-Lead: ${triggered} new lead${triggered !== 1 ? "s" : ""} queued for instant outreach.` });
+      setLastRun({ note: `Speed-to-Lead triggered — ${triggered} leads enrolled.` });
+      await loadAll();
+    } catch (e) {
+      const text = e?.response?.data?.detail || e.message || "Speed-to-Lead trigger failed";
+      setNotice({ tone: "error", text });
+    } finally {
+      setSpeeding(false);
+    }
+  }
+
+  async function resumeOutreach() {
+    setResuming(true);
+    try {
+      const r = await api.post("/api/v1/outreach/resume", {
+        tenant_id: DEFAULT_TENANT,
+        reason: "Captain manually resumed outreach from dashboard.",
+      });
+      setNotice({ tone: "success", text: r.data?.message || "Outreach resumed successfully." });
+      setLastRun({ note: "Outreach manually resumed by Captain." });
+      await loadAll();
+    } catch (e) {
+      const text = e?.response?.data?.detail || e.message || "Resume failed";
+      setNotice({ tone: "error", text });
+    } finally {
+      setResuming(false);
+    }
+  }
+
   const engineReady = engine?.status === "ready";
   const engineBlocked = engine?.status === "blocked";
   const engineTone = engineReady
@@ -271,6 +312,23 @@ export default function OutreachDashboard() {
               className="rounded-xl border border-blue-300/30 bg-blue-500/15 px-5 py-2.5 text-sm font-bold text-blue-100 transition hover:bg-blue-500/25"
             >
               Refresh Email Status
+            </button>
+          )}
+          <button
+            onClick={speedToLead}
+            disabled={speeding}
+            className="rounded-xl border border-yellow-300/30 bg-yellow-500/15 px-5 py-2.5 text-sm font-bold text-yellow-100 transition hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Instantly queue leads added in the last 5 minutes for outreach"
+          >
+            {speeding ? "Triggering..." : "⚡ Speed to Lead"}
+          </button>
+          {engineBlocked && (
+            <button
+              onClick={resumeOutreach}
+              disabled={resuming}
+              className="rounded-xl border border-purple-300/30 bg-purple-500/15 px-5 py-2.5 text-sm font-bold text-purple-100 transition hover:bg-purple-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {resuming ? "Resuming..." : "▶ Resume Outreach"}
             </button>
           )}
         </div>
