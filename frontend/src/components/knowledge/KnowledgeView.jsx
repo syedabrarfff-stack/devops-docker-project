@@ -103,9 +103,30 @@ export default function KnowledgeView() {
     setLearnLoading(false)
   }
 
+  const [entryForm, setEntryForm] = useState({ title: '', category: 'general', content: '', tags: '', source: '' })
+  const [entryLoading, setEntryLoading] = useState(false)
+  const [showEntryForm, setShowEntryForm] = useState(false)
+
+  const addEntry = async (e) => {
+    e.preventDefault()
+    if (!entryForm.title.trim() || !entryForm.content.trim()) return
+    setEntryLoading(true)
+    try {
+      await api.post('/api/v1/knowledge/entries', {
+        ...entryForm,
+        tags: entryForm.tags.split(',').map(s => s.trim()).filter(Boolean),
+      })
+      setEntryForm({ title: '', category: 'general', content: '', tags: '', source: '' })
+      setShowEntryForm(false)
+      await load()
+    } catch {}
+    setEntryLoading(false)
+  }
+
   const TABS = [
     { id: 'sops', label: 'SOPs', icon: FileText, count: stats?.active_sops },
     { id: 'learnings', label: 'Learnings', icon: Lightbulb, count: stats?.learning_records },
+    { id: 'entries', label: 'Entries', icon: BookOpen, count: stats?.knowledge_entries },
     { id: 'search', label: 'Search', icon: Search },
   ]
 
@@ -354,6 +375,60 @@ export default function KnowledgeView() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Entries Tab */}
+      {tab === 'entries' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Knowledge Entries</h2>
+            <button onClick={() => setShowEntryForm(v => !v)} className="btn-primary inline-flex items-center gap-1.5 text-sm">
+              <Plus size={13} /> Add Entry
+            </button>
+          </div>
+
+          {showEntryForm && (
+            <div className="glass p-5 border border-jarvis-cyan/20 space-y-3">
+              <h3 className="text-xs font-semibold text-white uppercase tracking-wider">New Knowledge Entry</h3>
+              <form onSubmit={addEntry} className="space-y-3">
+                <input value={entryForm.title} onChange={e => setEntryForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="Title *"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60" />
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={entryForm.category} onChange={e => setEntryForm(f => ({ ...f, category: e.target.value }))}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none">
+                    {SOP_CATEGORIES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                  </select>
+                  <input value={entryForm.source} onChange={e => setEntryForm(f => ({ ...f, source: e.target.value }))}
+                    placeholder="Source (e.g. Captain, client call)"
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500" />
+                </div>
+                <textarea value={entryForm.content} onChange={e => setEntryForm(f => ({ ...f, content: e.target.value }))}
+                  placeholder="Knowledge content *" rows={4}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60 resize-none" />
+                <input value={entryForm.tags} onChange={e => setEntryForm(f => ({ ...f, tags: e.target.value }))}
+                  placeholder="Tags — comma separated (e.g. pricing, dental, objection)"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500" />
+                <div className="flex gap-3">
+                  <button type="submit" disabled={entryLoading || !entryForm.title.trim() || !entryForm.content.trim()}
+                    className="btn-primary inline-flex items-center gap-2">
+                    {entryLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    Save Entry
+                  </button>
+                  <button type="button" onClick={() => setShowEntryForm(false)} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <div className="glass p-8 flex flex-col items-center justify-center text-center text-gray-500">
+            <BookOpen size={28} className="mb-3 opacity-20" />
+            <p className="text-sm">Knowledge entries are searchable via the Search tab.</p>
+            <p className="text-xs mt-1 text-gray-600">Use this to store client-specific notes, market insights, and institutional knowledge.</p>
+          </div>
         </section>
       )}
 

@@ -55,9 +55,14 @@ export default function CaptainBridge() {
     { key: 'warRoom', label: 'War-room brief', path: '/api/v1/captain/war-room-brief', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'pilotStatus', label: 'Pilot mode status', path: '/api/v1/pilot/status', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'mirrorProfile', label: 'Captain mirror profile', path: '/api/v1/captain/mirror/profile', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'mirrorPatterns', label: 'Captain decision patterns', path: '/api/v1/captain/mirror/patterns', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'experiments', label: 'Active experiments', path: '/api/v1/experiments', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'serviceConcepts', label: 'Service concepts', path: '/api/v1/services/concepts', params: { tenant_id: DEFAULT_TENANT } },
   ], [])
 
   const [mirrorDecision, setMirrorDecision] = useState({ decision: '', context: '', outcome: '', confidence: 8 })
+  const [mirrorPredictQ, setMirrorPredictQ] = useState('')
+  const [expForm, setExpForm] = useState({ name: '', hypothesis: '', variant_a: '', variant_b: '' })
 
   async function submit(path, body) {
     setLoading(true)
@@ -171,6 +176,23 @@ export default function CaptainBridge() {
               <Textarea value={mirrorDecision.context} onChange={v => setMirrorDecision(p => ({ ...p, context: v }))} placeholder="What was the context or rationale?" />
               <Input value={mirrorDecision.outcome} onChange={v => setMirrorDecision(p => ({ ...p, outcome: v }))} placeholder="Outcome (e.g. won, declined, deferred)" />
               <RunButton loading={loading} disabled={!mirrorDecision.decision.trim()}>Record Decision</RunButton>
+            </form>
+          </ActionCard>
+
+          <ActionCard title="Mirror: Predict Decision" subtitle="JARVIS uses your past decision patterns to predict what you would do in a new scenario.">
+            <form onSubmit={(e) => { e.preventDefault(); submit('/api/v1/captain/mirror/predict', { scenario: mirrorPredictQ }) }} className="space-y-2">
+              <Textarea value={mirrorPredictQ} onChange={setMirrorPredictQ} placeholder="Describe a scenario: e.g. a $5K/mo lead in healthcare who wants to start next week but hasn't signed." />
+              <RunButton loading={loading} disabled={!mirrorPredictQ.trim()}>Predict Decision</RunButton>
+            </form>
+          </ActionCard>
+
+          <ActionCard title="Create A/B Experiment" subtitle="Set up an outreach experiment to test two variants and track what converts better.">
+            <form onSubmit={(e) => { e.preventDefault(); submit('/api/v1/experiments', { name: expForm.name, hypothesis: expForm.hypothesis, variants: [{ label: 'A', content: expForm.variant_a }, { label: 'B', content: expForm.variant_b }] }) }} className="space-y-2">
+              <Input value={expForm.name} onChange={v => setExpForm(p => ({ ...p, name: v }))} placeholder="Experiment name (e.g. dental_pain_vs_roi_hook)" />
+              <Input value={expForm.hypothesis} onChange={v => setExpForm(p => ({ ...p, hypothesis: v }))} placeholder="Hypothesis: Version B gets 2x reply rate because..." />
+              <Textarea value={expForm.variant_a} onChange={v => setExpForm(p => ({ ...p, variant_a: v }))} placeholder="Variant A — current control message" />
+              <Textarea value={expForm.variant_b} onChange={v => setExpForm(p => ({ ...p, variant_b: v }))} placeholder="Variant B — challenger message" />
+              <RunButton loading={loading} disabled={!expForm.name.trim() || !expForm.variant_a.trim()}>Create Experiment</RunButton>
             </form>
           </ActionCard>
 
