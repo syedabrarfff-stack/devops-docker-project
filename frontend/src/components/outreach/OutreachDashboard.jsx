@@ -95,6 +95,11 @@ export default function OutreachDashboard() {
   const [resuming, setResuming] = useState(false);
   const [lastRun, setLastRun] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [complianceData, setComplianceData] = useState(null);
+  const [reviewingCompliance, setReviewingCompliance] = useState(false);
+  const [outreachLogs, setOutreachLogs] = useState(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -235,6 +240,39 @@ export default function OutreachDashboard() {
     } finally {
       setResuming(false);
     }
+  }
+
+  async function checkCompliance() {
+    setReviewingCompliance(true);
+    try {
+      const [statusRes, reviewRes] = await Promise.allSettled([
+        api.get("/api/v1/outreach/compliance/status"),
+        api.post("/api/v1/outreach/compliance/review"),
+      ]);
+      setComplianceData({
+        status: statusRes.status === 'fulfilled' ? statusRes.value.data : null,
+        review: reviewRes.status === 'fulfilled' ? reviewRes.value.data : null,
+      });
+    } catch (e) { setComplianceData({ error: e.response?.data?.detail || e.message }); }
+    setReviewingCompliance(false);
+  }
+
+  async function loadLogs() {
+    setLogsLoading(true);
+    try {
+      const r = await api.get("/api/v1/outreach/logs", { params: { limit: 30 } });
+      setOutreachLogs(r.data);
+    } catch (e) { setOutreachLogs({ error: e.response?.data?.detail || e.message }); }
+    setLogsLoading(false);
+  }
+
+  async function regeneratePending() {
+    setRegenerating(true);
+    try {
+      const r = await api.post("/api/v1/outreach/regenerate-pending", {});
+      setNotice({ tone: 'ok', text: r.data?.message || 'Pending emails regenerated.' });
+    } catch (e) { setNotice({ tone: 'error', text: e.response?.data?.detail || e.message }); }
+    setRegenerating(false);
   }
 
   const engineReady = engine?.status === "ready";
@@ -434,9 +472,12 @@ export default function OutreachDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit">
-        {["sequences", "pending"].map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all capitalize ${tab === t ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>{t}</button>
+      <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit flex-wrap">
+        {["sequences", "pending", "compliance", "logs"].map(t => (
+          <button key={t} onClick={() => {
+            setTab(t);
+            if (t === 'logs' && !outreachLogs) loadLogs();
+          }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all capitalize ${tab === t ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"}`}>{t}</button>
         ))}
       </div>
 
@@ -504,6 +545,47 @@ export default function OutreachDashboard() {
                 )}
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {/* Compliance Tab */}
+      {tab === "compliance" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <button onClick={checkCompliance} disabled={reviewingCompliance}
+              className="px-4 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 text-sm font-bold transition-colors">
+              {reviewingCompliance ? 'Checking…' : '🛡 Run Compliance Review'}
+            </button>
+            <button onClick={regeneratePending} disabled={regenerating}
+              className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-40 text-sm font-medium transition-colors">
+              {regenerating ? 'Regenerating…' : 'Regenerate Pending Drafts'}
+            </button>
+          </div>
+          {complianceData && (
+            <div className="glass rounded-xl p-5 border border-white/5">
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3">Compliance Result</p>
+              <pre className="text-xs text-gray-300 leading-relaxed overflow-auto max-h-96">
+                {JSON.stringify(complianceData, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Logs Tab */}
+      {tab === "logs" && (
+        <div className="space-y-3">
+          <button onClick={loadLogs} disabled={logsLoading}
+            className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 disabled:opacity-40 text-sm font-medium transition-colors">
+            {logsLoading ? 'Loading…' : '↺ Refresh Logs'}
+          </button>
+          {outreachLogs && (
+            <div className="glass rounded-xl p-5 border border-white/5">
+              <pre className="text-xs text-gray-300 leading-relaxed overflow-auto max-h-[500px]">
+                {JSON.stringify(outreachLogs, null, 2)}
+              </pre>
+            </div>
           )}
         </div>
       )}

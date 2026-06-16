@@ -68,6 +68,12 @@ export default function TaskQueue() {
   const [showNew, setShowNew] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", description: "", task_type: "research", priority: 5, assigned_to: "jarvis" });
   const [submitting, setSubmitting] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [broadcastResult, setBroadcastResult] = useState(null);
+  const [delegateForm, setDelegateForm] = useState({ to_agent: 'jarvis', message: '', task_type: 'general', priority: 5 });
+  const [delegating, setDelegating] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -98,6 +104,30 @@ export default function TaskQueue() {
       loadAll();
     } catch (e) { console.error(e); }
     setSubmitting(false);
+  }
+
+  async function broadcastToAgents() {
+    if (!broadcastMsg.trim()) return;
+    setBroadcasting(true);
+    try {
+      const r = await api.post("/tasks/agents/broadcast", { message: broadcastMsg, sender: 'CAPTAIN' });
+      setBroadcastResult(r.data);
+      setBroadcastMsg('');
+    } catch (e) {
+      setBroadcastResult({ error: e.response?.data?.detail || e.message });
+    }
+    setBroadcasting(false);
+  }
+
+  async function delegateToAgent() {
+    if (!delegateForm.message.trim()) return;
+    setDelegating(true);
+    try {
+      await api.post("/tasks/delegate", delegateForm);
+      setDelegateForm({ to_agent: 'jarvis', message: '', task_type: 'general', priority: 5 });
+    } catch (e) { console.error(e); }
+    setDelegating(false);
+    await loadAll();
   }
 
   const filtered = filter === "all" ? tasks : tasks.filter(t => t.status === filter);
@@ -160,28 +190,64 @@ export default function TaskQueue() {
           </div>
         </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {Object.entries(agentStatus).map(([name, info]) => (
-            <div key={name} className="glass rounded-xl p-4 border border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="font-medium text-white text-sm">{name.replace(/_/g, " ")}</p>
-                  <p className="text-xs text-gray-500">{info.role}</p>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.entries(agentStatus).map(([name, info]) => (
+              <div key={name} className="glass rounded-xl p-4 border border-white/5">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="font-medium text-white text-sm">{name.replace(/_/g, " ")}</p>
+                    <p className="text-xs text-gray-500">{info.role}</p>
+                  </div>
+                  <div className="text-right">
+                    {info.pending_tasks > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                        {info.pending_tasks} tasks
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  {info.pending_tasks > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-                      {info.pending_tasks} tasks
-                    </span>
-                  )}
-                </div>
+                <p className="text-xs text-gray-600">{info.focus}</p>
+                {info.unread_messages > 0 && (
+                  <p className="text-xs text-blue-400 mt-1">{info.unread_messages} unread messages</p>
+                )}
               </div>
-              <p className="text-xs text-gray-600">{info.focus}</p>
-              {info.unread_messages > 0 && (
-                <p className="text-xs text-blue-400 mt-1">{info.unread_messages} unread messages</p>
+            ))}
+          </div>
+
+          {/* Delegate + Broadcast */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Delegate to Agent</p>
+              <select value={delegateForm.to_agent} onChange={e => setDelegateForm(p => ({ ...p, to_agent: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500/50">
+                {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
+              </select>
+              <textarea value={delegateForm.message} onChange={e => setDelegateForm(p => ({ ...p, message: e.target.value }))}
+                placeholder="Task description / delegation message…" rows={2}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
+              <button onClick={delegateToAgent} disabled={delegating || !delegateForm.message.trim()}
+                className="w-full py-2 rounded-lg bg-blue-600/80 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-medium transition-colors">
+                {delegating ? 'Delegating…' : 'Delegate →'}
+              </button>
+            </div>
+
+            <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Broadcast to All Agents</p>
+              <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)}
+                placeholder="Message from Captain to all AI employees…" rows={2}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
+              <button onClick={broadcastToAgents} disabled={broadcasting || !broadcastMsg.trim()}
+                className="w-full py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 text-xs font-bold transition-colors">
+                {broadcasting ? 'Broadcasting…' : '📢 Broadcast to All Agents'}
+              </button>
+              {broadcastResult && (
+                <pre className="rounded-lg border border-white/10 bg-black/20 p-2 text-[10px] text-gray-300 max-h-24 overflow-auto">
+                  {JSON.stringify(broadcastResult, null, 2)}
+                </pre>
               )}
             </div>
-          ))}
+          </div>
         </div>
       )}
 
