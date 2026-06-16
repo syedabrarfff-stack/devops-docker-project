@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Brain, ChevronDown, ChevronRight, Database, Loader2, Plus, RefreshCw, Search, Shield, Zap } from 'lucide-react'
+import { Brain, ChevronDown, ChevronRight, Database, Loader2, Plus, RefreshCw, Search, Shield, Zap, Settings } from 'lucide-react'
 import api from '../../services/api'
 
 const MEMORY_TYPES = ['episodic', 'semantic', 'procedural', 'working', 'instruction']
@@ -51,6 +51,10 @@ export default function MemoryView() {
   const [instrForm, setInstrForm] = useState({ content: '', category: 'general', priority: 5 })
   const [instrLoading, setInstrLoading] = useState(false)
   const [showInstrForm, setShowInstrForm] = useState(false)
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminResult, setAdminResult] = useState(null)
+  const [semanticQuery, setSemanticQuery] = useState('')
+  const [memoryStatus, setMemoryStatus] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -104,11 +108,36 @@ export default function MemoryView() {
     setInstrLoading(false)
   }
 
+  async function adminAction(label, fn) {
+    setAdminLoading(true)
+    setAdminResult(null)
+    try {
+      const r = await fn()
+      setAdminResult({ label, ...(r.data || {}) })
+    } catch (err) {
+      setAdminResult({ label, error: err.response?.data?.detail || err.message })
+    }
+    setAdminLoading(false)
+  }
+
+  async function runSemanticSearch() {
+    if (!semanticQuery.trim()) return
+    setAdminLoading(true)
+    try {
+      const r = await api.post('/api/v1/memory/search', { query: semanticQuery, limit: 20 })
+      setAdminResult({ label: 'Semantic Search', results: r.data })
+    } catch (err) {
+      setAdminResult({ label: 'Semantic Search', error: err.response?.data?.detail || err.message })
+    }
+    setAdminLoading(false)
+  }
+
   const TABS = [
     { id: 'recall', label: 'Recall', icon: Search },
     { id: 'instructions', label: 'Instructions', icon: Shield, count: instructions.length },
     { id: 'context', label: 'Context', icon: Brain },
     { id: 'human-intel', label: 'Human Intel', icon: Zap },
+    { id: 'admin', label: 'Admin', icon: Settings },
   ]
 
   return (
@@ -386,6 +415,82 @@ export default function MemoryView() {
             </div>
           ) : (
             <p className="text-sm text-gray-500 text-center py-8">No human intelligence data available.</p>
+          )}
+        </section>
+      )}
+
+      {/* Admin Tab */}
+      {tab === 'admin' && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="glass p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-jarvis-cyan/70">Semantic Search</p>
+              <input
+                type="text"
+                value={semanticQuery}
+                onChange={e => setSemanticQuery(e.target.value)}
+                placeholder="Search memory semantically…"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-jarvis-cyan/40"
+                onKeyDown={e => e.key === 'Enter' && runSemanticSearch()}
+              />
+              <button
+                type="button"
+                onClick={runSemanticSearch}
+                disabled={adminLoading || !semanticQuery.trim()}
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-40"
+              >
+                {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                Search
+              </button>
+            </div>
+            <div className="glass p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-jarvis-cyan/70">Memory Status</p>
+              <p className="text-xs text-gray-400">Check enterprise memory system health and capacity.</p>
+              <button
+                type="button"
+                onClick={() => adminAction('Memory Status', () => api.get('/api/v1/memory/status'))}
+                disabled={adminLoading}
+                className="btn-primary inline-flex items-center gap-2 disabled:opacity-40"
+              >
+                {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Database size={13} />}
+                Check Status
+              </button>
+            </div>
+            <div className="glass p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-jarvis-gold/70">Seed Enterprise Memory</p>
+              <p className="text-xs text-gray-400">Populate JARVIS long-term memory with enterprise knowledge. Run once during initial setup.</p>
+              <button
+                type="button"
+                onClick={() => adminAction('Seed Memory', () => api.post('/api/v1/memory/seed', {}))}
+                disabled={adminLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-jarvis-gold/30 bg-jarvis-gold/10 px-4 py-2 text-sm font-bold text-jarvis-gold hover:bg-jarvis-gold/20 disabled:opacity-40 transition-colors"
+              >
+                {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                Seed Memory
+              </button>
+            </div>
+            <div className="glass p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-jarvis-gold/70">Seed Human Intelligence</p>
+              <p className="text-xs text-gray-400">Populate the psychology & persuasion knowledge base. Run once during initial setup.</p>
+              <button
+                type="button"
+                onClick={() => adminAction('Seed Human Intel', () => api.post('/api/v1/memory/human-intelligence/seed', {}))}
+                disabled={adminLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 transition-colors"
+              >
+                {adminLoading ? <Loader2 size={13} className="animate-spin" /> : <Brain size={13} />}
+                Seed Human Intel
+              </button>
+            </div>
+          </div>
+
+          {adminResult && (
+            <div className="glass p-5 space-y-2">
+              <p className="text-xs font-bold text-white/50 uppercase tracking-wider">{adminResult.label} — Result</p>
+              <pre className="max-h-80 overflow-auto rounded-lg border border-white/10 bg-black/20 p-4 text-xs text-gray-300 leading-relaxed">
+                {JSON.stringify(adminResult, null, 2)}
+              </pre>
+            </div>
           )}
         </section>
       )}

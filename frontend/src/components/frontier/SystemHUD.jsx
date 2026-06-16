@@ -1,7 +1,17 @@
-import React, { useMemo } from 'react'
-import { DEFAULT_TENANT, FrontierShell } from './FrontierShell'
+import React, { useMemo, useState } from 'react'
+import api from '../../services/api'
+import {
+  ActionCard,
+  DEFAULT_TENANT,
+  FrontierShell,
+  ResultBox,
+  RunButton,
+} from './FrontierShell'
 
 export default function SystemHUD() {
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+
   const endpoints = useMemo(() => [
     { key: 'rootHealth',     label: 'Root health',           path: '/health' },
     { key: 'apiHealth',      label: 'API health',            path: '/api/v1/health' },
@@ -17,11 +27,25 @@ export default function SystemHUD() {
     { key: 'teamRegistry',   label: 'Team registry',         path: '/api/v1/team/members' },
     { key: 'leadStats',      label: 'Lead pipeline stats',   path: '/api/v1/leads/stats' },
     { key: 'connHub',        label: 'Connector hub status',  path: '/api/v1/connector-hub/status' },
+    { key: 'connHubOutputs', label: 'Connector hub outputs', path: '/api/v1/connector-hub/outputs', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'connHubBridge',  label: 'Connector bridge health', path: '/api/v1/connector-hub/bridge-health' },
     { key: 'systemHud',      label: 'AIONX system HUD',      path: '/api/v1/system/hud' },
     { key: 'frontier',       label: 'Frontier intelligence', path: '/api/v1/frontier/status' },
     { key: 'consciousness',  label: 'Consciousness snapshot', path: '/api/v1/consciousness/snapshot' },
     { key: 'catalogStats',   label: 'Service catalog',       path: '/api/v1/catalog/stats' },
+    { key: 'syncTelegramInfo', label: 'Telegram webhook info', path: '/api/v1/sync/telegram/webhook/info' },
   ], [])
+
+  async function run(label, fn) {
+    setLoading(true)
+    try {
+      const r = await fn()
+      setResult({ label, ...r.data })
+    } catch (err) {
+      setResult({ label, error: err.response?.data?.detail || err.message })
+    }
+    setLoading(false)
+  }
 
   return (
     <FrontierShell
@@ -29,6 +53,52 @@ export default function SystemHUD() {
       title="System HUD"
       description="Full-stack machine truth for JARVIS: health, readiness, AI routing, email transport, WhatsApp, civilization ledger, team, leads, connectors, and consciousness layers — all in one view."
       endpoints={endpoints}
-    />
+    >
+      {() => (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <ActionCard title="Connector Hub — Ingest" subtitle="Trigger daily connector ingestion: pull data from all active connectors into JARVIS memory.">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Ingest', () => api.post('/api/v1/connector-hub/ingest', { tenant_id: DEFAULT_TENANT }))}
+              >
+                Run Ingest
+              </RunButton>
+            </ActionCard>
+
+            <ActionCard title="Connector Hub — Market Intelligence" subtitle="Generate market intelligence from the latest ingested connector data.">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Market Intelligence', () => api.post('/api/v1/connector-hub/intelligence', { tenant_id: DEFAULT_TENANT }))}
+              >
+                Generate Intelligence
+              </RunButton>
+            </ActionCard>
+
+            <ActionCard title="Connector Hub — Council Review" subtitle="Send latest connector outputs to the AI Council for quality gate and approval.">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Council Review', () => api.post('/api/v1/connector-hub/council-review', { tenant_id: DEFAULT_TENANT }))}
+              >
+                Run Council Review
+              </RunButton>
+            </ActionCard>
+
+            <ActionCard title="Register Telegram Webhook" subtitle="Register the JARVIS Telegram bot webhook with the Telegram API (run once after deploy).">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Telegram Webhook', () => api.post('/api/v1/sync/telegram/webhook/register', {}))}
+              >
+                Register Webhook
+              </RunButton>
+            </ActionCard>
+          </div>
+
+          <ActionCard title="Latest action result" subtitle="Output from the last HUD operation.">
+            <ResultBox result={result} />
+          </ActionCard>
+        </div>
+      )}
+    </FrontierShell>
   )
 }

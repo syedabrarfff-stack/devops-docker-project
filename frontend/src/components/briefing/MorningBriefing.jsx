@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Newspaper, RefreshCw, Brain, Clock, Globe, Loader } from 'lucide-react'
+import { Newspaper, RefreshCw, Brain, Clock, Globe, Loader, Zap, Sparkles } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { getMorningBriefing } from '../../services/api'
+import api from '../../services/api'
 import voiceService from '../../services/voice'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -10,7 +11,11 @@ export default function MorningBriefing() {
   const { voiceActive } = useJarvisStore()
   const [briefing, setBriefing] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [aiBriefing, setAiBriefing] = useState(null)
+  const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [lastFetched, setLastFetched] = useState(null)
+  const [activeTab, setActiveTab] = useState('standard')
 
   const fetch = async () => {
     setLoading(true)
@@ -26,6 +31,33 @@ export default function MorningBriefing() {
       setBriefing({ greeting: 'Good day, Captain.', briefing: 'Unable to fetch briefing. Backend may be offline.' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const forceGenerate = async () => {
+    setGenerating(true)
+    try {
+      const r = await api.post('/api/v1/briefing/generate', {})
+      setBriefing(r.data)
+      setLastFetched(new Date())
+      setActiveTab('standard')
+    } catch (err) {
+      setBriefing({ greeting: 'Good day, Captain.', briefing: err.response?.data?.detail || err.message })
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const fetchAiBriefing = async () => {
+    setAiBriefingLoading(true)
+    try {
+      const r = await api.get('/api/v1/briefing/morning-ai')
+      setAiBriefing(r.data)
+      setActiveTab('ai')
+    } catch (err) {
+      setAiBriefing({ briefing: err.response?.data?.detail || err.message })
+    } finally {
+      setAiBriefingLoading(false)
     }
   }
 
@@ -61,16 +93,52 @@ export default function MorningBriefing() {
               </p>
             </div>
           </div>
-          <button
-            onClick={fetch}
-            disabled={loading}
-            className="btn-primary flex items-center gap-2"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchAiBriefing}
+              disabled={aiBriefingLoading}
+              className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs font-bold text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 transition-colors"
+            >
+              <Sparkles size={12} className={aiBriefingLoading ? 'animate-pulse' : ''} />
+              AI Brief
+            </button>
+            <button
+              onClick={forceGenerate}
+              disabled={generating}
+              className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
+            >
+              <Zap size={12} className={generating ? 'animate-pulse' : ''} />
+              {generating ? 'Generating…' : 'Force Generate'}
+            </button>
+            <button
+              onClick={fetch}
+              disabled={loading}
+              className="btn-primary flex items-center gap-2"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         </div>
       </motion.div>
+
+      {/* Tabs */}
+      {(briefing || aiBriefing) && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('standard')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-colors ${activeTab === 'standard' ? 'bg-jarvis-blue/20 border border-jarvis-blue/40 text-jarvis-blue' : 'border border-white/10 text-white/40 hover:text-white/60'}`}
+          >
+            Standard
+          </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-colors ${activeTab === 'ai' ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' : 'border border-white/10 text-white/40 hover:text-white/60'}`}
+          >
+            AI Enhanced
+          </button>
+        </div>
+      )}
 
       {/* Briefing content */}
       {loading && !briefing && (
@@ -80,7 +148,14 @@ export default function MorningBriefing() {
         </div>
       )}
 
-      {briefing && (
+      {aiBriefingLoading && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <Sparkles size={24} className="text-purple-400 animate-pulse" />
+          <p className="text-white/40 text-sm">AI generating enhanced briefing…</p>
+        </div>
+      )}
+
+      {activeTab === 'standard' && briefing && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -105,6 +180,27 @@ export default function MorningBriefing() {
                           [&>ul]:space-y-1 [&>ul>li]:text-white/55 [&>ul>li]:text-sm
                           [&>strong]:text-white/80">
             <ReactMarkdown>{briefing.briefing || briefing.message || 'No briefing available.'}</ReactMarkdown>
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'ai' && aiBriefing && !aiBriefingLoading && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass p-6 border border-purple-500/20"
+        >
+          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/[0.06]">
+            <Sparkles size={14} className="text-purple-400" />
+            <p className="text-xs font-bold text-purple-300 uppercase tracking-wider">AI-Enhanced Briefing</p>
+          </div>
+          <div className="prose prose-invert prose-sm max-w-none
+                          [&>h1]:text-purple-300 [&>h1]:text-base [&>h1]:font-bold [&>h1]:mb-3
+                          [&>h2]:text-white/80 [&>h2]:text-sm [&>h2]:font-semibold [&>h2]:mb-2
+                          [&>p]:text-white/60 [&>p]:text-sm [&>p]:leading-relaxed
+                          [&>ul]:space-y-1 [&>ul>li]:text-white/55 [&>ul>li]:text-sm
+                          [&>strong]:text-white/80">
+            <ReactMarkdown>{aiBriefing.briefing || aiBriefing.message || JSON.stringify(aiBriefing, null, 2)}</ReactMarkdown>
           </div>
         </motion.div>
       )}
