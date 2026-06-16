@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Users, ChevronDown, ChevronRight, Zap, Brain, Send } from 'lucide-react'
-import { getAgentHierarchy, dispatchAgent } from '../../services/api'
+import api, { getAgentHierarchy, dispatchAgent } from '../../services/api'
 
 const ROLE_COLORS = {
   CEO:      'text-yellow-400 border-yellow-400/30 bg-yellow-400/10',
@@ -88,6 +88,8 @@ export default function AgentHierarchy() {
   const [dispatchForm, setDispatchForm] = useState({ task: '', agent: '', show: false })
   const [result, setResult] = useState(null)
   const [dispatching, setDispatching] = useState(false)
+  const [liaisons, setLiaisons] = useState(null)
+  const [liaisonLoading, setLiaisonLoading] = useState(false)
 
   useEffect(() => {
     getAgentHierarchy().then(setHierarchy).catch(() => {})
@@ -182,6 +184,51 @@ export default function AgentHierarchy() {
           </button>
         </motion.div>
       )}
+
+      {/* Client Liaison Agents */}
+      <div className="glass p-5 border border-white/[0.06] space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Client Liaison Agents</p>
+            <p className="text-xs text-white/30 mt-0.5">Dedicated agents assigned to client accounts.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                setLiaisonLoading(true)
+                try {
+                  const r = await api.get('/api/v1/agents/liaison')
+                  setLiaisons(r.data)
+                } catch (e) { setLiaisons({ error: e.response?.data?.detail || e.message }) }
+                setLiaisonLoading(false)
+              }}
+              disabled={liaisonLoading}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 disabled:opacity-40 transition-colors"
+            >
+              {liaisonLoading ? '…' : 'Load'}
+            </button>
+            <button
+              onClick={async () => {
+                setLiaisonLoading(true)
+                try {
+                  const r = await api.post('/api/v1/agents/liaison/seed', {})
+                  setLiaisons(r.data)
+                } catch (e) { setLiaisons({ error: e.response?.data?.detail || e.message }) }
+                setLiaisonLoading(false)
+              }}
+              disabled={liaisonLoading}
+              className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors"
+            >
+              Seed Liaisons
+            </button>
+          </div>
+        </div>
+        {liaisons && (
+          <pre className="max-h-48 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-gray-300">
+            {JSON.stringify(liaisons, null, 2)}
+          </pre>
+        )}
+      </div>
 
       {/* Hierarchy tree */}
       <div className="space-y-2">
