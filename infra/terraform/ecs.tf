@@ -186,8 +186,9 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "CORS_ORIGINS",      value = var.domain_name != "" ? "https://${var.domain_name},https://www.${var.domain_name}" : "" },
         { name = "WHATSAPP_ENABLED",  value = "true" },
         { name = "LOG_LEVEL",         value = "INFO" },
-        { name = "GUNICORN_WORKERS",  value = "2" },
-        { name = "GUNICORN_TIMEOUT",  value = "240" },
+        { name = "GUNICORN_WORKERS",      value = "2" },
+        { name = "GUNICORN_TIMEOUT",      value = "240" },
+        { name = "GUNICORN_MAX_REQUESTS", value = "5000" },
       ]
 
       logConfiguration = {
@@ -239,11 +240,11 @@ resource "aws_ecs_task_definition" "backend" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
+        command     = ["CMD-SHELL", "wget -qO- --timeout=5 http://localhost/health || exit 1"]
         interval    = 30
-        timeout     = 5
+        timeout     = 8
         retries     = 3
-        startPeriod = 60
+        startPeriod = 30
       }
     }
   ])
@@ -377,5 +378,43 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections" {
 
   dimensions = {
     DBInstanceIdentifier = aws_db_instance.postgres.identifier
+  }
+}
+
+# Alert when running task count drops to zero (complete service outage)
+resource "aws_cloudwatch_metric_alarm" "ecs_no_running_tasks" {
+  alarm_name          = "${local.prefix}-ecs-no-running-tasks"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "RunningTaskCount"
+  namespace           = "ECS/ContainerInsights"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+  alarm_description   = "JARVIS has ZERO running ECS tasks — complete service outage"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.backend.name
+  }
+}
+
+# Alert when ALB target group has no healthy targets
+resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_targets" {
+  alarm_name          = "${local.prefix}-alb-no-healthy-targets"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "HealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+  alarm_description   = "JARVIS ALB has no healthy targets — all tasks failed"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    TargetGroup  = aws_lb_target_group.backend.arn_suffix
+    LoadBalancer = aws_lb.main.arn_suffix
   }
 }

@@ -259,7 +259,12 @@ async def _register_default_jobs() -> None:
     except Exception as exc:
         logger.warning("AIONX job registration failed: %s", exc)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs)")
+    # ── Autonomous Self-Healer — runs every 15 minutes ────────────────────────
+    # Resets failed AI circuit breakers, refills empty lead pipelines,
+    # resumes paused scheduler jobs, and alerts Captain for what it can't fix.
+    add_interval_job("self_healer", _job_self_healer, minutes=15)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer)")
 
 
 async def _job_morning_briefing() -> None:
@@ -846,3 +851,12 @@ async def _job_market_intelligence_generation() -> None:
             logger.info("MarketIntelligence: tenant=%s topic=%s", tenant_id, report.get("topic", "unknown"))
     except Exception as exc:
         logger.warning("Market intelligence generation failed: %s", exc)
+
+
+async def _job_self_healer() -> None:
+    """Autonomous self-healing cycle — runs every 15 minutes."""
+    try:
+        from app.services.monitoring.self_healer import run_self_healing_cycle
+        await run_self_healing_cycle()
+    except Exception as exc:
+        logger.warning("Self-healer job failed: %s", exc)

@@ -160,6 +160,7 @@ export default function CommandCenter() {
     { label: 'Run Radar Scan',   desc: 'Scan tech + market trends', fn: () => api.post('/api/v1/intelligence/radar/scan', { tenant_id: DEFAULT_TENANT }) },
     { label: 'Ingest Connectors', desc: 'Pull all connector data',  fn: () => api.post('/api/v1/connector-hub/ingest', { tenant_id: DEFAULT_TENANT }) },
     { label: 'Reset AI Circuit', desc: 'Reset claude provider CB', fn: () => api.post('/api/v1/ai-ops/health/claude/reset') },
+    { label: 'Self-Heal Now',    desc: 'Auto-recover all systems',  fn: () => api.post('/api/v1/system/self-heal') },
   ]
 
   // ── AI providers map ───────────────────────────────────────────────────────
