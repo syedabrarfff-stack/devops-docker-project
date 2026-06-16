@@ -486,6 +486,18 @@ function IncidentsTab() {
     load()
   }
 
+  async function addAction(id) {
+    const action = window.prompt('Describe the action taken:')
+    if (!action) return
+    await api.post(`/api/v1/emergency/incidents/${id}/action`, { action, performed_by: 'CAPTAIN' }).catch(e => alert(e.message))
+    load()
+  }
+
+  async function sendAlert(message) {
+    await api.post('/api/v1/emergency/alert', { message, severity: 'critical', channel: 'all' }).catch(e => alert(e.message))
+    alert('Emergency alert sent to all channels.')
+  }
+
   const overallColor = health?.overall === "ok" ? "text-green-400" :
                        health?.overall === "degraded" ? "text-yellow-400" : "text-red-400"
 
@@ -515,7 +527,11 @@ function IncidentsTab() {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button onClick={() => { const msg = window.prompt('Emergency alert message:'); if (msg) sendAlert(msg) }}
+          className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors">
+          📣 Send Alert
+        </button>
         <button onClick={() => setShowCreate(true)}
           className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors">
           🚨 Declare Incident
@@ -569,9 +585,14 @@ function IncidentsTab() {
             </div>
             {inc.description && <p className="text-xs text-gray-400 mt-1">{inc.description}</p>}
             {inc.status !== "resolved" && (
-              <button onClick={() => resolve(inc.id)} className="mt-3 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 rounded text-xs">
-                Mark Resolved
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => resolve(inc.id)} className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 rounded text-xs">
+                  Mark Resolved
+                </button>
+                <button onClick={() => addAction(inc.id)} className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded text-xs">
+                  + Add Action
+                </button>
+              </div>
             )}
           </div>
         ))
