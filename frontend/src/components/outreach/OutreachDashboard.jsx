@@ -11,6 +11,54 @@ const STATUS_COLOR = {
   replied: "text-purple-400 bg-purple-500/10 border-purple-500/20",
 };
 
+function SequenceCard({ seq }) {
+  const [enrollId, setEnrollId] = useState('')
+  const [enrolling, setEnrolling] = useState(false)
+  const [enrollMsg, setEnrollMsg] = useState(null)
+
+  async function enroll(e) {
+    e.preventDefault()
+    if (!enrollId.trim()) return
+    setEnrolling(true)
+    try {
+      const r = await api.post(`/api/v1/outreach/sequences/${seq.id}/enroll`, { lead_id: enrollId.trim(), tenant_id: DEFAULT_TENANT })
+      setEnrollMsg({ ok: true, text: r.data?.message || 'Enrolled' })
+      setEnrollId('')
+    } catch (err) {
+      setEnrollMsg({ ok: false, text: err.response?.data?.detail || err.message })
+    }
+    setEnrolling(false)
+  }
+
+  return (
+    <div className="glass rounded-xl p-4 border border-white/5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-white">{seq.name}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {seq.emails_sent} sent · {seq.replies_received} replies · {seq.open_rate}% open rate
+          </p>
+        </div>
+        <span className={`text-xs px-2 py-0.5 rounded-full border ${seq.status === "active" ? "border-green-500/30 text-green-400" : "border-gray-600 text-gray-400"}`}>
+          {seq.status}
+        </span>
+      </div>
+      <form onSubmit={enroll} className="flex gap-2">
+        <input value={enrollId} onChange={e => setEnrollId(e.target.value)}
+          placeholder="Lead ID to enroll"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white placeholder-gray-600 text-xs focus:outline-none focus:border-blue-500/40" />
+        <button type="submit" disabled={enrolling || !enrollId.trim()}
+          className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/20 rounded-lg text-xs transition-colors disabled:opacity-40">
+          {enrolling ? '…' : 'Enroll'}
+        </button>
+      </form>
+      {enrollMsg && (
+        <p className={`text-xs ${enrollMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{enrollMsg.text}</p>
+      )}
+    </div>
+  )
+}
+
 function asArray(value, key) {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.[key])) return value[key];
@@ -100,6 +148,9 @@ export default function OutreachDashboard() {
   const [outreachLogs, setOutreachLogs] = useState(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [directForm, setDirectForm] = useState({ to_email: '', to_name: '', subject: '', body: '' });
+  const [sendingDirect, setSendingDirect] = useState(false);
+  const [directResult, setDirectResult] = useState(null);
 
   useEffect(() => { loadAll(); }, []);
 
@@ -264,6 +315,27 @@ export default function OutreachDashboard() {
       setOutreachLogs(r.data);
     } catch (e) { setOutreachLogs({ error: e.response?.data?.detail || e.message }); }
     setLogsLoading(false);
+  }
+
+  async function sendDirectEmail(e) {
+    e.preventDefault();
+    if (!directForm.to_email.trim() || !directForm.subject.trim() || !directForm.body.trim()) return;
+    setSendingDirect(true);
+    setDirectResult(null);
+    try {
+      const r = await api.post('/api/v1/outreach/emails/send-direct', {
+        tenant_id: DEFAULT_TENANT,
+        to_email: directForm.to_email.trim(),
+        to_name: directForm.to_name.trim() || undefined,
+        subject: directForm.subject.trim(),
+        body: directForm.body.trim(),
+      });
+      setDirectResult({ ok: true, data: r.data });
+      setDirectForm({ to_email: '', to_name: '', subject: '', body: '' });
+    } catch (err) {
+      setDirectResult({ ok: false, error: err.response?.data?.detail || err.message });
+    }
+    setSendingDirect(false);
   }
 
   async function regeneratePending() {
@@ -473,7 +545,7 @@ export default function OutreachDashboard() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit flex-wrap">
-        {["sequences", "pending", "compliance", "logs"].map(t => (
+        {["sequences", "pending", "compliance", "logs", "direct"].map(t => (
           <button key={t} onClick={() => {
             setTab(t);
             if (t === 'logs' && !outreachLogs) loadLogs();
@@ -493,19 +565,7 @@ export default function OutreachDashboard() {
             </div>
           ) : (
             sequences.map(seq => (
-              <div key={seq.id} className="glass rounded-xl p-4 border border-white/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">{seq.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {seq.emails_sent} sent - {seq.replies_received} replies - {seq.open_rate}% open rate
-                    </p>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border ${seq.status === "active" ? "border-green-500/30 text-green-400" : "border-gray-600 text-gray-400"}`}>
-                    {seq.status}
-                  </span>
-                </div>
-              </div>
+              <SequenceCard key={seq.id} seq={seq} />
             ))
           )}
         </div>
@@ -587,6 +647,65 @@ export default function OutreachDashboard() {
               </pre>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Direct Email Tab */}
+      {tab === "direct" && (
+        <div className="space-y-4 max-w-2xl">
+          <div className="glass rounded-2xl border border-white/5 p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-white">Send Direct Email</h3>
+              <p className="text-xs text-white/40 mt-1">One-off compliance-checked email — bypasses sequence queue, goes straight via SES.</p>
+            </div>
+            <form onSubmit={sendDirectEmail} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  value={directForm.to_email}
+                  onChange={e => setDirectForm(f => ({ ...f, to_email: e.target.value }))}
+                  placeholder="Recipient email *"
+                  type="email"
+                  required
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
+                />
+                <input
+                  value={directForm.to_name}
+                  onChange={e => setDirectForm(f => ({ ...f, to_name: e.target.value }))}
+                  placeholder="Recipient name"
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
+                />
+              </div>
+              <input
+                value={directForm.subject}
+                onChange={e => setDirectForm(f => ({ ...f, subject: e.target.value }))}
+                placeholder="Subject *"
+                required
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
+              />
+              <textarea
+                value={directForm.body}
+                onChange={e => setDirectForm(f => ({ ...f, body: e.target.value }))}
+                placeholder="Email body *"
+                required
+                rows={8}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40 resize-none"
+              />
+              <button
+                type="submit"
+                disabled={sendingDirect || !directForm.to_email.trim() || !directForm.subject.trim() || !directForm.body.trim()}
+                className="w-full py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 font-semibold text-sm transition-colors disabled:opacity-40"
+              >
+                {sendingDirect ? 'Sending…' : 'Send Direct Email'}
+              </button>
+            </form>
+            {directResult && (
+              <div className={`rounded-xl p-4 border text-sm ${directResult.ok ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-red-500/20 bg-red-500/10 text-red-300'}`}>
+                {directResult.ok
+                  ? <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(directResult.data, null, 2)}</pre>
+                  : directResult.error}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
