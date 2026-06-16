@@ -17,11 +17,16 @@ export default function IntelligenceHub() {
 
   const endpoints = useMemo(() => [
     { key: 'assessment', label: 'Self assessment', path: '/api/v1/intelligence/self-assessment', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'recommendations', label: 'System recommendations', path: '/api/v1/intelligence/recommendations', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'pulse', label: 'Intelligence pulse', path: '/api/v1/intelligence/pulse', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'radar', label: 'Tech radar', path: '/api/v1/intelligence/radar', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'reports', label: 'Intelligence reports', path: '/api/v1/intelligence/reports', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'flywheel', label: 'Flywheel score', path: '/api/v1/intelligence/flywheel', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'projection', label: 'Flywheel projection', path: '/api/v1/intelligence/flywheel/projection', params: { tenant_id: DEFAULT_TENANT, months: 12 } },
     { key: 'health', label: 'Client health scoring', path: '/api/v1/intelligence/client-health', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'competitors', label: 'Competitor intelligence', path: '/api/v1/intelligence/competitors', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'learnings', label: 'Outreach learnings', path: '/api/v1/intelligence/outreach-learnings', params: { tenant_id: DEFAULT_TENANT, limit: 50 } },
+    { key: 'govSummary', label: 'Governance summary', path: '/api/v1/intelligence/governance/summary', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'innovation', label: 'Innovation queue', path: '/api/v1/innovation/queue', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'milestones', label: 'Civilization milestones', path: '/api/v1/civilization/milestones', params: { tenant_id: DEFAULT_TENANT, limit: 50 } },
   ], [])
@@ -63,26 +68,60 @@ export default function IntelligenceHub() {
     <FrontierShell
       eyebrow="Intelligence"
       title="Intelligence Hub"
-      description="Self-assessment, flywheel, client health, competitors, persuasion engineering, learnings, innovation, and company memory."
+      description="Self-assessment, flywheel, client health, competitors, persuasion engineering, learnings, innovation, recommendations, pulse, and radar."
       endpoints={endpoints}
     >
       {() => (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <ActionCard title="Enhance Outreach Draft" subtitle="Improves a draft using persuasion principles while keeping pricing gated.">
-            <form onSubmit={enhanceDraft} className="space-y-3">
-              <Textarea value={draft} onChange={setDraft} placeholder="Paste an outreach draft to improve." />
-              <RunButton loading={loading} disabled={!draft.trim()}>Enhance</RunButton>
-            </form>
-          </ActionCard>
-          <ActionCard title="Teach JARVIS" subtitle="Add a field learning from a call, email, objection, or client conversation.">
-            <form onSubmit={teachJarvis} className="space-y-3">
-              <Textarea value={learning} onChange={setLearning} placeholder="Example: prospects in dental clinics respond better to missed-call revenue framing." />
-              <RunButton loading={loading} disabled={!learning.trim()}>Teach</RunButton>
-            </form>
-          </ActionCard>
-          <ActionCard title="Latest intelligence result" subtitle="Output from the last enhancement or learning action.">
-            <ResultBox result={result} />
-          </ActionCard>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <ActionCard title="Run Radar Scan" subtitle="Actively scan technology trends and classify emerging tools for Aliyar Solutions.">
+              <RunButton
+                loading={loading}
+                onClick={async (e) => {
+                  e.preventDefault(); setLoading(true)
+                  try {
+                    const r = await api.post('/api/v1/intelligence/radar/scan', { tenant_id: DEFAULT_TENANT })
+                    setResult(r.data)
+                  } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                  setLoading(false)
+                }}
+              >
+                Run Radar Scan
+              </RunButton>
+            </ActionCard>
+            <ActionCard title="Generate Intelligence Report" subtitle="AI-generated market intelligence report for the current pipeline.">
+              <RunButton
+                loading={loading}
+                onClick={async (e) => {
+                  e.preventDefault(); setLoading(true)
+                  try {
+                    const r = await api.post('/api/v1/intelligence/reports/generate', { tenant_id: DEFAULT_TENANT })
+                    setResult(r.data)
+                  } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                  setLoading(false)
+                }}
+              >
+                Generate Report
+              </RunButton>
+            </ActionCard>
+          </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <ActionCard title="Enhance Outreach Draft" subtitle="Improves a draft using persuasion principles while keeping pricing gated.">
+              <form onSubmit={enhanceDraft} className="space-y-3">
+                <Textarea value={draft} onChange={setDraft} placeholder="Paste an outreach draft to improve." />
+                <RunButton loading={loading} disabled={!draft.trim()}>Enhance</RunButton>
+              </form>
+            </ActionCard>
+            <ActionCard title="Teach JARVIS" subtitle="Add a field learning from a call, email, objection, or client conversation.">
+              <form onSubmit={teachJarvis} className="space-y-3">
+                <Textarea value={learning} onChange={setLearning} placeholder="Example: prospects in dental clinics respond better to missed-call revenue framing." />
+                <RunButton loading={loading} disabled={!learning.trim()}>Teach</RunButton>
+              </form>
+            </ActionCard>
+            <ActionCard title="Latest intelligence result" subtitle="Output from the last enhancement or learning action.">
+              <ResultBox result={result} />
+            </ActionCard>
+          </div>
         </div>
       )}
     </FrontierShell>
