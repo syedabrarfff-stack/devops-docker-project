@@ -437,14 +437,27 @@ function CallBriefModal({ lead, onClose }) {
   )
 }
 
-function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach }) {
+const LEAD_STATUSES = ['NEW', 'CONTACTED', 'REPLIED', 'DEMO', 'NURTURE', 'PROPOSAL', 'WON', 'LOST'];
+
+function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh }) {
   const [scoring, setScoring] = useState(false);
   const [queuing, setQueuing] = useState(false);
   const [linkedInSending, setLinkedInSending] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   async function handleScore() {
     setScoring(true);
     try { await onScore(lead.id); } finally { setScoring(false); }
+  }
+
+  async function handleStatusChange(newStatus) {
+    if (newStatus === (lead.status || '').toUpperCase()) return;
+    setUpdatingStatus(true);
+    try {
+      await api.patch(`/api/v1/leads/${lead.id}/status?status=${newStatus}&tenant_id=${DEFAULT_TENANT}`);
+      if (onRefresh) await onRefresh();
+    } catch {}
+    setUpdatingStatus(false);
   }
 
   return (
@@ -469,7 +482,19 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach }) {
 
       <ScoreBar score={lead.score || 0} />
 
-      <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+      <div className="mt-2 flex items-center gap-2">
+        <select
+          value={(lead.status || 'NEW').toUpperCase()}
+          onChange={e => handleStatusChange(e.target.value)}
+          disabled={updatingStatus}
+          className="flex-1 text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-blue-500/50 disabled:opacity-50"
+        >
+          {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {updatingStatus && <span className="text-xs text-gray-500">Saving…</span>}
+      </div>
+
+      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
         <span>{lead.industry || "Unknown"}</span>
         <span>{lead.country || "Unknown"}</span>
         {lead.email && <span className="truncate max-w-32">{lead.email}</span>}
@@ -774,7 +799,7 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} />)
           )}
         </div>
       )}
