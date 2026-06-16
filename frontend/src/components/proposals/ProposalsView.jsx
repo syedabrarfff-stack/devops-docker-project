@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, RefreshCw, Send, Sparkles } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, MailCheck, RefreshCw, Send, Sparkles } from 'lucide-react'
 import api from '../../services/api'
+
+const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
 
 const SERVICE_TYPES = [
   'AI Automation & Workflow',
@@ -180,6 +182,8 @@ function SelectInput({ value, onChange, children }) {
 function ProposalCard({ proposal, onRefresh, onConvert }) {
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendMsg, setSendMsg] = useState(null)
   const pricing = proposal.pricing || {}
   const monthly = pricing.monthly_retainer || 0
 
@@ -192,6 +196,19 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
       console.error('Status update failed:', err)
     }
     setBusy(false)
+  }
+
+  const sendEmail = async () => {
+    setSending(true)
+    setSendMsg(null)
+    try {
+      await api.post(`/api/v1/proposals/${proposal.id}/send`, { tenant_id: DEFAULT_TENANT })
+      setSendMsg('sent')
+      await onRefresh()
+    } catch (err) {
+      setSendMsg(err.response?.data?.detail || 'Email send failed')
+    }
+    setSending(false)
   }
 
   return (
@@ -269,17 +286,34 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
             </div>
           )}
 
+          {sendMsg && sendMsg !== 'sent' && (
+            <p className="text-xs text-red-400 px-1">{sendMsg}</p>
+          )}
+          {sendMsg === 'sent' && (
+            <p className="text-xs text-green-400 flex items-center gap-1 px-1"><MailCheck size={11} /> Email delivered</p>
+          )}
           <div className="flex items-center gap-2 flex-wrap">
             {proposal.status === 'draft' && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => updateStatus('sent')}
-                className="inline-flex items-center gap-1.5 rounded border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors"
-              >
-                {busy ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                Mark Sent
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={sending || busy}
+                  onClick={sendEmail}
+                  className="inline-flex items-center gap-1.5 rounded border border-jarvis-cyan/40 bg-jarvis-cyan/10 px-3 py-1.5 text-xs font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 disabled:opacity-40 transition-colors"
+                >
+                  {sending ? <Loader2 size={11} className="animate-spin" /> : <MailCheck size={11} />}
+                  Send via Email
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || sending}
+                  onClick={() => updateStatus('sent')}
+                  className="inline-flex items-center gap-1.5 rounded border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs font-medium text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors"
+                >
+                  {busy ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                  Mark Sent
+                </button>
+              </>
             )}
             {proposal.status === 'sent' && (
               <>
