@@ -54,7 +54,10 @@ export default function CaptainBridge() {
     { key: 'decisionLoad', label: 'Decision load', path: '/api/v1/captain/decision-load', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'warRoom', label: 'War-room brief', path: '/api/v1/captain/war-room-brief', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'pilotStatus', label: 'Pilot mode status', path: '/api/v1/pilot/status', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'mirrorProfile', label: 'Captain mirror profile', path: '/api/v1/captain/mirror/profile', params: { tenant_id: DEFAULT_TENANT } },
   ], [])
+
+  const [mirrorDecision, setMirrorDecision] = useState({ decision: '', context: '', outcome: '', confidence: 8 })
 
   async function submit(path, body) {
     setLoading(true)
@@ -160,6 +163,15 @@ export default function CaptainBridge() {
                 {loading ? 'Activating…' : 'Activate Pilot Mode →'}
               </button>
             </div>
+          </ActionCard>
+
+          <ActionCard title="Record Mirror Decision" subtitle="Log a Captain decision so JARVIS learns your thinking patterns and can predict future choices.">
+            <form onSubmit={(e) => { e.preventDefault(); submit('/api/v1/captain/mirror/record', { decision: mirrorDecision.decision, context: mirrorDecision.context, outcome: mirrorDecision.outcome, confidence: parseInt(mirrorDecision.confidence) }) }} className="space-y-2">
+              <Textarea value={mirrorDecision.decision} onChange={v => setMirrorDecision(p => ({ ...p, decision: v }))} placeholder="What decision did you make?" />
+              <Textarea value={mirrorDecision.context} onChange={v => setMirrorDecision(p => ({ ...p, context: v }))} placeholder="What was the context or rationale?" />
+              <Input value={mirrorDecision.outcome} onChange={v => setMirrorDecision(p => ({ ...p, outcome: v }))} placeholder="Outcome (e.g. won, declined, deferred)" />
+              <RunButton loading={loading} disabled={!mirrorDecision.decision.trim()}>Record Decision</RunButton>
+            </form>
           </ActionCard>
 
           <div className="xl:col-span-2">
