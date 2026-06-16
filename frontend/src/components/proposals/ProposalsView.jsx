@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, ChevronDown, ChevronUp, FileText, Loader2, MailCheck, RefreshCw, Send, Sparkles } from 'lucide-react'
 import api from '../../services/api'
+import useJarvisStore from '../../store/useJarvisStore'
 
 const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
 
@@ -354,6 +355,7 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
 }
 
 export default function ProposalsView() {
+  const { proposalPrefill, setProposalPrefill } = useJarvisStore()
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -375,6 +377,20 @@ export default function ProposalsView() {
   })
 
   const setField = (key) => (val) => setForm(prev => ({ ...prev, [key]: val }))
+
+  useEffect(() => {
+    if (proposalPrefill) {
+      setForm(prev => ({
+        ...prev,
+        client_name: proposalPrefill.client_name || prev.client_name,
+        client_email: proposalPrefill.client_email || prev.client_email,
+        client_company: proposalPrefill.client_company || prev.client_company,
+        service_type: proposalPrefill.service_type || prev.service_type,
+        context: proposalPrefill.context || prev.context,
+      }))
+      setProposalPrefill(null)
+    }
+  }, [proposalPrefill, setProposalPrefill])
 
   const load = useCallback(async () => {
     setLoading(true)

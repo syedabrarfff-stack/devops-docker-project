@@ -61,6 +61,10 @@ const useJarvisStore = create((set, get) => ({
     set({ activeView: view })
   },
 
+  // Cross-view prefill: lead → proposal
+  proposalPrefill: null,
+  setProposalPrefill: (p) => set({ proposalPrefill: p }),
+
   // WebSocket
   ws: null,
   wsConnected: false,

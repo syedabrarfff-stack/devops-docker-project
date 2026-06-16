@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { api } from "../../services/api";
+import useJarvisStore from "../../store/useJarvisStore";
 
 const TIER_COLORS = { A: "text-red-400 bg-red-500/10 border-red-500/30", B: "text-orange-400 bg-orange-500/10 border-orange-500/30", C: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", D: "text-gray-400 bg-gray-500/10 border-gray-500/30" };
 const STATUS_COLORS = { new: "text-blue-400", qualified: "text-green-400", contacted: "text-yellow-400", replied: "text-purple-400", interested: "text-teal-400", proposal: "text-orange-400", closed: "text-green-500", disqualified: "text-red-400" };
@@ -48,7 +49,7 @@ function ScoreBar({ score }) {
   );
 }
 
-function LeadRow({ lead, onScore }) {
+function LeadRow({ lead, onScore, onProposal }) {
   const [scoring, setScoring] = useState(false);
 
   async function handleScore() {
@@ -119,23 +120,34 @@ function LeadRow({ lead, onScore }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-3">
+      <div className="flex items-center justify-between mt-3 gap-2">
         <span className="text-xs text-gray-600">Source: {lead.source}</span>
-        {lead.score === 0 && (
-          <button
-            onClick={handleScore}
-            disabled={scoring}
-            className="text-xs px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50"
-          >
-            {scoring ? "Scoring..." : "Score with AI"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {lead.score === 0 && (
+            <button
+              onClick={handleScore}
+              disabled={scoring}
+              className="text-xs px-3 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/20 transition-colors disabled:opacity-50"
+            >
+              {scoring ? "Scoring..." : "Score with AI"}
+            </button>
+          )}
+          {(lead.score || 0) >= 50 && (
+            <button
+              onClick={() => onProposal(lead)}
+              className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
+            >
+              Generate Proposal →
+            </button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
 }
 
 export default function LeadsDashboard() {
+  const { setActiveView, setProposalPrefill } = useJarvisStore()
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -144,6 +156,17 @@ export default function LeadsDashboard() {
   const [newLead, setNewLead] = useState({ company: "", contact_name: "", email: "", industry: "", country: "" });
   const [bulkScoring, setBulkScoring] = useState(false);
   const [notice, setNotice] = useState(null);
+
+  function goGenerateProposal(lead) {
+    setProposalPrefill({
+      client_name: lead.contact_name || '',
+      client_email: lead.email || '',
+      client_company: lead.company_name || lead.company || '',
+      service_type: lead.opportunity_type || lead.pain_points?.[0] || '',
+      context: [lead.notes, lead.pain_points?.join(', ')].filter(Boolean).join('\n'),
+    })
+    setActiveView('proposals')
+  }
 
   useEffect(() => { loadAll(); }, []);
 
@@ -267,7 +290,7 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} />)
           )}
         </div>
       )}
