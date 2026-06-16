@@ -16,6 +16,11 @@ export default function MorningBriefing() {
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [lastFetched, setLastFetched] = useState(null)
   const [activeTab, setActiveTab] = useState('standard')
+  const [debriefResult, setDebriefResult] = useState(null)
+  const [debriefing, setDebriefing] = useState(false)
+  const [preBriefResult, setPreBriefResult] = useState(null)
+  const [preBriefing, setPreBriefing] = useState(false)
+  const [preBriefTopic, setPreBriefTopic] = useState('')
 
   const fetch = async () => {
     setLoading(true)
@@ -59,6 +64,28 @@ export default function MorningBriefing() {
     } finally {
       setAiBriefingLoading(false)
     }
+  }
+
+  const runDebrief = async () => {
+    setDebriefing(true)
+    try {
+      const r = await api.post('/api/v1/briefing/debrief', {})
+      setDebriefResult(r.data)
+    } catch (err) {
+      setDebriefResult({ error: err.response?.data?.detail || err.message })
+    }
+    setDebriefing(false)
+  }
+
+  const runPreBrief = async () => {
+    setPreBriefing(true)
+    try {
+      const r = await api.post('/api/v1/briefing/pre-brief', { topic: preBriefTopic || undefined })
+      setPreBriefResult(r.data)
+    } catch (err) {
+      setPreBriefResult({ error: err.response?.data?.detail || err.message })
+    }
+    setPreBriefing(false)
   }
 
   useEffect(() => { fetch() }, [])
@@ -204,6 +231,53 @@ export default function MorningBriefing() {
           </div>
         </motion.div>
       )}
+
+      {/* Debrief & Pre-Brief */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="glass p-5 border border-white/[0.06] space-y-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Daily Debrief</p>
+            <p className="text-xs text-white/30 mt-0.5">JARVIS reviews what happened today and logs learnings.</p>
+          </div>
+          <button
+            onClick={runDebrief}
+            disabled={debriefing}
+            className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 disabled:opacity-40 transition-colors"
+          >
+            {debriefing ? 'Running…' : '📋 Run Daily Debrief'}
+          </button>
+          {debriefResult && (
+            <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/20 p-2.5 text-[10px] text-gray-300">
+              {JSON.stringify(debriefResult, null, 2)}
+            </pre>
+          )}
+        </div>
+
+        <div className="glass p-5 border border-white/[0.06] space-y-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Pre-Meeting Brief</p>
+            <p className="text-xs text-white/30 mt-0.5">JARVIS prepares context on a topic for your next meeting.</p>
+          </div>
+          <input
+            value={preBriefTopic}
+            onChange={e => setPreBriefTopic(e.target.value)}
+            placeholder="Meeting topic (optional)"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 text-xs focus:outline-none focus:border-blue-500/40"
+          />
+          <button
+            onClick={runPreBrief}
+            disabled={preBriefing}
+            className="w-full rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs font-bold text-blue-300 hover:bg-blue-500/20 disabled:opacity-40 transition-colors"
+          >
+            {preBriefing ? 'Preparing…' : '🎯 Run Pre-Brief'}
+          </button>
+          {preBriefResult && (
+            <pre className="max-h-40 overflow-auto rounded-lg border border-white/10 bg-black/20 p-2.5 text-[10px] text-gray-300">
+              {JSON.stringify(preBriefResult, null, 2)}
+            </pre>
+          )}
+        </div>
+      </div>
 
       {/* Info strip */}
       <div className="grid grid-cols-3 gap-4">

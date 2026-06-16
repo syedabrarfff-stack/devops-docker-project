@@ -439,7 +439,7 @@ function CallBriefModal({ lead, onClose }) {
 
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'REPLIED', 'DEMO', 'NURTURE', 'PROPOSAL', 'WON', 'LOST'];
 
-function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh }) {
+function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh, onLoss }) {
   const [scoring, setScoring] = useState(false);
   const [queuing, setQueuing] = useState(false);
   const [linkedInSending, setLinkedInSending] = useState(false);
@@ -591,6 +591,15 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRe
               >
                 Proposal →
               </button>
+              <button
+                onClick={() => {
+                  const reason = window.prompt('Loss reason (e.g. price, competitor, timing):')
+                  if (reason !== null) onLoss(lead.id, reason)
+                }}
+                className="text-xs px-3 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors font-semibold"
+              >
+                ✗ Lost
+              </button>
             </>
           )}
         </div>
@@ -667,6 +676,27 @@ export default function LeadsDashboard() {
     finally { setBulkScoring(false); }
   }
 
+  async function scoreAll() {
+    setBulkScoring(true);
+    try {
+      const r = await api.post("/api/v1/leads/score-all?limit=50");
+      setNotice({ tone: "success", text: `Score-all complete — ${r.data?.scored ?? 0} leads scored.` });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Score-all failed.") });
+    } finally { setBulkScoring(false); }
+  }
+
+  async function recordLoss(leadId, reason) {
+    try {
+      await api.post(`/api/v1/leads/${leadId}/loss`, { reason, lost_to: null });
+      setNotice({ tone: "success", text: "Lead loss recorded. JARVIS will log this learning." });
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Loss recording failed.") });
+    }
+  }
+
   async function addLead() {
     try {
       await api.post("/api/v1/leads/?auto_score=true", newLead);
@@ -736,6 +766,14 @@ export default function LeadsDashboard() {
             {bulkScoring ? "Scoring..." : "Bulk Score AI"}
           </button>
           <button
+            onClick={scoreAll}
+            disabled={bulkScoring}
+            className="px-4 py-2 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
+            title="Score all leads (up to 50) using full AI scoring"
+          >
+            {bulkScoring ? "Scoring..." : "Score All (50)"}
+          </button>
+          <button
             onClick={bulkDiscover}
             disabled={bulkDiscovering}
             className="px-4 py-2 border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
@@ -799,7 +837,7 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} />)
           )}
         </div>
       )}
