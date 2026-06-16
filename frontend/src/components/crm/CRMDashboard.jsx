@@ -81,6 +81,8 @@ function DealRow({ deal }) {
   );
 }
 
+const DEAL_STAGES = ["discovery", "proposal", "negotiation", "closed_won", "closed_lost"];
+
 export default function CRMDashboard() {
   const [tab, setTab] = useState("contacts");
   const [contacts, setContacts] = useState([]);
@@ -89,7 +91,10 @@ export default function CRMDashboard() {
   const [contactStats, setContactStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showAddDeal, setShowAddDeal] = useState(false);
   const [newContact, setNewContact] = useState({ name: "", email: "", title: "", country: "" });
+  const [newDeal, setNewDeal] = useState({ title: "", value: "", stage: "discovery", service_type: "", notes: "" });
+  const [savingDeal, setSavingDeal] = useState(false);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -131,6 +136,28 @@ export default function CRMDashboard() {
     }
   }
 
+  async function addDeal() {
+    if (!newDeal.title.trim()) return;
+    setSavingDeal(true);
+    try {
+      await api.post("/api/v1/crm/deals", {
+        title: newDeal.title.trim(),
+        value: parseFloat(newDeal.value) || 0,
+        stage: newDeal.stage,
+        service_type: newDeal.service_type || null,
+        notes: newDeal.notes || null,
+      });
+      setShowAddDeal(false);
+      setNewDeal({ title: "", value: "", stage: "discovery", service_type: "", notes: "" });
+      setNotice({ tone: "success", text: "Deal created and added to pipeline." });
+      setTab("deals");
+      await loadAll();
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Deal creation failed.") });
+    }
+    setSavingDeal(false);
+  }
+
   const totalPipelineValue = deals
     .filter(d => !["closed_lost"].includes(d.stage))
     .reduce((s, d) => s + (d.value || 0), 0);
@@ -142,12 +169,20 @@ export default function CRMDashboard() {
           <h1 className="text-2xl font-bold text-white">CRM</h1>
           <p className="text-gray-400 text-sm">Contacts, companies &amp; deals</p>
         </div>
-        <button
-          onClick={() => setShowAddContact(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          + Add Contact
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddDeal(true)}
+            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            + Add Deal
+          </button>
+          <button
+            onClick={() => setShowAddContact(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            + Add Contact
+          </button>
+        </div>
       </div>
 
       <Notice notice={notice} onDismiss={() => setNotice(null)} />
@@ -218,6 +253,79 @@ export default function CRMDashboard() {
           </div>
         </div>
       )}
+
+      {/* Add Deal Modal */}
+      <AnimatePresence>
+        {showAddDeal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
+            onClick={() => setShowAddDeal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass rounded-2xl border border-white/10 p-6 w-full max-w-md"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold text-white mb-4">New Deal</h2>
+              <div className="space-y-3">
+                <input
+                  value={newDeal.title}
+                  onChange={e => setNewDeal(p => ({ ...p, title: e.target.value }))}
+                  placeholder="Deal title *"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-green-500/50"
+                />
+                <input
+                  type="number"
+                  value={newDeal.value}
+                  onChange={e => setNewDeal(p => ({ ...p, value: e.target.value }))}
+                  placeholder="Deal value (USD)"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-green-500/50"
+                />
+                <select
+                  value={newDeal.stage}
+                  onChange={e => setNewDeal(p => ({ ...p, stage: e.target.value }))}
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-green-500/50"
+                >
+                  {DEAL_STAGES.map(s => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+                </select>
+                <input
+                  value={newDeal.service_type}
+                  onChange={e => setNewDeal(p => ({ ...p, service_type: e.target.value }))}
+                  placeholder="Service type (e.g. ai_automation)"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-green-500/50"
+                />
+                <textarea
+                  rows={2}
+                  value={newDeal.notes}
+                  onChange={e => setNewDeal(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Notes (optional)"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-green-500/50"
+                />
+              </div>
+              <div className="flex gap-3 mt-5">
+                <button
+                  onClick={() => setShowAddDeal(false)}
+                  className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={addDeal}
+                  disabled={!newDeal.title.trim() || savingDeal}
+                  className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+                >
+                  {savingDeal ? "Creating…" : "Create Deal"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add Contact Modal */}
       <AnimatePresence>

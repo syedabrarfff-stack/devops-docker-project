@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Activity,
@@ -7,10 +7,12 @@ import {
   CircuitBoard,
   GitBranch,
   Layers3,
+  Loader2,
   Network,
   ShieldCheck,
+  Zap,
 } from 'lucide-react'
-import {
+import api, {
   getAionxArchitecture,
   getAionxDashboard,
   getAionxOperatingIntelligence,
@@ -119,8 +121,87 @@ function ConnectionRow({ row }) {
   )
 }
 
+function PipelineClientCard({ pipeline, onAdvance, advancing }) {
+  const nextStage = Math.min(33, (pipeline.stage || 1) + 1)
+  const pct = Math.round(((pipeline.stage || 1) / 33) * 100)
+  const gateColors = {
+    REQUIRED: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
+    NOT_REQUIRED: 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10',
+  }
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200/60">Stage {pipeline.stage}/33</p>
+          <p className="mt-1 text-sm font-black text-white">{pipeline.stage_name || 'Unknown'}</p>
+          <p className="text-[11px] text-white/50 mt-0.5">{pipeline.phase}</p>
+        </div>
+        <StatusPill status={pipeline.status || 'ACTIVE'} />
+      </div>
+      <div className="relative h-1.5 rounded-full bg-white/10">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {pipeline.council_gate_status && (
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${gateColors[pipeline.council_gate_status] || 'text-gray-400 border-gray-600 bg-gray-600/10'}`}>
+            COUNCIL: {pipeline.council_gate_status}
+          </span>
+        )}
+        {pipeline.validation_status && pipeline.validation_status !== 'NOT_REQUIRED' && (
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${gateColors[pipeline.validation_status] || 'text-gray-400 border-gray-600 bg-gray-600/10'}`}>
+            VALIDATE: {pipeline.validation_status}
+          </span>
+        )}
+        {(pipeline.engagement_score != null) && (
+          <span className="rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+            ENG {Number(pipeline.engagement_score).toFixed(0)}
+          </span>
+        )}
+      </div>
+      {pipeline.stage < 33 && (
+        <button
+          type="button"
+          disabled={advancing}
+          onClick={() => onAdvance(pipeline.client_id, nextStage)}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-40 transition-colors"
+        >
+          {advancing ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+          Advance → Stage {nextStage}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function AionxArchitecture() {
   const [state, setState] = useState({ loading: true, architecture: null, dashboard: null, system: null, workflow: null, board: null, operating: null, error: null })
+  const [pipelineBoard, setPipelineBoard] = useState(null)
+  const [boardLoading, setBoardLoading] = useState(false)
+  const [advancing, setAdvancing] = useState(null)
+
+  const loadBoard = useCallback(async () => {
+    setBoardLoading(true)
+    try {
+      const res = await api.get('/api/v1/batch1/board')
+      setPipelineBoard(res.data)
+    } catch {}
+    setBoardLoading(false)
+  }, [])
+
+  const advanceStage = useCallback(async (clientId, targetStage) => {
+    setAdvancing(clientId)
+    try {
+      await api.post('/api/v1/batch1/pipeline/stage-transition', {
+        client_id: clientId,
+        target_stage: targetStage,
+        actor: 'CAPTAIN',
+        captain_approved: true,
+        reason: 'Captain manually advanced stage via AIONX board.',
+      })
+      await loadBoard()
+    } catch {}
+    setAdvancing(null)
+  }, [loadBoard])
 
   useEffect(() => {
     let cancelled = false
@@ -144,6 +225,8 @@ export default function AionxArchitecture() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => { loadBoard() }, [loadBoard])
 
   if (state.loading) {
     return (
@@ -265,6 +348,62 @@ export default function AionxArchitecture() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Live Client Pipeline Board */}
+        <section className="rounded-3xl border border-teal-200/15 bg-white/[0.045] p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.26em] text-teal-200/60">Live Client Pipelines</p>
+              <h2 className="mt-1 text-2xl font-black">Active AIONX Client Operating Boards</h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-white/60">
+                Every active client has a live pipeline state. Advance stages here — Captain-approved transitions only.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadBoard}
+              disabled={boardLoading}
+              className="inline-flex items-center gap-2 rounded-xl border border-teal-400/30 bg-teal-400/10 px-4 py-2 text-xs font-bold text-teal-200 hover:bg-teal-400/20 disabled:opacity-40 transition-colors"
+            >
+              {boardLoading ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+              Refresh Board
+            </button>
+          </div>
+          {boardLoading && !pipelineBoard ? (
+            <p className="text-sm text-white/40 text-center py-6">Loading pipeline board…</p>
+          ) : !pipelineBoard?.pipelines?.length ? (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-center">
+              <p className="text-white/50 text-sm">No active client pipelines yet.</p>
+              <p className="text-white/30 text-xs mt-1">When clients are activated, their 33-stage operating pipeline will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-4 text-xs flex-wrap">
+                {[
+                  { label: 'Active', value: pipelineBoard.counts?.active_pipelines || 0, color: 'text-emerald-300' },
+                  { label: 'Complete', value: pipelineBoard.counts?.complete_pipelines || 0, color: 'text-cyan-300' },
+                  { label: 'Total', value: pipelineBoard.counts?.total_visible_pipelines || 0, color: 'text-white' },
+                  { label: 'Overdue Milestones', value: pipelineBoard.counts?.overdue_milestones || 0, color: pipelineBoard.counts?.overdue_milestones > 0 ? 'text-red-400' : 'text-gray-400' },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                    <p className="text-white/40">{s.label}</p>
+                    <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {pipelineBoard.pipelines.map((pipeline) => (
+                  <PipelineClientCard
+                    key={pipeline.client_id}
+                    pipeline={pipeline}
+                    advancing={advancing === pipeline.client_id}
+                    onAdvance={advanceStage}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="rounded-3xl border border-emerald-200/15 bg-white/[0.045] p-5">
