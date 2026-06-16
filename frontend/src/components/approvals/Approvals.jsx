@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { approveApproval, getApprovals, rejectApproval } from '../../services/api'
+import { api } from '../../services/api'
 import useJarvisStore from '../../store/useJarvisStore'
 
 const FILTERS = [
@@ -236,6 +237,7 @@ function ApprovalCard({ approval, focused, onFocus, onApprove, onReject }) {
 export default function Approvals() {
   const { setPendingApprovals } = useJarvisStore()
   const [pending, setPending] = useState([])
+  const [autoStats, setAutoStats] = useState(null)
   const [approved, setApproved] = useState([])
   const [rejected, setRejected] = useState([])
   const [filter, setFilter] = useState('all')
@@ -247,11 +249,13 @@ export default function Approvals() {
     setLoading(true)
     setError('')
     try {
-      const [pendingRows, approvedRows, rejectedRows] = await Promise.all([
+      const [pendingRows, approvedRows, rejectedRows, statsRes] = await Promise.all([
         getApprovals('pending'),
         getApprovals('approved'),
         getApprovals('rejected'),
+        api.get('/api/v1/governance/auto-approval-stats').then(r => r.data).catch(() => null),
       ])
+      if (statsRes) setAutoStats(statsRes)
       setPending(Array.isArray(pendingRows) ? pendingRows : [])
       setApproved(Array.isArray(approvedRows) ? approvedRows : [])
       setRejected(Array.isArray(rejectedRows) ? rejectedRows : [])
@@ -340,6 +344,34 @@ export default function Approvals() {
         <StatPill label="Rejected today" value={todayCount(rejected)} tone="red" />
         <StatPill label="Average time in queue" value={averageQueueTime([...pending, ...approved, ...rejected])} tone="gold" />
       </div>
+
+      {autoStats && (
+        <div className="rounded-xl border border-jarvis-cyan/20 bg-jarvis-cyan/[0.04] p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-jarvis-cyan/70 mb-3">Autonomous Engine Stats</p>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[10px] text-white/40 uppercase tracking-widest">Auto-Invoices Sent</p>
+              <p className="text-lg font-bold text-white mt-1">{autoStats.auto_approved_invoices?.count ?? 0}</p>
+              <p className="text-xs text-green-400">${(autoStats.auto_approved_invoices?.total_value ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[10px] text-white/40 uppercase tracking-widest">Auto-Proposals Sent</p>
+              <p className="text-lg font-bold text-white mt-1">{autoStats.auto_approved_proposals?.count ?? 0}</p>
+              <p className="text-xs text-blue-400">${(autoStats.auto_approved_proposals?.total_value ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[10px] text-white/40 uppercase tracking-widest">Invoice Gate</p>
+              <p className="text-lg font-bold text-jarvis-gold mt-1">${autoStats.thresholds?.invoice_usd ?? 'N/A'}</p>
+              <p className="text-xs text-white/40">auto-approve below</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+              <p className="text-[10px] text-white/40 uppercase tracking-widest">Auto Outreach</p>
+              <p className="text-lg font-bold mt-1 text-white">{autoStats.thresholds?.auto_outreach_enabled ? 'ON' : 'OFF'}</p>
+              <p className="text-xs text-white/40">engine state</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="glass p-4">
         <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/35">
