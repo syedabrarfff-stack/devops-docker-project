@@ -142,7 +142,48 @@ const VIEW_ENTRIES = Object.entries(VIEWS)
 const PATH_TO_VIEW = VIEW_ENTRIES.reduce((acc, [id, view]) => ({ ...acc, [view.path]: id }), {})
 const toControlRoomRoute = (path) => path.replace(`${CONTROL_ROOM_BASE}/`, '')
 
+const CONTACT_SERVICES = [
+  'AI Automation & Workflow',
+  'Cloud Infrastructure & DevOps',
+  'Lead Generation & Outreach',
+  'CRM & Revenue Operations',
+  'Web Application Development',
+  'Digital Growth Strategy',
+  'Other',
+]
+
 function PublicWebsite() {
+  const [contactForm, setContactForm] = useState({ name: '', company: '', email: '', service: CONTACT_SERVICES[0], message: '' })
+  const [contactSent, setContactSent] = useState(false)
+  const [contactSubmitting, setContactSubmitting] = useState(false)
+  const [contactError, setContactError] = useState(null)
+  const setField = (k) => (e) => setContactForm(f => ({ ...f, [k]: e.target.value }))
+
+  async function handleContactSubmit(e) {
+    e.preventDefault()
+    setContactSubmitting(true)
+    setContactError(null)
+    try {
+      await fetch('/api/v1/leads/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company: contactForm.company,
+          contact_name: contactForm.name,
+          email: contactForm.email,
+          opportunity_type: contactForm.service,
+          notes: contactForm.message,
+          source: 'website_contact',
+          pain_points: [contactForm.service],
+        }),
+      })
+      setContactSent(true)
+    } catch {
+      setContactError('Something went wrong. Please email info@aliyarsolutions.com directly.')
+    }
+    setContactSubmitting(false)
+  }
+
   return (
     <main className="min-h-screen bg-[#f3efe6] text-[#17201d]">
       <section className="relative overflow-hidden px-6 py-8 sm:px-10 lg:px-16">
@@ -177,7 +218,7 @@ function PublicWebsite() {
               dashboards, and digital growth systems for teams that need execution, not noise.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <a href="mailto:info@aliyarsolutions.com" className="rounded-full bg-[#d8b26e] px-6 py-3 font-bold text-[#17201d] shadow-xl shadow-[#d8b26e]/30">
+              <a href="#contact" className="rounded-full bg-[#d8b26e] px-6 py-3 font-bold text-[#17201d] shadow-xl shadow-[#d8b26e]/30">
                 Start a Project
               </a>
               <a href="#services" className="rounded-full border border-[#17201d]/15 bg-white/60 px-6 py-3 font-bold text-[#17201d]">
@@ -237,6 +278,96 @@ function PublicWebsite() {
           </div>
         </div>
       </section>
+
+      {/* Contact section */}
+      <section id="contact" className="px-6 py-20 sm:px-10 lg:px-16 bg-[#17201d]">
+        <div className="mx-auto max-w-7xl grid gap-16 lg:grid-cols-[0.9fr_1.1fr]">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#d8b26e]">Start a Project</p>
+            <h2 className="mt-4 text-4xl font-black leading-[0.95] tracking-[-0.05em] text-white sm:text-6xl">
+              Let's build<br />something real.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-white/60">
+              Tell us what you need. Our team reviews every submission and responds within 24 hours with a clear plan.
+            </p>
+            <div className="mt-10 space-y-4">
+              {[
+                ['Response time', '24 hours or less'],
+                ['Engagement model', 'Retainer or project-based'],
+                ['Pricing', '$2,000 – $25,000 depending on scope'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center gap-4">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#d8b26e] flex-shrink-0" />
+                  <p className="text-sm text-white/70"><span className="text-white font-semibold">{label}:</span> {value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            {contactSent ? (
+              <div className="rounded-3xl border border-[#47745f]/40 bg-[#1e3028]/60 p-10 text-center">
+                <div className="mb-4 text-4xl">✓</div>
+                <p className="text-2xl font-bold text-white">Message received.</p>
+                <p className="mt-3 text-[#9fada0] leading-7">Our team will review your submission and reach out within 24 hours.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-2 uppercase tracking-wider">Name *</label>
+                    <input required value={contactForm.name} onChange={setField('name')} placeholder="Your name"
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-white placeholder-white/25 outline-none focus:border-[#d8b26e]/60 transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-2 uppercase tracking-wider">Company *</label>
+                    <input required value={contactForm.company} onChange={setField('company')} placeholder="Company name"
+                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-white placeholder-white/25 outline-none focus:border-[#d8b26e]/60 transition-colors" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-2 uppercase tracking-wider">Email *</label>
+                  <input required type="email" value={contactForm.email} onChange={setField('email')} placeholder="your@email.com"
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-white placeholder-white/25 outline-none focus:border-[#d8b26e]/60 transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-2 uppercase tracking-wider">Service Interest</label>
+                  <select value={contactForm.service} onChange={setField('service')}
+                    className="w-full rounded-2xl border border-white/10 bg-[#0f1a1e] px-5 py-3.5 text-white outline-none focus:border-[#d8b26e]/60 transition-colors">
+                    {CONTACT_SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-2 uppercase tracking-wider">What do you need?</label>
+                  <textarea value={contactForm.message} onChange={setField('message')} rows={4}
+                    placeholder="Brief description of your goals, timeline, or current challenges..."
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-white placeholder-white/25 outline-none focus:border-[#d8b26e]/60 resize-none transition-colors" />
+                </div>
+                {contactError && (
+                  <p className="text-sm text-red-400">{contactError}</p>
+                )}
+                <button type="submit" disabled={contactSubmitting}
+                  className="w-full rounded-full bg-[#d8b26e] py-4 font-bold text-[#17201d] text-lg shadow-xl shadow-[#d8b26e]/20 hover:bg-[#e8c27e] disabled:opacity-60 transition-colors">
+                  {contactSubmitting ? 'Sending…' : 'Send Message →'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <footer className="px-6 py-8 sm:px-10 lg:px-16 bg-[#17201d] border-t border-white/[0.06]">
+        <div className="mx-auto max-w-7xl flex items-center justify-between">
+          <div>
+            <p className="text-sm font-black text-white">Aliyar Solutions</p>
+            <p className="text-xs text-white/30 mt-0.5">info@aliyarsolutions.com</p>
+          </div>
+          <a href="/control-room/dashboard"
+            className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white/50 hover:text-white transition-colors">
+            Team Login
+          </a>
+        </div>
+      </footer>
     </main>
   )
 }
