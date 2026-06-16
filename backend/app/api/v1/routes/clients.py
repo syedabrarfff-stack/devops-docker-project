@@ -67,7 +67,23 @@ async def create_client(request: Request, body: ClientCreateRequest):
                 },
             )
             await session.refresh(client)
-            return {"client": _serialize_client(client)}
+            serialized = _serialize_client(client)
+
+    try:
+        from app.services.notifications.telegram import notify_telegram
+        mrr = float(body.mrr_usd or 0)
+        tier = (body.package_tier or "").capitalize() or "Growth"
+        mrr_text = f"\n💰 *MRR:* ${mrr:,.0f}/mo" if mrr else ""
+        await notify_telegram(
+            f"🚀 *New Client Activated — {body.company_name.strip()}*"
+            f"{mrr_text}\n"
+            f"*Package:* {tier}\n\n"
+            "Client is live in the Revenue Dashboard."
+        )
+    except Exception:
+        pass
+
+    return {"client": serialized}
 
 
 @router.get("")
