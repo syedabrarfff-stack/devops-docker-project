@@ -359,6 +359,7 @@ export default function ProposalsView() {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [estimating, setEstimating] = useState(false)
   const [generatedProposal, setGeneratedProposal] = useState(null)
   const [error, setError] = useState(null)
   const [convertTarget, setConvertTarget] = useState(null)
@@ -434,6 +435,27 @@ export default function ProposalsView() {
     setGenerating(false)
   }
 
+  const aiEstimate = async () => {
+    if (!form.client_company && !form.client_name) return
+    setEstimating(true)
+    try {
+      const res = await api.post('/api/v1/pricing/estimate', {
+        company_name: form.client_company || form.client_name,
+        services_needed: form.service_type ? [form.service_type] : [],
+        notes: form.context || undefined,
+      })
+      const d = res.data
+      const midRetainer = Math.round(((d.retainer?.monthly_min || 0) + (d.retainer?.monthly_max || 0)) / 2)
+      const firstPkg = d.packages?.[0]?.price || 0
+      setField('monthly_retainer')(String(midRetainer || ''))
+      setField('setup_fee')(String(firstPkg || ''))
+      if (d.positioning && !form.context) setField('context')(d.positioning)
+    } catch (err) {
+      console.error('Pricing estimate failed:', err)
+    }
+    setEstimating(false)
+  }
+
   const accepted = proposals.filter(p => p.status === 'accepted').length
   const sent = proposals.filter(p => p.status === 'sent').length
   const totalMRR = proposals.filter(p => p.status === 'accepted').reduce((s, p) => s + (p.pricing?.monthly_retainer || 0), 0)
@@ -506,6 +528,18 @@ export default function ProposalsView() {
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-600 focus:border-jarvis-cyan/60 resize-none transition-colors"
               />
             </Field>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-medium text-gray-400">Pricing</span>
+              <button
+                type="button"
+                disabled={estimating || (!form.client_company && !form.client_name)}
+                onClick={aiEstimate}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-jarvis-cyan hover:text-jarvis-cyan/80 disabled:opacity-40 transition-colors"
+              >
+                {estimating ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                AI Estimate
+              </button>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <Field label="Setup fee ($)">
                 <TextInput type="number" value={form.setup_fee} onChange={setField('setup_fee')} placeholder="2000" />
