@@ -580,6 +580,85 @@ function IncidentsTab() {
   )
 }
 
+// ── Demos Tab ─────────────────────────────────────────────────────────────────
+function DemosTab() {
+  const [form, setForm] = useState({ company_name: '', industry: '', pain_points: '', lead_id: '' })
+  const [generating, setGenerating] = useState(false)
+  const [demo, setDemo] = useState(null)
+  const [error, setError] = useState(null)
+
+  async function generate() {
+    setGenerating(true)
+    setError(null)
+    try {
+      const pain_points = form.pain_points.split(',').map(s => s.trim()).filter(Boolean)
+      const body = { company_name: form.company_name || undefined, industry: form.industry || undefined, pain_points }
+      if (form.lead_id.trim()) body.lead_id = form.lead_id.trim()
+      const r = await api.post('/api/v1/demos/generate', body)
+      setDemo(r.data)
+    } catch (e) { setError(e.response?.data?.detail || e.message) }
+    setGenerating(false)
+  }
+
+  const field = (key, placeholder) => (
+    <input key={key} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+      placeholder={placeholder}
+      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
+        <h3 className="text-sm font-semibold text-white">Generate Sales Demo Package</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {field('company_name', 'Company name')}
+          {field('industry', 'Industry (e.g. dental, logistics)')}
+        </div>
+        {field('pain_points', 'Pain points — comma separated (e.g. missed calls, slow invoicing)')}
+        {field('lead_id', 'Lead ID (optional — UUID if tying to a lead record)')}
+        <button onClick={generate} disabled={generating}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors">
+          {generating ? 'Generating demo…' : '🎯 Generate Demo'}
+        </button>
+        {error && <p className="text-red-400 text-xs">{error}</p>}
+      </div>
+
+      {demo && (
+        <div className="glass rounded-xl p-5 border border-purple-500/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white">Demo: {demo.company_name || '—'}</h3>
+            <div className="flex gap-2">
+              <span className="text-xs text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded">{demo.status}</span>
+              {demo.pdf_url && (
+                <a href={demo.pdf_url} target="_blank" rel="noreferrer"
+                  className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded hover:bg-blue-500/20 transition-colors">
+                  PDF ↗
+                </a>
+              )}
+            </div>
+          </div>
+          {demo.demo_script && (
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Demo Script</p>
+              <pre className="text-xs text-gray-300 whitespace-pre-wrap leading-5 max-h-64 overflow-y-auto">{
+                typeof demo.demo_script === 'string' ? demo.demo_script : JSON.stringify(demo.demo_script, null, 2)
+              }</pre>
+            </div>
+          )}
+          {demo.roi_projection && (
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">ROI Projection</p>
+              <pre className="text-xs text-gray-300 whitespace-pre-wrap">{
+                typeof demo.roi_projection === 'string' ? demo.roi_projection : JSON.stringify(demo.roi_projection, null, 2)
+              }</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 export default function GovernanceDashboard() {
   const [tab, setTab] = useState("invoices")
@@ -592,6 +671,7 @@ export default function GovernanceDashboard() {
   const TABS = [
     { id: "invoices",  label: "Invoices" },
     { id: "proposals", label: "Proposals" },
+    { id: "demos",     label: "Demos" },
     { id: "incidents", label: "Incidents" },
     { id: "test",      label: "System Test" },
   ]
@@ -640,6 +720,7 @@ export default function GovernanceDashboard() {
 
       {tab === "invoices"  && <InvoicesTab />}
       {tab === "proposals" && <ProposalsTab />}
+      {tab === "demos"     && <DemosTab />}
       {tab === "incidents" && <IncidentsTab />}
       {tab === "test"      && <SystemTestTab />}
     </div>

@@ -164,6 +164,13 @@ export default function NotificationCenter() {
     setUnreadCount(0);
   }
 
+  async function clearAll() {
+    if (!window.confirm('Clear all notifications? This cannot be undone.')) return;
+    await api.delete("/api/v1/notifications/clear");
+    setNotifications([]);
+    setUnreadCount(0);
+  }
+
   const filtered = filter === "all" ? notifications :
     filter === "unread" ? notifications.filter(n => !n.read) :
     notifications.filter(n => n.category === filter);
@@ -182,6 +189,11 @@ export default function NotificationCenter() {
           {unreadCount > 0 && (
             <button onClick={markAllRead} className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-lg text-sm transition-colors">
               Mark all read
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button onClick={clearAll} className="px-4 py-2 border border-red-500/20 text-red-400 hover:text-red-300 rounded-lg text-sm transition-colors">
+              Clear all
             </button>
           )}
           <button onClick={() => setShowSend(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">

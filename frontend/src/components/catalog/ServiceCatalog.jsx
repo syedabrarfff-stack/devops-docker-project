@@ -14,7 +14,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react'
-import { getCatalogCapabilityModules } from '../../services/api'
+import { getCatalogCapabilityModules, seedCatalog, syncCatalogCanonical } from '../../services/api'
 
 const GROUP_COLORS = {
   'Revenue Operations': { dot: 'bg-emerald-400', badge: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20', glow: 'from-emerald-400/18' },
@@ -168,6 +168,8 @@ export default function ServiceCatalog() {
   const [capabilityCatalog, setCapabilityCatalog] = useState(null)
   const [activeGroup, setActiveGroup] = useState('All')
   const [loading, setLoading] = useState(true)
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminMsg, setAdminMsg] = useState(null)
 
   const moduleGroups = capabilityCatalog?.groups || []
   const operatingSystem = capabilityCatalog?.operating_system || {}
@@ -176,6 +178,18 @@ export default function ServiceCatalog() {
     const modules = capabilityCatalog?.modules || []
     return activeGroup === 'All' ? modules : modules.filter((module) => module.division === activeGroup)
   }, [activeGroup, capabilityCatalog])
+
+  async function runAdmin(label, fn) {
+    setAdminLoading(true)
+    setAdminMsg(null)
+    try {
+      const r = await fn()
+      setAdminMsg({ ok: true, label, text: r?.message || r?.status || 'Done' })
+    } catch (err) {
+      setAdminMsg({ ok: false, label, text: err.response?.data?.detail || err.message })
+    }
+    setAdminLoading(false)
+  }
 
   useEffect(() => {
     let mounted = true
@@ -204,11 +218,34 @@ export default function ServiceCatalog() {
                 This is the finalized AIONX product architecture: modules, DIOs, HIAs, governance, lifecycle, integrity layers, adaptive learning, and orchestration spine.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MetricTile icon={Layers3} label="Modules" value={capabilityCatalog?.total || 25} tone="text-jarvis-blue" />
-              <MetricTile icon={Briefcase} label="Divisions" value={capabilityCatalog?.division_count || 7} tone="text-emerald-300" />
-              <MetricTile icon={Users} label="HIA owners" value={capabilityCatalog?.hia_count || 0} tone="text-amber-300" />
-              <MetricTile icon={ShieldCheck} label="Authority" value="Tiered" tone="text-cyan-200" />
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <MetricTile icon={Layers3} label="Modules" value={capabilityCatalog?.total || 25} tone="text-jarvis-blue" />
+                <MetricTile icon={Briefcase} label="Divisions" value={capabilityCatalog?.division_count || 7} tone="text-emerald-300" />
+                <MetricTile icon={Users} label="HIA owners" value={capabilityCatalog?.hia_count || 0} tone="text-amber-300" />
+                <MetricTile icon={ShieldCheck} label="Authority" value="Tiered" tone="text-cyan-200" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => runAdmin('Seed', seedCatalog)}
+                  disabled={adminLoading}
+                  className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-all hover:bg-emerald-400/20 disabled:opacity-40"
+                >
+                  {adminLoading ? '…' : '⚡ Seed Catalog'}
+                </button>
+                <button
+                  onClick={() => runAdmin('Sync', syncCatalogCanonical)}
+                  disabled={adminLoading}
+                  className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-bold text-cyan-300 transition-all hover:bg-cyan-400/20 disabled:opacity-40"
+                >
+                  {adminLoading ? '…' : '🔄 Sync Canonical'}
+                </button>
+                {adminMsg && (
+                  <span className={`text-xs font-medium ${adminMsg.ok ? 'text-emerald-300' : 'text-red-400'}`}>
+                    {adminMsg.label}: {adminMsg.text}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

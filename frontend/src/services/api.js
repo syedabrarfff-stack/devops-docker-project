@@ -233,6 +233,7 @@ export const getCatalogGroups = () => api.get('/api/v1/catalog/groups').then(r =
 export const getCatalogStats = () => api.get('/api/v1/catalog/stats').then(r => r.data)
 export const getCatalogCapabilityModules = () => api.get('/api/v1/catalog/capability-modules').then(r => r.data)
 export const seedCatalog = () => api.post('/api/v1/catalog/seed').then(r => r.data)
+export const syncCatalogCanonical = () => api.post('/api/v1/catalog/sync-canonical').then(r => r.data)
 export const updateCatalogDivision = (code, data) => api.patch(`/api/v1/catalog/divisions/${code}`, data).then(r => r.data)
 
 // Phase 8 — AI Operations

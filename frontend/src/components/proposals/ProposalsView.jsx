@@ -380,6 +380,45 @@ function ProposalCard({ proposal, onRefresh, onConvert }) {
   )
 }
 
+function PricingMatrixPanel() {
+  const [open, setOpen] = useState(false)
+  const [matrix, setMatrix] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  async function load() {
+    if (matrix) return
+    setLoading(true)
+    try {
+      const r = await api.get('/api/v1/pricing/matrix')
+      setMatrix(r.data)
+    } catch (e) { setMatrix({ error: e.response?.data?.detail || e.message }) }
+    setLoading(false)
+  }
+
+  return (
+    <section className="glass p-5">
+      <button onClick={() => { setOpen(o => !o); if (!open) load() }} className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sparkles size={14} className="text-jarvis-gold" />
+          <span className="text-sm font-semibold text-white">Aliyar Pricing Matrix</span>
+        </div>
+        {open ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+      </button>
+      {open && (
+        <div className="mt-4">
+          {loading && <div className="text-center text-gray-500 py-4"><Loader2 size={16} className="animate-spin inline" /></div>}
+          {matrix?.error && <p className="text-red-400 text-xs">{matrix.error}</p>}
+          {matrix && !matrix.error && (
+            <pre className="text-xs text-gray-300 overflow-auto max-h-72 whitespace-pre-wrap leading-5">
+              {JSON.stringify(matrix, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function ProposalsView() {
   const { proposalPrefill, setProposalPrefill } = useJarvisStore()
   const [proposals, setProposals] = useState([])
@@ -627,6 +666,8 @@ export default function ProposalsView() {
           )}
         </section>
       </div>
+
+      <PricingMatrixPanel />
 
       {convertTarget && (
         <ConvertToClientModal
