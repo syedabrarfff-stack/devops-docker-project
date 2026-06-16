@@ -92,6 +92,15 @@ export default function SystemHUD() {
                 Register Webhook
               </RunButton>
             </ActionCard>
+
+            <ActionCard title="Initialize Civilization Ledger" subtitle="Bootstrap the JARVIS civilization ledger for this tenant. Run once during initial setup.">
+              <RunButton
+                loading={loading}
+                onClick={() => run('Civilization Init', () => api.post('/api/v1/civilization/initialize', {}))}
+              >
+                Initialize Ledger
+              </RunButton>
+            </ActionCard>
           </div>
 
           <ActionCard title="Latest action result" subtitle="Output from the last HUD operation.">

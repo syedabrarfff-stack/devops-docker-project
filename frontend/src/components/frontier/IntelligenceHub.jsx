@@ -31,6 +31,8 @@ export default function IntelligenceHub() {
     { key: 'govSummary', label: 'Governance summary', path: '/api/v1/intelligence/governance/summary', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'innovation', label: 'Innovation queue', path: '/api/v1/innovation/queue', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'milestones', label: 'Civilization milestones', path: '/api/v1/civilization/milestones', params: { tenant_id: DEFAULT_TENANT, limit: 50 } },
+    { key: 'economics', label: 'Economics dashboard', path: '/api/v1/economics/dashboard', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'marketPulse', label: 'Market pulse', path: '/api/v1/intel/market-pulse', params: { tenant_id: DEFAULT_TENANT } },
   ], [])
 
   async function enhanceDraft(event) {

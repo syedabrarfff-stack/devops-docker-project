@@ -251,6 +251,7 @@ export default function InvoicesView() {
   const [invoicePrefill, setInvoicePrefill] = useState({})
   const [paymentLinks, setPaymentLinks] = useState({})
   const [statusFilter, setStatusFilter] = useState('')
+  const [clientStatusUpdating, setClientStatusUpdating] = useState({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -303,6 +304,17 @@ export default function InvoicesView() {
       console.error('Mark paid failed:', err)
     }
     setActionLoading(prev => { const n = { ...prev }; delete n[invoice.id]; return n })
+  }
+
+  const updateClientStatus = async (client, newStatus) => {
+    setClientStatusUpdating(prev => ({ ...prev, [client.id]: true }))
+    try {
+      await api.post(`/api/v1/clients/${client.id}/status`, { status: newStatus })
+      await load()
+    } catch (err) {
+      console.error('Client status update failed:', err)
+    }
+    setClientStatusUpdating(prev => { const n = { ...prev }; delete n[client.id]; return n })
   }
 
   const openInvoiceForClient = (client) => {
@@ -604,14 +616,26 @@ export default function InvoicesView() {
                         {fmtDate(client.started_at || client.created_at)}
                       </td>
                       <td className="py-4">
-                        <button
-                          type="button"
-                          onClick={() => openInvoiceForClient(client)}
-                          className="inline-flex items-center gap-1 rounded border border-jarvis-cyan/30 bg-jarvis-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 transition-colors whitespace-nowrap"
-                        >
-                          <FileText size={10} />
-                          New Invoice
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openInvoiceForClient(client)}
+                            className="inline-flex items-center gap-1 rounded border border-jarvis-cyan/30 bg-jarvis-cyan/10 px-2.5 py-1 text-[11px] font-semibold text-jarvis-cyan hover:bg-jarvis-cyan/20 transition-colors whitespace-nowrap"
+                          >
+                            <FileText size={10} />
+                            Invoice
+                          </button>
+                          <select
+                            value={client.status || 'active'}
+                            disabled={clientStatusUpdating[client.id]}
+                            onChange={e => updateClientStatus(client, e.target.value)}
+                            className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-gray-300 outline-none focus:border-jarvis-cyan/40 disabled:opacity-40"
+                          >
+                            {Object.keys(CLIENT_STATUS_CFG).map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
                     </tr>
                   ))}
