@@ -490,6 +490,9 @@ export default function LeadsDashboard() {
   const [bulkScoring, setBulkScoring] = useState(false);
   const [notice, setNotice] = useState(null);
   const [callBriefLead, setCallBriefLead] = useState(null);
+  const [showDiscover, setShowDiscover] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverForm, setDiscoverForm] = useState({ industry: '', country: 'usa', query: '', limit: 20 });
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -555,6 +558,28 @@ export default function LeadsDashboard() {
     }
   }
 
+  async function discoverLeads() {
+    setDiscovering(true);
+    try {
+      const payload = {
+        tenant_id: DEFAULT_TENANT,
+        limit: Number(discoverForm.limit) || 20,
+      };
+      if (discoverForm.industry) payload.industry = discoverForm.industry.trim();
+      if (discoverForm.country) payload.country = discoverForm.country.trim();
+      if (discoverForm.query) payload.query = discoverForm.query.trim();
+      const r = await api.post("/api/v1/leads/discover", payload);
+      const inserted = r.data?.inserted ?? 0;
+      setShowDiscover(false);
+      setNotice({ tone: "success", text: `Lead discovery complete — ${inserted} new lead${inserted !== 1 ? 's' : ''} added to pipeline.` });
+      setTimeout(loadAll, 1500);
+    } catch (e) {
+      setNotice({ tone: "error", text: errorText(e, "Lead discovery failed.") });
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
   const filtered = filter === "all" ? leads :
     filter === "unscored" ? leads.filter(l => l.score === 0) :
     leads.filter(l => normaliseStatus(l.status) === filter);
@@ -566,13 +591,19 @@ export default function LeadsDashboard() {
           <h1 className="text-2xl font-bold text-white">Lead Generation</h1>
           <p className="text-gray-400 text-sm">AI-scored prospects for Aliyar Solutions</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={bulkScore}
             disabled={bulkScoring}
             className="px-4 py-2 border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             {bulkScoring ? "Scoring..." : "Bulk Score AI"}
+          </button>
+          <button
+            onClick={() => setShowDiscover(true)}
+            className="px-4 py-2 border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 rounded-lg text-sm transition-colors"
+          >
+            🔍 Discover Leads
           </button>
           <button
             onClick={() => setShowAdd(true)}
@@ -631,6 +662,63 @@ export default function LeadsDashboard() {
 
       {/* Call Brief Panel */}
       {callBriefLead && <CallBriefModal lead={callBriefLead} onClose={() => setCallBriefLead(null)} />}
+
+      {/* Discover Leads Modal */}
+      {showDiscover && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowDiscover(false)}
+        >
+          <div
+            className="glass rounded-2xl border border-white/10 p-6 w-full max-w-md"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-white mb-1">Discover Leads</h2>
+            <p className="text-xs text-gray-400 mb-4">JARVIS will search Apollo + live sources for qualified prospects matching your criteria.</p>
+            <div className="space-y-3">
+              <input
+                value={discoverForm.query}
+                onChange={e => setDiscoverForm(p => ({ ...p, query: e.target.value }))}
+                placeholder="Search query (e.g. 'SaaS CFO', 'hotel chain operations')"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500/50"
+              />
+              <input
+                value={discoverForm.industry}
+                onChange={e => setDiscoverForm(p => ({ ...p, industry: e.target.value }))}
+                placeholder="Industry (saas, hotel, clinic, ecommerce...)"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500/50"
+              />
+              <input
+                value={discoverForm.country}
+                onChange={e => setDiscoverForm(p => ({ ...p, country: e.target.value }))}
+                placeholder="Country (usa, uk, canada, australia...)"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500/50"
+              />
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-gray-400 whitespace-nowrap">Lead limit:</label>
+                <select
+                  value={discoverForm.limit}
+                  onChange={e => setDiscoverForm(p => ({ ...p, limit: Number(e.target.value) }))}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                >
+                  {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n} leads</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Discovered leads are auto-scored by JARVIS AI and appear in the pipeline immediately.</p>
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowDiscover(false)} className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-sm transition-colors">Cancel</button>
+              <button
+                onClick={discoverLeads}
+                disabled={discovering}
+                className="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+              >
+                {discovering ? "Discovering..." : "Discover Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Lead Modal */}
       {showAdd && (
