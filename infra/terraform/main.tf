@@ -536,3 +536,15 @@ resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${local.prefix}"
   retention_in_days = 14
 }
+
+# Import blocks: adopt pre-existing CloudWatch log groups so Terraform does not
+# try to CREATE them and fail with ResourceAlreadyExistsException.
+import {
+  to = aws_cloudwatch_log_group.backend
+  id = "/jarvis/production/backend"
+}
+
+import {
+  to = aws_cloudwatch_log_group.ecs
+  id = "/ecs/jarvis-production"
+}
