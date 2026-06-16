@@ -34,6 +34,10 @@ export default function SystemHUD() {
     { key: 'consciousness',  label: 'Consciousness snapshot', path: '/api/v1/consciousness/snapshot' },
     { key: 'catalogStats',   label: 'Service catalog',       path: '/api/v1/catalog/stats' },
     { key: 'syncTelegramInfo', label: 'Telegram webhook info', path: '/api/v1/sync/telegram/webhook/info' },
+    { key: 'aiPulse',         label: 'AI ops pulse',          path: '/api/v1/ai-ops/pulse' },
+    { key: 'aiRouting',       label: 'AI routing table',      path: '/api/v1/ai-ops/routing-table' },
+    { key: 'aiGovernance',    label: 'AI governance',         path: '/api/v1/ai-ops/governance' },
+    { key: 'aiTestBedrock',   label: 'Test Bedrock',          path: '/api/v1/ai-ops/test-bedrock' },
   ], [])
 
   async function run(label, fn) {
@@ -100,6 +104,29 @@ export default function SystemHUD() {
               >
                 Initialize Ledger
               </RunButton>
+            </ActionCard>
+
+            <ActionCard title="Reset AI Provider" subtitle="Reset circuit breaker for a specific AI provider (claude, gpt-4o, gemini, etc.) after a failure.">
+              <div className="space-y-2">
+                <select
+                  id="providerSelect"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-jarvis-cyan/60"
+                  defaultValue="claude"
+                >
+                  {['claude', 'gpt-4o', 'gemini-pro', 'deepseek', 'groq', 'mistral'].map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <RunButton
+                  loading={loading}
+                  onClick={() => {
+                    const provider = document.getElementById('providerSelect').value
+                    run(`Reset ${provider}`, () => api.post(`/api/v1/ai-ops/health/${provider}/reset`))
+                  }}
+                >
+                  Reset Provider
+                </RunButton>
+              </div>
             </ActionCard>
           </div>
 

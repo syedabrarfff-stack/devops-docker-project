@@ -227,6 +227,29 @@ export default function CaptainBridge() {
             </div>
           </ActionCard>
 
+          <ActionCard title="Generate Service Concepts" subtitle="AI generates new service concept ideas to expand Aliyar Solutions portfolio.">
+            <RunButton
+              loading={loading}
+              onClick={() => submit('/api/v1/services/concepts/generate', {})}
+            >
+              Generate Concepts
+            </RunButton>
+          </ActionCard>
+
+          <ActionCard title="Approve Service Concept" subtitle="Approve a generated service concept to add it to the active catalog.">
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              const conceptId = e.target.querySelector('input').value.trim()
+              if (!conceptId) return
+              submit(`/api/v1/services/concepts/${conceptId}/approve`, {})
+              e.target.reset()
+            }} className="space-y-2">
+              <input placeholder="Concept ID (UUID)"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-jarvis-cyan/60 transition-colors" />
+              <RunButton loading={loading}>Approve Concept</RunButton>
+            </form>
+          </ActionCard>
+
           <div className="xl:col-span-2">
             <ActionCard title="Latest result" subtitle="Output from the last Captain Bridge action.">
               <ResultBox result={result} />

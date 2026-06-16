@@ -33,6 +33,12 @@ export default function IntelligenceHub() {
     { key: 'milestones', label: 'Civilization milestones', path: '/api/v1/civilization/milestones', params: { tenant_id: DEFAULT_TENANT, limit: 50 } },
     { key: 'economics', label: 'Economics dashboard', path: '/api/v1/economics/dashboard', params: { tenant_id: DEFAULT_TENANT } },
     { key: 'marketPulse', label: 'Market pulse', path: '/api/v1/intel/market-pulse', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'cascadeEvents', label: 'Cascade events', path: '/api/v1/intelligence/cascade/events' },
+    { key: 'brainArtifacts', label: 'Brain artifacts', path: '/api/v1/brain/artifacts' },
+    { key: 'brainRecall', label: 'Brain recall (top 20)', path: '/api/v1/brain/recall', params: { limit: 20 } },
+    { key: 'brainWhatWorked', label: 'Brain — what worked', path: '/api/v1/brain/what-worked' },
+    { key: 'agentsProposals', label: 'Agent proposals', path: '/api/v1/agents/proposals', params: { tenant_id: DEFAULT_TENANT } },
+    { key: 'agentsCapacity', label: 'Agent capacity', path: '/api/v1/agents/capacity' },
   ], [])
 
   async function enhanceDraft(event) {
@@ -200,6 +206,61 @@ export default function IntelligenceHub() {
               </form>
             </ActionCard>
           </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <ActionCard title="Trigger Intelligence Cascade" subtitle="Fire a cross-system intelligence synchronization cascade event.">
+              <RunButton
+                loading={loading}
+                onClick={async (e) => {
+                  e.preventDefault(); setLoading(true)
+                  try {
+                    const r = await api.post('/api/v1/intelligence/cascade/trigger', { tenant_id: DEFAULT_TENANT })
+                    setResult(r.data)
+                  } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                  setLoading(false)
+                }}
+              >
+                Trigger Cascade
+              </RunButton>
+            </ActionCard>
+
+            <ActionCard title="Store Brain Artifact" subtitle="Add a strategic insight or learning artifact to JARVIS long-term brain.">
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const content = e.target.querySelector('textarea').value.trim()
+                if (!content) return
+                setLoading(true)
+                try {
+                  const r = await api.post('/api/v1/brain/artifacts', { content, tenant_id: DEFAULT_TENANT })
+                  setResult(r.data)
+                  e.target.reset()
+                } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                setLoading(false)
+              }} className="space-y-3">
+                <textarea placeholder="Strategic insight or learning to store in JARVIS brain…"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-jarvis-cyan/60 h-24 resize-none transition-colors" />
+                <RunButton loading={loading}>Store Artifact</RunButton>
+              </form>
+            </ActionCard>
+
+            <ActionCard title="Approve Agent Proposal" subtitle="Approve a proposal that an AI agent has escalated for Captain review.">
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                const proposalId = e.target.querySelector('input').value.trim()
+                if (!proposalId) return
+                setLoading(true)
+                try {
+                  const r = await api.post(`/api/v1/agents/proposals/${proposalId}/approve`, { tenant_id: DEFAULT_TENANT })
+                  setResult(r.data)
+                } catch (err) { setResult({ error: err.response?.data?.detail || err.message }) }
+                setLoading(false)
+              }} className="space-y-3">
+                <input placeholder="Proposal ID (UUID)"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-jarvis-cyan/60 transition-colors" />
+                <RunButton loading={loading}>Approve Proposal</RunButton>
+              </form>
+            </ActionCard>
+          </div>
+
           <ActionCard title="Latest intelligence result" subtitle="Output from the last action.">
             <ResultBox result={result} />
           </ActionCard>
