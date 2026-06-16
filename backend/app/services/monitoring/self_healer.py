@@ -51,22 +51,22 @@ async def _heal_ai_providers(report: dict) -> None:
     """Reset circuit breakers for any AI provider that has recovered."""
     try:
         from app.services.ai.router import ai_router
+        from app.services.ai.health_monitor import health_monitor
+        from app.services.ai.base_provider import Message, TaskType
 
         recovered = []
         still_open = []
 
-        for name, cb in (ai_router.circuit_breakers or {}).items():
-            if getattr(cb, "is_open", False):
+        for name, ph in list(health_monitor._providers.items()):
+            if ph.state == "OPEN":
                 # Probe with a minimal test — if it passes, force reset
                 try:
-                    from app.services.ai.base_provider import Message, TaskType
                     await ai_router.chat(
                         [Message(role="user", content="ping")],
                         task_type=TaskType.FAST,
                         force_provider=name,
                     )
-                    if hasattr(cb, "reset"):
-                        cb.reset()
+                    health_monitor.reset(name)
                     recovered.append(name)
                     report["actions"].append(f"circuit_breaker_reset:{name}")
                 except Exception:

@@ -353,6 +353,22 @@ async def readyz():
     except Exception as exc:
         checks["whatsapp"] = {"status": "unreachable", "error": type(exc).__name__, "instance": settings.WHATSAPP_INSTANCE_NAME or "jarvis-main"}
 
+    # ── Redis ─────────────────────────────────────────────────────────────────
+    try:
+        import asyncio as _asyncio
+        from app.core.config import settings as _s
+        if _s.REDIS_URL:
+            import redis.asyncio as aioredis
+            _t0 = time.monotonic()
+            _client = aioredis.from_url(_s.REDIS_URL, socket_connect_timeout=2)
+            await _asyncio.wait_for(_client.ping(), timeout=2.0)
+            await _client.aclose()
+            checks["redis"] = {"status": "ok", "latency_ms": int((time.monotonic() - _t0) * 1000)}
+        else:
+            checks["redis"] = {"status": "not_configured"}
+    except Exception as exc:
+        checks["redis"] = {"status": "error", "error": type(exc).__name__}
+
     # ── SES (email) ───────────────────────────────────────────────────────────
     try:
         import asyncio as _asyncio

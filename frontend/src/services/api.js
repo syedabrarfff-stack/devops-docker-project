@@ -50,6 +50,7 @@ const API_RESOURCES = new Set([
   'revenue',
   'scheduler',
   'sync',
+  'system',
   'tasks',
   'team',
   'voice',
@@ -416,8 +417,11 @@ export const bulkDiscoverLeads  = (limit = 200, tenantId) => api.post('/api/v1/l
 export const batchImportLeads   = (leadsData, tenantId) => api.post('/api/v1/leads/batch-import', leadsData, { params: tenantId ? { tenant_id: tenantId } : {}, timeout: 120000 }).then(r => r.data)
 export const discoverLeadsApollo = (payload) => api.post('/api/v1/leads/discover', payload, { timeout: 90000 }).then(r => r.data)
 export const syncLeadsToHubSpot  = (tenantId) => api.post('/api/v1/crm/hubspot-sync', { tenant_id: tenantId }).then(r => r.data)
-// AIONX System Intelligence
+// System
 export const getSystemHUD       = () => api.get('/api/v1/system/hud').then(r => r.data)
+export const triggerSelfHeal    = () => api.post('/api/v1/system/self-heal').then(r => r.data)
+
+// AIONX System Intelligence
 export const getFrontierStatus  = () => api.get('/api/v1/frontier/status').then(r => r.data)
 export const getConsciousnessSnapshot = () => api.get('/api/v1/consciousness/snapshot').then(r => r.data)
 export const getBatch1Board     = () => api.get('/api/v1/batch1/board').then(r => r.data)

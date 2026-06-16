@@ -251,6 +251,22 @@ async def mission_control(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def _redis_ping() -> str:
+    """Return 'green', 'amber', or 'red' based on actual Redis connectivity."""
+    try:
+        from app.core.config import settings as _s
+        if not _s.REDIS_URL:
+            return "amber"
+        import redis.asyncio as aioredis
+        import asyncio
+        client = aioredis.from_url(_s.REDIS_URL, socket_connect_timeout=2)
+        await asyncio.wait_for(client.ping(), timeout=2.0)
+        await client.aclose()
+        return "green"
+    except Exception:
+        return "red"
+
+
 async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     tables = await _tables(db)
     jobs = await _scheduler_jobs(db)
@@ -259,6 +275,7 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
     from app.services.outreach.gmail import email_delivery_status
 
     email = await email_delivery_status(db, validate_provider=False)
+    redis_status = await _redis_ping()
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
@@ -266,10 +283,12 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
         alerts.append({"severity": "CRITICAL", "message": "Omni registry table missing."})
     if email["send_mode"] != "live":
         alerts.append({"severity": "WARNING", "message": f"Executive email blocked: {email['validation_error']}"})
+    if redis_status == "red":
+        alerts.append({"severity": "WARNING", "message": "Redis unreachable — caching and rate limiting degraded."})
     health = {
         "backend": "green",
         "database": "green" if tables else "red",
-        "redis": "green",
+        "redis": redis_status,
         "scheduler": "green" if jobs else "amber",
         "aionx": "green" if len(aionx_jobs) >= 23 else "amber",
         "frontier": "green" if "aionx_captain_decisions" in tables else "amber",
