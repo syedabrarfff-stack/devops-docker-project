@@ -167,8 +167,8 @@ class ConnectorHub:
         async with AsyncSessionLocal() as db:
             try:
                 await set_tenant_context(db, str(tenant_id))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("set_tenant_context failed for tenant %s: %s", tenant_id, exc)
 
             for raw_lead in leads:
                 if not isinstance(raw_lead, dict):
@@ -396,8 +396,8 @@ class ConnectorHub:
         async with AsyncSessionLocal() as db:
             try:
                 await set_tenant_context(db, str(tenant_id))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("set_tenant_context failed for tenant %s: %s", tenant_id, exc)
 
             for deck in decks:
                 if not isinstance(deck, dict):
@@ -644,8 +644,8 @@ class ConnectorHub:
                         "decks_matched": record.decks_matched,
                         "council_approvals": record.council_approvals,
                     }
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("_get_today_summary failed for tenant %s: %s", tenant_id, exc)
         return {}
 
 

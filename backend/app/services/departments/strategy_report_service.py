@@ -445,14 +445,14 @@ Return only valid JSON array."""
         try:
             from app.services.notifications.slack import send_slack_message
             await send_slack_message(summary)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Slack strategy report notification failed: %s", exc)
 
         try:
             from app.services.notifications.telegram_bot import send_telegram_message
             await send_telegram_message(summary)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Telegram strategy report notification failed: %s", exc)
 
     def _serialize_report(self, r: StrategyReport) -> dict:
         return {

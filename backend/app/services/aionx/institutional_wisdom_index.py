@@ -6,11 +6,14 @@ Score: 0–1000. Starts at 500.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.models.aionx_organs import (
     DecisionObject,
@@ -66,8 +69,8 @@ async def compute_weekly_wisdom(
         from app.services.aionx.counterfactual_engine import extract_learning
         learning = await extract_learning(db)
         counterfactual_precision = learning.get("success_rate", 0.5)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Counterfactual precision unavailable for wisdom index: %s", exc)
     counterfactual_precision_score = counterfactual_precision * WEIGHTS["counterfactual_precision"]
 
     # Client retention (from trust engine)
@@ -80,8 +83,8 @@ async def compute_weekly_wisdom(
         )
         avg_trust = trust_result.scalar() or 70.0
         client_retention_ratio = min(1.0, avg_trust / 100.0)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Client retention ratio unavailable for wisdom index: %s", exc)
     client_retention_score = client_retention_ratio * WEIGHTS["client_retention"]
 
     # Decision debt burden
@@ -101,8 +104,8 @@ async def compute_weekly_wisdom(
         from app.services.aionx.executive_accountability_engine import track_maker_accuracy
         provider_result = await track_maker_accuracy(db, "Provider_Sovereign_Council")
         provider_authority = provider_result.get("accuracy", 0.5)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Provider authority unavailable for wisdom index: %s", exc)
     provider_authority_score = provider_authority * WEIGHTS["provider_authority"]
 
     # Convergence efficiency (success rate of council sessions)
@@ -119,8 +122,8 @@ async def compute_weekly_wisdom(
         if councils:
             successful = sum(1 for c in councils if c.recommendation and c.recommendation != "RECOMMENDATION_DEFERRED")
             convergence_efficiency = successful / len(councils)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Convergence efficiency unavailable for wisdom index: %s", exc)
     convergence_efficiency_score = convergence_efficiency * WEIGHTS["convergence_efficiency"]
 
     # Previous score

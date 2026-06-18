@@ -59,8 +59,8 @@ async def send_message(db: AsyncSession,
             "type": message_type, "content": content[:200],
             "task_id": task_id,
         })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("WebSocket broadcast failed for agent message %s: %s", msg.id, exc)
 
     return msg
 

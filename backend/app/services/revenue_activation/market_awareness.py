@@ -207,8 +207,8 @@ URL: {article.get('url')}
                 score = float(parsed.get("score", fallback[0]))
                 reason = str(parsed.get("reason") or fallback[1])
                 return max(0.0, min(10.0, score)), reason[:500]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("AI market item scoring failed: %s", exc)
         return fallback
 
     async def _store_market_item(self, tenant_uuid, article: dict, score: float, reason: str) -> bool:

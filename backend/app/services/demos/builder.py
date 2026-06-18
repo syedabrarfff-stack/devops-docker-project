@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -158,8 +161,8 @@ Rules:
                 cleaned = _clean_client_text(response.content)
                 if _is_client_safe(cleaned):
                     return cleaned
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("AI demo script generation failed for %s: %s", company, exc)
         return _fallback_script(company, industry, pain_points)
 
     async def _upsert_demo(

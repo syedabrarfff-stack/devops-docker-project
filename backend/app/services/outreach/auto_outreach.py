@@ -288,8 +288,8 @@ async def trigger_auto_outreach_for_lead(
                 f"Email: `{lead_email}`\n"
                 f"Subject: {email_data.get('subject', '')[:60]}"
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Post-outreach notification failed for lead %s (%s): %s", lead_id, lead_email, exc)
 
     return {
         "success": send_result["success"],

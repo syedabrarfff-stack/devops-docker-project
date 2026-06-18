@@ -6,6 +6,9 @@ JARVIS is not an assistant that asks permission for everything.
 JARVIS is the operational manager who runs the company.
 Captain is the CEO who approves strategy, payments, and go-live decisions.
 """
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ── FULL AUTONOMY — JARVIS executes without asking Captain ────────────────────
 JARVIS_FULL_AUTHORITY = [
@@ -231,12 +234,12 @@ async def request_captain_approval(
     )
     try:
         await notify_slack(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Slack approval notification failed for approval %s: %s", approval.id, exc)
     try:
         await notify_telegram(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram approval notification failed for approval %s: %s", approval.id, exc)
     try:
         from app.api.v1.routes.ws import broadcast, captain_broadcast
 
@@ -256,8 +259,8 @@ async def request_captain_approval(
         }
         await broadcast("approval_created", data, persist=True)
         await captain_broadcast("approval_created", data)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("WebSocket approval broadcast failed for approval %s: %s", approval.id, exc)
 
     return {
         "status": "pending_approval",
@@ -313,10 +316,10 @@ async def alert_captain(
     )
     try:
         await notify_slack(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Slack captain alert failed for event %s: %s", event_type, exc)
     try:
         await notify_telegram(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram captain alert failed for event %s: %s", event_type, exc)
     return True

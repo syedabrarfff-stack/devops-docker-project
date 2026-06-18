@@ -154,8 +154,8 @@ async def _generate_captain_actions(db: AsyncSession) -> dict[str, Any]:
                 "action": "Institutional debt >$50k — begin reduction initiative",
                 "affected_decisions": debt_data.get("high_debt_decision_count", 0),
             })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Institutional debt assessment failed: %s", exc)
 
     try:
         wisdom_data = await get_current_wisdom(db)
@@ -164,8 +164,8 @@ async def _generate_captain_actions(db: AsyncSession) -> dict[str, Any]:
                 "priority": "MEDIUM",
                 "action": "Wisdom Index declining — review recent decision accuracy",
             })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Wisdom index check failed: %s", exc)
 
     return {
         "pending_actions": len(actions),
@@ -187,8 +187,8 @@ async def _generate_system_recommendations(db: AsyncSession) -> dict[str, Any]:
         wisdom_data = await get_current_wisdom(db)
         if wisdom_data.get("recommendations"):
             recommendations.extend(wisdom_data["recommendations"])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Wisdom recommendations unavailable: %s", exc)
 
     return {
         "general_recommendations": recommendations[:5],  # Top 5

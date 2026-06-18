@@ -124,8 +124,8 @@ async def qualify_and_score(db: AsyncSession, lead_id: UUID) -> Optional[Lead]:
                 f"Service: {result.get('recommended_service')}\n"
                 f"Angle: {result.get('outreach_angle')}"
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("A-tier lead Telegram notification failed for lead %s: %s", lead.id, exc)
 
     return lead
 

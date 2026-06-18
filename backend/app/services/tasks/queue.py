@@ -70,8 +70,8 @@ async def _process_task(task_id: int):
                 "id": task.id, "title": task.title,
                 "status": task.status, "result": (task.result or "")[:300],
             })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("WebSocket broadcast failed for task %s: %s", task.id, exc)
 
 
 async def _execute(task: AgentTask) -> str:

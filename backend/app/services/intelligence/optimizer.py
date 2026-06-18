@@ -45,26 +45,26 @@ async def _gather_context(db: AsyncSession) -> str:
         from app.models.lead import Lead
         lead_count = (await db.execute(select(func.count()).select_from(Lead))).scalar() or 0
         lines.append(f"Active leads in CRM: {lead_count}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("optimizer context: lead count unavailable: %s", exc)
     try:
         from app.models.outreach import OutreachEmail
         email_count = (await db.execute(select(func.count()).select_from(OutreachEmail))).scalar() or 0
         lines.append(f"Outreach emails tracked: {email_count}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("optimizer context: email count unavailable: %s", exc)
     try:
         from app.models.tasks import AgentTask
         task_count = (await db.execute(select(func.count()).select_from(AgentTask))).scalar() or 0
         lines.append(f"Agent tasks processed: {task_count}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("optimizer context: task count unavailable: %s", exc)
     try:
         from app.models.crm import Contact
         contact_count = (await db.execute(select(func.count()).select_from(Contact))).scalar() or 0
         lines.append(f"CRM contacts: {contact_count}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("optimizer context: contact count unavailable: %s", exc)
 
     lines += [
         "Stack: FastAPI + PostgreSQL/SQLite + APScheduler + Redis + multi-AI router (11 providers)",

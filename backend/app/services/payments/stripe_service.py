@@ -213,8 +213,8 @@ async def _mark_invoice_paid(
                 amount_usd=amount,
                 payment_method="stripe",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Payment notification(s) failed for invoice %s: %s", invoice_ref, exc)
 
         return {"action": "invoice_marked_paid", "invoice_ref": invoice_ref, "amount": amount}
 

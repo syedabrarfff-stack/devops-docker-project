@@ -116,8 +116,8 @@ async def get_credential(db, key: str) -> Optional[str]:
     if row:
         try:
             return decrypt(row.value)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Credential decryption failed for key %s: %s", key, exc)
     ssm_val = _ssm_get(key)
     if ssm_val:
         return ssm_val

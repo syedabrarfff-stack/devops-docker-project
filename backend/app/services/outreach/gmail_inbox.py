@@ -135,8 +135,8 @@ async def _match_lead_or_contact(db: AsyncSession, from_email: str) -> tuple[Opt
         )).scalar_one_or_none()
         if contact:
             contact_id = contact.id
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Lead/contact match failed for email %s: %s", from_email, exc)
     return lead_id, contact_id
 
 
@@ -173,8 +173,8 @@ async def _alert_captain(from_email: str, from_name: str, subject: str, summary:
             f"JARVIS: {summary}"
         )
         await notify_telegram(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram inbox notification failed for email from %s: %s", from_email, exc)
 
 
 async def get_inbox(

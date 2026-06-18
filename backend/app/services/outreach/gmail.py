@@ -246,8 +246,8 @@ async def send_outreach_email(db: AsyncSession, email_id: int) -> bool:
 
         icon = "OK" if success else "FAILED"
         await notify_telegram(f"{icon} Email {'sent' if success else 'failed'}: {row.subject} -> {row.to_email}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram email dispatch notification failed for %s: %s", row.to_email, exc)
 
     return success
 
@@ -262,8 +262,8 @@ async def gmail_delivery_status(db: AsyncSession, validate_smtp: bool = True) ->
     if settings.JARVIS_DEFAULT_TENANT_ID:
         try:
             cap = await outreach_compliance.daily_send_cap_status(db, uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID)))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("daily_send_cap_status check failed: %s", exc)
     return {
         **status,
         "daily_cap": outreach_compliance.current_daily_cap(),

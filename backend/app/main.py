@@ -52,8 +52,8 @@ async def lifespan(app: FastAPI):
                 try:
                     result = await db.execute(select(Tenant).where(Tenant.id == _uuid.UUID(configured_id)))
                     tenant = result.scalar_one_or_none()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Default tenant lookup failed for %s: %s", configured_id, exc)
 
             if tenant is None:
                 result = await db.execute(
@@ -220,8 +220,8 @@ async def lifespan(app: FastAPI):
     try:
         from app.services.scheduler.scheduler import stop_scheduler
         stop_scheduler()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Scheduler stop failed during shutdown: %s", exc)
     logger.info("JARVIS shutting down cleanly")
 
 

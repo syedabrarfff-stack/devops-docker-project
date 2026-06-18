@@ -365,8 +365,8 @@ async def enhance_idea(db: AsyncSession, idea: str) -> dict:
                 key=f"idea:{idea[:100]}"
             )
             await db.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Memory storage failed for idea enhancement: %s", exc)
 
         return {
             "original_idea": idea,

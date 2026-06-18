@@ -269,8 +269,8 @@ class MemorySynthesisEngine:
             elif isinstance(tags, str):
                 try:
                     all_tags.extend(json.loads(tags))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Tag JSON parse failed for memory: %s", exc)
 
         tag_freq = Counter(all_tags)
         top_tags = [{"tag": t, "frequency": c} for t, c in tag_freq.most_common(10)]

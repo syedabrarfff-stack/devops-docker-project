@@ -574,8 +574,8 @@ async def _job_execute_due_outreach() -> None:
         try:
             import uuid
             tenant_id = uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("AIONX outreach: invalid JARVIS_DEFAULT_TENANT_ID: %s", exc)
 
     if not tenant_id:
         logger.debug("AIONX outreach: no default tenant configured — skipping")
@@ -606,8 +606,8 @@ async def _job_speed_to_lead_check() -> None:
     if settings.JARVIS_DEFAULT_TENANT_ID:
         try:
             tenant_id = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("AIONX speed-to-lead: invalid JARVIS_DEFAULT_TENANT_ID: %s", exc)
     if not tenant_id:
         return
 

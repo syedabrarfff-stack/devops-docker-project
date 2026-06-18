@@ -165,8 +165,8 @@ async def get_status(tenant_id: UUID = Query(default=SYSTEM_TENANT_ID)):
         async with AsyncSessionLocal() as db:
             try:
                 await set_tenant_context(db, str(tenant_id))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("set_tenant_context failed for tenant %s: %s", tenant_id, exc)
             result = await db.execute(
                 select(ConnectorHubIngestion).where(
                     ConnectorHubIngestion.tenant_id == tenant_id,

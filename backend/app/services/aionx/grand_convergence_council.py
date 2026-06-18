@@ -7,12 +7,15 @@ Captain watches it live via WebSocket. Every message is immutable institutional 
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.models.aionx_organs import (
     ConvergenceCouncilMessage,
@@ -187,8 +190,8 @@ async def run_convergence_session(
         if twins:
             avg_trust = sum(t.trust_score or 70 for t in twins) / len(twins)
             trust_context = f"\nAverage client trust: {avg_trust:.0f}/100"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Client trust context unavailable for council session: %s", exc)
 
     try:
         recommendation = await route_task(
