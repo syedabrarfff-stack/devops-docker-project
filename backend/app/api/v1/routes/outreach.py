@@ -44,8 +44,8 @@ class SendEmailIn(BaseModel):
 
 class ExecuteOutreachIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 48
-    autonomy_stage: str = "outreach_emails"
+    limit: int = Field(default=48, ge=1, le=500)
+    autonomy_stage: str = Field(default="outreach_emails", max_length=100)
 
 
 class RegeneratePendingIn(BaseModel):
@@ -66,7 +66,7 @@ class SpeedToLeadTriggerIn(BaseModel):
 
 class ResumeOutreachIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    reason: str = "Captain resumed outreach after review."
+    reason: str = Field(default="Captain resumed outreach after review.", max_length=1_000)
 
 
 class QualificationApplyIn(BaseModel):

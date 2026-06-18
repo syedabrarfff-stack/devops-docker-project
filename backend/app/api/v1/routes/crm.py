@@ -160,16 +160,16 @@ async def pipeline_stats(db: AsyncSession = Depends(get_db)):
 # ── Relationship Graph ────────────────────────────────────────────────────────
 
 class RelationshipNodeIn(BaseModel):
-    entity_type: str
-    entity_id: str
+    entity_type: str = Field(..., max_length=100)
+    entity_id: str = Field(..., max_length=200)
     attributes: dict = {}
     tenant_id: Optional[UUID] = None
 
 
 class RelationshipEdgeIn(BaseModel):
-    from_node_id: str
-    to_node_id: str
-    relationship_type: str
+    from_node_id: str = Field(..., max_length=200)
+    to_node_id: str = Field(..., max_length=200)
+    relationship_type: str = Field(..., max_length=100)
     strength: float = 1.0
     tenant_id: Optional[UUID] = None
 

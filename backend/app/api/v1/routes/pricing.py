@@ -67,13 +67,13 @@ SERVICE_MULTIPLIERS = {
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class PricingRequest(BaseModel):
-    company_name: str
-    industry: Optional[str] = "standard"
-    employee_count: Optional[int] = None
-    estimated_revenue: Optional[str] = None  # "under 20k", "20k-200k", "200k+"
+    company_name: str = Field(..., min_length=1, max_length=300)
+    industry: Optional[str] = Field(default="standard", max_length=100)
+    employee_count: Optional[int] = Field(default=None, ge=1, le=1_000_000)
+    estimated_revenue: Optional[str] = Field(default=None, max_length=100)
     services_needed: list[str] = Field(default_factory=list)
-    urgency: Optional[str] = "normal"  # normal | urgent | flexible
-    notes: Optional[str] = None
+    urgency: Optional[str] = Field(default="normal", max_length=50)
+    notes: Optional[str] = Field(default=None, max_length=5_000)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

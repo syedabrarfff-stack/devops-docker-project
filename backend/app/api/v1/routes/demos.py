@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.config import settings
@@ -20,9 +20,9 @@ router = APIRouter(prefix="/demos", tags=["Demos"])
 
 class DemoGenerateRequest(BaseModel):
     lead_id: Optional[UUID] = None
-    industry: Optional[str] = None
-    pain_points: list[str] = []
-    company_name: Optional[str] = None
+    industry: Optional[str] = Field(default=None, max_length=100)
+    pain_points: list[str] = Field(default_factory=list)
+    company_name: Optional[str] = Field(default=None, max_length=300)
     tenant_id: Optional[UUID] = None
 
 

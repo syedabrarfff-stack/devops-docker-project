@@ -7,7 +7,7 @@ import logging
 import base64
 import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from app.core.config import settings
 
@@ -22,9 +22,9 @@ JARVIS_VOICE_INSTRUCTIONS = (
 
 
 class TTSRequest(BaseModel):
-    text: str
-    provider: Optional[str] = "auto"   # auto | openai | elevenlabs | edge
-    voice: Optional[str] = None
+    text: str = Field(..., min_length=1, max_length=4_096)
+    provider: Optional[str] = Field(default="auto", max_length=50)
+    voice: Optional[str] = Field(default=None, max_length=100)
 
 
 class TTSResponse(BaseModel):

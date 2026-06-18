@@ -2,7 +2,7 @@
 Google Calendar routes.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,19 +16,19 @@ router = APIRouter(prefix="/calendar", tags=["Calendar"])
 
 
 class EventIn(BaseModel):
-    summary: str
-    description: Optional[str] = ""
+    summary: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = Field(default="", max_length=5_000)
     start: Optional[datetime] = None
     end: Optional[datetime] = None
     attendees: Optional[list[str]] = None
-    calendar_id: str = "primary"
+    calendar_id: str = Field(default="primary", max_length=100)
 
 
 class MeetingIn(BaseModel):
-    lead_email: str
-    lead_name: str
-    company: str
-    service: str = "AI automation"
+    lead_email: str = Field(..., max_length=320)
+    lead_name: str = Field(..., max_length=200)
+    company: str = Field(..., max_length=300)
+    service: str = Field(default="AI automation", max_length=200)
 
 
 @router.get("/events")

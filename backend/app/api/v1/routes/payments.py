@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.routes.auth import get_current_captain
@@ -25,7 +25,7 @@ webhook_router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 class PaymentLinkRequest(BaseModel):
-    currency: str = "usd"
+    currency: str = Field(default="usd", max_length=10)
 
 
 @router.post("/invoices/{invoice_id}/payment-link")
