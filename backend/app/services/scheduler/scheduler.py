@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import pickle
+import shlex
 import traceback as traceback_lib
 import uuid
 import asyncio
@@ -717,8 +718,9 @@ async def daily_db_backup() -> None:
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
     output_path = backup_dir / f"postgres-{stamp}.sql.gz"
     command = (
-        f"pg_dump -h {parsed['host']} -p {parsed['port']} "
-        f"-U {parsed['user']} -d {parsed['database']} | gzip -c > {output_path}"
+        f"pg_dump -h {shlex.quote(parsed['host'])} -p {shlex.quote(parsed['port'])} "
+        f"-U {shlex.quote(parsed['user'])} -d {shlex.quote(parsed['database'])} "
+        f"| gzip -c > {shlex.quote(str(output_path))}"
     )
     env = {**os.environ, "PGPASSWORD": parsed["password"]}
     process = await asyncio.create_subprocess_shell(

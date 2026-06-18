@@ -114,6 +114,11 @@ def _extract_reply_text(plain: str, html: str) -> str:
 
 
 async def _confirm_sns_subscription(subscribe_url: str) -> None:
+    from urllib.parse import urlparse as _urlparse
+    parsed = _urlparse(subscribe_url)
+    if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".amazonaws.com"):
+        logger.warning("Rejected SNS SubscribeURL with unexpected origin: %s", parsed.hostname)
+        return
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.get(subscribe_url)
