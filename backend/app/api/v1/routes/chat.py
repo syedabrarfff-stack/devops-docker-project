@@ -38,8 +38,9 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
                 model_used=response.model, task_type=task_type, tokens_used=response.tokens_used,
             ))
             await db.flush()
-        except Exception:
+        except Exception as exc:
             await db.rollback()
+            logger.warning("Chat conversation persistence failed for session %s: %s", req.session_id, exc)
 
     return ChatResponse(
         response=response.content,
