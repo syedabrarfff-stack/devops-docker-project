@@ -3,10 +3,12 @@ WebSocket endpoint — real-time JARVIS updates to frontend.
 Supports typed events, client subscriptions, and notification persistence.
 """
 import json
+import logging
 import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import Set, Optional
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 
 _clients: Set[WebSocket] = set()
@@ -64,8 +66,8 @@ async def _persist_notification(event_type: str, data: dict) -> None:
                     delivered=len(_clients) > 0,
                 )
                 db.add(notif)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("WebSocket notification persistence failed: %s", exc)
 
 
 def get_client_count() -> int:

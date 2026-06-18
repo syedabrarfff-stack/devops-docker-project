@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.revenue import Client, ClientStatus
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/clients", tags=["clients"])
 
 
@@ -80,8 +82,8 @@ async def create_client(request: Request, body: ClientCreateRequest):
             f"*Package:* {tier}\n\n"
             "Client is live in the Revenue Dashboard."
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram notification failed for new client %s: %s", body.company_name, exc)
 
     return {"client": serialized}
 

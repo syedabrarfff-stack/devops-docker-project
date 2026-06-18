@@ -1,12 +1,15 @@
 """
 JARVIS Emergency Control System — incident management, system health, and Captain alerts.
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/emergency", tags=["emergency"])
 
 
@@ -90,6 +93,6 @@ async def send_captain_alert(req: IncidentRequest):
             body=req.description,
             level=req.severity,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("Captain alert notification failed [%s]: %s", req.severity, exc)
     return {"alerted": True, "channels": ["slack", "telegram", "dashboard"]}

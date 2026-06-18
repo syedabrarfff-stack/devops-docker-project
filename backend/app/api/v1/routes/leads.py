@@ -74,8 +74,8 @@ async def _notify_captain_new_lead(company: str, email: str | None, source: str 
             "Open JARVIS → Leads to score and action."
         )
         await notify_telegram(msg)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram lead notification failed: %s", exc)
 
 
 async def _score_in_background(lead_id: UUID):

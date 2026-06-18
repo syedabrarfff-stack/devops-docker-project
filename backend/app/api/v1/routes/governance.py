@@ -2,6 +2,7 @@
 JARVIS Governance API — invoices, proposals, contracts, agent permissions.
 All financial and client-facing actions require Captain approval before execution.
 """
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
@@ -10,6 +11,7 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/governance", tags=["governance"])
 
 
@@ -110,8 +112,8 @@ async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSe
         try:
             from app.services.notifications.telegram import notify_telegram
             await notify_telegram(f"✅ *Invoice Paid*\nInvoice `{str(invoice_id)[:8]}…` has been marked as paid. Update revenue dashboard.")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Telegram notification failed for invoice %s paid: %s", invoice_id, exc)
     return {"id": str(invoice_id), "status": req.status}
 
 
@@ -175,8 +177,8 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncS
             await notify_telegram(
                 f"🎯 *Proposal Won — {company}*{mrr_text}\n\nConvert to client in JARVIS → Proposals."
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Telegram notification failed for proposal %s won: %s", proposal_id, exc)
     return {"id": proposal_id, "status": req.status}
 
 
