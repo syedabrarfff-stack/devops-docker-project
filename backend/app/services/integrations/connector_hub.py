@@ -288,8 +288,8 @@ class ConnectorHub:
                 async with AsyncSessionLocal() as db:
                     try:
                         await set_tenant_context(db, str(tenant_id))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("set_tenant_context failed for tenant %s: %s", tenant_id, exc)
 
                     # Check if sequence with same name already exists in knowledge
                     try:
@@ -595,8 +595,8 @@ class ConnectorHub:
             async with AsyncSessionLocal() as db:
                 try:
                     await set_tenant_context(db, str(tenant_id))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("set_tenant_context failed for tenant %s: %s", tenant_id, exc)
 
                 leads_data = summary.get("leads", {})
                 seqs_data = summary.get("sequences", {})
