@@ -86,7 +86,7 @@ async def _heal_lead_pipeline(report: dict) -> None:
     try:
         from app.core.database import AsyncSessionLocal
         from app.core.config import settings
-        from app.models.lead import Lead, LeadStatus
+        from app.models.lead import Lead
         from sqlalchemy import func, select
 
         async with AsyncSessionLocal() as db:

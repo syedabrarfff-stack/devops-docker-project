@@ -406,4 +406,21 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
         return threats
 
 
+    async def current_state(self, tenant_id: Any) -> dict:
+        """Return the current operational state for the mirror profile endpoint."""
+        tenant_uuid = _coerce_uuid(tenant_id)
+        try:
+            pipeline = await self._fetch_pipeline_metrics(tenant_uuid)
+            return {
+                "operational_state": "active",
+                "tenant_id": str(tenant_uuid),
+                "pipeline_alerts": pipeline.get("alerts", []),
+                "top_priority": pipeline.get("top_priority_action", "Monitor pipeline"),
+                "generated_at": datetime.now(UTC).isoformat(),
+            }
+        except Exception as exc:
+            logger.warning("current_state partial failure for tenant %s: %s", tenant_uuid, exc)
+            return {"operational_state": "active"}
+
+
 captain_bridge = CaptainIntelligenceBridge()
