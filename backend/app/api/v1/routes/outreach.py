@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from app.services.outreach import gmail as gmail_service
 from app.services.outreach import sequences as seq_service
 from app.services.outreach.engine import outreach_engine
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/outreach", tags=["Outreach"])
 EMAIL_STATUS_TIMEOUT_SECONDS = 4.0
 
@@ -304,7 +306,8 @@ async def prepare_campaign(
                     "reason": "not_qualified_or_not_queued",
                 })
         except Exception as exc:
-            skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": str(exc)[:180]})
+            logger.warning("queue_sequence failed for lead %s: %s", lead.id, exc)
+            skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": "queue_failed"})
 
     await db.commit()
     return {
@@ -591,7 +594,8 @@ async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSessio
         body.to_name,
     )
     if not success:
-        raise HTTPException(503, f"Email failed: {error}")
+        logger.error("send_direct_email failed to %s: %s", body.to_email, error)
+        raise HTTPException(503, "Email delivery failed")
     return {"sent": True, "to": body.to_email, "method": method}
 
 
@@ -683,8 +687,8 @@ async def process_due_emails(
             ok = await gmail_service.send_outreach_email(db, email.id)
             if ok:
                 sent += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("process_due_emails failed for email %s: %s", email.id, exc)
     await db.commit()
     return {"processed": len(due), "sent": sent}
 
