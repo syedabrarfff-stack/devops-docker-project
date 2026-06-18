@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.revenue import Invoice, InvoiceStatus
 from app.services.governance.invoice_engine import invoice_engine
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
 
@@ -100,8 +102,8 @@ async def record_invoice_payment(invoice_id: UUID, request: Request, body: Invoi
             f"*Amount:* ${amt:,.0f}\n\n"
             "Revenue dashboard updated."
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Telegram payment notification failed for invoice %s: %s", invoice_id, exc)
     return {"invoice": _serialize_invoice(invoice), "payment_recorded": True}
 
 
