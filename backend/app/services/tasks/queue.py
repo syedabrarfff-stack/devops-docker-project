@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy import select, desc
+from sqlalchemy import select, func, desc
 from app.models.tasks import AgentTask
 from app.core.database import AsyncSessionLocal
 
@@ -140,10 +140,13 @@ async def requeue_pending():
 
 
 async def get_queue_stats(db: AsyncSession) -> dict:
-    from sqlalchemy import func
-    stats = {}
-    for s in ("queued", "running", "completed", "failed"):
-        n = await db.scalar(select(func.count()).select_from(AgentTask).where(AgentTask.status == s))
-        stats[s] = n or 0
+    rows = (await db.execute(
+        select(AgentTask.status, func.count().label("n"))
+        .group_by(AgentTask.status)
+    )).all()
+    stats = {s: 0 for s in ("queued", "running", "completed", "failed")}
+    for status, count in rows:
+        if status in stats:
+            stats[status] = count
     stats["queue_depth"] = _queue.qsize()
     return stats

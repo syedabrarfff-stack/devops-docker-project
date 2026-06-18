@@ -58,12 +58,17 @@ async def delete_contact(db: AsyncSession, contact_id: int) -> bool:
 
 
 async def contact_stats(db: AsyncSession) -> dict:
-    total  = await db.scalar(select(func.count()).select_from(Contact))
-    by_status = {}
-    for s in ("lead", "prospect", "qualified", "client", "churned"):
-        n = await db.scalar(select(func.count()).select_from(Contact).where(Contact.status == s))
-        by_status[s] = n or 0
-    return {"total": total or 0, "by_status": by_status}
+    rows = (await db.execute(
+        select(Contact.status, func.count().label("n"))
+        .group_by(Contact.status)
+    )).all()
+    by_status = {s: 0 for s in ("lead", "prospect", "qualified", "client", "churned")}
+    total = 0
+    for status, count in rows:
+        if status in by_status:
+            by_status[status] = count
+        total += count
+    return {"total": total, "by_status": by_status}
 
 
 # ── Companies ─────────────────────────────────────────────────────────────────

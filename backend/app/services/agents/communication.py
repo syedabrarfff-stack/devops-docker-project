@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, func, desc
 from app.models.tasks import AgentMessage, AgentTask
 
 logger = logging.getLogger(__name__)
@@ -119,18 +119,25 @@ async def broadcast_to_all(db: AsyncSession, from_agent: str,
 
 async def get_agent_status(db: AsyncSession) -> dict:
     """Return all agents with their pending task counts."""
-    from sqlalchemy import func
-    result = {}
-    for name, info in AGENTS.items():
-        pending = await db.scalar(
-            select(func.count()).select_from(AgentTask)
-            .where(AgentTask.assigned_to == name)
-            .where(AgentTask.status.in_(["queued", "running"]))
-        ) or 0
-        unread = await db.scalar(
-            select(func.count()).select_from(AgentMessage)
-            .where(AgentMessage.to_agent == name)
-            .where(AgentMessage.status == "sent")
-        ) or 0
-        result[name] = {**info, "pending_tasks": pending, "unread_messages": unread}
-    return result
+    agent_names = list(AGENTS.keys())
+
+    pending_rows = (await db.execute(
+        select(AgentTask.assigned_to, func.count().label("n"))
+        .where(AgentTask.assigned_to.in_(agent_names))
+        .where(AgentTask.status.in_(["queued", "running"]))
+        .group_by(AgentTask.assigned_to)
+    )).all()
+    pending_map = {row.assigned_to: row.n for row in pending_rows}
+
+    unread_rows = (await db.execute(
+        select(AgentMessage.to_agent, func.count().label("n"))
+        .where(AgentMessage.to_agent.in_(agent_names))
+        .where(AgentMessage.status == "sent")
+        .group_by(AgentMessage.to_agent)
+    )).all()
+    unread_map = {row.to_agent: row.n for row in unread_rows}
+
+    return {
+        name: {**info, "pending_tasks": pending_map.get(name, 0), "unread_messages": unread_map.get(name, 0)}
+        for name, info in AGENTS.items()
+    }
