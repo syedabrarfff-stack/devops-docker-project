@@ -339,8 +339,8 @@ async def _job_process_outreach() -> None:
                         ok = await send_outreach_email(db, email.id)
                         if ok:
                             sent += 1
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Outreach email %s send failed: %s", email.id, exc)
         logger.info(f"Outreach: {sent}/{len(due)} emails sent")
     except Exception as e:
         logger.warning(f"Outreach job failed: {e}")
@@ -604,8 +604,8 @@ async def _job_overnight_cold_outreach() -> None:
                         ok = await send_outreach_email(db, email.id)
                         if ok:
                             sent += 1
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Overnight cold outreach email %s failed: %s", email.id, exc)
         logger.info(f"Overnight cold outreach: {sent} emails sent")
     except Exception as e:
         logger.warning(f"Overnight cold outreach failed: {e}")
@@ -650,8 +650,8 @@ async def _job_overnight_followup_sequences() -> None:
                         ok = await send_outreach_email(db, email.id)
                         if ok:
                             sent += 1
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Overnight follow-up email %s failed: %s", email.id, exc)
         logger.info(f"Overnight follow-ups: {sent} sequences sent")
     except Exception as e:
         logger.warning(f"Overnight follow-up sequences failed: {e}")
