@@ -426,6 +426,11 @@ class AIRouter:
                 logger.warning(f"Provider {provider_key} failed: {response.error}")
 
         # No provider available — return demo response
+        logger.warning(
+            "All AI providers unavailable for task_type=%s — returning demo response. "
+            "Check API keys and circuit breaker states.",
+            task_type.value,
+        )
         demo_response = self._demo_response(last_user_msg, task_type)
         return demo_response, task_type.value
 

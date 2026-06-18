@@ -35,17 +35,36 @@ class ProviderHealth:
 
     def record_success(self, latency_ms: int):
         self.total_requests += 1
-        self.total_successes += 1
-        self.consecutive_failures = 0
-        self.last_success_at = time.time()
         self.last_latency_ms = latency_ms
         self._latency_window.append(latency_ms)
         if len(self._latency_window) > 20:
             self._latency_window.pop(0)
         self.avg_latency_ms = sum(self._latency_window) / len(self._latency_window)
+
+        if latency_ms >= LATENCY_TRIP_MS:
+            # Technically succeeded but took so long it counts as a failure
+            logger.warning(
+                "[health] %s: latency %dms >= %dms trip threshold — counting as failure",
+                self.provider, latency_ms, LATENCY_TRIP_MS,
+            )
+            self.total_failures += 1
+            self.consecutive_failures += 1
+            self.last_failure_at = time.time()
+            if self.consecutive_failures >= FAILURE_THRESHOLD:
+                if self.state != "OPEN":
+                    logger.warning("[health] %s: circuit OPEN (latency)", self.provider)
+                self.state = "OPEN"
+            return
+
+        if latency_ms >= LATENCY_WARN_MS:
+            logger.warning("[health] %s: high latency %dms", self.provider, latency_ms)
+
+        self.total_successes += 1
+        self.consecutive_failures = 0
+        self.last_success_at = time.time()
         if self.state == "HALF_OPEN":
             self.state = "CLOSED"
-            logger.info(f"[health] {self.provider}: circuit CLOSED (recovered)")
+            logger.info("[health] %s: circuit CLOSED (recovered)", self.provider)
 
     def record_failure(self, latency_ms: int = 0):
         self.total_requests += 1
