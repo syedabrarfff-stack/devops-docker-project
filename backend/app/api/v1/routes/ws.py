@@ -52,11 +52,15 @@ async def broadcast_notification(title: str, body: str, level: str = "info",
 
 async def _persist_notification(event_type: str, data: dict) -> None:
     try:
+        import uuid as _uuid
+        from app.core.config import settings as _s
         from app.core.database import AsyncSessionLocal
         from app.models.notifications import NotificationLog
+        tenant_id = _uuid.UUID(_s.JARVIS_DEFAULT_TENANT_ID) if _s.JARVIS_DEFAULT_TENANT_ID else _uuid.UUID("00000000-0000-0000-0000-000000000000")
         async with AsyncSessionLocal() as db:
             async with db.begin():
                 notif = NotificationLog(
+                    tenant_id=tenant_id,
                     channel="websocket",
                     title=data.get("title", event_type),
                     body=str(data.get("body", "")),

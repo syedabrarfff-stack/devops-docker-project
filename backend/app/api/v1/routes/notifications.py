@@ -1,14 +1,20 @@
 """
 Notification management — persistent log, read/unread, broadcast.
 """
+import uuid
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, update
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.notifications import NotificationLog
 from app.api.v1.routes.ws import broadcast_notification
+
+
+def _system_tenant_id() -> uuid.UUID:
+    return uuid.UUID(settings.JARVIS_DEFAULT_TENANT_ID) if settings.JARVIS_DEFAULT_TENANT_ID else uuid.UUID("00000000-0000-0000-0000-000000000000")
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -92,6 +98,7 @@ async def send_notification(body: NotifyIn, db: AsyncSession = Depends(get_db)):
 
     # Persist
     notif = NotificationLog(
+        tenant_id=_system_tenant_id(),
         channel=",".join(channels), title=body.title, body=body.body,
         level=body.level, category=body.category, reference=body.reference,
         delivered=any(sent.values()),
