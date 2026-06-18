@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/departments", tags=["6-Layer Intelligence"])
 
 
@@ -61,7 +63,8 @@ async def initialize_dios(
             "new_created": len(created),
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.get("/dios")
@@ -103,7 +106,8 @@ async def collect_metrics(
         metrics = await department_agent_service.collect_department_metrics(db, tid)
         return metrics
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -153,7 +157,8 @@ async def submit_milestone(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.post("/milestones/{milestone_id}/council-review")
@@ -174,7 +179,8 @@ async def run_milestone_council_review(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.post("/milestones/bulk-review")
@@ -189,7 +195,8 @@ async def bulk_milestone_review(
         result = await milestone_engine.run_bulk_milestone_review(tid)
         return result
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.get("/milestones")
@@ -259,7 +266,8 @@ async def trigger_tech_discovery(
         result = await tech_evolution_engine.run_discovery_cycle(tid)
         return result
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.get("/tech/discoveries")
@@ -323,7 +331,8 @@ async def submit_tech_to_council(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -392,7 +401,8 @@ async def generate_briefing(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.post("/calls/{call_id}/council-review")
@@ -409,7 +419,8 @@ async def council_review_call(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.post("/calls/{call_id}/deploy-voice-agent")
@@ -485,7 +496,8 @@ async def generate_daily_report(
         result = await strategy_report_service.generate_daily_strategy_report(tid)
         return result
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.post("/strategy/weekly-report")
@@ -500,7 +512,8 @@ async def generate_weekly_report(
         result = await strategy_report_service.generate_weekly_strategy_report(tid)
         return result
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("departments endpoint failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from exc
 
 
 @router.get("/strategy/reports")

@@ -40,9 +40,11 @@ async def register_webhook(webhook_url: Optional[str] = None):
         else:
             logger.error("Telegram webhook registration failed: %s", data.get("description"))
             raise HTTPException(status_code=400, detail=data.get("description", "Unknown error"))
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Telegram webhook registration error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Telegram webhook registration error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Webhook registration failed")
 
 
 @router.post("/webhook")
