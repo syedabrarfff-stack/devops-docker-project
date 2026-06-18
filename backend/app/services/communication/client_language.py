@@ -57,6 +57,8 @@ def sanitize_client_text(value: Optional[str]) -> str:
     if not value:
         return ""
     text = str(value)
+    # Strip CRLF sequences to prevent SMTP header injection
+    text = text.replace("\r\n", " ").replace("\r", " ").replace("\x00", "")
     for old, new in BLOCKED_REPLACEMENTS:
         text = text.replace(old, new)
     for pattern, replacement in BLOCKED_PATTERNS:

@@ -142,7 +142,8 @@ async def _captain_snapshot() -> dict:
             from app.services.governance.captain_queue import captain_queue
 
             pending = await captain_queue.pending_count(settings.JARVIS_DEFAULT_TENANT_ID)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Captain snapshot: pending_count unavailable: %s", exc)
             pending = 0
     return {
         "pending_approvals": pending,
