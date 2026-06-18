@@ -24,7 +24,8 @@ BASE = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}" if settings.
 
 HELP_TEXT = """🤖 *JARVIS Command Menu*
 
-/status — System health & AI providers
+/status — System health, AI providers, scheduler, Redis
+/heal — Run autonomous self-healing cycle now
 /leads — Top 5 leads awaiting scoring
 /briefing — AI morning briefing
 /approve <id> — Approve a pending request
@@ -70,6 +71,8 @@ async def handle_command(chat_id: str, cmd: str, args: list[str]) -> None:
             await _handle_leads(chat_id, db)
         elif cmd == "briefing":
             await _handle_briefing(chat_id, db)
+        elif cmd == "heal":
+            await _handle_self_heal(chat_id)
         elif cmd == "queue":
             await _handle_queue(chat_id, db)
         elif cmd == "approve" and args:
@@ -165,6 +168,8 @@ async def handle_update(update: dict, db) -> None:
             await _handle_approval_callback(sender_chat, aid, "reject", db)
         except ValueError:
             await send_message(sender_chat, "Usage: /reject <id>")
+    elif cmd == "heal":
+        await _handle_self_heal(sender_chat)
     elif cmd == "queue":
         await _handle_queue(sender_chat, db)
     else:
@@ -175,12 +180,45 @@ async def handle_update(update: dict, db) -> None:
 # ── Command handlers ──────────────────────────────────────────────────────────
 
 async def _handle_status(chat_id: str) -> None:
+    import time
     from app.services.ai.router import ai_router
+    from app.services.scheduler.scheduler import get_scheduler, get_jobs
+
+    lines = ["⚡ *JARVIS System Status*\n"]
+
+    # AI Providers
     providers = ai_router.get_provider_status()
     available = [k for k, v in providers.items() if v["available"]]
-    lines = [f"⚡ *JARVIS System Status*\n",
-             f"AI Providers: {len(available)}/{len(providers)} online",
-             f"Active: {', '.join(available[:5]) or 'demo mode'}"]
+    lines.append(f"🤖 AI: {len(available)}/{len(providers)} providers online")
+    if available:
+        lines.append(f"   Active: {', '.join(available[:5])}")
+
+    # Scheduler
+    try:
+        sched = get_scheduler()
+        running = sched is not None and sched.running
+        job_count = len(get_jobs()) if running else 0
+        lines.append(f"⏰ Scheduler: {'running' if running else '⚠️ STOPPED'} ({job_count} jobs)")
+    except Exception:
+        lines.append("⏰ Scheduler: unknown")
+
+    # Redis
+    try:
+        import asyncio
+        import redis.asyncio as aioredis
+        from app.core.config import settings as _s
+        if _s.REDIS_URL:
+            t0 = time.monotonic()
+            _c = aioredis.from_url(_s.REDIS_URL, socket_connect_timeout=2)
+            await asyncio.wait_for(_c.ping(), timeout=2.0)
+            await _c.aclose()
+            latency = int((time.monotonic() - t0) * 1000)
+            lines.append(f"🔴 Redis: online ({latency}ms)")
+        else:
+            lines.append("🔴 Redis: not configured")
+    except Exception:
+        lines.append("🔴 Redis: ⚠️ unreachable")
+
     await send_message(chat_id, "\n".join(lines))
 
 
@@ -226,6 +264,27 @@ async def _handle_queue(chat_id: str, db) -> None:
         f"Failed:    {stats.get('failed', 0)}",
     ]
     await send_message(chat_id, "\n".join(lines))
+
+
+async def _handle_self_heal(chat_id: str) -> None:
+    await send_message(chat_id, "🔧 Running self-healing cycle… please wait.")
+    try:
+        from app.services.monitoring.self_healer import run_self_healing_cycle
+        report = await run_self_healing_cycle()
+        lines = [f"🔧 *Self-Heal Complete* ({report.get('duration_ms', '?')}ms)\n"]
+        actions = report.get("actions", [])
+        alerts = report.get("alerts", [])
+        if actions:
+            lines.append("*Auto-recovered:*")
+            lines.extend(f"  ✅ {a}" for a in actions)
+        else:
+            lines.append("✅ All systems healthy — nothing to recover.")
+        if alerts:
+            lines.append("\n*Requires attention:*")
+            lines.extend(f"  ⚠️ {a}" for a in alerts)
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Self-heal failed: {e}")
 
 
 async def _handle_approval_callback(chat_id: str, approval_id: int,
