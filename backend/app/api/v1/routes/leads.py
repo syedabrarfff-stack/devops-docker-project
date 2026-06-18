@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Optional
@@ -8,7 +10,10 @@ from app.core.database import get_db
 from app.services.leads import engine as leads
 from app.services.leads.discovery import lead_discovery_engine
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/leads", tags=["Leads"])
+
+_BATCH_IMPORT_MAX = 500
 
 
 class LeadIn(BaseModel):
@@ -234,11 +239,21 @@ async def batch_import_leads(
     from sqlalchemy import select
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+
+    if len(leads_data) > _BATCH_IMPORT_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch too large: {len(leads_data)} records (max {_BATCH_IMPORT_MAX})",
+        )
+
     inserted = skipped = 0
 
     for raw in leads_data:
-        email = (raw.get("email") or "").strip().lower() or None
-        company = (raw.get("company") or raw.get("company_name") or "").strip() or None
+        if not isinstance(raw, dict):
+            skipped += 1
+            continue
+        email = str(raw.get("email") or "").strip().lower() or None
+        company = str(raw.get("company") or raw.get("company_name") or "").strip() or None
         if not company:
             skipped += 1
             continue
