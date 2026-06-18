@@ -404,8 +404,14 @@ async def scan_threats(db: AsyncSession, payload: dict[str, Any] | None = None) 
 
 
 async def list_threats(db: AsyncSession, active_only: bool = True) -> dict[str, Any]:
-    where = "WHERE status='active'" if active_only else ""
-    result = await db.execute(text(f"SELECT * FROM aionx_threat_alerts {where} ORDER BY created_at DESC LIMIT 100"))
+    if active_only:
+        result = await db.execute(
+            text("SELECT * FROM aionx_threat_alerts WHERE status='active' ORDER BY created_at DESC LIMIT 100")
+        )
+    else:
+        result = await db.execute(
+            text("SELECT * FROM aionx_threat_alerts ORDER BY created_at DESC LIMIT 100")
+        )
     return {"threats": [dict(row._mapping) for row in result.fetchall()]}
 
 
