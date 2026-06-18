@@ -55,16 +55,28 @@ class MirrorDecisionBody(BaseModel):
 async def captain_state(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.captain_state import captain_awareness_engine
 
-    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
-    return await captain_awareness_engine.current_state(resolved_tenant_id)
+    resolved = _resolve_tenant_id(request, tenant_id)
+    try:
+        return await captain_awareness_engine.current_state(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("captain_state failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve captain state")
 
 
 @router.get("/decision-load")
 async def captain_decision_load(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.captain_state import decision_load_manager
 
-    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
-    return await decision_load_manager.current_load(resolved_tenant_id)
+    resolved = _resolve_tenant_id(request, tenant_id)
+    try:
+        return await decision_load_manager.current_load(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("captain_decision_load failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve decision load")
 
 
 # ─────────────────────────── BRIDGE ENDPOINTS ──────────────────────────────── #
@@ -75,7 +87,13 @@ async def bring_lead(body: LeadIntakeBody, request: Request):
     from app.services.captain.bridge import captain_bridge
 
     resolved = _resolve_tenant_id(request, body.tenant_id)
-    return await captain_bridge.process_captain_lead_intake(resolved, body.raw_input)
+    try:
+        return await captain_bridge.process_captain_lead_intake(resolved, body.raw_input)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("bring_lead failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lead intake processing failed")
 
 
 @router.post("/brain-dump")
@@ -84,7 +102,13 @@ async def brain_dump(body: BrainDumpBody, request: Request):
     from app.services.captain.bridge import captain_bridge
 
     resolved = _resolve_tenant_id(request, body.tenant_id)
-    return await captain_bridge.parse_brain_dump(resolved, body.text)
+    try:
+        return await captain_bridge.parse_brain_dump(resolved, body.text)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("brain_dump failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Brain dump parsing failed")
 
 
 @router.post("/email-import")
@@ -93,7 +117,13 @@ async def email_import(body: EmailImportBody, request: Request):
     from app.services.captain.bridge import captain_bridge
 
     resolved = _resolve_tenant_id(request, body.tenant_id)
-    return await captain_bridge.extract_email_thread_intelligence(resolved, body.email_thread)
+    try:
+        return await captain_bridge.extract_email_thread_intelligence(resolved, body.email_thread)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("email_import failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Email intelligence extraction failed")
 
 
 @router.get("/situation")
@@ -102,7 +132,13 @@ async def situation_report(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.captain.bridge import captain_bridge
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await captain_bridge.generate_situation_report(resolved)
+    try:
+        return await captain_bridge.generate_situation_report(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("situation_report failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Situation report generation failed")
 
 
 @router.get("/threats")
@@ -111,7 +147,13 @@ async def threat_report(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.captain.bridge import captain_bridge
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await captain_bridge.detect_threats(resolved)
+    try:
+        return await captain_bridge.detect_threats(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("threat_report failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Threat detection failed")
 
 
 # ─────────────────────── PREDICTIVE ACTION ENDPOINTS ───────────────────────── #
@@ -122,7 +164,13 @@ async def predict_actions(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.captain.predictive_action import predictive_action_engine
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await predictive_action_engine.predict_next_actions(resolved)
+    try:
+        return await predictive_action_engine.predict_next_actions(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("predict_actions failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Action prediction failed")
 
 
 @router.get("/war-room-brief")
@@ -131,7 +179,13 @@ async def war_room_brief(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.captain.predictive_action import predictive_action_engine
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    return await predictive_action_engine.generate_war_room_brief(resolved)
+    try:
+        return await predictive_action_engine.generate_war_room_brief(resolved)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("war_room_brief failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="War room brief generation failed")
 
 
 # ────────────────────────── PUSHBACK ENDPOINTS ─────────────────────────────── #
@@ -142,7 +196,13 @@ async def evaluate_decision(body: EvaluateDecisionBody, request: Request):
     from app.services.captain.pushback import jarvis_pushback
 
     resolved = _resolve_tenant_id(request, body.tenant_id)
-    return await jarvis_pushback.evaluate_captain_decision(resolved, body.decision, body.context)
+    try:
+        return await jarvis_pushback.evaluate_captain_decision(resolved, body.decision, body.context)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("evaluate_decision failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Decision evaluation failed")
 
 
 # ────────────────────────── VOICE ENDPOINTS ────────────────────────────────── #
@@ -153,7 +213,13 @@ async def voice_command(body: VoiceCommandBody, request: Request):
     from app.services.captain.voice_command import voice_command_processor
 
     resolved = _resolve_tenant_id(request, body.tenant_id)
-    return await voice_command_processor.process_voice_transcript(resolved, body.transcript)
+    try:
+        return await voice_command_processor.process_voice_transcript(resolved, body.transcript)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("voice_command failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Voice command processing failed")
 
 
 @voice_router.get("/morning-briefing")
@@ -162,8 +228,14 @@ async def morning_briefing(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.captain.voice_command import voice_command_processor
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    script = await voice_command_processor.generate_audio_briefing_script(resolved)
-    return {"script": script, "tenant_id": str(resolved)}
+    try:
+        script = await voice_command_processor.generate_audio_briefing_script(resolved)
+        return {"script": script, "tenant_id": str(resolved)}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("morning_briefing failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Morning briefing generation failed")
 
 
 # ──────────────────────────── SHARED UTILITY ───────────────────────────────── #
@@ -223,14 +295,20 @@ async def seed_demo_data(request: Request, tenant_id: Optional[UUID] = None):
     from app.core.database import AsyncSessionLocal
 
     resolved = _resolve_tenant_id(request, tenant_id)
-    async with AsyncSessionLocal() as session:
-        counts = await _seed(resolved, session)
-    return {
-        "status": "seeded",
-        "tenant_id": str(resolved),
-        "created": counts,
-        "message": "Demo data ready — Revenue Command Center is now live.",
-    }
+    try:
+        async with AsyncSessionLocal() as session:
+            counts = await _seed(resolved, session)
+        return {
+            "status": "seeded",
+            "tenant_id": str(resolved),
+            "created": counts,
+            "message": "Demo data ready — Revenue Command Center is now live.",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("seed_demo_data failed for tenant %s: %s", resolved, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Demo seeding failed")
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
