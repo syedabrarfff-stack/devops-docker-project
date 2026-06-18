@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -8,28 +8,28 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 class TaskIn(BaseModel):
-    title: str
-    description: Optional[str] = ""
-    task_type: Optional[str] = "general"
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = Field(default="", max_length=10_000)
+    task_type: Optional[str] = Field(default="general", max_length=100)
     priority: Optional[int] = 5
-    assigned_to: Optional[str] = "jarvis"
+    assigned_to: Optional[str] = Field(default="jarvis", max_length=100)
     payload: Optional[dict] = None
 
 
 class MessageIn(BaseModel):
-    from_agent: str
-    to_agent: str
-    content: str
-    message_type: Optional[str] = "request"
+    from_agent: str = Field(..., max_length=100)
+    to_agent: str = Field(..., max_length=100)
+    content: str = Field(..., min_length=1, max_length=32_000)
+    message_type: Optional[str] = Field(default="request", max_length=50)
     payload: Optional[dict] = None
 
 
 class DelegateIn(BaseModel):
-    from_agent: str
-    to_agent: str
-    task_title: str
-    task_description: Optional[str] = ""
-    task_type: Optional[str] = "research"
+    from_agent: str = Field(..., max_length=100)
+    to_agent: str = Field(..., max_length=100)
+    task_title: str = Field(..., min_length=1, max_length=500)
+    task_description: Optional[str] = Field(default="", max_length=10_000)
+    task_type: Optional[str] = Field(default="research", max_length=100)
     priority: Optional[int] = 5
     payload: Optional[dict] = None
 

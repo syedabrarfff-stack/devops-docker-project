@@ -31,7 +31,7 @@ async def get_plan_options():
 class SignupRequest(BaseModel):
     company_name: str = Field(min_length=2, max_length=200)
     admin_email: str = Field(min_length=5, max_length=255)
-    plan_tier: str = Field(default="STARTER")
+    plan_tier: str = Field(default="STARTER", max_length=50)
 
 @router.post("/signup")
 async def agency_signup(body: SignupRequest):
@@ -51,11 +51,11 @@ async def agency_signup(body: SignupRequest):
 
 class BrandingRequest(BaseModel):
     company_name: str = Field(min_length=2, max_length=200)
-    tagline: str = ""
-    logo_url: str = ""
-    primary_color: str = "#3b82f6"
-    company_website: str = ""
-    founder_name: str = ""
+    tagline: str = Field(default="", max_length=500)
+    logo_url: str = Field(default="", max_length=2_000)
+    primary_color: str = Field(default="#3b82f6", max_length=20)
+    company_website: str = Field(default="", max_length=2_000)
+    founder_name: str = Field(default="", max_length=200)
 
 @router.post("/onboarding/{tenant_id}/step1-branding")
 async def onboarding_step1(tenant_id: UUID, body: BrandingRequest):
@@ -67,9 +67,9 @@ async def onboarding_step1(tenant_id: UUID, body: BrandingRequest):
 
 class PersonaItem(BaseModel):
     name: str = Field(min_length=2, max_length=100)
-    role: str = Field(default="sales")
-    title: str = ""
-    email: str = ""
+    role: str = Field(default="sales", max_length=100)
+    title: str = Field(default="", max_length=200)
+    email: str = Field(default="", max_length=320)
     is_primary_outreach: bool = False
 
 class PersonasRequest(BaseModel):
@@ -88,7 +88,7 @@ async def onboarding_step2(tenant_id: UUID, body: PersonasRequest):
 class EmailConfigRequest(BaseModel):
     executive_email: str = Field(min_length=5, max_length=255)
     executive_name: str = Field(default="Joseph David", min_length=2, max_length=120)
-    reply_to_name: str = ""
+    reply_to_name: str = Field(default="", max_length=200)
 
 @router.post("/onboarding/{tenant_id}/step3-email")
 async def onboarding_step3(tenant_id: UUID, body: EmailConfigRequest):
@@ -98,10 +98,10 @@ async def onboarding_step3(tenant_id: UUID, body: EmailConfigRequest):
 
 
 class IntegrationsRequest(BaseModel):
-    apollo_api_key: str = ""
-    hubspot_api_key: str = ""
-    notion_api_key: str = ""
-    slack_webhook_url: str = ""
+    apollo_api_key: str = Field(default="", max_length=500)
+    hubspot_api_key: str = Field(default="", max_length=500)
+    notion_api_key: str = Field(default="", max_length=500)
+    slack_webhook_url: str = Field(default="", max_length=2_000)
 
 @router.post("/onboarding/{tenant_id}/step4-integrations")
 async def onboarding_step4(tenant_id: UUID, body: IntegrationsRequest):
@@ -115,7 +115,7 @@ class MarketFocusRequest(BaseModel):
     target_markets: list[str] = Field(default_factory=list)
     target_industries: list[str] = Field(default_factory=list)
     service_offerings: list[str] = Field(default_factory=list)
-    icp_description: str = ""
+    icp_description: str = Field(default="", max_length=5_000)
 
 @router.post("/onboarding/{tenant_id}/step5-market")
 async def onboarding_step5(tenant_id: UUID, body: MarketFocusRequest):

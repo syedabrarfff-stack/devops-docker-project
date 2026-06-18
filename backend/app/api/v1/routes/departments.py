@@ -117,15 +117,15 @@ async def collect_metrics(
 class MilestoneSubmitRequest(BaseModel):
     department_code: str = Field(min_length=2, max_length=50)
     title: str = Field(min_length=5, max_length=300)
-    description: str = Field(min_length=10)
-    milestone_type: str = Field(default="achievement")
+    description: str = Field(min_length=10, max_length=20_000)
+    milestone_type: str = Field(default="achievement", max_length=100)
     metrics: dict = Field(default_factory=dict)
     evidence_data: dict = Field(default_factory=dict)
     tenant_id: Optional[UUID] = None
 
 
 class ImplementMilestoneRequest(BaseModel):
-    notes: str = Field(min_length=5)
+    notes: str = Field(min_length=5, max_length=10_000)
     tenant_id: Optional[UUID] = None
 
 
@@ -343,17 +343,17 @@ class ScheduleCallRequest(BaseModel):
     department_code: str = Field(min_length=2, max_length=50)
     client_name: str = Field(min_length=2, max_length=200)
     client_company: str = Field(min_length=2, max_length=200)
-    client_email: Optional[str] = None
+    client_email: Optional[str] = Field(default=None, max_length=320)
     scheduled_at: datetime
     call_topic: str = Field(min_length=5, max_length=300)
-    call_objective: Optional[str] = None
+    call_objective: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 
 class CallOutcomeRequest(BaseModel):
     outcome: str = Field(min_length=3, max_length=50)
-    transcript: Optional[str] = None
-    recording_url: Optional[str] = None
+    transcript: Optional[str] = Field(default=None, max_length=500_000)
+    recording_url: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 

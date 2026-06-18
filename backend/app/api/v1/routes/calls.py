@@ -20,8 +20,8 @@ class PreBriefRequest(BaseModel):
 class DebriefRequest(BaseModel):
     lead_id: UUID
     call_outcome: str = Field(..., pattern="^(won|lost|follow-up|follow_up)$")
-    notes: str = Field(..., min_length=1)
-    next_action: Optional[str] = None
+    notes: str = Field(..., min_length=1, max_length=20_000)
+    next_action: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 

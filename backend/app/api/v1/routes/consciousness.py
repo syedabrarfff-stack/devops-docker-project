@@ -82,8 +82,8 @@ class CompanyDataRequest(BaseModel):
     signals: dict = Field(default_factory=dict)
     job_postings: list[str] = Field(default_factory=list)
     client_reviews: list[str] = Field(default_factory=list)
-    pricing_page: str = ""
-    about_page: str = ""
+    pricing_page: str = Field(default="", max_length=100_000)
+    about_page: str = Field(default="", max_length=100_000)
     sources: list[str] = Field(default_factory=list)
 
 @router.post("/competitor/decode")
@@ -208,7 +208,7 @@ async def trajectory_milestones():
 class ProposalOfferRequest(BaseModel):
     lead_data: dict
     emotional_profile: Optional[dict] = None
-    recommended_tier: str = "GROWTH"
+    recommended_tier: str = Field(default="GROWTH", max_length=50)
 
 @router.post("/offer/build")
 async def build_proposal_offer(body: ProposalOfferRequest):

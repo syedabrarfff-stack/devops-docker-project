@@ -11,10 +11,10 @@ router = APIRouter(prefix="/innovation", tags=["innovation"])
 
 class InnovationProposalIn(BaseModel):
     title: str = Field(min_length=3, max_length=300)
-    description: str = Field(min_length=10)
+    description: str = Field(min_length=10, max_length=20_000)
     impact_score: float = Field(ge=0, le=100)
     feasibility_score: float = Field(ge=0, le=100)
-    proposed_by: str = "JARVIS"
+    proposed_by: str = Field(default="JARVIS", max_length=200)
     tenant_id: Optional[UUID] = None
 
 

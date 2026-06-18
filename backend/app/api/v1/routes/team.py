@@ -2,7 +2,7 @@
 JARVIS Team Registry API — human identity system for Aliyar Solutions.
 """
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -13,17 +13,17 @@ router = APIRouter(prefix="/team", tags=["team"])
 # ── Pydantic models ───────────────────────────────────────────────────────────
 
 class TeamMemberUpdate(BaseModel):
-    role: Optional[str] = None
-    department: Optional[str] = None
-    phone: Optional[str] = None
-    linkedin: Optional[str] = None
+    role: Optional[str] = Field(default=None, max_length=200)
+    department: Optional[str] = Field(default=None, max_length=200)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    linkedin: Optional[str] = Field(default=None, max_length=500)
     service_categories: Optional[List[str]] = None
     specializations: Optional[List[str]] = None
-    communication_style: Optional[str] = None
+    communication_style: Optional[str] = Field(default=None, max_length=500)
     personality_traits: Optional[List[str]] = None
     tone_keywords: Optional[List[str]] = None
-    email_signature: Optional[str] = None
-    proposal_title: Optional[str] = None
+    email_signature: Optional[str] = Field(default=None, max_length=5_000)
+    proposal_title: Optional[str] = Field(default=None, max_length=300)
     is_active: Optional[bool] = None
     is_client_facing: Optional[bool] = None
 
