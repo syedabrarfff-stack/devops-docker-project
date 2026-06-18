@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, Float, Integer, JSON, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, Float, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import JarvisBase
@@ -24,6 +24,9 @@ class Lead(JarvisBase):
     __tablename__ = "leads"
     __table_args__ = (
         CheckConstraint("score >= 0 AND score <= 100", name="ck_leads_score_0_100"),
+        Index("ix_leads_tenant_status", "tenant_id", "status"),
+        Index("ix_leads_tenant_email", "tenant_id", "email"),
+        Index("ix_leads_tenant_outreach_eligible_status", "tenant_id", "outreach_eligible", "status"),
     )
 
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)

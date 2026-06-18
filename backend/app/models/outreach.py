@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, JSON, String, Text
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -45,6 +45,9 @@ class ReplyClassification(str, enum.Enum):
 
 class OutreachLog(JarvisBase):
     __tablename__ = "outreach_log"
+    __table_args__ = (
+        Index("ix_outreach_log_tenant_status_sent_at", "tenant_id", "status", "sent_at"),
+    )
 
     lead_id: Mapped[uuid.UUID | None] = mapped_column(
         SUUID(as_uuid=True),
@@ -118,6 +121,9 @@ class ReplyLog(JarvisBase):
 
 class FollowUpQueue(JarvisBase):
     __tablename__ = "follow_up_queue"
+    __table_args__ = (
+        Index("ix_follow_up_queue_status_scheduled_at", "status", "scheduled_at"),
+    )
 
     lead_id: Mapped[uuid.UUID | None] = mapped_column(
         SUUID(as_uuid=True),
@@ -161,6 +167,10 @@ class OutreachEmail(JarvisBase):
     """Compatibility model for existing scheduled email execution services."""
 
     __tablename__ = "outreach_emails"
+    __table_args__ = (
+        Index("ix_outreach_emails_status_scheduled_at", "status", "scheduled_at"),
+        Index("ix_outreach_emails_tenant_status_scheduled_at", "tenant_id", "status", "scheduled_at"),
+    )
 
     sequence_id: Mapped[uuid.UUID | None] = mapped_column(
         SUUID(as_uuid=True),

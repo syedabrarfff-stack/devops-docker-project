@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.core.config import settings
 from app.api.v1.routes import chat, briefing, approvals, agents, ws
 from app.api.v1.routes import crm, leads, outreach, memory, tasks
@@ -22,6 +22,7 @@ from app.api.v1.routes import departments
 from app.api.v1.routes import demos
 from app.api.v1.routes import pilot
 from app.api.v1.routes import captain
+from app.api.v1.routes.auth import get_current_captain
 from app.api.v1.routes import economics
 from app.api.v1.routes import innovation
 from app.api.v1.routes import civilization
@@ -96,8 +97,8 @@ api_router.include_router(tenancy.router)
 api_router.include_router(departments.router)
 api_router.include_router(demos.router)
 api_router.include_router(pilot.router)
-api_router.include_router(captain.router)
-api_router.include_router(captain.voice_router)
+api_router.include_router(captain.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(captain.voice_router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(economics.router)
 api_router.include_router(innovation.router)
 api_router.include_router(civilization.router)
