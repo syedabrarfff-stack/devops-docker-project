@@ -285,7 +285,8 @@ async def readyz():
             await db.execute(text("SELECT 1"))
         checks["database"] = {"status": "ok", "latency_ms": int((time.monotonic() - t0) * 1000)}
     except Exception as e:
-        checks["database"] = {"status": "error", "error": str(e)}
+        logger.error("readyz: database check failed: %s", e)
+        checks["database"] = {"status": "error", "error": "database_unavailable"}
         overall_ok = False
 
     # ── AI providers ──────────────────────────────────────────────────────────
@@ -304,7 +305,8 @@ async def readyz():
         # AI providers unavailable = degraded, not a hard failure.
         # System can still serve DB, leads, outreach scheduling, and CRM operations.
     except Exception as e:
-        checks["ai_providers"] = {"status": "error", "error": str(e)}
+        logger.error("readyz: AI provider status check failed: %s", e)
+        checks["ai_providers"] = {"status": "error", "error": "provider_check_failed"}
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
     try:
@@ -312,7 +314,8 @@ async def readyz():
         sched = get_scheduler()
         running = sched is not None and sched.running
         checks["scheduler"] = {"status": "ok" if running else "stopped", "running": running}
-    except Exception:
+    except Exception as exc:
+        logger.warning("readyz: scheduler check failed: %s", exc)
         checks["scheduler"] = {"status": "unknown"}
 
     # ── Team registry ─────────────────────────────────────────────────────────
@@ -321,7 +324,8 @@ async def readyz():
             from app.services.team.team_service import get_team_stats
             ts = await get_team_stats(db)
             checks["team_registry"] = {"status": "ok", "members": ts.get("active", 0)}
-    except Exception:
+    except Exception as exc:
+        logger.warning("readyz: team registry check failed: %s", exc)
         checks["team_registry"] = {"status": "unknown"}
 
     # ── Evolution API (WhatsApp) ───────────────────────────────────────────────
