@@ -4,7 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.database import AsyncSessionLocal, set_tenant_context
@@ -15,27 +15,27 @@ router = APIRouter(prefix="/approvals", tags=["approvals"])
 
 
 class ApprovalCreate(BaseModel):
-    title: str
-    action_type: str
-    summary: str
-    risk_level: str = "medium"
-    estimated_cost: Optional[str] = None
-    benefits: Optional[str] = None
-    risks: Optional[str] = None
-    rollback_plan: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=300)
+    action_type: str = Field(..., max_length=100)
+    summary: str = Field(..., min_length=1, max_length=5_000)
+    risk_level: str = Field(default="medium", max_length=20)
+    estimated_cost: Optional[str] = Field(default=None, max_length=100)
+    benefits: Optional[str] = Field(default=None, max_length=5_000)
+    risks: Optional[str] = Field(default=None, max_length=5_000)
+    rollback_plan: Optional[str] = Field(default=None, max_length=5_000)
     payload: dict = {}
     tenant_id: Optional[UUID] = None
 
 
 class ApprovalDecision(BaseModel):
-    status: str
-    captain_note: Optional[str] = None
+    status: str = Field(..., max_length=50)
+    captain_note: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 
 class ApprovalAction(BaseModel):
-    captain_note: Optional[str] = None
-    reason: Optional[str] = None
+    captain_note: Optional[str] = Field(default=None, max_length=2_000)
+    reason: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 

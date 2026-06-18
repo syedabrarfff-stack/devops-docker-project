@@ -6,7 +6,7 @@ import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -45,16 +45,16 @@ def _resolve_tenant_id(request: Request, tenant_id: Optional[uuid.UUID] = None) 
 
 
 class WhatsAppTextIn(BaseModel):
-    number: str
-    text: str
+    number: str = Field(..., max_length=20)
+    text: str = Field(..., min_length=1, max_length=4_096)
     lead_id: Optional[uuid.UUID] = None
 
 
 class WhatsAppMediaIn(BaseModel):
-    number: str
-    media_url: str
-    caption: str = ""
-    media_type: str = "document"
+    number: str = Field(..., max_length=20)
+    media_url: str = Field(..., max_length=2_000)
+    caption: str = Field(default="", max_length=1_024)
+    media_type: str = Field(default="document", max_length=20)
     lead_id: Optional[uuid.UUID] = None
 
 

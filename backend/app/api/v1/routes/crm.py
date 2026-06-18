@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,58 +10,58 @@ router = APIRouter(prefix="/crm", tags=["CRM"])
 
 
 class ContactIn(BaseModel):
-    name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    title: Optional[str] = None
-    linkedin: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=200)
+    email: Optional[str] = Field(default=None, max_length=320)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    title: Optional[str] = Field(default=None, max_length=200)
+    linkedin: Optional[str] = Field(default=None, max_length=500)
     company_id: Optional[int] = None
-    country: Optional[str] = None
-    source: Optional[str] = "manual"
-    notes: Optional[str] = None
+    country: Optional[str] = Field(default=None, max_length=100)
+    source: Optional[str] = Field(default="manual", max_length=100)
+    notes: Optional[str] = Field(default=None, max_length=10_000)
     tags: Optional[list[str]] = None
 
 
 class ContactUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    title: Optional[str] = None
-    status: Optional[str] = None
-    score: Optional[int] = None
-    notes: Optional[str] = None
+    name: Optional[str] = Field(default=None, max_length=200)
+    email: Optional[str] = Field(default=None, max_length=320)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    title: Optional[str] = Field(default=None, max_length=200)
+    status: Optional[str] = Field(default=None, max_length=50)
+    score: Optional[int] = Field(default=None, ge=0, le=100)
+    notes: Optional[str] = Field(default=None, max_length=10_000)
     tags: Optional[list[str]] = None
 
 
 class CompanyIn(BaseModel):
-    name: str
-    domain: Optional[str] = None
-    industry: Optional[str] = None
-    country: Optional[str] = None
-    size: Optional[str] = None
-    revenue_range: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=300)
+    domain: Optional[str] = Field(default=None, max_length=253)
+    industry: Optional[str] = Field(default=None, max_length=100)
+    country: Optional[str] = Field(default=None, max_length=100)
+    size: Optional[str] = Field(default=None, max_length=50)
+    revenue_range: Optional[str] = Field(default=None, max_length=100)
     tech_stack: Optional[list[str]] = None
     pain_points: Optional[list[str]] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=10_000)
 
 
 class DealIn(BaseModel):
-    title: str
+    title: str = Field(..., min_length=1, max_length=300)
     contact_id: Optional[int] = None
     company_id: Optional[int] = None
-    value: Optional[float] = 0.0
-    currency: Optional[str] = "USD"
-    stage: Optional[str] = "discovery"
-    probability: Optional[int] = 20
-    service_type: Optional[str] = None
-    notes: Optional[str] = None
+    value: Optional[float] = Field(default=0.0, ge=0)
+    currency: Optional[str] = Field(default="USD", max_length=10)
+    stage: Optional[str] = Field(default="discovery", max_length=50)
+    probability: Optional[int] = Field(default=20, ge=0, le=100)
+    service_type: Optional[str] = Field(default=None, max_length=100)
+    notes: Optional[str] = Field(default=None, max_length=10_000)
 
 
 class DealUpdate(BaseModel):
-    stage: Optional[str] = None
-    value: Optional[float] = None
-    probability: Optional[int] = None
-    notes: Optional[str] = None
+    stage: Optional[str] = Field(default=None, max_length=50)
+    value: Optional[float] = Field(default=None, ge=0)
+    probability: Optional[int] = Field(default=None, ge=0, le=100)
+    notes: Optional[str] = Field(default=None, max_length=10_000)
 
 
 # ── Contacts ────────────────────────────────────────────────────────────────
