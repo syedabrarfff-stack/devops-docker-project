@@ -4,7 +4,7 @@ JARVIS Scheduler — manage cron/interval/one-shot agent jobs.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,35 +22,35 @@ router = APIRouter(prefix="/scheduler", tags=["Scheduler"])
 
 
 class CronJobIn(BaseModel):
-    job_id: str
-    name: str
-    description: Optional[str] = None
-    hour: int = 8
-    minute: int = 0
-    timezone: str = "UTC"
-    agent: str = "jarvis"
-    task_type: str = "custom"
+    job_id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=1_000)
+    hour: int = Field(default=8, ge=0, le=23)
+    minute: int = Field(default=0, ge=0, le=59)
+    timezone: str = Field(default="UTC", max_length=50)
+    agent: str = Field(default="jarvis", max_length=100)
+    task_type: str = Field(default="custom", max_length=50)
     payload: Optional[dict] = None
 
 
 class IntervalJobIn(BaseModel):
-    job_id: str
-    name: str
-    description: Optional[str] = None
-    hours: float = 0
-    minutes: float = 0
-    seconds: float = 0
-    agent: str = "jarvis"
-    task_type: str = "custom"
+    job_id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=1_000)
+    hours: float = Field(default=0, ge=0, le=168)
+    minutes: float = Field(default=0, ge=0, le=1440)
+    seconds: float = Field(default=0, ge=0, le=86400)
+    agent: str = Field(default="jarvis", max_length=100)
+    task_type: str = Field(default="custom", max_length=50)
     payload: Optional[dict] = None
 
 
 class OneshotJobIn(BaseModel):
-    job_id: str
-    name: str
+    job_id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200)
     run_at: datetime
-    agent: str = "jarvis"
-    task_type: str = "custom"
+    agent: str = Field(default="jarvis", max_length=100)
+    task_type: str = Field(default="custom", max_length=50)
     payload: Optional[dict] = None
 
 

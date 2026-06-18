@@ -4,7 +4,7 @@ JARVIS Emergency Control System — incident management, system health, and Capt
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -14,10 +14,10 @@ router = APIRouter(prefix="/emergency", tags=["emergency"])
 
 
 class IncidentRequest(BaseModel):
-    title: str
-    severity: str = "medium"               # low | medium | high | critical
-    category: str = "infrastructure"       # infrastructure | security | api | automation | billing
-    description: str
+    title: str = Field(..., min_length=1, max_length=300)
+    severity: str = Field(default="medium", max_length=20)
+    category: str = Field(default="infrastructure", max_length=50)
+    description: str = Field(..., min_length=1, max_length=10_000)
     affected_systems: List[str] = []
 
 
@@ -26,7 +26,7 @@ class ResolveRequest(BaseModel):
 
 
 class ActionRequest(BaseModel):
-    action: str
+    action: str = Field(..., min_length=1, max_length=2_000)
 
 
 @router.get("/health")
