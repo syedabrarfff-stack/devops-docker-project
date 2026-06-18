@@ -63,7 +63,8 @@ async def generate_payment_link(
     )
 
     if "error" in link_data:
-        raise HTTPException(status_code=503, detail=link_data["error"])
+        logger.error("Stripe payment link creation failed for invoice %s: %s", invoice_id, link_data["error"])
+        raise HTTPException(status_code=503, detail="Payment link generation failed")
 
     inv.payment_link = link_data["url"]
     await db.commit()
