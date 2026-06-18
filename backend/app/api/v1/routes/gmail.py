@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -13,6 +14,8 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.services.outreach.gmail import email_delivery_status, send_client_email
 from app.services.outreach.gmail_inbox import fetch_new_emails, get_inbox, get_inbox_stats, mark_read
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -122,7 +125,8 @@ async def send_email(body: SendEmailRequest, db: AsyncSession = Depends(get_db))
         to_name=body.to_name or "",
     )
     if not success:
-        raise HTTPException(status_code=500, detail=f"Send failed: {error}")
+        logger.error("gmail send_client_email failed: %s", error)
+        raise HTTPException(status_code=500, detail="Email delivery failed")
 
     from app.models.gmail import GmailMessage
 

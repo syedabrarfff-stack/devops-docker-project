@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db, set_tenant_context
 from app.models.lead import Lead
+
+logger = logging.getLogger(__name__)
 from app.services.leads.discovery import lead_discovery_engine
 
 router = APIRouter()
@@ -163,8 +166,11 @@ async def discover_local_market(body: LocalMarketRequest):
                 )
     except HTTPException:
         raise
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Discovery failed: {exc}") from exc
+        logger.error("Discovery failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lead discovery failed") from exc
 
     leads.sort(key=lambda item: item["pain_score"], reverse=True)
     leads = leads[: body.limit]

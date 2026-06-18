@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.models.governance import Proposal
 from app.models.lead import Lead
 from app.services.governance.proposal_generator import proposal_generator
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/proposals", tags=["Proposals"])
 
 
@@ -42,7 +44,8 @@ async def generate_proposal(request: Request, body: GenerateProposalRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Proposal generation failed: {exc}") from exc
+        logger.error("Proposal generation failed for lead %s: %s", body.lead_id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Proposal generation failed") from exc
 
     proposal = await _latest_proposal_for_lead(tenant_id, body.lead_id)
     return {
@@ -66,7 +69,8 @@ async def approve_proposal(proposal_id: int, request: Request, body: ProposalAct
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Approval request failed: {exc}") from exc
+        logger.error("Approval submission failed for proposal %s: %s", proposal_id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Approval submission failed") from exc
     return {"proposal_id": proposal_id, "tenant_id": str(tenant_id), "approval": approval}
 
 
@@ -80,7 +84,8 @@ async def send_proposal(proposal_id: int, request: Request, body: ProposalAction
     except PermissionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Proposal send failed: {exc}") from exc
+        logger.error("Proposal send failed for proposal %s: %s", proposal_id, exc, exc_info=True)
+        raise HTTPException(status_code=503, detail="Proposal delivery failed") from exc
     return {"tenant_id": str(tenant_id), **result}
 
 

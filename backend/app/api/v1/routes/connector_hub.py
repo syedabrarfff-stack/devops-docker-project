@@ -91,9 +91,11 @@ async def trigger_ingestion(request: IngestRequest, background_tasks: Background
             errors=result.get("errors", []),
             duration_seconds=result.get("duration_seconds"),
         )
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.error("[ConnectorHub API] Ingestion failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}") from exc
+        logger.error("[ConnectorHub API] Ingestion failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Connector hub ingestion failed") from exc
 
 
 @router.post("/intelligence", summary="Trigger market intelligence generation")
@@ -123,9 +125,11 @@ async def trigger_intelligence(request: IntelligenceRequest):
             "total_insights": result.get("total_insights", 0),
             "generated_at": result.get("generated_at"),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.error("[ConnectorHub API] Intelligence generation failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Intelligence generation failed: {exc}") from exc
+        logger.error("[ConnectorHub API] Intelligence generation failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Intelligence generation failed") from exc
 
 
 @router.get("/status", summary="Get today's ingestion status")
@@ -149,7 +153,8 @@ async def get_status(tenant_id: UUID = Query(default=SYSTEM_TENANT_ID)):
         package_info["decks_available"] = len(daily_package.get("decks", []))
         package_info["has_market_report"] = bool(daily_package.get("market_report"))
     except Exception as exc:
-        package_info["read_error"] = str(exc)
+        logger.warning("[ConnectorHub API] Could not read daily package: %s", exc)
+        package_info["read_error"] = "package_unavailable"
 
     # Try to get DB ingestion record
     try:
@@ -233,8 +238,8 @@ async def council_review(request: CouncilReviewRequest):
         )
         return result
     except Exception as exc:
-        logger.error("[ConnectorHub API] Council review failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Council review failed: {exc}") from exc
+        logger.error("[ConnectorHub API] Council review failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Council review failed") from exc
 
 
 @router.get("/bridge-health", summary="Check GitHub bridge health")
