@@ -4,8 +4,7 @@ POST /api/v1/telegram/register — sets webhook URL with Telegram
 POST /api/v1/telegram/webhook — receives incoming messages from Telegram
 """
 import logging
-import hmac
-import hashlib
+import secrets
 from typing import Optional
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -27,11 +26,15 @@ async def register_webhook(webhook_url: Optional[str] = None):
     if not webhook_url:
         webhook_url = f"{settings.APP_BASE_URL}/api/v1/telegram/webhook"
 
+    webhook_payload: dict = {"url": webhook_url}
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        webhook_payload["secret_token"] = settings.TELEGRAM_WEBHOOK_SECRET
+
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/setWebhook",
-                json={"url": webhook_url},
+                json=webhook_payload,
             )
             data = r.json()
         if data.get("ok"):
@@ -56,9 +59,11 @@ async def webhook(request: Request):
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="Bot not configured")
 
-    # Validate secret token if present
-    token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
-    # (Optional: validate against a secret — currently just check presence)
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
+        if not secrets.compare_digest(token_header, settings.TELEGRAM_WEBHOOK_SECRET):
+            logger.warning("Telegram webhook: invalid or missing secret token")
+            raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         body = await request.json()

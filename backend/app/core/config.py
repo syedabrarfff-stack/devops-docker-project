@@ -1,5 +1,9 @@
+import logging
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+_cfg_logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -74,6 +78,7 @@ class Settings(BaseSettings):
     SLACK_WEBHOOK_URL: Optional[str] = None
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
+    TELEGRAM_WEBHOOK_SECRET: Optional[str] = None  # Set to validate X-Telegram-Bot-API-Secret-Token
 
     # Executive email / SES
     OUTBOUND_EMAIL_PROVIDER: str = "ses"
@@ -166,6 +171,26 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000,https://aliyarsolutions.com,https://www.aliyarsolutions.com"
+
+    @model_validator(mode="after")
+    def _warn_insecure_defaults(self) -> "Settings":
+        if not self.DEBUG:
+            if self.SECRET_KEY == "change-this-in-production":
+                _cfg_logger.critical(
+                    "SECRET_KEY is the insecure default — JWTs are NOT secure. "
+                    "Set SECRET_KEY in .env or AWS Secrets Manager immediately."
+                )
+            if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", ""):
+                _cfg_logger.critical(
+                    "CAPTAIN_PASSWORD is the insecure default — "
+                    "Set CAPTAIN_PASSWORD in .env or AWS Secrets Manager immediately."
+                )
+            if "jarvis_pass" in self.DATABASE_URL:
+                _cfg_logger.critical(
+                    "DATABASE_URL contains the default development password — "
+                    "Set a strong password in .env or AWS Secrets Manager."
+                )
+        return self
 
     class Config:
         env_file = (".env", "../.env")
