@@ -3,7 +3,7 @@ JARVIS Intelligence API — Tech Radar, Self-Optimization, Research Division.
 Phase 5: Autonomous learning and continuous self-improvement.
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,21 +15,21 @@ router = APIRouter(prefix="/intelligence", tags=["intelligence"])
 # ── Pydantic models ───────────────────────────────────────────────────────────
 
 class ReportRequest(BaseModel):
-    topic: str
-    category: str = "market"
+    topic: str = Field(..., min_length=1, max_length=500)
+    category: str = Field(default="market", max_length=100)
 
 
 class StatusUpdate(BaseModel):
-    status: str  # approved | implemented | dismissed
+    status: str = Field(..., max_length=50)
 
 
 class TeachRequest(BaseModel):
-    title: str
-    learning: str
-    category: str = "outreach_intelligence"
-    source_type: str = "captain_manual"
-    source_id: Optional[str] = None
-    score: float = 80.0
+    title: str = Field(..., min_length=1, max_length=300)
+    learning: str = Field(..., min_length=1, max_length=10_000)
+    category: str = Field(default="outreach_intelligence", max_length=100)
+    source_type: str = Field(default="captain_manual", max_length=50)
+    source_id: Optional[str] = Field(default=None, max_length=200)
+    score: float = Field(default=80.0, ge=0, le=100)
     evidence: Optional[dict] = None
     applies_to: Optional[dict] = None
     tenant_id: Optional[UUID] = None
@@ -249,19 +249,19 @@ class ProspectPsychologyRequest(BaseModel):
 
 class RevenueForecastRequest(BaseModel):
     tenant_id: Optional[UUID] = None
-    iterations: int = 1000
-    horizon_days: int = 90
+    iterations: int = Field(default=1000, ge=1, le=100_000)
+    horizon_days: int = Field(default=90, ge=1, le=730)
 
 
 class DynamicPricingRequest(BaseModel):
-    service_type: str
+    service_type: str = Field(..., max_length=100)
     lead_id: Optional[UUID] = None
     tenant_id: Optional[UUID] = None
     context: Optional[dict] = None
 
 
 class GovernanceEvaluateRequest(BaseModel):
-    action_type: str
+    action_type: str = Field(..., max_length=100)
     payload: dict = {}
     tenant_id: Optional[UUID] = None
 
@@ -413,7 +413,7 @@ async def pricing_catalog():
 # ── Batch-4 Frontier Intelligence Endpoints ───────────────────────────────────
 
 class ExpertCouncilRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=1, max_length=8_000)
     context: Optional[dict] = None
     tenant_id: Optional[UUID] = None
     quick: bool = False
@@ -425,7 +425,7 @@ class RedTeamRequest(BaseModel):
 
 class CialdiniEnhanceRequest(BaseModel):
     lead_id: Optional[UUID] = None
-    email_draft: str
+    email_draft: str = Field(..., min_length=1, max_length=50_000)
     tenant_id: Optional[UUID] = None
 
 
