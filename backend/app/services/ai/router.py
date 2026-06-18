@@ -381,7 +381,7 @@ class AIRouter:
         for provider_key, model_key in route:
             # Skip providers with open circuit breakers
             if not health_monitor.is_available(provider_key):
-                logger.debug(f"Skipping {provider_key}: circuit OPEN")
+                logger.debug("Skipping %s: circuit OPEN", provider_key)
                 continue
             provider = self._providers.get(provider_key)
             if provider and provider.is_available():
@@ -402,7 +402,7 @@ class AIRouter:
                         budget_decision.reason,
                     )
                     continue
-                logger.info(f"Routing {task_type.value} → {provider_key}/{model_id}")
+                logger.info("Routing %s → %s/%s", task_type.value, provider_key, model_id)
                 t0 = time.monotonic()
                 response = await provider.chat(messages, model_id, system_prompt, max_tokens)
                 latency = int((time.monotonic() - t0) * 1000)
@@ -423,7 +423,7 @@ class AIRouter:
                     health_monitor.record_success(provider_key, latency)
                     return response, task_type.value
                 health_monitor.record_failure(provider_key, latency)
-                logger.warning(f"Provider {provider_key} failed: {response.error}")
+                logger.warning("Provider %s failed: %s", provider_key, response.error)
 
         # No provider available — return demo response
         logger.warning(

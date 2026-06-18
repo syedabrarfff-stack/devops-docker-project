@@ -73,7 +73,7 @@ class ProviderHealth:
         self.last_failure_at = time.time()
         if self.consecutive_failures >= FAILURE_THRESHOLD:
             if self.state != "OPEN":
-                logger.warning(f"[health] {self.provider}: circuit OPEN after {self.consecutive_failures} failures")
+                logger.warning("[health] %s: circuit OPEN after %d failures", self.provider, self.consecutive_failures)
             self.state = "OPEN"
 
     def is_available(self) -> bool:
@@ -84,7 +84,7 @@ class ProviderHealth:
         if self.state == "OPEN":
             if self.last_failure_at and (time.time() - self.last_failure_at) > COOLDOWN_SECONDS:
                 self.state = "HALF_OPEN"
-                logger.info(f"[health] {self.provider}: circuit HALF_OPEN (probing)")
+                logger.info("[health] %s: circuit HALF_OPEN (probing)", self.provider)
                 return True
             return False
         return True
@@ -135,7 +135,7 @@ class AIHealthMonitor:
         h = self.get(provider)
         h.state = "CLOSED"
         h.consecutive_failures = 0
-        logger.info(f"[health] {provider}: circuit manually reset by Captain")
+        logger.info("[health] %s: circuit manually reset by Captain", provider)
 
     def all_status(self) -> list:
         return [h.to_dict() for h in self._providers.values()]
