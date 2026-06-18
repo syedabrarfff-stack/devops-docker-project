@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,8 +37,8 @@ async def get_current_captain(
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=1, max_length=120)
+    password: str = Field(..., min_length=1, max_length=256)
 
     @field_validator("username", "password")
     @classmethod

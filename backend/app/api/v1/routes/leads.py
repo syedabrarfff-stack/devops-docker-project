@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,32 +17,32 @@ _BATCH_IMPORT_MAX = 500
 
 
 class LeadIn(BaseModel):
-    company: str
-    contact_name: Optional[str] = None
-    email: Optional[str] = None
-    website: Optional[str] = None
-    industry: Optional[str] = None
-    country: Optional[str] = None
+    company: str = Field(..., min_length=1, max_length=500)
+    contact_name: Optional[str] = Field(default=None, max_length=200)
+    email: Optional[str] = Field(default=None, max_length=320)
+    website: Optional[str] = Field(default=None, max_length=2_000)
+    industry: Optional[str] = Field(default=None, max_length=100)
+    country: Optional[str] = Field(default=None, max_length=100)
     pain_points: Optional[list[str]] = None
-    opportunity_type: Optional[str] = None
-    source: Optional[str] = "manual"
-    notes: Optional[str] = None
+    opportunity_type: Optional[str] = Field(default=None, max_length=100)
+    source: Optional[str] = Field(default="manual", max_length=100)
+    notes: Optional[str] = Field(default=None, max_length=10_000)
 
 
 class DiscoverLeadsRequest(BaseModel):
-    limit: int = 50
-    industry: Optional[str] = None
-    country: Optional[str] = None
-    location: Optional[str] = None
-    query: Optional[str] = None
+    limit: int = Field(default=50, ge=1, le=500)
+    industry: Optional[str] = Field(default=None, max_length=100)
+    country: Optional[str] = Field(default=None, max_length=100)
+    location: Optional[str] = Field(default=None, max_length=200)
+    query: Optional[str] = Field(default=None, max_length=2_000)
     targets: Optional[list[dict]] = None
     tenant_id: Optional[UUID] = None
 
 
 class LeadLossIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    reason: str
-    notes: Optional[str] = None
+    reason: str = Field(..., min_length=1, max_length=500)
+    notes: Optional[str] = Field(default=None, max_length=5_000)
 
 
 @router.post("/")

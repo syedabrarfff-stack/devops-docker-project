@@ -10,7 +10,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -24,10 +24,10 @@ EMAIL_STATUS_TIMEOUT_SECONDS = 4.0
 
 
 class SequenceIn(BaseModel):
-    name: str
-    target_industry: Optional[str] = "saas"
-    target_country: Optional[str] = "usa"
-    service_offered: Optional[str] = "AI automation"
+    name: str = Field(..., max_length=200)
+    target_industry: Optional[str] = Field(default="saas", max_length=100)
+    target_country: Optional[str] = Field(default="usa", max_length=100)
+    service_offered: Optional[str] = Field(default="AI automation", max_length=200)
     steps: Optional[list[dict]] = None
 
 
@@ -36,10 +36,10 @@ class EnrollIn(BaseModel):
 
 
 class SendEmailIn(BaseModel):
-    to_email: str
-    to_name: Optional[str] = ""
-    subject: str
-    body: str
+    to_email: str = Field(..., max_length=320)
+    to_name: Optional[str] = Field(default="", max_length=200)
+    subject: str = Field(..., max_length=998)
+    body: str = Field(..., max_length=500_000)
 
 
 class ExecuteOutreachIn(BaseModel):

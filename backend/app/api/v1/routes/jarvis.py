@@ -4,7 +4,7 @@ Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolutio
 """
 import logging
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -31,37 +31,37 @@ router = APIRouter(prefix="/jarvis", tags=["jarvis"])
 
 
 class IdeaRequest(BaseModel):
-    idea: str
+    idea: str = Field(..., min_length=1, max_length=8_000)
 
 
 class AgentTeamRequest(BaseModel):
-    task: str
+    task: str = Field(..., min_length=1, max_length=8_000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    task_type: str = "FAST"
-    history: list = []
-    session_id: Optional[str] = None
+    message: str = Field(..., min_length=1, max_length=32_000)
+    task_type: str = Field(default="FAST", max_length=50)
+    history: list = Field(default_factory=list, max_length=100)
+    session_id: Optional[str] = Field(default=None, max_length=120)
 
 
 class OutcomeRequest(BaseModel):
-    action_type: str
-    action_detail: str
-    action_ref: Optional[str] = None
+    action_type: str = Field(..., max_length=100)
+    action_detail: str = Field(..., max_length=4_000)
+    action_ref: Optional[str] = Field(default=None, max_length=200)
     importance: float = 0.6
 
 
 class ResolveOutcomeRequest(BaseModel):
-    outcome: str   # won, lost, replied, ignored, accepted, rejected
-    note: Optional[str] = None
+    outcome: str = Field(..., max_length=50)
+    note: Optional[str] = Field(default=None, max_length=2_000)
 
 
 class MemoryStoreRequest(BaseModel):
-    content: str
-    memory_type: str = "instruction"
+    content: str = Field(..., min_length=1, max_length=32_000)
+    memory_type: str = Field(default="instruction", max_length=50)
     importance: float = 0.9
-    tags: list = []
+    tags: list = Field(default_factory=list, max_length=50)
 
 
 @router.get("/briefing")

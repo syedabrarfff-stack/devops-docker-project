@@ -3,7 +3,7 @@ JARVIS Agent Operations Center API
 Captain can see all teams, monitor agents, and talk to any team in real time.
 """
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 import logging
@@ -23,9 +23,9 @@ router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
 
 
 class AgentChatRequest(BaseModel):
-    message: str
-    context: Optional[str] = None
-    task_type: str = "FAST"
+    message: str = Field(..., min_length=1, max_length=32_000)
+    context: Optional[str] = Field(default=None, max_length=8_000)
+    task_type: str = Field(default="FAST", max_length=50)
 
 
 AGENT_PERSONA_PROMPT = """

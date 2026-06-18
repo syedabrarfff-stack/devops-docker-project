@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,22 +13,22 @@ router = APIRouter(prefix="/memory", tags=["Memory"])
 
 
 class MemoryIn(BaseModel):
-    content: str
-    memory_type: Optional[str] = "episodic"
-    session_id: Optional[str] = None
-    importance: Optional[int] = 5
+    content: str = Field(..., min_length=1, max_length=32_000)
+    memory_type: Optional[str] = Field(default="episodic", max_length=50)
+    session_id: Optional[str] = Field(default=None, max_length=120)
+    importance: Optional[int] = Field(default=5, ge=1, le=10)
     tags: Optional[list[str]] = None
 
 
 class InstructionIn(BaseModel):
-    content: str
-    category: Optional[str] = "general"
-    priority: Optional[int] = 5
+    content: str = Field(..., min_length=1, max_length=32_000)
+    category: Optional[str] = Field(default="general", max_length=100)
+    priority: Optional[int] = Field(default=5, ge=1, le=10)
 
 
 class MemorySearchIn(BaseModel):
-    query: str
-    limit: int = 5
+    query: str = Field(..., min_length=1, max_length=2_000)
+    limit: int = Field(default=5, ge=1, le=50)
     tenant_id: Optional[UUID] = None
 
 

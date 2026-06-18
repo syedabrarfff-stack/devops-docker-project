@@ -3,7 +3,7 @@ Notification management — persistent log, read/unread, broadcast.
 """
 import uuid
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, update
@@ -20,11 +20,11 @@ router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
 class NotifyIn(BaseModel):
-    title: str
-    body: str
-    level: str = "info"
-    category: Optional[str] = None
-    reference: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=500)
+    body: str = Field(..., min_length=1, max_length=10_000)
+    level: str = Field(default="info", max_length=20)
+    category: Optional[str] = Field(default=None, max_length=100)
+    reference: Optional[str] = Field(default=None, max_length=500)
     channels: Optional[list[str]] = None  # telegram | slack | websocket
 
 

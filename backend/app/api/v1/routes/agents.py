@@ -46,9 +46,9 @@ AGENT_HIERARCHY = {
 
 
 class TaskDispatch(BaseModel):
-    agent_id: str
-    task: str
-    priority: str = "normal"
+    agent_id: str = Field(..., max_length=100)
+    task: str = Field(..., min_length=1, max_length=8_000)
+    priority: str = Field(default="normal", max_length=20)
     context: Optional[dict] = None
 
 

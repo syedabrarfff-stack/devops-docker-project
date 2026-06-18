@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -21,15 +21,15 @@ router = APIRouter(prefix="/gmail", tags=["gmail"])
 
 
 class SendEmailRequest(BaseModel):
-    to: str
-    to_name: Optional[str] = None
-    subject: str
-    body: str
+    to: str = Field(..., max_length=320)
+    to_name: Optional[str] = Field(default=None, max_length=200)
+    subject: str = Field(..., max_length=998)
+    body: str = Field(..., max_length=500_000)
 
 
 class ReplyRequest(BaseModel):
     message_id: int
-    reply_body: str
+    reply_body: str = Field(..., max_length=500_000)
 
 
 @router.get("/status")

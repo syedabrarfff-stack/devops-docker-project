@@ -2,7 +2,7 @@
 JARVIS Knowledge System API — SOPs, learning records, and operational knowledge base.
 """
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -11,29 +11,29 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 
 class SOPRequest(BaseModel):
-    title: str
-    category: str = "general"
-    context: str = ""
+    title: str = Field(..., min_length=1, max_length=300)
+    category: str = Field(default="general", max_length=100)
+    context: str = Field(default="", max_length=8_000)
 
 
 class LearningRequest(BaseModel):
-    category: str
-    event_type: str                         # success | failure | near_miss | insight
-    title: str
-    what_happened: str
-    lesson: str
-    what_worked: str = ""
-    what_failed: str = ""
-    impact_score: int = 5
-    source: str = "system"
+    category: str = Field(..., max_length=100)
+    event_type: str = Field(..., max_length=50)
+    title: str = Field(..., min_length=1, max_length=300)
+    what_happened: str = Field(..., max_length=10_000)
+    lesson: str = Field(..., max_length=5_000)
+    what_worked: str = Field(default="", max_length=5_000)
+    what_failed: str = Field(default="", max_length=5_000)
+    impact_score: int = Field(default=5, ge=1, le=10)
+    source: str = Field(default="system", max_length=100)
 
 
 class KnowledgeRequest(BaseModel):
-    title: str
-    category: str
-    content: str
-    tags: List[str] = []
-    source: str = "manual"
+    title: str = Field(..., min_length=1, max_length=300)
+    category: str = Field(..., max_length=100)
+    content: str = Field(..., min_length=1, max_length=100_000)
+    tags: List[str] = Field(default_factory=list)
+    source: str = Field(default="manual", max_length=100)
 
 
 @router.get("/sops")

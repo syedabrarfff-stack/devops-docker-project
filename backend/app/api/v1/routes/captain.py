@@ -5,7 +5,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/captain", tags=["captain"])
@@ -17,35 +17,35 @@ voice_router = APIRouter(prefix="/voice", tags=["voice"])
 # ─────────────────────────────── REQUEST BODIES ────────────────────────────── #
 
 class LeadIntakeBody(BaseModel):
-    raw_input: str
+    raw_input: str = Field(..., min_length=1, max_length=8_000)
     tenant_id: Optional[UUID] = None
 
 
 class BrainDumpBody(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=32_000)
     tenant_id: Optional[UUID] = None
 
 
 class EmailImportBody(BaseModel):
-    email_thread: str
+    email_thread: str = Field(..., min_length=1, max_length=32_000)
     tenant_id: Optional[UUID] = None
 
 
 class EvaluateDecisionBody(BaseModel):
-    decision: str
+    decision: str = Field(..., min_length=1, max_length=8_000)
     context: Optional[dict[str, Any]] = None
     tenant_id: Optional[UUID] = None
 
 
 class VoiceCommandBody(BaseModel):
-    transcript: str
+    transcript: str = Field(..., min_length=1, max_length=8_000)
     tenant_id: Optional[UUID] = None
 
 
 class MirrorDecisionBody(BaseModel):
-    decision: str
-    context: Optional[str] = None
-    outcome: Optional[str] = None
+    decision: str = Field(..., min_length=1, max_length=8_000)
+    context: Optional[str] = Field(default=None, max_length=8_000)
+    outcome: Optional[str] = Field(default=None, max_length=2_000)
     tenant_id: Optional[UUID] = None
 
 
