@@ -24,10 +24,10 @@ legacy_router = APIRouter(prefix="/discovery", tags=["discovery"])
 
 
 class DiscoveryTarget(BaseModel):
-    industry: str | None = None
-    country: str | None = None
-    query: str | None = None
-    location: str | None = None
+    industry: str | None = Field(default=None, max_length=100)
+    country: str | None = Field(default=None, max_length=100)
+    query: str | None = Field(default=None, max_length=500)
+    location: str | None = Field(default=None, max_length=200)
     limit: int = Field(25, ge=1, le=100)
 
 
@@ -46,9 +46,9 @@ class ScoreLeadRequest(BaseModel):
 
 
 class LocalMarketRequest(BaseModel):
-    industry: str = Field(..., description="Example: dental clinic, hotel, restaurant")
-    location: str = Field(..., description="Example: Dubai, London, New York")
-    service_angle: str | None = Field(None, description="Example: website, automation")
+    industry: str = Field(..., max_length=200, description="Example: dental clinic, hotel, restaurant")
+    location: str = Field(..., max_length=200, description="Example: Dubai, London, New York")
+    service_angle: str | None = Field(None, max_length=200, description="Example: website, automation")
     limit: int = Field(10, ge=1, le=25)
     min_score: int = Field(0, ge=0, description="Minimum pain score")
 
@@ -164,8 +164,6 @@ async def discover_local_market(body: LocalMarketRequest):
                         "types": place.get("types", []),
                     }
                 )
-    except HTTPException:
-        raise
     except HTTPException:
         raise
     except Exception as exc:

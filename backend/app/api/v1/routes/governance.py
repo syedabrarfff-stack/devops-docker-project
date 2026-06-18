@@ -6,7 +6,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -18,40 +18,40 @@ router = APIRouter(prefix="/governance", tags=["governance"])
 # ── Pydantic models ───────────────────────────────────────────────────────────
 
 class InvoiceItem(BaseModel):
-    description: str
+    description: str = Field(..., min_length=1, max_length=500)
     qty: float = 1
     unit_price: float
     amount: float
 
 class CreateInvoiceRequest(BaseModel):
-    client_name: str
-    client_email: str = ""
-    client_company: str = ""
+    client_name: str = Field(..., min_length=1, max_length=200)
+    client_email: str = Field(default="", max_length=320)
+    client_company: str = Field(default="", max_length=200)
     items: List[InvoiceItem]
     tax_rate: float = 0.0
-    currency: str = "USD"
-    notes: str = ""
-    due_days: int = 14
+    currency: str = Field(default="USD", max_length=10)
+    notes: str = Field(default="", max_length=5_000)
+    due_days: int = Field(default=14, ge=1, le=365)
 
 class ProposalRequest(BaseModel):
-    client_name: str
-    client_email: str = ""
-    client_company: str = ""
-    service_type: str
-    context: str = ""
-    style: str = "standard"
+    client_name: str = Field(..., min_length=1, max_length=200)
+    client_email: str = Field(default="", max_length=320)
+    client_company: str = Field(default="", max_length=200)
+    service_type: str = Field(..., min_length=1, max_length=200)
+    context: str = Field(default="", max_length=10_000)
+    style: str = Field(default="standard", max_length=50)
     pricing: dict = {}
 
 class AgentPermissionRequest(BaseModel):
-    agent_name: str
-    permission_type: str
+    agent_name: str = Field(..., max_length=100)
+    permission_type: str = Field(..., max_length=100)
     scope: dict = {}
-    risk_level: str = "low"
-    reason: str = ""
-    expires_hours: Optional[int] = None
+    risk_level: str = Field(default="low", max_length=20)
+    reason: str = Field(default="", max_length=2_000)
+    expires_hours: Optional[int] = Field(default=None, ge=1, le=8760)
 
 class StatusUpdate(BaseModel):
-    status: str
+    status: str = Field(..., max_length=50)
 
 
 # ── Invoices ─────────────────────────────────────────────────────────────────
