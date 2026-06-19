@@ -50,6 +50,15 @@ class AgentPermissionRequest(BaseModel):
     reason: str = Field(default="", max_length=2_000)
     expires_hours: Optional[int] = Field(default=None, ge=1, le=8760)
 
+class ContractRequest(BaseModel):
+    proposal_id: Optional[int] = None
+    client_name: str = Field(..., min_length=1, max_length=200)
+    client_email: str = Field(default="", max_length=320)
+    client_company: str = Field(default="", max_length=200)
+    service_type: str = Field(..., min_length=1, max_length=200)
+    scope: str = Field(default="", max_length=10_000)
+    pricing: dict = {}
+
 class StatusUpdate(BaseModel):
     status: str = Field(..., max_length=50)
 
@@ -166,8 +175,8 @@ async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: Async
 
 
 @router.post("/proposals/{proposal_id}/status")
-async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import update_proposal_status as _update, get_proposals
+async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import update_proposal_status as _update, get_proposals, generate_contract
     async with db.begin():
         ok = await _update(db, proposal_id, req.status)
     if not ok:
@@ -181,11 +190,84 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, db: AsyncS
             mrr = p.get("pricing", {}).get("monthly_retainer", 0) or 0
             mrr_text = f"\n💰 *MRR:* ${mrr:,.0f}/mo" if mrr else ""
             await notify_telegram(
-                f"🎯 *Proposal Won — {company}*{mrr_text}\n\nConvert to client in JARVIS → Proposals."
+                f"🎯 *Proposal Won — {company}*{mrr_text}\n\nContract auto-generating now."
+            )
+            # Auto-generate and email contract
+            if p.get("client_name"):
+                async with db.begin():
+                    contract = await generate_contract(
+                        db,
+                        proposal_id=proposal_id,
+                        client_name=p.get("client_name", ""),
+                        client_email=p.get("client_email", ""),
+                        client_company=p.get("client_company", ""),
+                        service_type=p.get("service_type", ""),
+                        scope=p.get("content", "")[:2000],
+                        pricing=p.get("pricing") or {},
+                    )
+                if contract.get("client_email"):
+                    bg.add_task(_send_contract_email_bg, contract)
+        except Exception as exc:
+            logger.warning("Contract auto-generation failed for proposal %s: %s", proposal_id, exc)
+    return {"id": proposal_id, "status": req.status}
+
+
+# ── Contracts ─────────────────────────────────────────────────────────────────
+
+@router.get("/contracts")
+async def list_contracts(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import get_contracts
+    return {"contracts": await get_contracts(db, status=status)}
+
+
+@router.get("/contracts/{contract_id}")
+async def get_contract(contract_id: int, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import get_contracts
+    from sqlalchemy import select
+    from app.models.governance import Contract
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(404, "Contract not found")
+    from app.services.governance.document_gen import _serialize_contract
+    return {"contract": _serialize_contract(contract)}
+
+
+@router.post("/contracts")
+async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import generate_contract
+    async with db.begin():
+        contract = await generate_contract(
+            db,
+            proposal_id=req.proposal_id,
+            client_name=req.client_name,
+            client_email=req.client_email,
+            client_company=req.client_company,
+            service_type=req.service_type,
+            scope=req.scope,
+            pricing=req.pricing,
+        )
+    if contract.get("client_email"):
+        bg.add_task(_send_contract_email_bg, contract)
+    return {"contract": contract, "email_queued": bool(contract.get("client_email"))}
+
+
+@router.post("/contracts/{contract_id}/status")
+async def update_contract_status(contract_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import update_contract_status as _update
+    async with db.begin():
+        ok = await _update(db, contract_id, req.status)
+    if not ok:
+        raise HTTPException(404, "Contract not found")
+    if req.status == "signed":
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"✍️ *Contract Signed*\nContract `{contract_id}` has been marked as signed. Create client record and issue first invoice."
             )
         except Exception as exc:
-            logger.warning("Telegram notification failed for proposal %s won: %s", proposal_id, exc)
-    return {"id": proposal_id, "status": req.status}
+            logger.warning("Telegram notification failed for contract %s signed: %s", contract_id, exc)
+    return {"id": contract_id, "status": req.status}
 
 
 # ── Autonomous Approval Stats ────────────────────────────────────────────────
@@ -435,6 +517,40 @@ async def _send_invoice_email_bg(invoice: dict) -> None:
         )
     except Exception as exc:
         logger.warning("Invoice email delivery failed for %s: %s", email, exc)
+
+
+async def _send_contract_email_bg(contract: dict) -> None:
+    from app.services.outreach.email_transport import send_outbound_email
+
+    email = contract.get("client_email") or ""
+    if not email:
+        return
+    client_name = contract.get("client_name") or ""
+    company = contract.get("client_company") or ""
+    service_type = contract.get("service_type") or "Services"
+    content = (contract.get("content") or "")[:5000]
+    body = (
+        f"Hello {client_name or 'there'},\n\n"
+        f"Following your acceptance of our proposal, please find the Service Agreement for "
+        f"{service_type} below.\n\n"
+        "To confirm your acceptance, please reply to this email with the word ACCEPTED "
+        "along with your full name and company name.\n\n"
+        "─" * 60 + "\n\n"
+        f"{content}\n\n"
+        "─" * 60 + "\n\n"
+        "Please review and confirm at your earliest convenience. "
+        "Our team is ready to begin upon receipt of your confirmation.\n\n"
+        "Warm regards,\nAliyar Solutions Team"
+    )
+    try:
+        await send_outbound_email(
+            to=email,
+            subject=f"Service Agreement — Aliyar Solutions × {company}",
+            body=body,
+            to_name=client_name,
+        )
+    except Exception as exc:
+        logger.warning("Contract email delivery failed for %s: %s", email, exc)
 
 
 async def _send_proposal_email_bg(proposal: dict) -> None:

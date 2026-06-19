@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.governance import Invoice, Proposal, ContractTemplate
+from app.models.governance import Contract, Invoice, Proposal, ContractTemplate
 from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
@@ -261,4 +261,139 @@ def _serialize_proposal(p: Proposal) -> dict:
         "viewed_at": p.viewed_at.isoformat() if p.viewed_at else None,
         "responded_at": p.responded_at.isoformat() if p.responded_at else None,
         "created_at": p.created_at.isoformat() if p.created_at else None,
+    }
+
+
+CONTRACT_PROMPT = """You are a senior legal drafter at Aliyar Solutions, a technology services company.
+Generate a professional service agreement between Aliyar Solutions and the client below.
+
+CLIENT: {client_name} ({client_company})
+SERVICE TYPE: {service_type}
+SCOPE: {scope}
+PRICING: {pricing}
+EFFECTIVE DATE: {effective_date}
+
+The agreement must include the following sections, numbered and clearly titled:
+
+1. PARTIES — Full legal names and addresses (use "Aliyar Solutions" and "{client_company}")
+2. SERVICES — Specific scope of work based on the service type and scope above
+3. FEES AND PAYMENT TERMS — Exact amounts from pricing, payment schedule, late payment terms (1.5%/month)
+4. INTELLECTUAL PROPERTY — Work product ownership (client owns deliverables; Aliyar retains underlying IP)
+5. CONFIDENTIALITY — Mutual NDA clause, 3-year term
+6. TERM AND TERMINATION — Contract duration, 30-day written notice clause, survival of obligations
+7. LIMITATION OF LIABILITY — Cap at total fees paid in 3 months; no consequential damages
+8. INDEMNIFICATION — Each party indemnifies the other for their own negligence
+9. GOVERNING LAW — Applicable jurisdiction (use international arbitration for cross-border)
+10. ENTIRE AGREEMENT — Merger clause, amendment requires written consent
+
+Tone: Formal, legally clear, professional. Do NOT use placeholder brackets like [INSERT].
+Use the actual details provided above throughout.
+Close with a SIGNATURES section showing two signature blocks:
+- Aliyar Solutions — signed by Syed Abrar, CEO
+- {client_company} — signed by {client_name}
+Include date lines under each signature."""
+
+
+async def generate_contract(
+    db: AsyncSession,
+    proposal_id: int | None,
+    client_name: str,
+    client_email: str,
+    client_company: str,
+    service_type: str,
+    scope: str,
+    pricing: dict,
+) -> dict:
+    from app.services.ai.router import ai_router
+    from app.services.ai.base_provider import TaskType
+
+    effective_date = datetime.now(timezone.utc).strftime("%B %d, %Y")
+    pricing_str = json.dumps(pricing, indent=2)
+    prompt = CONTRACT_PROMPT.format(
+        client_name=client_name,
+        client_company=client_company,
+        service_type=service_type,
+        scope=scope or "As discussed and agreed between the parties.",
+        pricing=pricing_str,
+        effective_date=effective_date,
+    )
+    messages = [Message(role="user", content=prompt)]
+
+    try:
+        response, _ = await ai_router.chat(
+            messages,
+            task_type=TaskType.STRATEGY,
+            max_tokens=3000,
+        )
+        content = response.content.strip()
+    except Exception as e:
+        logger.warning("Contract generation AI failed: %s", e)
+        content = (
+            f"SERVICE AGREEMENT\n\n"
+            f"This Service Agreement is entered into as of {effective_date} between "
+            f"Aliyar Solutions and {client_company}.\n\n"
+            f"SERVICE TYPE: {service_type}\n"
+            f"PRICING: {pricing_str}\n\n"
+            "[AI generation unavailable. Please complete this agreement manually.]\n\n"
+            f"Signed:\nSyed Abrar, CEO — Aliyar Solutions\n\n"
+            f"{client_name} — {client_company}"
+        )
+
+    contract = Contract(
+        proposal_id=proposal_id,
+        client_name=client_name,
+        client_email=client_email,
+        client_company=client_company,
+        service_type=service_type,
+        scope=scope,
+        pricing=pricing,
+        content=content,
+        ai_generated=True,
+        status="draft",
+    )
+    db.add(contract)
+    await db.flush()
+    return _serialize_contract(contract)
+
+
+async def get_contracts(db: AsyncSession, status: str | None = None) -> list[dict]:
+    q = select(Contract).order_by(Contract.created_at.desc()).limit(200)
+    if status:
+        q = q.where(Contract.status == status)
+    result = await db.execute(q)
+    return [_serialize_contract(c) for c in result.scalars().all()]
+
+
+async def update_contract_status(db: AsyncSession, contract_id: int, new_status: str) -> bool:
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalar_one_or_none()
+    if not contract:
+        return False
+    contract.status = new_status
+    now = datetime.now(timezone.utc)
+    if new_status == "sent":
+        contract.sent_at = now
+    elif new_status == "signed":
+        contract.signed_at = now
+    return True
+
+
+def _serialize_contract(c: Contract) -> dict:
+    return {
+        "id": c.id,
+        "proposal_id": c.proposal_id,
+        "client_name": c.client_name,
+        "client_email": c.client_email,
+        "client_company": c.client_company,
+        "service_type": c.service_type,
+        "scope": c.scope,
+        "pricing": c.pricing,
+        "content": c.content,
+        "pdf_path": c.pdf_path,
+        "pdf_url": c.pdf_url,
+        "ai_generated": c.ai_generated,
+        "status": c.status,
+        "sent_at": c.sent_at.isoformat() if c.sent_at else None,
+        "signed_at": c.signed_at.isoformat() if c.signed_at else None,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
     }

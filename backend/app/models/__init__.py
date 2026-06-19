@@ -76,7 +76,7 @@ from app.models.lead import Lead, LeadStatus
 from app.models.tasks import AgentMessage, AgentTask
 from app.models.scheduling import JobFailure, ScheduledJob
 from app.models.notifications import NotificationLog
-from app.models.governance import AgentPermission, ContractTemplate, IncidentReport, Proposal
+from app.models.governance import AgentPermission, Contract, ContractTemplate, IncidentReport, Proposal
 from app.models.knowledge import KnowledgeBase, LearningRecord, SOPDocument
 from app.models.service_catalog import ServiceDivision
 from app.models.ai_audit import AIRequestLog
@@ -197,6 +197,7 @@ __all__ = [
     "ScheduledJob",
     "NotificationLog",
     "AgentPermission",
+    "Contract",
     "ContractTemplate",
     "IncidentReport",
     "Proposal",

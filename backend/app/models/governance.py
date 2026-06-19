@@ -62,6 +62,28 @@ class AgentPermission(Base):
     revoked_at = Column(DateTime(timezone=True))
 
 
+class Contract(Base):
+    __tablename__ = "contracts"
+
+    id = Column(Integer, primary_key=True)
+    proposal_id = Column(Integer, ForeignKey("proposals.id", ondelete="SET NULL"), nullable=True, index=True)
+    client_name = Column(String(200))
+    client_email = Column(String(320))
+    client_company = Column(String(200))
+    service_type = Column(String(200))
+    scope = Column(Text)
+    pricing = Column(JSON)
+    content = Column(Text)
+    pdf_path = Column(Text)
+    pdf_url = Column(Text)
+    ai_generated = Column(Boolean, default=True)
+    status = Column(String(30), default="draft", index=True)  # draft|sent|signed|cancelled
+    sent_at = Column(DateTime(timezone=True))
+    signed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class IncidentReport(Base):
     __tablename__ = "incident_reports"
 
