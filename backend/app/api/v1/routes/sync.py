@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from app.core.rate_limit import limiter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/sync", tags=["Sync"])
 class SyncConfig(BaseModel):
     industries: Optional[list[str]] = None
     countries: Optional[list[str]] = None
-    limit: int = 50
+    limit: int = Field(default=50, ge=1, le=200)
 
 
 @router.post("/apollo")

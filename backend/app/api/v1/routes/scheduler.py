@@ -4,6 +4,7 @@ JARVIS Scheduler — manage cron/interval/one-shot agent jobs.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -61,7 +62,7 @@ async def list_jobs():
 
 
 @router.post("/jobs/cron")
-async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = Depends(get_db)):
+async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_cron_job(
         body.job_id,
@@ -86,7 +87,7 @@ async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = 
 
 
 @router.post("/jobs/interval")
-async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSession = Depends(get_db)):
+async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_interval_job(
         body.job_id,
@@ -111,7 +112,7 @@ async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSe
 
 
 @router.delete("/jobs/{job_id}")
-async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     removed = remove_job(job_id)
     from sqlalchemy import delete
     await db.execute(
@@ -125,7 +126,7 @@ async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(g
 
 
 @router.post("/jobs/{job_id}/pause")
-async def pause(job_id: str):
+async def pause(job_id: str, _: dict = Depends(get_current_captain)):
     ok = pause_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")
@@ -133,7 +134,7 @@ async def pause(job_id: str):
 
 
 @router.post("/jobs/{job_id}/resume")
-async def resume(job_id: str):
+async def resume(job_id: str, _: dict = Depends(get_current_captain)):
     ok = resume_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")

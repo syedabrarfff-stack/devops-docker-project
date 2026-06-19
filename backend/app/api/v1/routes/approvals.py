@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -112,6 +113,7 @@ async def decide_approval(
     approval_id: str,
     request: Request,
     decision: ApprovalDecision = Body(...),
+    _: dict = Depends(get_current_captain),
 ):
     resolved_tenant_id = _resolve_tenant_id(request, decision.tenant_id)
     status = decision.status.lower().strip()
@@ -131,6 +133,7 @@ async def approve_approval(
     approval_id: str,
     request: Request,
     action: ApprovalAction = Body(default_factory=ApprovalAction),
+    _: dict = Depends(get_current_captain),
 ):
     resolved_tenant_id = _resolve_tenant_id(request, action.tenant_id)
     try:
@@ -144,6 +147,7 @@ async def reject_approval(
     approval_id: str,
     request: Request,
     action: ApprovalAction = Body(default_factory=ApprovalAction),
+    _: dict = Depends(get_current_captain),
 ):
     resolved_tenant_id = _resolve_tenant_id(request, action.tenant_id)
     note = action.reason or action.captain_note
