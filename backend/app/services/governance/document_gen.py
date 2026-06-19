@@ -37,6 +37,8 @@ Write a complete proposal that:
 3. Outlines the scope of work clearly
 4. Shows the investment (pricing) with ROI framing
 5. Closes with a clear next step
+6. COST OF INACTION — A specific section titled "The Cost of Waiting". Calculate what delay costs this client per month (lost revenue, wasted time, competitive erosion). Make it specific, not generic. Use real estimates.
+7. OUTCOMES OVER SERVICES — Never list services as deliverables. List business outcomes: "Your team reclaims 20 hours per week" not "We configure your CRM".
 
 Tone: Premium, confident, business-focused. Never desperate or generic.
 Write in first-person plural ("we", "our team").

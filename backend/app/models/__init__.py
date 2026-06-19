@@ -83,6 +83,7 @@ from app.models.ai_audit import AIRequestLog
 from app.models.team_member import TeamMember
 from app.models.gmail import GmailMessage
 from app.models.credentials import OAuthToken, SecureCredential
+from app.models.trust_engine import ExecutiveOpportunityBrief, LeadEngagementEvent, ReferralRequest
 
 
 MODEL_MODULES = (
@@ -117,6 +118,7 @@ MODEL_MODULES = (
     "communication",
     "aionx_organs",
     "credentials",
+    "trust_engine",
 )
 
 
@@ -210,4 +212,7 @@ __all__ = [
     "GmailMessage",
     "OAuthToken",
     "SecureCredential",
+    "ExecutiveOpportunityBrief",
+    "LeadEngagementEvent",
+    "ReferralRequest",
 ]
