@@ -173,23 +173,37 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000,https://aliyarsolutions.com,https://www.aliyarsolutions.com"
 
     @model_validator(mode="after")
-    def _warn_insecure_defaults(self) -> "Settings":
+    def _validate_production_config(self) -> "Settings":
         if not self.DEBUG:
-            if self.SECRET_KEY == "change-this-in-production":
-                _cfg_logger.critical(
-                    "SECRET_KEY is the insecure default — JWTs are NOT secure. "
-                    "Set SECRET_KEY in .env or AWS Secrets Manager immediately."
+            errors: list[str] = []
+            if self.SECRET_KEY in ("change-this-in-production", "", None):
+                errors.append(
+                    "SECRET_KEY is the insecure default — all JWTs are compromised. "
+                    "Set a strong random value in .env or AWS Secrets Manager."
                 )
-            if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", ""):
-                _cfg_logger.critical(
+            if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", "", None):
+                errors.append(
                     "CAPTAIN_PASSWORD is the insecure default — "
-                    "Set CAPTAIN_PASSWORD in .env or AWS Secrets Manager immediately."
+                    "Set a strong password in .env or AWS Secrets Manager."
                 )
             if "jarvis_pass" in self.DATABASE_URL:
-                _cfg_logger.critical(
+                errors.append(
                     "DATABASE_URL contains the default development password — "
                     "Set a strong password in .env or AWS Secrets Manager."
                 )
+            if errors:
+                for msg in errors:
+                    _cfg_logger.critical("STARTUP BLOCKED: %s", msg)
+                raise ValueError(
+                    "Production startup blocked — insecure defaults detected:\n"
+                    + "\n".join(f"  • {e}" for e in errors)
+                )
+        else:
+            # Dev mode — warn but don't block
+            if self.SECRET_KEY == "change-this-in-production":
+                _cfg_logger.warning("DEV: SECRET_KEY is the default (acceptable in DEBUG mode only)")
+            if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", ""):
+                _cfg_logger.warning("DEV: CAPTAIN_PASSWORD is the default (acceptable in DEBUG mode only)")
         return self
 
     class Config:

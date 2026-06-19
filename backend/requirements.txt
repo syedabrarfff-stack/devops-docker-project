@@ -40,6 +40,9 @@ google-auth==2.51.0
 google-auth-oauthlib==1.2.1
 google-api-python-client==2.151.0
 
+# Rate limiting
+slowapi==0.1.9
+
 # Utilities
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4

@@ -44,7 +44,7 @@ class SendEmailIn(BaseModel):
 
 class ExecuteOutreachIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = Field(default=48, ge=1, le=500)
+    limit: int = Field(default=48, ge=1, le=100)
     autonomy_stage: str = Field(default="outreach_emails", max_length=100)
 
 

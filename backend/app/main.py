@@ -18,6 +18,7 @@ from app.middleware import (
     validation_exception_handler,
     unhandled_exception_handler,
 )
+from app.core.rate_limit import limiter, RATE_LIMITING_ENABLED
 import app.models  # noqa — registers all models with Base.metadata before init_db()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
@@ -233,6 +234,16 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url=None,
 )
+
+app.state.limiter = limiter
+
+if RATE_LIMITING_ENABLED:
+    try:
+        from slowapi.errors import RateLimitExceeded
+        from slowapi import _rate_limit_exceeded_handler
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    except ImportError:
+        pass
 
 app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)

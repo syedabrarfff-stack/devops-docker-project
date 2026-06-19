@@ -226,13 +226,19 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
         if path not in ("/health", "/readyz", "/favicon.ico"):
+            tenant_id = getattr(request.state, "tenant_id", "-")
+            auth_method = getattr(request.state, "tenant_auth_method", "-")
+            client_ip = (request.client.host if request.client else "-")
             logger.info(
-                "%s %s -> %s [%sms] req=%s",
+                "%s %s -> %s [%sms] req=%s tenant=%s auth=%s ip=%s",
                 request.method,
                 path,
                 response.status_code,
                 latency_ms,
                 request_id,
+                tenant_id,
+                auth_method,
+                client_ip,
             )
         return response
 
