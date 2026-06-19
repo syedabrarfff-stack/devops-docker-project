@@ -1,121 +1,171 @@
 # JARVIS — AGENT REGISTRY
-_Every AI agent and human team persona. Routes, owners, performance baselines._
+_Complete map of all AI agents, human personas, scheduled jobs, and model routing._
+_Last audited: 2026-06-19_
 
-## AI Model Council (Multi-Model Router)
+## AI Model Router — Actual Production Routing
+_File: backend/app/services/ai/router.py_
 
-### Primary Routing (backend/app/services/ai/router.py)
+**CRITICAL:** NVIDIA NIM is the PRIMARY provider. The older "Claude-first" documentation was wrong.
+- NVIDIA NIM routes DeepSeek V4, Kimi K2, Llama 4, Mistral, Qwen through a single API endpoint
+- Claude is PRIMARY only for STRATEGY and SALES task types
+- Anthropic is fallback for CODE, RESEARCH, REASONING, ANALYSIS, LONG_CONTEXT
 
-| Task Type | Primary | Fallback 1 | Fallback 2 |
-|-----------|---------|-----------|-----------|
-| CODE | claude-sonnet-4-6 | deepseek | gpt-4o |
-| REASONING | claude-opus | gpt-4o | gemini-pro |
-| STRATEGY | claude-opus | gpt-4o | claude-sonnet-4-6 |
-| ANALYSIS | claude-opus | gpt-4o | gemini-pro |
-| RESEARCH | gemini-pro | gpt-4o | claude-sonnet-4-6 |
-| FAST | deepseek-flash | llama-3-3 | gpt-4o-mini |
-| LONG_CONTEXT | gemini-pro | kimi-k2 | claude-sonnet-4-6 |
+### Model Performance Roles (via NVIDIA NIM unless noted)
 
-**Important:** Use haiku-4-5 and sonnet-4-6 sparingly. Never use opus unless required by task type.
+| Model | Role | Task Types |
+|-------|------|-----------|
+| deepseek-v4-pro | Deep analytical work, code, math | CODE (P1), RESEARCH (P1), REASONING (P1), ANALYSIS (P1), MATH (P1) |
+| kimi-k2 | Extreme long context (1M tokens), synthesis | LONG_CONTEXT (P1), RESEARCH (P2) |
+| llama-4-maverick | General intelligence, multilingual | GENERAL (P1), MULTILINGUAL (P1), STRATEGY (P3), ANALYSIS (P2) |
+| llama-4-scout | Lowest latency, high-throughput | FAST (P1), REALTIME (P1), SALES (P3) |
+| deepseek-v4-flash | Fast + capable balance | FAST (P2), REALTIME (P2), CODE (P3) |
+| mistral-medium | European languages, operational speed | FAST (P3), MULTILINGUAL (P3), REALTIME (P3) |
+| llama-3-3 | 70B balanced general | FAST (P4), GENERAL (P3), REALTIME (P4) |
+| qwen-coder | CJK + structured code | CODE (P2), MULTILINGUAL (P2) |
+| claude-sonnet-4-6 | Executive communication, strategy | STRATEGY (P1), SALES (P1), fallback for CODE/ANALYSIS |
+| claude-haiku-4-5 | Fast Anthropic fallback | CODE (P5) fallback only |
+| gpt-4o | Vision/multimodal, last-resort fallback | MULTIMODAL (P1), most task types (last fallback) |
+| gpt-4o-mini | Ultra-fast OpenAI | FAST (P5) last fallback |
+| gemini-pro | Multimodal, vision | MULTIMODAL (P3) |
+| zhipuai/glm-5-1 | CJK language specialization | MULTILINGUAL (P4) |
 
-### Circuit Breaker Status
-- Threshold: 5 failures → circuit OPEN for 60 seconds
-- All providers: circuit breaker active
-- Cost tracked: per call, per provider, per task type
+### Task Type → Primary Model Quick Reference
 
-## Human Identity Layer (Client-Facing Agents)
+| Use This | When You Need |
+|----------|--------------|
+| CODE | nvidia/deepseek-v4-pro |
+| STRATEGY | anthropic/claude-sonnet-4-6 |
+| SALES | anthropic/claude-sonnet-4-6 |
+| FAST | nvidia/llama-4-scout |
+| RESEARCH | nvidia/deepseek-v4-pro |
+| REASONING | nvidia/deepseek-v4-pro |
+| LONG_CONTEXT | nvidia/kimi-k2 |
+| ANALYSIS | nvidia/deepseek-v4-pro |
+| GENERAL | nvidia/llama-4-maverick |
+| MULTILINGUAL | nvidia/llama-4-maverick |
+| MATH | nvidia/deepseek-v4-pro |
+| REALTIME | nvidia/llama-4-scout |
+| MULTIMODAL | openai/gpt-4o |
 
-### Routing Map Summary (full map in backend/app/services/team/team_service.py)
+---
 
-| Team Member | Role | Service Categories |
-|------------|------|--------------------|
-| Darren Mitchell | Client Acquisition Specialist | leads, outreach, sales, qualification |
-| David Carter | Solutions Architect | cloud, aws, infrastructure, architecture, devops |
-| Sophia Reynolds | Workflow Consultant | automation, ai, workflows, integrations |
-| Nathan Scott | Deployment Engineer | deployment, cicd, kubernetes, docker, devops_ops |
-| Emma Collins | Business Optimisation Specialist | analytics, crm, revenue, reporting |
-| Daniel Brooks | Security Consultant | security, compliance, vulnerability |
-| Michael Hayes | Infrastructure Strategist | scaling, platform, migrations |
-| Lucas Reed | Process Integration Specialist | api, process, automation_ops |
-| Olivia Bennett | Account Coordinator | onboarding, client_success, retention |
+## Human Identity Layer — Client-Facing Team
+_File: backend/app/services/team/team_service.py_
+_36 service type keys mapped to named team members_
 
-### Selection Logic
-- `get_member_for_service(db, service_type)` → returns TeamMember or None
-- Falls back to "Aliyar Solutions Team" if no match
-- Service type normalized: lowercased + spaces → underscores
+| Name | Role | Service Categories (key examples) |
+|------|------|----------------------------------|
+| Darren Mitchell | Client Acquisition Specialist | leads, outreach, sales, qualification, crm, demo |
+| David Carter | Solutions Architect | cloud, aws, infrastructure, architecture, devops, terraform |
+| Sophia Reynolds | Workflow Consultant | automation, ai_automation, workflows, integrations, process |
+| Nathan Scott | Deployment Engineer | deployment, cicd, kubernetes, docker, containers |
+| Emma Collins | Business Optimisation Specialist | analytics, crm_ops, revenue, reporting, kpi |
+| Daniel Brooks | Security Consultant | security, compliance, vulnerability, audit, hardening |
+| Michael Hayes | Infrastructure Strategist | scaling, platform, migrations, architecture_strategy |
+| Lucas Reed | Process Integration Specialist | api_integration, process_automation, automation_ops |
+| Olivia Bennett | Account Coordinator | onboarding, client_success, retention, reporting_ops |
 
-## Operational Agents (Scheduled)
+**Routing:** `get_member_for_service(db, service_type)` → normalizes input (lowercase + spaces → _) → returns TeamMember
+**Fallback:** "Aliyar Solutions Team" if no match
 
-### daily_morning_briefing (07:00 UTC)
-- **Operator:** Intelligence Division
-- **Input:** leads, proposals, invoices, system health, alerts
-- **Output:** Executive briefing sent to Captain (Telegram + WebSocket)
-- **Model:** FAST task type
+---
 
-### daily_lead_score (02:00 UTC)
-- **Operator:** Sales Intelligence
-- **Input:** All leads without trust scores, engagement events
-- **Output:** Updated trust_score + conversion_probability + ready_for_proposal
-- **Model:** ANALYSIS task type
+## Operational Agents — Scheduled Jobs
+_File: backend/app/services/scheduler/_
+_Engine: APScheduler 3.10 + SQLAlchemy persistent job store_
 
-### weekly_outreach_stats (Monday 08:00 UTC)
-- **Operator:** Operations Division
-- **Input:** outreach sequences, email open rates, reply rates
-- **Output:** Weekly performance report → Captain
-- **Model:** ANALYSIS task type
+| Job ID | Schedule | Task Type | Output |
+|--------|----------|-----------|--------|
+| daily_morning_briefing | 07:00 UTC daily | FAST | Executive briefing → Captain (Telegram + WebSocket) |
+| daily_lead_score | 02:00 UTC daily | ANALYSIS | trust_score + conversion_probability for all leads |
+| weekly_outreach_stats | Monday 08:00 UTC | ANALYSIS | Outreach performance report → Captain |
+| weekly_pipeline_health | Sunday 20:00 UTC | STRATEGY | Pipeline + MRR forecast → Captain |
+| weekly_tech_radar_scan | Monday 06:00 UTC | RESEARCH | Technology classification (Adopt/Trial/Assess/Hold) |
+| daily_optimization_review | 23:00 UTC daily | ANALYSIS | System performance recommendations → Captain |
+| biweekly_research_report | Sunday 07:00 UTC | RESEARCH | Market intelligence report → Captain |
 
-### weekly_pipeline_health (Sunday 20:00 UTC)
-- **Operator:** Revenue Intelligence
-- **Input:** proposals, contracts, MRR, pipeline stages
-- **Output:** Weekly pipeline + MRR forecast → Captain
-- **Model:** STRATEGY task type
+---
 
-### weekly_tech_radar_scan (Monday 06:00 UTC)
-- **Operator:** Intelligence Division
-- **Input:** Technology landscape (via AI research)
-- **Output:** Tech classification — Adopt/Trial/Assess/Hold
-- **Model:** RESEARCH task type
+## AIONx Organs — Autonomous Intelligence Systems
+_File: backend/app/services/aionx/ (32 files)_
+_Routes: /aionx (120 endpoints), /batch1, /frontier (32 endpoints)_
 
-### daily_optimization_review (23:00 UTC)
-- **Operator:** System Health Division
-- **Input:** System metrics, query performance, error rates
-- **Output:** Optimization recommendations → Captain
-- **Model:** ANALYSIS task type
+| Organ | Purpose |
+|-------|---------|
+| Decision Engine | All significant decisions tracked with options, outcomes, patterns |
+| Counterfactual Simulation | "What if" modeling for strategic decisions |
+| Decision Debt Assessment | Identifies deferred/accumulating decision debt |
+| Client Digital Twin | AI model of each client — predictions, interactions, pipeline state |
+| Mission Autopsy | Post-mission analysis — what worked, what failed, why |
+| Sentinel Layer | Real-time threat observation and classification |
+| Provider Council | Multi-provider deliberation on complex decisions |
+| Convergence Council | Cross-organ convergence for system-wide decisions |
+| Institutional Wisdom Index | Compounding intelligence from past decisions |
+| Self-Modification Records | Tracks system self-improvement actions |
+| Mission Ownership | Accountability tracking for all system missions |
+| Operational Persistence | Decision memory that survives restarts |
 
-### biweekly_research_report (Sunday 07:00 UTC)
-- **Operator:** Intelligence Division
-- **Input:** Market data, competitor signals
-- **Output:** Market intelligence report → Captain
-- **Model:** RESEARCH task type
+---
 
 ## Department Intelligence Officers (DIOs)
-_Route: GET/POST /api/v1/departments_
+_Route: /departments (32 endpoints)_
+_Each department has an AI officer for domain queries_
 
-Each department has an AI officer for domain-specific queries:
-- Engineering DIO: code review, architecture, DevOps queries
-- Strategy DIO: proposal framing, competitive positioning
-- Operations DIO: workflow optimization, CRM queries
-- Intelligence DIO: market research, trend analysis
-- Client Success DIO: retention risk, expansion opportunities
+| DIO | Domain | Queries It Handles |
+|-----|--------|--------------------|
+| Engineering DIO | Code, DevOps, architecture | Code review, system design, debugging |
+| Strategy DIO | Positioning, proposals | Competitive analysis, framing |
+| Operations DIO | Workflow, CRM | Process optimization, CRM queries |
+| Intelligence DIO | Research, trends | Market analysis, technology scanning |
+| Client Success DIO | Retention, expansion | Churn risk, upsell opportunities |
+
+---
+
+## VS Code Multi-Model Council
+_File: .continue/config.json_
+
+| Model | Provider | Best For |
+|-------|----------|----------|
+| Claude Sonnet 4.6 | Anthropic | Code implementation (primary) |
+| GPT-4o | OpenAI | Architecture review, cross-validation |
+| Gemini Pro | Google | Research, long-context analysis |
+| DeepSeek Chat | DeepSeek | Fast code generation |
+| Groq Llama | Groq | Ultra-fast completions |
+| NVIDIA NIM | NVIDIA | Production routing (same as backend) |
+
+**Slash Commands:**
+- `/jarvis-state` — current state + pending tasks briefing
+- `/new-route` — generate FastAPI route with JARVIS conventions
+- `/new-migration` — Alembic migration (next: 0030)
+- `/council` — 3-perspective architectural review
+
+---
 
 ## Agent Performance Baselines
 
-| Metric | Target | Alert Threshold |
-|--------|--------|----------------|
-| Proposal generation time | <15s | >30s |
-| Contract generation time | <20s | >45s |
-| Brief generation time | <25s | >60s |
+| Metric | Target | Alert |
+|--------|--------|-------|
+| Proposal generation | <15s | >30s |
+| Contract generation | <20s | >45s |
+| Brief generation | <25s | >60s |
 | Email delivery (SES) | <3s | >10s |
-| Lead scoring (batch) | <5s/lead | >15s/lead |
+| Lead scoring per lead | <5s | >15s |
 | AI router fallback rate | <5% | >15% |
 | Circuit breaker trips/day | 0 | >3 |
+| /readyz response | <500ms | >2s |
 
-## VS Code Multi-Model Council (Continue Extension)
-_Config: .continue/config.json_
+---
 
-| Model | Provider | Use When |
-|-------|----------|----------|
-| Claude Sonnet 4.6 | Anthropic | Code, implementation (primary) |
-| GPT-4o | OpenAI | Cross-validation, second opinion |
-| Gemini Pro | Google | Research, long context |
-| DeepSeek | DeepSeek | Fast code generation |
-| AWS Bedrock | AWS | Offline/cost-sensitive ops |
+## Communication Routing (External Delivery)
+_Email: send_outbound_email() via AWS SES_
+_Telegram: POST /telegram/webhook → Captain_
+_WebSocket: /ws/captain for real-time Captain updates_
+
+| Trigger | From (persona) | To | Subject |
+|---------|---------------|-----|---------|
+| Invoice created | Olivia Bennett | client_email | Invoice ALY-YYYYMM-XXXX |
+| Proposal generated | Matched team member | client_email | [Service] — [Company] Proposal |
+| Proposal accepted | JARVIS automation | client_email | Service Agreement — [Company] |
+| Client created | Olivia Bennett | client_email | Welcome to Aliyar Solutions |
+| Emergency incident | JARVIS | Captain (Telegram) | JARVIS ALERT: [incident] |
+| Morning briefing | JARVIS | Captain (Telegram + WS) | Daily briefing |

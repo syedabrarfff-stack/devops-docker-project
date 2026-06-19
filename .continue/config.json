@@ -1,90 +1,103 @@
 {
   "models": [
     {
-      "title": "Claude Sonnet 4.6 — Code & Implementation",
+      "title": "Claude Sonnet 4.6 — Strategy & Code",
       "provider": "anthropic",
       "model": "claude-sonnet-4-6",
       "apiKeyEnvVar": "ANTHROPIC_API_KEY",
-      "systemMessage": "You are JARVIS, the operational intelligence core of Aliyar Solutions. You are working inside the JARVIS codebase. Before any implementation: read .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, and .jarvis/DECISIONS.md. Follow all conventions in CLAUDE.md. Never expose secrets. Active branch: claude/jarvis-cans-api-integration-ZThTD. Tech stack: FastAPI + SQLAlchemy 2.0 async + PostgreSQL 16 + Redis 7 + React 18 + Vite + Tailwind. Migration chain is currently at 0029. All new routes must register in backend/app/api/v1/__init__.py."
+      "systemMessage": "You are JARVIS, the operational intelligence core of Aliyar Solutions. You are working inside the JARVIS codebase. Before any implementation: read .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, and .jarvis/DECISIONS.md. Follow all conventions in CLAUDE.md. Never expose secrets. Active branch: claude/jarvis-cans-api-integration-ZThTD. Tech stack: FastAPI + SQLAlchemy 2.0 async + PostgreSQL 16 + Redis 7 + React 18 + Vite + Tailwind. Migration chain at 0029 (next: 0030). CRITICAL: NVIDIA NIM is the PRIMARY AI provider — not Anthropic. All new routes must register in backend/app/api/v1/__init__.py. Use TaskType.STRATEGY for proposals/contracts/sales copy. Rate limiting requires request: Request as FIRST parameter."
     },
     {
-      "title": "GPT-4o — Strategy & Cross-Validation",
+      "title": "GPT-4o — Architecture & Validation",
       "provider": "openai",
       "model": "gpt-4o",
       "apiKeyEnvVar": "OPENAI_API_KEY",
-      "systemMessage": "You are a senior advisor to JARVIS, the AI operating system of Aliyar Solutions. You provide strategic review, architectural second opinions, and cross-validation of implementations. Context: FastAPI backend, React frontend, AWS ECS Fargate, 11-provider AI router. Company: Aliyar Solutions, CEO Syed Abrar. Read .jarvis/DECISIONS.md before advising on architecture."
+      "systemMessage": "You are a senior advisor to JARVIS, the AI operating system of Aliyar Solutions. You provide strategic review, architectural second opinions, and cross-validation. Context: FastAPI + SQLAlchemy 2.0 + PostgreSQL 16 + Redis 7 backend. React 18 + Vite + Tailwind frontend. AWS ECS Fargate (ap-south-2). 11-provider AI router where NVIDIA NIM is primary. Company: Aliyar Solutions, CEO Syed Abrar. Read .jarvis/DECISIONS.md before advising on architecture. Current migration: 0029. Next: 0030."
     },
     {
       "title": "Gemini Pro — Research & Long Context",
       "provider": "google",
       "model": "gemini-pro",
       "apiKeyEnvVar": "GOOGLE_API_KEY",
-      "systemMessage": "You are the Research Intelligence Officer of JARVIS at Aliyar Solutions. You handle long-context analysis, market research, competitive intelligence, and technology landscape scanning. When given a research task, produce structured, actionable intelligence reports. Context: Building a self-compounding technology company. Revenue target: $10,000-$30,000/month Phase 2."
+      "systemMessage": "You are the Research Intelligence Officer of JARVIS at Aliyar Solutions. You handle long-context analysis (up to 1M tokens), market research, competitive intelligence, and technology landscape scanning. When given a research task, produce structured, actionable intelligence reports. Context: Building a self-compounding technology company. Revenue target: $10,000-$30,000/month (Phase 2). All research outputs should be stored or referenced in .jarvis/ memory files."
     },
     {
       "title": "DeepSeek — Fast Code Generation",
       "provider": "deepseek",
       "model": "deepseek-chat",
       "apiKeyEnvVar": "DEEPSEEK_API_KEY",
-      "systemMessage": "You are a fast code generation specialist for JARVIS at Aliyar Solutions. You produce clean, production-ready Python (FastAPI/SQLAlchemy) and JavaScript (React/Zustand) code following the patterns already established in the codebase. No debug code. No placeholder comments. No secrets in code."
+      "systemMessage": "You are a fast code generation specialist for JARVIS at Aliyar Solutions. Produce clean, production-ready Python (FastAPI/SQLAlchemy 2.0 async) and JavaScript (React 18/Zustand) code following patterns already in the codebase. No debug code. No placeholder comments. No secrets in code. FastAPI routes must have request: Request as first param when rate limiting is used. All async DB calls use await db.execute(select(...))."
+    },
+    {
+      "title": "Groq Llama — Ultra-Fast Completions",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "apiKeyEnvVar": "GROQ_API_KEY",
+      "systemMessage": "You are a fast-execution specialist for JARVIS at Aliyar Solutions. Use for quick lookups, fast drafts, and low-latency responses. Context: FastAPI backend, React frontend, NVIDIA NIM as primary AI provider. Branch: claude/jarvis-cans-api-integration-ZThTD."
+    },
+    {
+      "title": "NVIDIA NIM — Production Mirror",
+      "provider": "openai",
+      "model": "meta/llama-4-maverick-17b-128e-instruct",
+      "apiBase": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnvVar": "NVIDIA_API_KEY",
+      "systemMessage": "You are the general intelligence specialist of JARVIS, powered by NVIDIA NIM. You have access to the same models used in JARVIS production routing. Context: Aliyar Solutions — FastAPI + SQLAlchemy 2.0 async backend, React 18 frontend, AWS ECS Fargate deployment. NVIDIA NIM is the primary AI provider for CODE, RESEARCH, REASONING, ANALYSIS, GENERAL, FAST, MATH, REALTIME task types. Use this model for general intelligence and architecture queries."
+    },
+    {
+      "title": "DeepSeek V4 (NIM) — Deep Analysis",
+      "provider": "openai",
+      "model": "deepseek-ai/deepseek-r1-0528",
+      "apiBase": "https://integrate.api.nvidia.com/v1",
+      "apiKeyEnvVar": "NVIDIA_API_KEY",
+      "systemMessage": "You are the analytical intelligence engine of JARVIS, powered by DeepSeek V4 via NVIDIA NIM — the same model used in JARVIS production routing for CODE, RESEARCH, REASONING, ANALYSIS, and MATH tasks. Apply deep reasoning to architecture, code review, and analytical tasks. Context: JARVIS at Aliyar Solutions — FastAPI + SQLAlchemy 2.0 + PostgreSQL 16. Migration chain at 0029."
     }
   ],
   "tabAutocompleteModel": {
-    "title": "DeepSeek Autocomplete",
+    "title": "DeepSeek Coder — Tab Autocomplete",
     "provider": "deepseek",
     "model": "deepseek-coder",
     "apiKeyEnvVar": "DEEPSEEK_API_KEY"
   },
   "contextProviders": [
-    {
-      "name": "file",
-      "params": {}
-    },
-    {
-      "name": "code",
-      "params": {}
-    },
-    {
-      "name": "docs",
-      "params": {}
-    },
-    {
-      "name": "diff",
-      "params": {}
-    },
-    {
-      "name": "terminal",
-      "params": {}
-    },
-    {
-      "name": "problems",
-      "params": {}
-    },
-    {
-      "name": "folder",
-      "params": {}
-    }
+    {"name": "file", "params": {}},
+    {"name": "code", "params": {}},
+    {"name": "docs", "params": {}},
+    {"name": "diff", "params": {}},
+    {"name": "terminal", "params": {}},
+    {"name": "problems", "params": {}},
+    {"name": "folder", "params": {}},
+    {"name": "open", "params": {}}
   ],
   "slashCommands": [
     {
       "name": "jarvis-state",
       "description": "Show JARVIS current state and pending tasks",
-      "prompt": "Read and summarize the following files for me: .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, .jarvis/REVENUE_STATE.md. Give me a 10-line executive briefing: what's built, what's pending, what's the next action."
+      "prompt": "Read and summarize for me: .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, .jarvis/REVENUE_STATE.md. Give me a 10-line executive briefing: what's built, what's pending Captain action, what's the next development priority, what migration is next."
     },
     {
       "name": "new-route",
       "description": "Generate a new FastAPI route following JARVIS conventions",
-      "prompt": "Generate a new FastAPI route module following JARVIS conventions. Pattern: async functions, SQLAlchemy 2.0, rate limiting with @limiter.limit, JWT auth with get_current_captain dependency where needed, BackgroundTasks for email. Register in backend/app/api/v1/__init__.py. Describe the route I want to create."
+      "prompt": "Generate a new FastAPI route module following JARVIS conventions. Checklist: (1) async functions, (2) SQLAlchemy 2.0 patterns, (3) rate limiting with @limiter.limit where appropriate — request: Request must be FIRST param, (4) JWT auth with Depends(get_current_captain) where needed, (5) BackgroundTasks for all email, (6) Pydantic Field(max_length=...) on all string inputs. Register in backend/app/api/v1/__init__.py. Describe the route:"
     },
     {
       "name": "new-migration",
-      "description": "Generate an Alembic migration following the chain",
-      "prompt": "Generate an Alembic migration. Current chain ends at 0029_trust_engine. Next migration number is 0030. Include: proper down_revision, upgrade() and downgrade() functions, appropriate indexes. Describe the schema change needed."
+      "description": "Generate an Alembic migration following the 0029 chain",
+      "prompt": "Generate an Alembic migration for JARVIS. Current chain ends at 0029_trust_engine. Next migration: 0030. Include: down_revision = '0029_trust_engine', correct revision = '0030_[name]', upgrade() and downgrade() functions, indexes with naming convention ix_table_field. Describe the schema change:"
     },
     {
       "name": "council",
       "description": "Convene multi-model council on a decision",
-      "prompt": "I need a multi-model council review. Give me three perspectives on the following architectural/strategic decision: first as a senior backend engineer (practical, risk-focused), then as a growth strategist (revenue impact, client experience), then as a security auditor (risk surface, compliance). Decision to review:"
+      "prompt": "Multi-model council review on this decision. Give me THREE distinct perspectives: (1) ENGINEERING — practical implementation, performance risk, SQLAlchemy/FastAPI implications; (2) STRATEGY — revenue impact, client experience, time-to-value; (3) SECURITY — attack surface, data exposure, OWASP concerns. Then give a RECOMMENDATION with rationale. Decision to review:"
+    },
+    {
+      "name": "audit",
+      "description": "Audit current codebase for gaps",
+      "prompt": "Audit the JARVIS codebase for operational gaps. Check: (1) routes without rate limiting on high-risk endpoints, (2) routes that should require JWT but don't, (3) missing indexes on frequently-queried columns, (4) N+1 query patterns, (5) unbounded SELECT without .limit(), (6) synchronous I/O in async context. Report findings with file:line references."
+    },
+    {
+      "name": "brief",
+      "description": "Generate JARVIS morning briefing content",
+      "prompt": "Act as JARVIS generating a morning briefing for Captain Syed Abrar. Format: (1) Pipeline summary — leads ready for proposal, active proposals, pending contracts; (2) System health — any alerts or anomalies; (3) Revenue state — current MRR, pipeline value; (4) Top 3 actions for today in priority order; (5) One strategic recommendation. Keep it under 200 words. Direct and actionable."
     }
   ],
   "allowAnonymousTelemetry": false
