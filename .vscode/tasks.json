@@ -182,7 +182,7 @@
     {
       "label": "🎯 JARVIS: Opportunity Radar (Manual)",
       "type": "shell",
-      "command": "TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)['token'])\") && curl -s -X POST http://localhost:8000/api/v1/briefing/opportunity-radar -H \"Authorization: Bearer $TOKEN\" | python3 -m json.tool",
+      "command": "TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)['access_token'])\") && curl -s -X POST http://localhost:8000/api/v1/briefing/opportunity-radar -H \"Authorization: Bearer $TOKEN\" | python3 -m json.tool",
       "presentation": {
         "reveal": "always",
         "panel": "new"
@@ -191,7 +191,7 @@
     {
       "label": "📊 JARVIS: System HUD",
       "type": "shell",
-      "command": "TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)['token'])\") && curl -s -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/system/hud | python3 -m json.tool",
+      "command": "TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)['access_token'])\") && curl -s -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/system/hud | python3 -m json.tool",
       "presentation": {
         "reveal": "always",
         "panel": "new"

@@ -55,7 +55,6 @@
       "**/__pycache__/**": true
     },
     "python.defaultInterpreterPath": "/usr/local/bin/python",
-    "python.formatting.provider": "black",
     "[python]": {
       "editor.defaultFormatter": "ms-python.black-formatter",
       "editor.tabSize": 4
@@ -95,6 +94,7 @@
       "humao.rest-client",
       "rangav.vscode-thunder-client",
       "ms-python.python",
+      "ms-python.pylance",
       "ms-python.black-formatter",
       "hashicorp.terraform",
       "esbenp.prettier-vscode",
@@ -109,7 +109,7 @@
     "configurations": [
       {
         "name": "JARVIS Backend (FastAPI)",
-        "type": "python",
+        "type": "debugpy",
         "request": "launch",
         "module": "uvicorn",
         "args": ["app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],

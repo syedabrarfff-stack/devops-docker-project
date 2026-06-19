@@ -39,7 +39,7 @@
 	{
 		"key": "ctrl+shift+b",
 		"command": "workbench.action.tasks.runTask",
-		"args": "JARVIS: Backend Shell (Docker)",
+		"args": "🐳 Docker: Shell into Backend",
 		"when": "editorFocus || !editorFocus"
 	}
 ]

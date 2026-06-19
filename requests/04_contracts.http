@@ -1,5 +1,3 @@
-@baseUrl = http://localhost:8000/api/v1
-@token = PASTE_TOKEN_HERE
 @contractId = PASTE_CONTRACT_ID_HERE
 
 ###
@@ -21,3 +19,8 @@ Content-Type: application/json
 {
   "status": "signed"
 }
+
+###
+# POST Send Contract via Email to Client (requires JWT)
+POST {{baseUrl}}/governance/contracts/{{contractId}}/send-email
+Authorization: Bearer {{token}}

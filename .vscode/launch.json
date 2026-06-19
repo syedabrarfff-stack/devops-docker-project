@@ -14,7 +14,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -30,7 +30,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -44,7 +44,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -58,7 +58,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -74,7 +74,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -85,7 +85,7 @@
       "program": "${file}",
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -100,7 +100,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -115,7 +115,7 @@
       ],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
-      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "python": "/usr/local/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
     },

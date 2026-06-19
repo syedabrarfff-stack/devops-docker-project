@@ -75,6 +75,11 @@ Captain can now upload Apollo/LinkedIn CSV exports to bulk-seed the pipeline.
 - [x] Priority 2 — Opportunity Radar (scheduler job at 06:00 UTC + manual trigger endpoint + frontend panel)
 - [x] Priority 3 — War Room HQ Dashboard (/control-room/war-room-hq — live pipeline command centre)
 - [x] Priority 4 — CSV Lead Import (POST /leads/import-csv + GET /leads/csv-template + LeadsDashboard modal)
+- [x] Priority 6 — Outreach Campaign Launcher (multi-select on LeadsDashboard + POST /outreach/launch-campaign)
+- [x] Priority 7 — Proposal Preview in Approvals Queue (GET /proposals/{id}/preview + inline ProposalPreviewPanel)
+- [x] Priority 8 — Contract Generation from Proposal (POST /proposals/{id}/generate-contract + Approvals UI button)
+- [x] Priority 9 — Contracts Dashboard Tab (ContractsTab in GovernanceDashboard + POST /governance/contracts/{id}/send-email)
+- [x] VS Code full operational audit + all fixes applied (see audit report in session)
 - [x] VS Code deep integration: REST Client environments, compound launch, React snippets, pyrightconfig, .prettierrc
 - [x] NVIDIA SSL fix: verify=False on httpx client for TLS inspection proxy in cloud containers
 - [x] Full repository audit (57 routes, 35 models, 36 service directories, 411 endpoints)

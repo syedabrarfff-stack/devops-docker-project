@@ -1,5 +1,3 @@
-@baseUrl = http://localhost:8000/api/v1
-@token = PASTE_TOKEN_HERE
 @leadId = PASTE_LEAD_ID_HERE
 
 ###

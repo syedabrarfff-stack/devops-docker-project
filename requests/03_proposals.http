@@ -1,5 +1,3 @@
-@baseUrl = http://localhost:8000/api/v1
-@token = PASTE_TOKEN_HERE
 @proposalId = PASTE_PROPOSAL_ID_HERE
 
 ###
@@ -35,3 +33,29 @@ Content-Type: application/json
 {
   "status": "accepted"
 }
+
+###
+# GET Proposal Preview — content, pricing, PDF link (requires JWT)
+GET {{baseUrl}}/proposals/{{proposalId}}/preview
+Authorization: Bearer {{token}}
+
+###
+# POST Submit Proposal for Captain Approval (requires JWT)
+POST {{baseUrl}}/proposals/{{proposalId}}/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+###
+# POST Generate Contract from Proposal (requires JWT, rate limited: 10/min)
+POST {{baseUrl}}/proposals/{{proposalId}}/generate-contract
+Authorization: Bearer {{token}}
+
+###
+# POST Send Proposal to Client (requires JWT)
+POST {{baseUrl}}/proposals/{{proposalId}}/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}

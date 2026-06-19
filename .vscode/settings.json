@@ -67,18 +67,18 @@
 
   "rest-client.environmentVariables": {
     "$shared": {
-      "baseUrl": "http://localhost:8000"
+      "baseUrl": "http://localhost:8000/api/v1"
     },
     "local": {
-      "baseUrl": "http://localhost:8000",
+      "baseUrl": "http://localhost:8000/api/v1",
       "token": ""
     },
     "docker": {
-      "baseUrl": "http://localhost:8000",
+      "baseUrl": "http://localhost:8000/api/v1",
       "token": ""
     },
     "production": {
-      "baseUrl": "https://api.aliyarsolutions.com",
+      "baseUrl": "https://api.aliyarsolutions.com/api/v1",
       "token": ""
     }
   },

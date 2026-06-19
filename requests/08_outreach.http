@@ -1,5 +1,17 @@
-@baseUrl = http://localhost:8000/api/v1
-@token = PASTE_TOKEN_HERE
+###
+# POST Launch Multi-Lead Campaign (requires JWT, rate limited: 5/min)
+# Select lead IDs from the Leads dashboard and paste below (max 50)
+POST {{baseUrl}}/outreach/launch-campaign
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_ids": [
+    "PASTE_LEAD_ID_1_HERE",
+    "PASTE_LEAD_ID_2_HERE"
+  ],
+  "tenant_id": "794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1"
+}
 
 ###
 # POST Execute Outreach Campaign (requires JWT, rate limited: 10/min)

@@ -1,6 +1,3 @@
-@baseUrl = http://localhost:8000/api/v1
-@token = PASTE_TOKEN_HERE
-
 ###
 # GET Morning Briefing — grounded metrics (public, no auth required)
 GET {{baseUrl}}/briefing/morning?tenant_id=794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1
