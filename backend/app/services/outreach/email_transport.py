@@ -309,9 +309,30 @@ def _account_status_sync() -> dict[str, Any]:
 
 
 async def get_outbound_email_status(validate_provider: bool = True) -> dict[str, Any]:
+    if not validate_provider:
+        configured = bool(settings.AWS_ACCESS_KEY_ID and settings.SES_FROM_EMAIL)
+        return {
+            "engine": "ses_outreach",
+            "provider": "ses",
+            "configured": configured,
+            "connected": False,
+            "send_method": "ses_raw_email",
+            "send_mode": "not_validated" if configured else "blocked",
+            "validation_error": "" if configured else "ses_validation_error",
+            "blocker_code": "" if configured else "ses_validation_error",
+            "human_message": "SES configured — validation skipped." if configured else "AWS SES not configured.",
+            "required_action": "" if configured else "Set AWS credentials and SES_FROM_EMAIL.",
+            "setup_steps": [],
+            "safety": {
+                "unsubscribe_footer": True,
+                "do_not_contact_gate": True,
+                "business_hours_gate": True,
+                "daily_cap_gate": True,
+                "client_language_sanitizer": True,
+            },
+        }
     try:
-        if validate_provider:
-            return await asyncio.to_thread(_account_status_sync)
+        return await asyncio.to_thread(_account_status_sync)
     except Exception as exc:
         logger.warning("SES status validation failed: %s", exc)
         return {
@@ -334,7 +355,6 @@ async def get_outbound_email_status(validate_provider: bool = True) -> dict[str,
                 "client_language_sanitizer": True,
             },
         }
-    return await asyncio.to_thread(_account_status_sync)
 
 
 async def send_outbound_email(

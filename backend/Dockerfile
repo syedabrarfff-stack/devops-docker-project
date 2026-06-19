@@ -24,6 +24,10 @@ COPY --chown=jarvis:jarvis . .
 # Catches missing modules, bad imports, and model errors at BUILD time, not at runtime.
 # NOTE: Must be a single-line -c string — Docker parser treats bare newlines as instructions.
 RUN DATABASE_URL="postgresql+asyncpg://t:t@localhost/t" \
+    SECRET_KEY="build-time-preflight-only" \
+    CAPTAIN_PASSWORD="build-time-preflight-only" \
+    CAPTAIN_USERNAME="captain" \
+    DEBUG="false" \
     python3 -c "import sys, os; sys.path.insert(0, '/app'); os.environ.setdefault('DATABASE_URL', 'postgresql+asyncpg://t:t@localhost/t'); from app.api.v1 import api_router; print('PRE_FLIGHT_OK: all imports resolved')" \
     2>&1 | tee /tmp/preflight.txt && grep -q PRE_FLIGHT_OK /tmp/preflight.txt
 
