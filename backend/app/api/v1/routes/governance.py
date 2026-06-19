@@ -312,7 +312,7 @@ async def list_permissions(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
     from app.models.governance import AgentPermission
     result = await db.execute(
-        select(AgentPermission).order_by(AgentPermission.granted_at.desc())
+        select(AgentPermission).order_by(AgentPermission.granted_at.desc()).limit(200)
     )
     perms = result.scalars().all()
     return {"permissions": [_serialize_perm(p) for p in perms]}

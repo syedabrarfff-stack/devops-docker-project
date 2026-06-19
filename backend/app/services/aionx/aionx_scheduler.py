@@ -220,7 +220,7 @@ async def _job_refresh_twin_predictions() -> None:
         from app.services.aionx.orchestration_cortex import fire_event
 
         async with AsyncSessionLocal() as db:
-            twins = (await db.execute(select(ClientDigitalTwin))).scalars().all()
+            twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
             churn_alerts = 0
             for twin in twins:
                 preds = await update_predictions(db, twin.client_id)
@@ -322,7 +322,7 @@ async def _job_trust_erosion_check() -> None:
         from app.models.aionx_organs import ClientDigitalTwin
 
         async with AsyncSessionLocal() as db:
-            twins = (await db.execute(select(ClientDigitalTwin))).scalars().all()
+            twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
 
             escalations = 0
             for twin in twins:

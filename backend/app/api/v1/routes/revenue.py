@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.lead import Lead, LeadStatus
@@ -417,22 +417,34 @@ async def revenue_clients(
             q = select(Client).where(Client.tenant_id == tid)
             if status != "ALL":
                 q = q.where(Client.status == ClientStatus(status))
-            clients = (await session.execute(q.order_by(Client.mrr_usd.desc()))).scalars().all()
+            clients = (await session.execute(q.order_by(Client.mrr_usd.desc()).limit(500))).scalars().all()
+
+            # Single aggregation query for all clients — eliminates N+1
+            client_ids = [c.id for c in clients]
+            inv_agg: dict[int, tuple[float, int]] = {}
+            if client_ids:
+                agg_rows = (await session.execute(
+                    select(
+                        Invoice.client_id,
+                        func.coalesce(
+                            func.sum(
+                                case(
+                                    (Invoice.status == InvoiceStatus.PAID, Invoice.paid_amount_usd),
+                                    else_=None,
+                                )
+                            ),
+                            0.0,
+                        ).label("paid"),
+                        func.count(Invoice.id).label("inv_count"),
+                    )
+                    .where(Invoice.tenant_id == tid, Invoice.client_id.in_(client_ids))
+                    .group_by(Invoice.client_id)
+                )).all()
+                inv_agg = {row.client_id: (float(row.paid or 0), int(row.inv_count or 0)) for row in agg_rows}
 
             result = []
             for c in clients:
-                paid = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
-                        Invoice.tenant_id == tid,
-                        Invoice.client_id == c.id,
-                        Invoice.status == InvoiceStatus.PAID,
-                    )
-                ) or 0)
-                inv_count = int(await session.scalar(
-                    select(func.count(Invoice.id)).where(
-                        Invoice.tenant_id == tid, Invoice.client_id == c.id
-                    )
-                ) or 0)
+                paid, inv_count = inv_agg.get(c.id, (0.0, 0))
                 months_active = None
                 if c.started_at:
                     delta = datetime.now(UTC) - (c.started_at if c.started_at.tzinfo else c.started_at.replace(tzinfo=UTC))

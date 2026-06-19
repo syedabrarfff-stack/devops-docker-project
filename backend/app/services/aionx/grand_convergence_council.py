@@ -189,7 +189,7 @@ async def run_convergence_session(
         from app.models.aionx_organs import ClientDigitalTwin
         from app.services.aionx.client_trust_index import compute_trust_score
 
-        twins = (await db.execute(select(ClientDigitalTwin))).scalars().all()
+        twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
         if twins:
             avg_trust = sum(t.trust_score or 70 for t in twins) / len(twins)
             trust_context = f"\nAverage client trust: {avg_trust:.0f}/100"
