@@ -697,6 +697,118 @@ async def process_due_emails(
     return {"processed": len(due), "sent": sent}
 
 
+class LaunchCampaignIn(BaseModel):
+    lead_ids: list[UUID] = Field(..., min_length=1, max_length=50)
+    tenant_id: Optional[UUID] = None
+    generate_brief: bool = True
+
+
+@router.post("/launch-campaign")
+@limiter.limit("5/minute")
+async def launch_campaign(
+    request: Request,
+    body: LaunchCampaignIn,
+    bg: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Captain-selected campaign: queue outreach for specific leads.
+    Generates a trust brief for each lead (in background) and adds to outreach queue.
+    Returns per-lead results immediately; brief generation continues asynchronously.
+    """
+    from sqlalchemy import select
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead
+    from app.models.outreach import FollowUpQueue, FollowUpStatus
+
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    await set_tenant_context(db, str(resolved_tenant_id))
+
+    if len(body.lead_ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 leads per campaign launch.")
+
+    queued: list[dict] = []
+    already_queued: list[dict] = []
+    failed: list[dict] = []
+
+    for lead_id in body.lead_ids:
+        lead = await db.scalar(
+            select(Lead).where(Lead.tenant_id == resolved_tenant_id, Lead.id == lead_id)
+        )
+        if not lead:
+            failed.append({"lead_id": str(lead_id), "reason": "not_found"})
+            continue
+
+        company = lead.company_name or lead.company or str(lead_id)
+        email = lead.email or lead.contact_email
+
+        if not email:
+            failed.append({"lead_id": str(lead_id), "company": company, "reason": "no_email"})
+            continue
+
+        existing = await db.scalar(
+            select(FollowUpQueue.id).where(
+                FollowUpQueue.tenant_id == resolved_tenant_id,
+                FollowUpQueue.lead_id == lead_id,
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            ).limit(1)
+        )
+        if existing:
+            already_queued.append({"lead_id": str(lead_id), "company": company})
+            continue
+
+        try:
+            await outreach_engine.queue_sequence(lead_id, resolved_tenant_id)
+            queued.append({"lead_id": str(lead_id), "company": company, "email": email, "score": lead.score})
+        except Exception as exc:
+            logger.warning("launch_campaign queue failed for %s: %s", lead_id, exc)
+            failed.append({"lead_id": str(lead_id), "company": company, "reason": str(exc)[:120]})
+
+    await db.commit()
+
+    if body.generate_brief and queued:
+        bg.add_task(_generate_briefs_background, queued, resolved_tenant_id)
+
+    total = len(body.lead_ids)
+    return {
+        "total_requested": total,
+        "queued": len(queued),
+        "already_queued": len(already_queued),
+        "failed": len(failed),
+        "queued_leads": queued,
+        "already_queued_leads": already_queued,
+        "failed_leads": failed,
+        "brief_generation": "running_in_background" if body.generate_brief and queued else "skipped",
+        "next_step": "Run POST /outreach/execute to send emails when SES is ready.",
+    }
+
+
+async def _generate_briefs_background(
+    queued_leads: list[dict], tenant_id: UUID
+) -> None:
+    from app.services.trust.brief_generator import brief_generator
+    from app.core.database import AsyncSessionLocal
+    from app.models.lead import Lead
+    from sqlalchemy import select
+
+    for item in queued_leads:
+        try:
+            lead_id = UUID(item["lead_id"])
+            async with AsyncSessionLocal() as db:
+                lead = await db.scalar(select(Lead).where(Lead.id == lead_id))
+                if not lead:
+                    continue
+            await brief_generator.generate(
+                company_name=lead.company_name or lead.company or "",
+                industry=lead.industry or "",
+                pain_points=lead.pain_points or [],
+                lead_id=lead_id,
+                tenant_id=tenant_id,
+            )
+        except Exception as exc:
+            logger.warning("Brief generation failed for %s: %s", item.get("lead_id"), exc)
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
 

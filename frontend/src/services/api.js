@@ -139,6 +139,7 @@ export const getLeadStats = () => api.get('/api/v1/leads/stats').then(r => r.dat
 export const getSequenceStats = () => api.get('/api/v1/outreach/sequences/stats').then(r => r.data)
 export const getOutreachEngineStatus = () => api.get('/api/v1/outreach/engine-status').then(r => r.data)
 export const prepareOutreachCampaign = (limit = 25, min_score = 80) => api.post('/api/v1/outreach/prepare-campaign', { limit, min_score }).then(r => r.data)
+export const launchCampaign = (leadIds, generateBrief = true) => api.post('/api/v1/outreach/launch-campaign', { lead_ids: leadIds, generate_brief: generateBrief }, { timeout: 60000 }).then(r => r.data)
 export const createSequence = (data) => api.post('/api/v1/outreach/sequences', data).then(r => r.data)
 export const getPendingEmails = () => api.get('/api/v1/outreach/emails/pending').then(r => r.data)
 export const sendOutreachEmail = (id) => api.post(`/api/v1/outreach/emails/${id}/send`).then(r => r.data)

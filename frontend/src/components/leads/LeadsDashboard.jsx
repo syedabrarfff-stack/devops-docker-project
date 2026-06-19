@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { api, importLeadsCsv, downloadLeadCsvTemplate } from "../../services/api";
+import { api, importLeadsCsv, downloadLeadCsvTemplate, launchCampaign } from "../../services/api";
 import useJarvisStore from "../../store/useJarvisStore";
 
 const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
@@ -439,7 +439,7 @@ function CallBriefModal({ lead, onClose }) {
 
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'REPLIED', 'DEMO', 'NURTURE', 'PROPOSAL', 'WON', 'LOST'];
 
-function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh, onLoss }) {
+function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh, onLoss, selected, onToggle }) {
   const [scoring, setScoring] = useState(false);
   const [queuing, setQueuing] = useState(false);
   const [linkedInSending, setLinkedInSending] = useState(false);
@@ -463,12 +463,20 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRe
   return (
     <motion.div
       layout
-      className="glass rounded-xl p-4 border border-white/5 hover:border-blue-500/20 transition-all"
+      className={`glass rounded-xl p-4 border transition-all ${selected ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-white/5 hover:border-blue-500/20'}`}
     >
       <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="font-semibold text-white">{leadCompany(lead)}</p>
-          <p className="text-sm text-gray-400">{lead.contact_name || "-"}</p>
+        <div className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onToggle && onToggle(lead.id)}
+            className="mt-1 h-3.5 w-3.5 rounded accent-emerald-500 cursor-pointer flex-shrink-0"
+          />
+          <div>
+            <p className="font-semibold text-white">{leadCompany(lead)}</p>
+            <p className="text-sm text-gray-400">{lead.contact_name || "-"}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {lead.tier && (
@@ -627,6 +635,10 @@ export default function LeadsDashboard() {
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showCampaign, setShowCampaign] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [campaignResult, setCampaignResult] = useState(null);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -763,6 +775,37 @@ export default function LeadsDashboard() {
     }
   }
 
+  function toggleLead(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    setShowCampaign(false)
+    setCampaignResult(null)
+  }
+
+  async function handleLaunchCampaign() {
+    setLaunching(true)
+    setCampaignResult(null)
+    try {
+      const result = await launchCampaign([...selectedIds])
+      setCampaignResult(result)
+      if (result.queued > 0) {
+        setNotice({ tone: 'success', text: `Campaign launched — ${result.queued} lead${result.queued !== 1 ? 's' : ''} queued for outreach. Trust briefs generating in background.` })
+      }
+    } catch (e) {
+      setNotice({ tone: 'error', text: errorText(e, 'Campaign launch failed.') })
+      setShowCampaign(false)
+    } finally {
+      setLaunching(false)
+    }
+  }
+
   async function discoverLeads() {
     setDiscovering(true);
     try {
@@ -882,7 +925,7 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} selected={selectedIds.has(l.id)} onToggle={toggleLead} />)
           )}
         </div>
       )}
@@ -1078,6 +1121,143 @@ export default function LeadsDashboard() {
               <button onClick={() => setShowAdd(false)} className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-sm transition-colors">Cancel</button>
               <button onClick={addLead} disabled={!newLead.company} className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-medium transition-colors">Add Lead</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Campaign Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-[#0a0a0f]/90 backdrop-blur-md px-5 py-3 shadow-2xl">
+          <span className="text-sm font-semibold text-white">
+            {selectedIds.size} lead{selectedIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={() => { setShowCampaign(true); setCampaignResult(null) }}
+            className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition-colors"
+          >
+            🚀 Launch Campaign
+          </button>
+          <button
+            onClick={clearSelection}
+            className="text-xs text-white/40 hover:text-white/70 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Campaign Launch Modal */}
+      {showCampaign && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !launching && setShowCampaign(false)}
+        >
+          <div
+            className="glass rounded-2xl border border-white/10 p-6 w-full max-w-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            {!campaignResult ? (
+              <>
+                <div className="mb-4">
+                  <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider mb-1">🚀 Launch Outreach Campaign</p>
+                  <h2 className="text-lg font-bold text-white">{selectedIds.size} lead{selectedIds.size !== 1 ? 's' : ''} selected</h2>
+                  <p className="text-xs text-gray-400 mt-1">
+                    JARVIS will queue a personalised outreach sequence for each lead and generate a trust brief in the background.
+                    Emails send once AWS SES is live.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-white/[0.03] p-3 mb-4 max-h-48 overflow-y-auto space-y-1">
+                  {[...selectedIds].map(id => {
+                    const lead = leads.find(l => l.id === id)
+                    if (!lead) return null
+                    return (
+                      <div key={id} className="flex items-center justify-between text-xs py-1 border-b border-white/5 last:border-0">
+                        <span className="text-white font-medium">{leadCompany(lead)}</span>
+                        <div className="flex items-center gap-2 text-gray-500">
+                          {lead.score > 0 && <span className="text-yellow-400">Score {lead.score}</span>}
+                          {lead.email && <span className="truncate max-w-36">{lead.email}</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-2.5 mb-5 text-xs text-emerald-300/80">
+                  Trust briefs will be generated for each lead in the background. Leads without an email address will be skipped.
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCampaign(false)}
+                    disabled={launching}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-sm transition-colors disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleLaunchCampaign}
+                    disabled={launching}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-bold transition-colors"
+                  >
+                    {launching ? 'Launching…' : `🚀 Launch Campaign`}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-5">
+                  <p className="text-4xl mb-2">{campaignResult.queued > 0 ? '🚀' : '⚠️'}</p>
+                  <h2 className="text-lg font-bold text-white">
+                    {campaignResult.queued > 0 ? 'Campaign Launched' : 'Campaign Complete'}
+                  </h2>
+                  {campaignResult.queued > 0 && (
+                    <p className="text-xs text-emerald-400/80 mt-1">
+                      Outreach queued. Trust briefs generating in background.
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  {[
+                    { label: 'Queued', value: campaignResult.queued, color: 'text-emerald-400' },
+                    { label: 'Already Active', value: campaignResult.already_queued, color: 'text-amber-400' },
+                    { label: 'Failed', value: campaignResult.failed, color: 'text-red-400' },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-xl bg-white/5 p-3 text-center">
+                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {campaignResult.failed_leads?.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 mb-4">
+                    <p className="text-xs text-red-400 font-semibold mb-1">Skipped leads</p>
+                    {campaignResult.failed_leads.map((fl, i) => (
+                      <p key={i} className="text-xs text-gray-400">{fl.company || fl.lead_id} — {fl.reason}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowCampaign(false); clearSelection() }}
+                    className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors"
+                  >
+                    Done
+                  </button>
+                  {campaignResult.queued > 0 && (
+                    <button
+                      onClick={() => { setShowCampaign(false); clearSelection() }}
+                      className="flex-1 py-2.5 rounded-xl border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 text-sm transition-colors"
+                    >
+                      View Outreach Queue →
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
