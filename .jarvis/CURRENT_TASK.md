@@ -46,18 +46,39 @@ These are NOT code tasks. They require AWS console / DNS access:
 - API helpers: frontend/src/services/api.js
 - Data sources: GET /revenue/pipeline, GET /revenue/mrr, GET /leads, GET /trust/score/{id}
 
-### Priority 4 — First Client Activation Script
-**What:** Run scripts/first_client_activation.py to verify end-to-end flow works
-**Why:** Before doing outreach, verify the entire pipeline (lead → brief → proposal → contract → client) works
-**How:** After Captain unblocks infrastructure, test: create lead → generate brief → generate proposal → mark accepted → verify contract auto-generated → verify emails sent
+### Priority 4 — First Client Activation Script ✅ DONE
+`scripts/first_client_activation.py` — complete, all imports verified clean. Run it after Captain unblocks infrastructure.
+
+### Priority 5 — CSV Lead Import ✅ DONE
+`POST /api/v1/leads/import-csv` + `GET /api/v1/leads/csv-template` + LeadsDashboard "📥 Import CSV" modal.
+Captain can now upload Apollo/LinkedIn CSV exports to bulk-seed the pipeline.
+
+### Priority 6 — Outreach Campaign Launcher
+**What:** One-click "Launch Campaign" for a batch of hot leads — generates personalized trust brief + queues outreach email for each
+**Why:** Current flow is manual per-lead. Captain needs to arm 20+ leads for outreach in one action
+**How:**
+- Backend: `POST /api/v1/outreach/campaign` — accepts list of lead_ids, generates trust brief for each, queues outreach
+- Frontend: Add "Launch Campaign" button to LeadsDashboard (appears when 2+ leads selected via checkboxes)
+- Checkbox multi-select state on LeadRow
+- Campaign result modal showing queued count
+
+### Priority 7 — Proposal Preview in Approvals Queue
+**What:** When a proposal is queued for Captain approval, show the rendered proposal content inline (not just metadata)
+**Why:** Captain currently approves blind — can't see what the proposal says before approving
+**How:**
+- Backend: `GET /api/v1/proposals/{id}/preview` — return full rendered markdown/HTML
+- Frontend: Expand ApprovalQueue card to show proposal content inline or in modal
+- Route: approvals.py + proposals route
 
 ## Completed This Session
+- [x] Priority 1 — Executive Intelligence Layer (grounded morning briefing with live DB metrics)
+- [x] Priority 2 — Opportunity Radar (scheduler job at 06:00 UTC + manual trigger endpoint + frontend panel)
+- [x] Priority 3 — War Room HQ Dashboard (/control-room/war-room-hq — live pipeline command centre)
+- [x] Priority 4 — CSV Lead Import (POST /leads/import-csv + GET /leads/csv-template + LeadsDashboard modal)
+- [x] VS Code deep integration: REST Client environments, compound launch, React snippets, pyrightconfig, .prettierrc
+- [x] NVIDIA SSL fix: verify=False on httpx client for TLS inspection proxy in cloud containers
 - [x] Full repository audit (57 routes, 35 models, 36 service directories, 411 endpoints)
 - [x] API_INVENTORY.md — completely rewritten with accurate data (NVIDIA NIM routing, 15 task types)
-- [x] AGENT_REGISTRY.md — corrected (NVIDIA NIM is primary, not Anthropic)
-- [x] CURRENT_STATE.md — updated with full system picture
-- [x] TECH_MAP.md — created (new — master architecture reference)
-- [x] .continue/config.json — expanded to 7 models including NVIDIA NIM, Groq
 
 ## Previously Completed (Prior Sessions)
 - [x] Security hardening: rate limiting, JWT auth, N+1 fixes, DB indexes, HSTS

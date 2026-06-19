@@ -418,6 +418,8 @@ export const sendWhatsAppMedia          = (number, mediaUrl, caption, mediaType,
 // Lead Generation — Bulk Discovery & Import
 export const bulkDiscoverLeads  = (limit = 200, tenantId) => api.post('/api/v1/leads/bulk-discover', null, { params: { limit, ...(tenantId ? { tenant_id: tenantId } : {}) } }).then(r => r.data)
 export const batchImportLeads   = (leadsData, tenantId) => api.post('/api/v1/leads/batch-import', leadsData, { params: tenantId ? { tenant_id: tenantId } : {}, timeout: 120000 }).then(r => r.data)
+export const importLeadsCsv     = (formData, autoScore = true) => api.post('/api/v1/leads/import-csv', formData, { params: { auto_score: autoScore }, headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }).then(r => r.data)
+export const downloadLeadCsvTemplate = () => api.get('/api/v1/leads/csv-template', { responseType: 'blob', timeout: 10000 }).then(r => r.data)
 export const discoverLeadsApollo = (payload) => api.post('/api/v1/leads/discover', payload, { timeout: 90000 }).then(r => r.data)
 export const syncLeadsToHubSpot  = (tenantId) => api.post('/api/v1/crm/hubspot-sync', { tenant_id: tenantId }).then(r => r.data)
 // System

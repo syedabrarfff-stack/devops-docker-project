@@ -42,6 +42,27 @@ Content-Type: application/json
 }
 
 ###
+# GET CSV Template — download blank CSV with correct headers
+GET {{baseUrl}}/leads/csv-template
+Authorization: Bearer {{token}}
+
+###
+# POST Import Leads from CSV — multipart file upload
+# Use REST Client's file upload: @/path/to/your/leads.csv
+POST {{baseUrl}}/leads/import-csv?auto_score=true
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="leads.csv"
+Content-Type: text/csv
+
+company,contact_name,email,industry,country,opportunity_type
+Acme Corp,Jane Smith,jane@acme.com,SaaS,USA,AI Automation
+Example Ltd,John Doe,john@example.co.uk,Ecommerce,UK,CRM Setup
+------Boundary--
+
+###
 # POST Sync Leads from Apollo (requires JWT)
 POST {{baseUrl}}/sync/apollo
 Authorization: Bearer {{token}}

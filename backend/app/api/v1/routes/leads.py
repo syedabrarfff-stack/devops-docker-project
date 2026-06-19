@@ -1,6 +1,8 @@
+import csv
+import io
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, BackgroundTasks, Request, UploadFile
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -14,6 +16,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
 _BATCH_IMPORT_MAX = 500
+
+_CSV_COLUMN_MAP: dict[str, str] = {
+    "company": "company", "company_name": "company", "organisation": "company",
+    "organization": "company", "business": "company", "firm": "company",
+    "contact_name": "contact_name", "contact": "contact_name", "name": "contact_name",
+    "full_name": "contact_name", "person": "contact_name", "first_name": "contact_name",
+    "email": "email", "email_address": "email", "contact_email": "email",
+    "phone": "phone", "telephone": "phone", "mobile": "phone",
+    "whatsapp": "phone", "whatsapp_number": "phone",
+    "website": "website", "url": "website", "domain": "website", "web": "website",
+    "industry": "industry", "sector": "industry", "vertical": "industry",
+    "country": "country", "region": "country", "location": "country",
+    "source": "source", "lead_source": "source",
+    "notes": "notes", "description": "notes", "comments": "notes",
+    "pain_points": "pain_points", "pain points": "pain_points",
+    "challenges": "pain_points", "problems": "pain_points",
+    "linkedin": "linkedin_url", "linkedin_url": "linkedin_url", "linkedin_profile": "linkedin_url",
+    "opportunity_type": "opportunity_type", "service": "opportunity_type",
+    "service_type": "opportunity_type", "interest": "opportunity_type",
+}
+
+CSV_TEMPLATE_HEADERS = [
+    "company", "contact_name", "email", "phone", "website",
+    "industry", "country", "opportunity_type", "pain_points", "notes", "linkedin_url",
+]
 
 
 class LeadIn(BaseModel):
@@ -321,6 +348,171 @@ async def _run_bulk_discovery_background(tenant_id, targets):
     except Exception as exc:
         import logging
         logging.getLogger(__name__).warning("Bulk free discovery error: %s", exc)
+
+
+@router.get("/csv-template")
+async def csv_template():
+    """Download a blank CSV template with the correct column headers."""
+    from fastapi.responses import StreamingResponse
+    content = ",".join(CSV_TEMPLATE_HEADERS) + "\n"
+    content += ",".join([
+        "Acme Corp", "Jane Smith", "jane@acme.com", "+1-555-0100",
+        "acme.com", "SaaS", "USA", "AI Automation", "manual processes|no reporting", "",
+        "https://linkedin.com/in/janesmith",
+    ]) + "\n"
+    return StreamingResponse(
+        io.BytesIO(content.encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=jarvis_leads_template.csv"},
+    )
+
+
+@router.post("/import-csv")
+async def import_leads_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    tenant_id: Optional[UUID] = None,
+    auto_score: bool = Query(default=True),
+    db: AsyncSession = Depends(get_db),
+    bg: BackgroundTasks = None,
+):
+    """
+    Import leads from a CSV file. Accepts any column order; maps common header variants.
+    Deduplicates by email then company name. Optionally triggers AI scoring in background.
+    Max 500 rows per upload.
+    """
+    from app.models.lead import Lead, LeadStatus
+    from sqlalchemy import select
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a .csv file")
+
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+
+    raw_bytes = await file.read()
+    try:
+        text = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw_bytes.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    rows = list(reader)
+
+    if not rows:
+        return {"inserted": 0, "skipped": 0, "errors": 0, "total": 0, "message": "CSV file is empty"}
+
+    if len(rows) > _BATCH_IMPORT_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV has {len(rows)} rows — maximum is {_BATCH_IMPORT_MAX}. Split into smaller files.",
+        )
+
+    def _map_row(raw_row: dict) -> dict:
+        mapped: dict = {}
+        for col, val in raw_row.items():
+            key = _CSV_COLUMN_MAP.get(col.strip().lower().replace(" ", "_"))
+            if key and val and val.strip():
+                mapped[key] = val.strip()
+        return mapped
+
+    inserted = skipped = errors = 0
+
+    for raw_row in rows:
+        try:
+            row = _map_row(raw_row)
+            company = row.get("company", "").strip() or None
+            if not company:
+                skipped += 1
+                continue
+
+            email = row.get("email", "").strip().lower() or None
+
+            existing = None
+            if email:
+                existing = await db.scalar(
+                    select(Lead).where(Lead.tenant_id == resolved_tenant_id, Lead.email == email)
+                )
+            if not existing:
+                existing = await db.scalar(
+                    select(Lead).where(
+                        Lead.tenant_id == resolved_tenant_id, Lead.company_name == company
+                    )
+                )
+            if existing:
+                skipped += 1
+                continue
+
+            pain_raw = row.get("pain_points", "")
+            pain_points = [p.strip() for p in pain_raw.replace("|", ",").split(",") if p.strip()]
+
+            lead = Lead(
+                tenant_id=resolved_tenant_id,
+                company_name=company,
+                company=company,
+                contact_name=row.get("contact_name") or None,
+                email=email,
+                phone=row.get("phone") or None,
+                whatsapp_number=row.get("phone") or None,
+                website=row.get("website") or None,
+                industry=row.get("industry") or None,
+                country=row.get("country") or None,
+                source=row.get("source") or "csv_import",
+                notes=row.get("notes") or None,
+                pain_points=pain_points,
+                opportunity_type=row.get("opportunity_type") or None,
+                linkedin_url=row.get("linkedin_url") or None,
+                status=LeadStatus.NEW,
+            )
+            db.add(lead)
+            inserted += 1
+        except Exception as exc:
+            logger.warning("CSV row error: %s — %s", raw_row, exc)
+            errors += 1
+
+    await db.commit()
+
+    if auto_score and inserted > 0 and bg is not None:
+        bg.add_task(_score_newly_imported, resolved_tenant_id, min(inserted, 50))
+
+    msg = f"Imported {inserted} lead{'s' if inserted != 1 else ''}"
+    if skipped:
+        msg += f", skipped {skipped} duplicate{'s' if skipped != 1 else ''}"
+    if errors:
+        msg += f", {errors} row error{'s' if errors != 1 else ''}"
+    if auto_score and inserted > 0:
+        msg += ". AI scoring running in background."
+
+    return {
+        "inserted": inserted,
+        "skipped": skipped,
+        "errors": errors,
+        "total": len(rows),
+        "tenant_id": str(resolved_tenant_id),
+        "message": msg,
+    }
+
+
+async def _score_newly_imported(tenant_id: UUID, limit: int) -> None:
+    from app.core.database import AsyncSessionLocal
+    from app.models.lead import Lead, LeadStatus
+    from app.services.leads import engine as leads_engine
+    from sqlalchemy import select
+    try:
+        async with AsyncSessionLocal() as db:
+            unscored = await db.scalars(
+                select(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.score == 0, Lead.status == LeadStatus.NEW)
+                .order_by(Lead.created_at.desc())
+                .limit(limit)
+            )
+            for lead in unscored.all():
+                try:
+                    await leads_engine.score_lead(db, lead)
+                except Exception:
+                    pass
+            await db.commit()
+    except Exception as exc:
+        logger.warning("Background CSV scoring failed: %s", exc)
 
 
 def _aliyar_discovery_targets(total_limit: int) -> list[dict]:

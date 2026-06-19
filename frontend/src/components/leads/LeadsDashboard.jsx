@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { api } from "../../services/api";
+import { api, importLeadsCsv, downloadLeadCsvTemplate } from "../../services/api";
 import useJarvisStore from "../../store/useJarvisStore";
 
 const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
@@ -623,6 +623,10 @@ export default function LeadsDashboard() {
   const [discovering, setDiscovering] = useState(false);
   const [discoverForm, setDiscoverForm] = useState({ industry: '', country: 'usa', query: '', limit: 20 });
   const [bulkDiscovering, setBulkDiscovering] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -724,6 +728,41 @@ export default function LeadsDashboard() {
     }
   }
 
+  async function downloadTemplate() {
+    try {
+      const blob = await downloadLeadCsvTemplate()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'jarvis_leads_template.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setNotice({ tone: 'error', text: 'Template download failed.' })
+    }
+  }
+
+  async function importCsv() {
+    if (!importFile) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', importFile)
+      const result = await importLeadsCsv(fd)
+      setImportResult(result)
+      if (result.inserted > 0) {
+        setNotice({ tone: 'success', text: result.message })
+        setTimeout(loadAll, 2000)
+      }
+    } catch (e) {
+      setNotice({ tone: 'error', text: errorText(e, 'CSV import failed.') })
+      setShowImport(false)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   async function discoverLeads() {
     setDiscovering(true);
     try {
@@ -780,6 +819,12 @@ export default function LeadsDashboard() {
             title="Background discovery across all 25 Aliyar Solutions service packages"
           >
             {bulkDiscovering ? "Starting…" : "🚀 Bulk Discover"}
+          </button>
+          <button
+            onClick={() => { setShowImport(true); setImportFile(null); setImportResult(null) }}
+            className="px-4 py-2 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-sm transition-colors"
+          >
+            📥 Import CSV
           </button>
           <button
             onClick={() => setShowDiscover(true)}
@@ -898,6 +943,104 @@ export default function LeadsDashboard() {
                 {discovering ? "Discovering..." : "Discover Now"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {showImport && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !importing && setShowImport(false)}
+        >
+          <div
+            className="glass rounded-2xl border border-white/10 p-6 w-full max-w-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-white">Import Leads from CSV</h2>
+              <button onClick={downloadTemplate} className="text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2">
+                Download template
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Upload an Apollo, LinkedIn, or custom CSV export. Supported columns:
+              company, contact_name, email, phone, website, industry, country, opportunity_type, pain_points, notes, linkedin_url.
+              Duplicates are skipped automatically.
+            </p>
+
+            {!importResult ? (
+              <>
+                <label className="block w-full cursor-pointer">
+                  <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                    importFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 hover:border-white/20'
+                  }`}>
+                    {importFile ? (
+                      <div>
+                        <p className="text-emerald-400 font-semibold text-sm">{importFile.name}</p>
+                        <p className="text-xs text-gray-400 mt-1">{(importFile.size / 1024).toFixed(1)} KB · click to change</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-2xl mb-2">📄</p>
+                        <p className="text-sm text-gray-400">Click to select a CSV file</p>
+                        <p className="text-xs text-gray-600 mt-1">Max 500 rows</p>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={e => setImportFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowImport(false)}
+                    disabled={importing}
+                    className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-sm transition-colors disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={importCsv}
+                    disabled={!importFile || importing}
+                    className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-medium transition-colors"
+                  >
+                    {importing ? 'Importing…' : 'Import Leads'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="text-emerald-400 font-bold text-lg">{importResult.inserted} imported</p>
+                  <p className="text-xs text-gray-400 mt-1">{importResult.message}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: 'Total rows', value: importResult.total, color: 'text-white' },
+                    { label: 'Skipped', value: importResult.skipped, color: 'text-amber-400' },
+                    { label: 'Errors', value: importResult.errors, color: 'text-red-400' },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-lg bg-white/5 p-3">
+                      <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                {importResult.inserted > 0 && (
+                  <p className="text-xs text-emerald-400/70 text-center">AI scoring running in background — leads will appear with scores shortly.</p>
+                )}
+                <button
+                  onClick={() => setShowImport(false)}
+                  className="w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-medium transition-colors mt-2"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
