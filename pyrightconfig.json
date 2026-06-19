@@ -1,0 +1,21 @@
+{
+  "include": ["backend"],
+  "exclude": ["backend/.venv", "**/node_modules", "**/__pycache__"],
+  "venvPath": "backend",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "pythonPlatform": "Linux",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportOptionalMemberAccess": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportOperatorIssue": "warning",
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "pythonVersion": "3.11"
+    }
+  ]
+}

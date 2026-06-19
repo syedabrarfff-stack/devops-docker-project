@@ -162,5 +162,131 @@
 			"$0"
 		],
 		"description": "Router module boilerplate with standard JARVIS imports"
+	},
+
+	"JARVIS React Component": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-component",
+		"body": [
+			"import React, { useState, useEffect } from 'react'",
+			"",
+			"export default function $1() {",
+			"\tconst [loading, setLoading] = useState(false)",
+			"",
+			"\treturn (",
+			"\t\t<div className=\"min-h-screen bg-[#0a0a0f] p-6\">",
+			"\t\t\t<div className=\"flex items-center justify-between mb-6\">",
+			"\t\t\t\t<div>",
+			"\t\t\t\t\t<p className=\"text-[10px] font-bold uppercase tracking-[0.2em] text-white/30\">$2</p>",
+			"\t\t\t\t\t<h1 className=\"text-2xl font-bold text-white mt-0.5\">$3</h1>",
+			"\t\t\t\t</div>",
+			"\t\t\t</div>",
+			"\t\t\t$0",
+			"\t\t</div>",
+			"\t)",
+			"}"
+		],
+		"description": "JARVIS React page component with glassmorphism header"
+	},
+
+	"JARVIS Glass Card": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-card",
+		"body": [
+			"<div className=\"rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-5\">",
+			"\t<p className=\"text-[10px] font-bold uppercase tracking-[0.18em] text-white/40 mb-3\">$1</p>",
+			"\t$0",
+			"</div>"
+		],
+		"description": "JARVIS glassmorphism card"
+	},
+
+	"JARVIS API Hook": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-api-hook",
+		"body": [
+			"const [$2, set${2/(.*)/${1:/capitalize}/}] = useState($3null)",
+			"const [loading, setLoading] = useState(false)",
+			"",
+			"const fetch${1:Data} = useCallback(async () => {",
+			"\tsetLoading(true)",
+			"\ttry {",
+			"\t\tconst data = await $4()",
+			"\t\tset${2/(.*)/${1:/capitalize}/}(data)",
+			"\t} catch {}",
+			"\tsetLoading(false)",
+			"}, [])",
+			"",
+			"useEffect(() => {",
+			"\tfetch${1:Data}()",
+			"}, [fetch${1:Data}])"
+		],
+		"description": "JARVIS API fetch hook pattern with loading state"
+	},
+
+	"JARVIS Stat Badge": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-stat",
+		"body": [
+			"<div>",
+			"\t<p className=\"text-[10px] font-bold uppercase tracking-[0.18em] text-white/40 mb-1\">$1</p>",
+			"\t<p className=\"text-3xl font-bold tabular-nums $2\">{$3}</p>",
+			"\t<p className=\"text-xs text-white/40 mt-0.5\">$4</p>",
+			"</div>"
+		],
+		"description": "JARVIS big stat display (label + value + sub)"
+	},
+
+	"JARVIS Table Row": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-table",
+		"body": [
+			"<div className=\"mt-3 space-y-2\">",
+			"\t{$1?.map(($2, i) => (",
+			"\t\t<div key={$2.id || i} className=\"flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-white/5 px-3 py-2\">",
+			"\t\t\t<div className=\"min-w-0\">",
+			"\t\t\t\t<p className=\"text-sm font-semibold text-white truncate\">{$2.$3}</p>",
+			"\t\t\t\t<p className=\"text-xs text-white/40\">{$2.$4}</p>",
+			"\t\t\t</div>",
+			"\t\t\t$0",
+			"\t\t</div>",
+			"\t))}",
+			"</div>"
+		],
+		"description": "JARVIS list/table rows with glassmorphism style"
+	},
+
+	"JARVIS API Service Call": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-api-fn",
+		"body": [
+			"export const $1 = ($2) =>",
+			"\tapi.$3('/api/v1/$4'$5).then((r) => r.data)"
+		],
+		"description": "JARVIS api.js service helper"
+	},
+
+	"JARVIS Empty State": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-empty",
+		"body": [
+			"<p className=\"text-xs text-white/30 mt-3 text-center py-4\">$1</p>"
+		],
+		"description": "JARVIS empty state message"
+	},
+
+	"JARVIS Action Button": {
+		"scope": "javascript,javascriptreact",
+		"prefix": "jarvis-btn",
+		"body": [
+			"<button",
+			"\tonClick={$1}",
+			"\tdisabled={$2loading}",
+			"\tclassName=\"rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-40 transition-colors\"",
+			">",
+			"\t{$2loading ? '…' : '$3'}",
+			"</button>"
+		],
+		"description": "JARVIS action button with loading state"
 	}
 }

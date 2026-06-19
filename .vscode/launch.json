@@ -118,6 +118,38 @@
       "python": "${workspaceFolder}/backend/.venv/bin/python",
       "console": "integratedTerminal",
       "justMyCode": true
+    },
+    {
+      "name": "Frontend: Vite Dev",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Chrome: JARVIS Frontend",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMapPathOverrides": {
+        "webpack:///src/*": "${webRoot}/*"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: Backend + Frontend",
+      "configurations": ["FastAPI: Local Dev (uvicorn)", "Frontend: Vite Dev"],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "JARVIS",
+        "order": 1
+      }
     }
   ],
   "inputs": [
