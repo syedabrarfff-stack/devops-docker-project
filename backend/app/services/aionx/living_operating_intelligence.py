@@ -8,11 +8,14 @@ still pending production wiring.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.services.departments.axiom_operating_model import (
     AXIOM_DEPARTMENTS,
@@ -308,7 +311,8 @@ async def _matching_jobs(db: AsyncSession, needles: list[str]) -> list[str]:
     try:
         result = await db.execute(text("SELECT id FROM apscheduler_jobs ORDER BY id"))
         job_ids = [str(row[0]) for row in result.fetchall()]
-    except Exception:
+    except Exception as exc:
+        logger.warning("Could not query APScheduler job IDs: %s", exc)
         return []
     lowered_needles = [needle.lower() for needle in needles]
     return [job for job in job_ids if any(needle in job.lower() for needle in lowered_needles)]

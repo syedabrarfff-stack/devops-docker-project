@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import select
 
@@ -282,7 +285,8 @@ class ClientLiaisonService:
         try:
             result = await search_memory_graph(query, tenant_uuid, limit=5)
             return result.get("results", [])
-        except Exception:
+        except Exception as exc:
+            logger.warning("Memory graph search failed for liaison context: %s", exc)
             return []
 
     async def _council_briefing_gate(

@@ -125,7 +125,8 @@ async def run_convergence_session(
         from app.services.aionx.counterfactual_engine import extract_learning
         learning = await extract_learning(db)
         context_data["counterfactual_accuracy"] = learning.get("success_rate", 0.5)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Council: counterfactual context load failed: %s", exc)
         context_data["counterfactual_accuracy"] = None
 
     # Inject institutional debt
@@ -134,7 +135,8 @@ async def run_convergence_session(
         debt = await assess_institutional_debt(db)
         context_data["institutional_debt"] = debt.get("total_institutional_debt_usd", 0)
         context_data["debt_penalty"] = debt.get("wisdom_index_penalty_points", 0)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Council: institutional debt context load failed: %s", exc)
         context_data["institutional_debt"] = None
 
     session.context_loaded = context_data
@@ -163,7 +165,8 @@ async def run_convergence_session(
             confidence=0.7,
         )
         positions.append({"synthesis": position_synthesis})
-    except Exception:
+    except Exception as exc:
+        logger.warning("Council: position synthesis failed: %s", exc)
         positions.append({"synthesis": "SYNTHESIS_UNAVAILABLE"})
 
     await db.commit()
@@ -208,7 +211,8 @@ async def run_convergence_session(
             max_tokens=800,
         )
         session.recommendation = recommendation
-    except Exception:
+    except Exception as exc:
+        logger.warning("Council: final recommendation generation failed: %s", exc)
         session.recommendation = "RECOMMENDATION_DEFERRED"
 
     session.session_phase = "EXECUTIVE"

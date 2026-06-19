@@ -169,7 +169,8 @@ async def get_gmail_profile(db) -> Optional[dict]:
                 headers={"Authorization": f"Bearer {token}"},
             )
             return r.json()
-    except Exception:
+    except Exception as exc:
+        logger.warning("Gmail profile fetch failed: %s", exc)
         return None
 
 
