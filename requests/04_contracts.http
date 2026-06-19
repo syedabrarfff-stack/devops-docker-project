@@ -1,0 +1,23 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+@contractId = PASTE_CONTRACT_ID_HERE
+
+###
+# GET Contracts — list all (requires JWT)
+GET {{baseUrl}}/governance/contracts
+Authorization: Bearer {{token}}
+
+###
+# GET Contract by ID (requires JWT)
+GET {{baseUrl}}/governance/contracts/{{contractId}}
+Authorization: Bearer {{token}}
+
+###
+# PUT Update Contract Status (requires JWT)
+PUT {{baseUrl}}/governance/contracts/{{contractId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "signed"
+}

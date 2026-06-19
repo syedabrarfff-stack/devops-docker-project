@@ -27,6 +27,14 @@
     {
       "name": "📋 Memory — .jarvis",
       "path": ".jarvis"
+    },
+    {
+      "name": "🔌 API Requests",
+      "path": "requests"
+    },
+    {
+      "name": "📜 Scripts",
+      "path": "scripts"
     }
   ],
   "settings": {

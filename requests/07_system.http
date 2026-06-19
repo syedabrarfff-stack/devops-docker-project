@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+
+###
+# GET System HUD — real-time operational dashboard (requires JWT)
+GET {{baseUrl}}/system/hud
+Authorization: Bearer {{token}}
+
+###
+# POST Trigger Self-Heal — diagnose and repair system issues (requires JWT)
+POST {{baseUrl}}/system/self-heal
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "target": "all",
+  "dry_run": false
+}
+
+###
+# GET Captain Mission — current strategic objectives (requires JWT)
+GET {{baseUrl}}/captain/mission
+Authorization: Bearer {{token}}
+
+###
+# GET Captain Performance — KPIs and execution metrics (requires JWT)
+GET {{baseUrl}}/captain/performance
+Authorization: Bearer {{token}}

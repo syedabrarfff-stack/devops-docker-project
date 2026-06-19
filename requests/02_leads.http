@@ -1,0 +1,58 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+@leadId = PASTE_LEAD_ID_HERE
+
+###
+# GET Leads — list all (requires JWT)
+GET {{baseUrl}}/leads
+Authorization: Bearer {{token}}
+
+###
+# POST Create Lead (requires JWT)
+POST {{baseUrl}}/leads
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "company_name": "Apex Logistics Ltd",
+  "email": "cto@apexlogistics.com",
+  "industry": "Logistics",
+  "country": "United States",
+  "score": 82,
+  "contact_name": "James Whitfield",
+  "phone": "+1-415-555-0193",
+  "website": "https://apexlogistics.com",
+  "notes": "Interested in CI/CD pipeline automation and Kubernetes migration."
+}
+
+###
+# GET Lead by ID (requires JWT)
+GET {{baseUrl}}/leads/{{leadId}}
+Authorization: Bearer {{token}}
+
+###
+# PUT Update Lead Status (requires JWT)
+PUT {{baseUrl}}/leads/{{leadId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "qualified",
+  "notes": "Confirmed budget and decision-maker. Moving to proposal stage."
+}
+
+###
+# POST Sync Leads from Apollo (requires JWT)
+POST {{baseUrl}}/sync/apollo
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "CTO logistics startups United States",
+  "limit": 25,
+  "filters": {
+    "industry": ["Logistics", "Supply Chain"],
+    "employee_count_min": 10,
+    "employee_count_max": 500
+  }
+}

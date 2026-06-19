@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+
+###
+# GET Morning Briefing — grounded metrics (public, no auth required)
+GET {{baseUrl}}/briefing/morning?tenant_id=794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1
+
+###
+# GET Morning Briefing — AI-generated narrative (requires JWT)
+GET {{baseUrl}}/briefing/morning-ai
+Authorization: Bearer {{token}}
+
+###
+# POST Generate Briefing (requires JWT)
+POST {{baseUrl}}/briefing/generate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "tenant_id": "794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1",
+  "include_ai_narrative": true,
+  "sections": ["pipeline", "leads", "revenue", "alerts"]
+}
+
+###
+# GET Briefing Status (public)
+GET {{baseUrl}}/briefing/status

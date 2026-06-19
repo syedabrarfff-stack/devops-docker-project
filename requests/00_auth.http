@@ -1,0 +1,24 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+
+###
+# POST Login (Captain)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "syedabrarbhd@gmail.com",
+  "password": "your_password_here"
+}
+
+###
+# GET Briefing Status (public)
+GET {{baseUrl}}/briefing/status
+
+###
+# GET Health (public)
+GET http://localhost:8000/health
+
+###
+# GET Readyz (public)
+GET http://localhost:8000/readyz

@@ -1,0 +1,51 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+
+###
+# POST Execute Outreach Campaign (requires JWT, rate limited: 10/min)
+POST {{baseUrl}}/outreach/execute
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "sequence_id": "PASTE_SEQUENCE_ID_HERE",
+  "lead_ids": [
+    "PASTE_LEAD_ID_1_HERE",
+    "PASTE_LEAD_ID_2_HERE"
+  ],
+  "channel": "email",
+  "sender_persona": "darren_mitchell",
+  "dry_run": false
+}
+
+###
+# GET Outreach Sequences — list all (requires JWT)
+GET {{baseUrl}}/outreach/sequences
+Authorization: Bearer {{token}}
+
+###
+# POST Run Lead Discovery (requires JWT)
+POST {{baseUrl}}/discovery/run
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "target_industry": "Logistics",
+  "target_country": "United States",
+  "job_titles": ["CTO", "VP of Engineering", "Head of Infrastructure"],
+  "company_size_min": 10,
+  "company_size_max": 500,
+  "limit": 50
+}
+
+###
+# POST Run Free-Source Discovery (requires JWT)
+POST {{baseUrl}}/discovery/free-sources
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "sources": ["linkedin_public", "crunchbase_free", "github_orgs"],
+  "query": "logistics startups AWS infrastructure",
+  "limit": 30
+}

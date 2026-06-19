@@ -322,6 +322,8 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "daily_market_intelligence", "func": daily_market_intelligence, "hour": 4, "minute": 0},
         # Self-Healer — every 15 minutes — circuit breaker reset, pipeline refill, scheduler resurrection
         {"job_id": "self_healer", "func": _job_self_healer, "kind": "interval", "minutes": 15},
+        # Opportunity Radar — 06:00 UTC (11:30 IST) — surface idle hot leads before workday
+        {"job_id": "daily_opportunity_radar", "func": daily_opportunity_radar, "hour": 6, "minute": 0},
     ]
 
 
@@ -809,6 +811,23 @@ async def daily_market_intelligence() -> None:
         "success",
         {"files_generated": reports},
     )
+
+
+async def daily_opportunity_radar() -> None:
+    """Scan for hot leads that have gone idle and surface them to Captain."""
+    from app.services.intelligence.opportunity_radar import run_opportunity_radar
+
+    reports = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            report = await run_opportunity_radar(tenant_id)
+            found = report.get("summary", {}).get("total_opportunities", 0)
+            if found:
+                reports += found
+        except Exception as exc:
+            logger.error("Opportunity radar failed for tenant %s: %s", tenant_id, exc)
+
+    await _record_job_result("daily_opportunity_radar", "success", {"opportunities_found": reports})
 
 
 async def _sync_job_metadata() -> None:

@@ -1,0 +1,45 @@
+// JARVIS — Suggested Workspace Keybindings
+// ============================================================
+// VS Code does NOT support workspace-level keybindings natively.
+// These are reference bindings to add to your USER keybindings.
+//
+// To apply:
+//   1. Open the Command Palette (Ctrl+Shift+P)
+//   2. Run: "Preferences: Open Keyboard Shortcuts (JSON)"
+//   3. Paste the array below into your keybindings.json
+//
+// All bindings trigger tasks defined in .vscode/tasks.json.
+// ============================================================
+
+[
+	{
+		"key": "ctrl+shift+h",
+		"command": "workbench.action.tasks.runTask",
+		"args": "JARVIS: Health Check",
+		"when": "editorFocus || !editorFocus"
+	},
+	{
+		"key": "ctrl+shift+m",
+		"command": "workbench.action.tasks.runTask",
+		"args": "JARVIS: Run Migrations",
+		"when": "editorFocus || !editorFocus"
+	},
+	{
+		"key": "ctrl+shift+l",
+		"command": "workbench.action.tasks.runTask",
+		"args": "JARVIS: Backend Logs",
+		"when": "editorFocus || !editorFocus"
+	},
+	{
+		"key": "ctrl+shift+t",
+		"command": "workbench.action.tasks.runTask",
+		"args": "JARVIS: Get Captain Token",
+		"when": "editorFocus || !editorFocus"
+	},
+	{
+		"key": "ctrl+shift+b",
+		"command": "workbench.action.tasks.runTask",
+		"args": "JARVIS: Backend Shell (Docker)",
+		"when": "editorFocus || !editorFocus"
+	}
+]

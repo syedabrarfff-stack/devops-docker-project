@@ -1,0 +1,166 @@
+{
+	"JARVIS FastAPI Route (Auth + Rate Limit)": {
+		"scope": "python",
+		"prefix": "jarvis-route",
+		"body": [
+			"@router.post(\"/$1\")",
+			"@limiter.limit(\"$2/minute\")",
+			"async def $3(",
+			"\trequest: Request,",
+			"\tbody: $4,",
+			"\tdb: AsyncSession = Depends(get_db),",
+			"\t_: dict = Depends(get_current_captain),",
+			"\tbg: BackgroundTasks = None,",
+			") -> dict:",
+			"\t$0"
+		],
+		"description": "Full FastAPI route with rate limiting + JWT auth (Captain-protected)"
+	},
+	"JARVIS FastAPI Route (Public)": {
+		"scope": "python",
+		"prefix": "jarvis-route-public",
+		"body": [
+			"@router.get(\"/$1\")",
+			"@limiter.limit(\"$2/minute\")",
+			"async def $3(",
+			"\trequest: Request,",
+			"\tdb: AsyncSession = Depends(get_db),",
+			") -> dict:",
+			"\t$0"
+		],
+		"description": "FastAPI route without auth, rate limited (public endpoint)"
+	},
+	"JARVIS AI Router Call": {
+		"scope": "python",
+		"prefix": "jarvis-ai-call",
+		"body": [
+			"response, provider = await ai_router.chat(",
+			"\t[Message(role=\"user\", content=$1)],",
+			"\ttask_type=TaskType.$2,",
+			"\tmax_tokens=$3,",
+			")",
+			"content = response.content.strip()"
+		],
+		"description": "AI router call pattern with provider tracking"
+	},
+	"JARVIS Background Email Send": {
+		"scope": "python",
+		"prefix": "jarvis-bg-email",
+		"body": [
+			"async def _send_email_bg(data: dict) -> None:",
+			"\tawait send_outbound_email(",
+			"\t\tto=data[\"email\"],",
+			"\t\tsubject=\"$1\",",
+			"\t\tbody=data[\"body\"],",
+			"\t\tto_name=data.get(\"name\", \"\"),",
+			"\t)",
+			"",
+			"bg.add_task(_send_email_bg, {\"email\": $2, \"name\": $3, \"body\": $4})"
+		],
+		"description": "Background email send pattern using FastAPI BackgroundTasks"
+	},
+	"JARVIS DB Single Query": {
+		"scope": "python",
+		"prefix": "jarvis-db-query",
+		"body": [
+			"result = await db.execute(",
+			"\tselect($1).where($1.tenant_id == tenant_id, $2)",
+			")",
+			"obj = result.scalar_one_or_none()"
+		],
+		"description": "Async SQLAlchemy single-object query with tenant isolation"
+	},
+	"JARVIS DB List Query": {
+		"scope": "python",
+		"prefix": "jarvis-db-list",
+		"body": [
+			"rows = (",
+			"\tawait db.execute(",
+			"\t\tselect($1)",
+			"\t\t.where($1.tenant_id == tenant_id)",
+			"\t\t.order_by($1.created_at.desc())",
+			"\t\t.limit($2)",
+			"\t)",
+			").scalars().all()"
+		],
+		"description": "Async SQLAlchemy list query with tenant isolation, ordering, and limit"
+	},
+	"JARVIS Alembic Migration": {
+		"scope": "python",
+		"prefix": "jarvis-migration",
+		"body": [
+			"\"\"\"$1",
+			"",
+			"Revision ID: 0030_$2",
+			"Revises: 0029_trust_engine",
+			"Create Date: 2026-06-19",
+			"\"\"\"",
+			"from __future__ import annotations",
+			"import sqlalchemy as sa",
+			"from alembic import op",
+			"",
+			"revision = \"0030_$2\"",
+			"down_revision = \"0029_trust_engine\"",
+			"branch_labels = None",
+			"depends_on = None",
+			"",
+			"",
+			"def upgrade() -> None:",
+			"\top.create_table(",
+			"\t\t\"$3\",",
+			"\t\tsa.Column(\"id\", sa.Integer(), nullable=False),",
+			"\t\t$0",
+			"\t\tsa.PrimaryKeyConstraint(\"id\"),",
+			"\t)",
+			"\top.create_index(\"ix_${3}_tenant_id\", \"$3\", [\"tenant_id\"])",
+			"",
+			"",
+			"def downgrade() -> None:",
+			"\top.drop_index(\"ix_${3}_tenant_id\", table_name=\"$3\")",
+			"\top.drop_table(\"$3\")"
+		],
+		"description": "Alembic migration template following JARVIS revision chain conventions"
+	},
+	"JARVIS SQLAlchemy Model": {
+		"scope": "python",
+		"prefix": "jarvis-model",
+		"body": [
+			"class $1(JarvisBase):",
+			"\t__tablename__ = \"$2\"",
+			"",
+			"\t$3: Mapped[str] = mapped_column(String(200), nullable=False)",
+			"\tstatus: Mapped[str] = mapped_column(String(30), nullable=False, default=\"$4\", index=True)",
+			"\tnotes: Mapped[str | None] = mapped_column(Text, nullable=True)",
+			"\t$0"
+		],
+		"description": "SQLAlchemy model class using JarvisBase with standard field scaffold"
+	},
+	"JARVIS Pydantic Request Model": {
+		"scope": "python",
+		"prefix": "jarvis-pydantic",
+		"body": [
+			"class $1(BaseModel):",
+			"\t$2: str = Field(..., max_length=$3, description=\"$4\")",
+			"\t$0"
+		],
+		"description": "Pydantic request/body model with Field descriptor"
+	},
+	"JARVIS Router Module Init": {
+		"scope": "python",
+		"prefix": "jarvis-router-init",
+		"body": [
+			"from __future__ import annotations",
+			"",
+			"from fastapi import APIRouter, BackgroundTasks, Depends, Request",
+			"from sqlalchemy.ext.asyncio import AsyncSession",
+			"",
+			"from app.api.v1.routes.auth import get_current_captain",
+			"from app.core.database import get_db",
+			"from app.core.rate_limit import limiter",
+			"",
+			"router = APIRouter(prefix=\"/$1\", tags=[\"$2\"])",
+			"$0"
+		],
+		"description": "Router module boilerplate with standard JARVIS imports"
+	}
+}

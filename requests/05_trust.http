@@ -1,0 +1,59 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+@leadId = PASTE_LEAD_ID_HERE
+
+###
+# POST Generate Trust Brief (requires JWT)
+POST {{baseUrl}}/trust/briefs/generate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "company_name": "Apex Logistics Ltd",
+  "lead_id": "{{leadId}}",
+  "industry": "Logistics",
+  "pain_points": [
+    "Manual deployment processes causing downtime",
+    "Lack of CI/CD pipeline",
+    "No infrastructure monitoring or alerting",
+    "Scaling bottlenecks during peak periods"
+  ]
+}
+
+###
+# GET Trust Brief by Lead ID (requires JWT)
+GET {{baseUrl}}/trust/briefs/{{leadId}}
+Authorization: Bearer {{token}}
+
+###
+# POST Log Trust Engagement Event (requires JWT)
+POST {{baseUrl}}/trust/engagement
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "{{leadId}}",
+  "event_type": "proposal_opened",
+  "weight": 15,
+  "source": "email_tracking"
+}
+
+###
+# GET Trust Score by Lead ID (requires JWT)
+GET {{baseUrl}}/trust/score/{{leadId}}
+Authorization: Bearer {{token}}
+
+###
+# POST Generate Referral Request (requires JWT)
+POST {{baseUrl}}/trust/referrals/generate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "client_id": "PASTE_CLIENT_ID_HERE"
+}
+
+###
+# GET Referrals — list all (requires JWT)
+GET {{baseUrl}}/trust/referrals
+Authorization: Bearer {{token}}

@@ -1,10 +1,9 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db, set_tenant_context
 from app.services.intelligence.morning_briefing import MorningBriefingEngine
 from app.services.ai.router import ai_router
@@ -146,6 +145,18 @@ async def system_status():
         },
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@router.post("/opportunity-radar")
+async def trigger_opportunity_radar(
+    bg: BackgroundTasks = None,
+    _: dict = Depends(get_current_captain),
+) -> dict:
+    """Manually trigger the Opportunity Radar — returns idle hot leads immediately."""
+    tenant_id = _resolve_tenant_id_from_str(str(settings.JARVIS_DEFAULT_TENANT_ID))
+    from app.services.intelligence.opportunity_radar import run_opportunity_radar
+    report = await run_opportunity_radar(tenant_id)
+    return report
 
 
 def _resolve_tenant_id(request: Request) -> UUID:

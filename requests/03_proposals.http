@@ -1,0 +1,37 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+@proposalId = PASTE_PROPOSAL_ID_HERE
+
+###
+# POST Generate Proposal (requires JWT)
+POST {{baseUrl}}/proposals/generate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lead_id": "PASTE_LEAD_ID_HERE",
+  "service_type": "Cloud & DevOps",
+  "package_tier": "professional",
+  "custom_requirements": "AWS ECS Fargate migration, CI/CD pipeline setup with GitHub Actions, blue/green deployment strategy.",
+  "pricing_override": null
+}
+
+###
+# GET Proposals — list all (requires JWT)
+GET {{baseUrl}}/proposals
+Authorization: Bearer {{token}}
+
+###
+# GET Proposal by ID (requires JWT)
+GET {{baseUrl}}/proposals/{{proposalId}}
+Authorization: Bearer {{token}}
+
+###
+# PUT Update Proposal Status (requires JWT)
+PUT {{baseUrl}}/governance/proposals/{{proposalId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "accepted"
+}

@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+@clientId = PASTE_CLIENT_ID_HERE
+
+###
+# GET Monthly Recurring Revenue (requires JWT)
+GET {{baseUrl}}/revenue/mrr
+Authorization: Bearer {{token}}
+
+###
+# GET Revenue Pipeline (requires JWT)
+GET {{baseUrl}}/revenue/pipeline
+Authorization: Bearer {{token}}
+
+###
+# GET Revenue Clients (requires JWT)
+GET {{baseUrl}}/revenue/clients
+Authorization: Bearer {{token}}
+
+###
+# POST Create Client (requires JWT)
+POST {{baseUrl}}/clients
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "company_name": "Apex Logistics Ltd",
+  "contact_name": "James Whitfield",
+  "email": "cto@apexlogistics.com",
+  "phone": "+1-415-555-0193",
+  "industry": "Logistics",
+  "country": "United States",
+  "contract_value": 6000,
+  "billing_cycle": "monthly",
+  "service_type": "Cloud & DevOps",
+  "package_tier": "professional",
+  "onboarding_status": "pending"
+}
+
+###
+# GET Client by ID (requires JWT)
+GET {{baseUrl}}/clients/{{clientId}}
+Authorization: Bearer {{token}}

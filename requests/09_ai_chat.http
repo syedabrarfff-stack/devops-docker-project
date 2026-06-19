@@ -1,0 +1,48 @@
+@baseUrl = http://localhost:8000/api/v1
+@token = PASTE_TOKEN_HERE
+
+###
+# POST Chat with JARVIS (requires JWT)
+POST {{baseUrl}}/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "message": "What is the pipeline status?",
+  "task_type": "GENERAL"
+}
+
+###
+# POST Chat — Strategy Query
+POST {{baseUrl}}/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "message": "Summarise the top 5 leads by score and recommend which to prioritise this week.",
+  "task_type": "STRATEGY"
+}
+
+###
+# POST Chat — Code / Technical Query
+POST {{baseUrl}}/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "message": "Review the current CI/CD pipeline configuration and suggest optimisations for faster deployments.",
+  "task_type": "CODE"
+}
+
+###
+# POST Council Convene — multi-model deliberation (requires JWT)
+POST {{baseUrl}}/council/convene
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "topic": "Should we target fintech leads?",
+  "context": "We currently have strong DevOps and AI automation capabilities. Fintech clients typically demand SOC2 compliance and high availability SLAs.",
+  "models": ["claude-opus", "gpt-4o", "gemini-pro"],
+  "output_format": "structured_recommendation"
+}
