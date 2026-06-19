@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   XCircle,
 } from 'lucide-react'
-import { approveApproval, getApprovals, getProposalPreview, rejectApproval } from '../../services/api'
+import { approveApproval, generateContractFromProposal, getApprovals, getProposalPreview, rejectApproval } from '../../services/api'
 import { api } from '../../services/api'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -119,6 +119,9 @@ function ProposalPreviewPanel({ proposalId, tenantId }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
+  const [generating, setGenerating] = useState(false)
+  const [contractResult, setContractResult] = useState(null)
+  const [contractErr, setContractErr] = useState(null)
 
   async function load() {
     if (data || loading) return
@@ -130,6 +133,19 @@ function ProposalPreviewPanel({ proposalId, tenantId }) {
       setErr(e?.response?.data?.detail || 'Preview failed to load.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGenerateContract() {
+    setGenerating(true)
+    setContractErr(null)
+    try {
+      const result = await generateContractFromProposal(proposalId, tenantId)
+      setContractResult(result)
+    } catch (e) {
+      setContractErr(e?.response?.data?.detail || 'Contract generation failed.')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -220,6 +236,28 @@ function ProposalPreviewPanel({ proposalId, tenantId }) {
                   ) : (
                     <p className="text-xs text-white/30 text-center py-4">No proposal text stored — check the PDF link above.</p>
                   )}
+
+                  <div className="border-t border-white/5 pt-3 mt-1">
+                    {contractResult ? (
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                        <p className="text-xs text-emerald-400 font-bold">✅ Contract generated — #{contractResult.contract_id}</p>
+                        <p className="text-[11px] text-white/40 mt-1">{contractResult.next_step}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleGenerateContract}
+                          disabled={generating}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-4 py-2.5 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/15 disabled:opacity-50"
+                        >
+                          {generating ? <Loader2 size={13} className="animate-spin" /> : '📝'}
+                          {generating ? 'Generating contract…' : 'Generate Contract from this Proposal'}
+                        </button>
+                        {contractErr && <p className="text-xs text-red-400 mt-1.5">{contractErr}</p>}
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </div>

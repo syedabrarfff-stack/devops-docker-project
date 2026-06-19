@@ -107,6 +107,8 @@ export const rejectApproval = (id, reason = '') =>
   api.post(`/api/v1/approvals/${id}/reject`, { reason }).then((r) => r.data)
 export const getProposalPreview = (proposalId, tenantId) =>
   api.get(`/api/v1/proposals/${proposalId}/preview`, { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const generateContractFromProposal = (proposalId, tenantId) =>
+  api.post(`/api/v1/proposals/${proposalId}/generate-contract`, null, { params: tenantId ? { tenant_id: tenantId } : {}, timeout: 90000 }).then(r => r.data)
 
 // Agents
 export const getAgentHierarchy = () => api.get('/api/v1/agents/hierarchy').then((r) => r.data)

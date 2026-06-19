@@ -4,12 +4,13 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.database import AsyncSessionLocal, get_db, set_tenant_context
 from app.models.governance import Proposal
 from app.models.lead import Lead
 from app.services.governance.proposal_generator import proposal_generator
@@ -115,6 +116,70 @@ async def send_proposal(proposal_id: int, request: Request, body: ProposalAction
         logger.error("Proposal send failed for proposal %s: %s", proposal_id, exc, exc_info=True)
         raise HTTPException(status_code=503, detail="Proposal delivery failed") from exc
     return {"tenant_id": str(tenant_id), **result}
+
+
+@router.post("/{proposal_id}/generate-contract")
+@limiter.limit("10/minute")
+async def generate_contract_from_proposal(
+    proposal_id: int,
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a contract from an approved (or pending) proposal in one click."""
+    from app.services.governance.document_gen import generate_contract
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved))
+
+    proposal = await db.scalar(
+        select(Proposal).where(Proposal.id == proposal_id, Proposal.tenant_id == resolved)
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    if not (proposal.client_name or proposal.client_email or proposal.client_company):
+        raise HTTPException(status_code=400, detail="Proposal has no client details — cannot generate contract")
+
+    existing = await db.scalar(
+        select(Proposal).where(Proposal.id == proposal_id)  # reuse to get contract model
+    )
+    from app.models.governance import Contract
+    existing_contract = await db.scalar(
+        select(Contract).where(Contract.proposal_id == proposal_id)
+    )
+
+    service_type = (
+        proposal.service_type
+        or (proposal.package_tier + " — Aliyar Solutions" if proposal.package_tier else "Technology Services")
+    )
+    scope = proposal.scope or proposal.content or "As per the approved proposal."
+    if isinstance(scope, str) and len(scope) > 1500:
+        scope = scope[:1500] + "…"
+
+    contract = await generate_contract(
+        db=db,
+        proposal_id=proposal_id,
+        client_name=proposal.client_name or "",
+        client_email=proposal.client_email or "",
+        client_company=proposal.client_company or "",
+        service_type=service_type,
+        scope=scope,
+        pricing=proposal.pricing or {},
+    )
+    await db.commit()
+
+    return {
+        "generated": True,
+        "proposal_id": proposal_id,
+        "contract_id": contract["id"],
+        "contract_status": contract["status"],
+        "client_company": proposal.client_company or proposal.client_name,
+        "package_tier": proposal.package_tier,
+        "content_preview": (contract.get("content") or "")[:300],
+        "already_existed": existing_contract is not None,
+        "next_step": "Review the contract, then use POST /governance/contracts/{id}/status to mark as 'sent' after delivering to client.",
+    }
 
 
 async def _latest_proposal_for_lead(tenant_id: UUID, lead_id: UUID) -> Proposal | None:
