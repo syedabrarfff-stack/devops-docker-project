@@ -8,7 +8,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1151,6 +1152,7 @@ async def aionx_stability(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 async def aionx_self_heal_diagnose(
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
     from app.services.aionx.omni_mission_control import self_heal_diagnose
     return await self_heal_diagnose(db, payload)
@@ -1178,6 +1180,7 @@ async def aionx_frontier_generate_service_concept(
 async def aionx_frontier_scan_threats(
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
     from app.services.aionx.frontier_intelligence import scan_threats
     return await scan_threats(db, payload)
@@ -1187,6 +1190,7 @@ async def aionx_frontier_scan_threats(
 async def aionx_frontier_cascade(
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
     from app.services.aionx.frontier_intelligence import cascade_intelligence
     return await cascade_intelligence(db, payload)
