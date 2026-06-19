@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
 from app.services.aionx.omni_mission_control import system_hud
 
@@ -15,7 +16,10 @@ router = APIRouter(prefix="/system", tags=["System HUD"])
 
 
 @router.get("/hud")
-async def get_system_hud(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def get_system_hud(
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(get_current_captain),
+) -> dict[str, Any]:
     try:
         return await system_hud(db, persist=False)
     except HTTPException:
@@ -26,7 +30,7 @@ async def get_system_hud(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.post("/self-heal")
-async def trigger_self_heal() -> dict[str, Any]:
+async def trigger_self_heal(_: dict = Depends(get_current_captain)) -> dict[str, Any]:
     """Manually trigger JARVIS autonomous self-healing cycle.
     Resets failed AI circuit breakers, refills empty lead pipelines,
     resumes paused scheduler jobs, and reports Redis health."""

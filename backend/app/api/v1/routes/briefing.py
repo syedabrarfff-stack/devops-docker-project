@@ -2,6 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.database import get_db, set_tenant_context
 from app.services.intelligence.morning_briefing import MorningBriefingEngine
@@ -46,7 +47,7 @@ async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/morning-ai")
-async def morning_briefing_ai():
+async def morning_briefing_ai(_: dict = Depends(get_current_captain)):
     now = datetime.now()
     hour = now.hour
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
@@ -70,7 +71,7 @@ async def morning_briefing_ai():
 
 
 @router.post("/generate")
-async def generate_briefing(request: Request, db: AsyncSession = Depends(get_db)):
+async def generate_briefing(request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     return await morning_briefing(request, db)
 
 

@@ -4,14 +4,16 @@ import logging
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/captain", tags=["captain"])
+_captain_dep = [Depends(get_current_captain)]
+router = APIRouter(prefix="/captain", tags=["captain"], dependencies=_captain_dep)
 
 # ── Secondary router for /voice endpoints ─────────────────────────────────────
-voice_router = APIRouter(prefix="/voice", tags=["voice"])
+voice_router = APIRouter(prefix="/voice", tags=["voice"], dependencies=_captain_dep)
 
 
 # ─────────────────────────────── REQUEST BODIES ────────────────────────────── #

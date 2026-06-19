@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ async def list_incidents(
 
 
 @router.post("/incidents")
-async def declare_incident(req: IncidentRequest, db: AsyncSession = Depends(get_db)):
+async def declare_incident(req: IncidentRequest, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     from app.services.monitoring.emergency import declare_emergency
     async with db.begin():
         incident = await declare_emergency(
@@ -83,7 +84,7 @@ async def add_action(incident_id: int, req: ActionRequest, db: AsyncSession = De
 
 
 @router.post("/alert")
-async def send_captain_alert(req: IncidentRequest):
+async def send_captain_alert(req: IncidentRequest, _: dict = Depends(get_current_captain)):
     """Send an immediate alert to Captain without creating a DB incident."""
     from app.services.notifications.slack import notify_system_event
     from app.core.config import settings
