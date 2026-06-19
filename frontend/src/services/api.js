@@ -217,6 +217,9 @@ export const getAgentPermissions = () => api.get('/api/v1/governance/permissions
 export const grantPermission = (data) => api.post('/api/v1/governance/permissions', data).then(r => r.data)
 export const revokePermission = (id) => api.post(`/api/v1/governance/permissions/${id}/revoke`).then(r => r.data)
 export const getGovernanceStats = () => api.get('/api/v1/governance/stats').then(r => r.data)
+export const getContracts = (status) => api.get('/api/v1/governance/contracts', { params: status ? { status } : {} }).then(r => r.data)
+export const updateContractStatus = (id, status) => api.post(`/api/v1/governance/contracts/${id}/status`, { status }).then(r => r.data)
+export const sendContractEmail = (id) => api.post(`/api/v1/governance/contracts/${id}/send-email`).then(r => r.data)
 
 // Phase 6 — Emergency Control
 export const getSystemHealth = () => api.get('/api/v1/emergency/health').then(r => r.data)

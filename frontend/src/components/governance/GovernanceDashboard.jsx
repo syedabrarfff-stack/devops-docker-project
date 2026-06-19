@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import api from "../../services/api"
+import { getContracts, sendContractEmail, updateContractStatus } from "../../services/api"
 
 const STATUS_COLORS = {
   draft:       "text-gray-400 bg-gray-500/10 border-gray-600",
@@ -352,6 +353,204 @@ function ProposalsTab() {
   )
 }
 
+// ── Contracts Tab ─────────────────────────────────────────────────────────────
+const CONTRACT_STATUS_FLOW = {
+  draft:     { next: 'sent',   label: '📤 Send via Email', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
+  sent:      { next: 'signed', label: '✍️ Mark as Signed', color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
+  signed:    { next: null,     label: null,                 color: 'text-green-400 border-green-500/30 bg-green-500/10' },
+  cancelled: { next: null,     label: null,                 color: 'text-red-400 border-red-500/30 bg-red-500/10' },
+}
+
+function ContractsTab() {
+  const [contracts, setContracts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(null)
+  const [acting, setActing] = useState(null)
+  const [notice, setNotice] = useState(null)
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const data = await getContracts()
+      setContracts(Array.isArray(data) ? data : (data.contracts || []))
+    } catch (e) {
+      setNotice({ tone: 'error', text: e?.response?.data?.detail || 'Failed to load contracts.' })
+    }
+    setLoading(false)
+  }
+
+  async function advance(contract) {
+    const flow = CONTRACT_STATUS_FLOW[contract.status]
+    if (!flow?.next) return
+    setActing(contract.id)
+    try {
+      if (contract.status === 'draft') {
+        await sendContractEmail(contract.id)
+        setNotice({ tone: 'success', text: `Contract sent to ${contract.client_email}. Status → Sent.` })
+      } else {
+        await updateContractStatus(contract.id, flow.next)
+        setNotice({ tone: 'success', text: `Contract marked as ${flow.next}.` })
+      }
+      await load()
+    } catch (e) {
+      setNotice({ tone: 'error', text: e?.response?.data?.detail || 'Action failed.' })
+    }
+    setActing(null)
+  }
+
+  async function cancel(id) {
+    if (!window.confirm('Cancel this contract?')) return
+    setActing(id)
+    try {
+      await updateContractStatus(id, 'cancelled')
+      await load()
+    } catch {}
+    setActing(null)
+  }
+
+  const signed = contracts.filter(c => c.status === 'signed').length
+  const sent = contracts.filter(c => c.status === 'sent').length
+  const draft = contracts.filter(c => c.status === 'draft').length
+
+  return (
+    <div className="space-y-4">
+      {notice && (
+        <div className={`rounded-xl border p-3 text-sm ${notice.tone === 'error' ? 'border-red-400/25 bg-red-500/10 text-red-200' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span>{notice.text}</span>
+            <button onClick={() => setNotice(null)} className="text-xs opacity-60 hover:opacity-100">✕</button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Draft', value: draft, color: 'text-gray-300' },
+          { label: 'Sent to Client', value: sent, color: 'text-blue-400' },
+          { label: 'Signed', value: signed, color: 'text-green-400' },
+        ].map(s => (
+          <div key={s.label} className="glass rounded-xl p-4 border border-white/5 text-center">
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-gray-500 text-sm p-4 text-center">Loading contracts…</div>
+      ) : contracts.length === 0 ? (
+        <div className="glass rounded-xl p-10 border border-white/5 text-center">
+          <p className="text-2xl mb-2">📝</p>
+          <p className="text-white font-semibold text-sm">No contracts yet</p>
+          <p className="text-xs text-gray-500 mt-1">Generate a contract from the Approvals queue after approving a proposal.</p>
+        </div>
+      ) : (
+        contracts.map(c => {
+          const flow = CONTRACT_STATUS_FLOW[c.status] || CONTRACT_STATUS_FLOW.draft
+          return (
+            <div key={c.id} className="glass rounded-xl border border-white/5 overflow-hidden">
+              <button
+                className="w-full flex items-start justify-between p-5 text-left"
+                onClick={() => setExpanded(expanded === c.id ? null : c.id)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white">
+                    {c.client_company || c.client_name || `Contract #${c.id}`}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {c.service_type || 'Technology Services'}{c.client_email ? ` · ${c.client_email}` : ''}
+                  </p>
+                  {c.signed_at && (
+                    <p className="text-xs text-green-400 mt-0.5">✍️ Signed {new Date(c.signed_at).toLocaleDateString()}</p>
+                  )}
+                  {c.sent_at && !c.signed_at && (
+                    <p className="text-xs text-blue-400 mt-0.5">📤 Sent {new Date(c.sent_at).toLocaleDateString()}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-3">
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${flow.color}`}>
+                    {c.status}
+                  </span>
+                  <span className="text-gray-600 text-xs">{expanded === c.id ? '▲' : '▼'}</span>
+                </div>
+              </button>
+
+              {expanded === c.id && (
+                <div className="border-t border-white/5 px-5 pb-5 pt-4 space-y-4">
+                  {c.pricing && Object.keys(c.pricing).length > 0 && (
+                    <div className="flex flex-wrap gap-4 text-xs">
+                      {c.pricing.setup_fee != null && (
+                        <span className="text-white/60">Setup: <span className="text-white font-semibold">${Number(c.pricing.setup_fee).toLocaleString()}</span></span>
+                      )}
+                      {(c.pricing.monthly_fee ?? c.pricing.monthly_retainer) != null && (
+                        <span className="text-white/60">Monthly: <span className="text-white font-semibold">${Number(c.pricing.monthly_fee ?? c.pricing.monthly_retainer).toLocaleString()}</span></span>
+                      )}
+                    </div>
+                  )}
+
+                  {c.content ? (
+                    <pre className="text-[11px] text-gray-300 whitespace-pre-wrap leading-5 font-sans max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-black/30 p-4">
+                      {c.content}
+                    </pre>
+                  ) : (
+                    <p className="text-xs text-gray-600">No contract text — check PDF link.</p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {flow.next && (
+                      <button
+                        onClick={() => advance(c)}
+                        disabled={acting === c.id}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold disabled:opacity-50 transition-colors"
+                      >
+                        {acting === c.id ? 'Working…' : flow.label}
+                      </button>
+                    )}
+                    {c.status === 'signed' && (
+                      <button
+                        onClick={() => {
+                          const url = new URL(window.location.href)
+                          url.searchParams.set('tab', 'invoices')
+                          window.history.pushState({}, '', url)
+                          setNotice({ tone: 'success', text: 'Switch to the Invoices tab to raise the first invoice for this client.' })
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-jarvis-gold/10 hover:bg-jarvis-gold/20 text-jarvis-gold border border-jarvis-gold/30 text-xs font-semibold transition-colors"
+                      >
+                        💰 Raise Invoice
+                      </button>
+                    )}
+                    {c.status !== 'cancelled' && c.status !== 'signed' && (
+                      <button
+                        onClick={() => cancel(c.id)}
+                        disabled={acting === c.id}
+                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {c.pdf_url && (
+                      <a
+                        href={c.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs transition-colors"
+                      >
+                        View PDF →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
 // ── System Test Tab ──────────────────────────────────────────────────────────
 function SystemTestTab() {
   const [testing, setTesting] = useState(false)
@@ -699,6 +898,7 @@ export default function GovernanceDashboard() {
   const TABS = [
     { id: "invoices",  label: "Invoices" },
     { id: "proposals", label: "Proposals" },
+    { id: "contracts", label: "Contracts" },
     { id: "demos",     label: "Demos" },
     { id: "incidents", label: "Incidents" },
     { id: "test",      label: "System Test" },
@@ -748,6 +948,7 @@ export default function GovernanceDashboard() {
 
       {tab === "invoices"  && <InvoicesTab />}
       {tab === "proposals" && <ProposalsTab />}
+      {tab === "contracts" && <ContractsTab />}
       {tab === "demos"     && <DemosTab />}
       {tab === "incidents" && <IncidentsTab />}
       {tab === "test"      && <SystemTestTab />}

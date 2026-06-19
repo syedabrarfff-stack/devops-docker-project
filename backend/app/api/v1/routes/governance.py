@@ -252,6 +252,23 @@ async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSe
     return {"contract": contract, "email_queued": bool(contract.get("client_email"))}
 
 
+@router.post("/contracts/{contract_id}/send-email")
+async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    from app.services.governance.document_gen import get_contract as _get, update_contract_status as _update
+
+    contract = await _get(db, contract_id)
+    if not contract:
+        raise HTTPException(404, "Contract not found")
+    if not contract.get("client_email"):
+        raise HTTPException(400, "Contract has no client email — cannot send")
+
+    async with db.begin():
+        await _update(db, contract_id, "sent")
+
+    bg.add_task(_send_contract_email_bg, contract)
+    return {"sent": True, "contract_id": contract_id, "to": contract["client_email"]}
+
+
 @router.post("/contracts/{contract_id}/status")
 async def update_contract_status(contract_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import update_contract_status as _update
