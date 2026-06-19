@@ -63,6 +63,32 @@ async def generate_proposal(request: Request, body: GenerateProposalRequest):
     }
 
 
+@router.get("/{proposal_id}/preview")
+async def preview_proposal(proposal_id: int, request: Request, tenant_id: Optional[UUID] = None):
+    resolved = _resolve_tenant_id(request, tenant_id)
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await set_tenant_context(session, str(resolved))
+            proposal = await session.scalar(
+                select(Proposal).where(Proposal.id == proposal_id, Proposal.tenant_id == resolved)
+            )
+            if not proposal:
+                raise HTTPException(status_code=404, detail="Proposal not found")
+    return {
+        "proposal_id": proposal.id,
+        "client_company": proposal.client_company or proposal.client_name,
+        "client_name": proposal.client_name,
+        "client_email": proposal.client_email,
+        "package_tier": proposal.package_tier,
+        "invoice_number": proposal.invoice_number,
+        "status": proposal.status,
+        "pdf_url": proposal.pdf_url,
+        "content": proposal.content or "",
+        "pricing": proposal.pricing or {},
+        "created_at": proposal.created_at.isoformat() if proposal.created_at else None,
+    }
+
+
 @router.post("/{proposal_id}/approve")
 async def approve_proposal(proposal_id: int, request: Request, body: ProposalActionRequest = Body(default_factory=ProposalActionRequest)):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)

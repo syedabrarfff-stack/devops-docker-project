@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   XCircle,
 } from 'lucide-react'
-import { approveApproval, getApprovals, rejectApproval } from '../../services/api'
+import { approveApproval, getApprovals, getProposalPreview, rejectApproval } from '../../services/api'
 import { api } from '../../services/api'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -114,6 +114,122 @@ function StatPill({ label, value, tone = 'cyan' }) {
   )
 }
 
+function ProposalPreviewPanel({ proposalId, tenantId }) {
+  const [open, setOpen] = useState(false)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  async function load() {
+    if (data || loading) return
+    setLoading(true)
+    setErr(null)
+    try {
+      setData(await getProposalPreview(proposalId, tenantId))
+    } catch (e) {
+      setErr(e?.response?.data?.detail || 'Preview failed to load.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleToggle() {
+    const next = !open
+    setOpen(next)
+    if (next) load()
+  }
+
+  const tierColor = {
+    STARTER: 'text-blue-400 border-blue-500/30 bg-blue-500/10',
+    GROWTH: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+    ENTERPRISE: 'text-jarvis-gold border-jarvis-gold/30 bg-jarvis-gold/10',
+  }[data?.package_tier?.toUpperCase()] || 'text-white/50 border-white/10 bg-white/5'
+
+  return (
+    <div className="mt-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.04]">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-purple-300/70"
+      >
+        <span className="flex items-center gap-2">
+          <span>📄</span>
+          Proposal Content
+        </span>
+        <ChevronDown size={15} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-t border-purple-500/15"
+          >
+            <div className="p-4 space-y-3">
+              {loading && (
+                <div className="flex items-center gap-2 text-xs text-white/40 py-4 justify-center">
+                  <Loader2 size={14} className="animate-spin" />
+                  Loading proposal…
+                </div>
+              )}
+
+              {err && (
+                <p className="text-xs text-red-400 py-2">{err}</p>
+              )}
+
+              {data && !loading && (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    {data.package_tier && (
+                      <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase ${tierColor}`}>
+                        {data.package_tier}
+                      </span>
+                    )}
+                    {data.invoice_number && (
+                      <span className="text-xs text-white/40">{data.invoice_number}</span>
+                    )}
+                    {data.pdf_url && (
+                      <a
+                        href={data.pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-jarvis-cyan hover:text-white underline underline-offset-2"
+                      >
+                        View PDF →
+                      </a>
+                    )}
+                  </div>
+
+                  {data.pricing && Object.keys(data.pricing).length > 0 && (
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {data.pricing.setup_fee != null && (
+                        <span className="text-white/60">Setup: <span className="text-white font-semibold">${Number(data.pricing.setup_fee).toLocaleString()}</span></span>
+                      )}
+                      {data.pricing.monthly_fee != null && (
+                        <span className="text-white/60">Monthly: <span className="text-white font-semibold">${Number(data.pricing.monthly_fee).toLocaleString()}</span></span>
+                      )}
+                    </div>
+                  )}
+
+                  {data.content ? (
+                    <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-4 text-[11px] leading-5 text-white/70 font-sans">
+                      {data.content}
+                    </pre>
+                  ) : (
+                    <p className="text-xs text-white/30 text-center py-4">No proposal text stored — check the PDF link above.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function ApprovalCard({ approval, focused, onFocus, onApprove, onReject }) {
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [payloadOpen, setPayloadOpen] = useState(false)
@@ -121,6 +237,8 @@ function ApprovalCard({ approval, focused, onFocus, onApprove, onReject }) {
   const [deciding, setDeciding] = useState(null)
   const buttonRef = useRef(null)
   const risk = String(approval.risk_level || 'medium').toLowerCase()
+  const proposalId = approval.payload?.proposal_id ?? null
+  const proposalTenantId = approval.payload?.tenant_id ?? null
 
   useEffect(() => {
     if (focused) buttonRef.current?.focus()
@@ -204,6 +322,10 @@ function ApprovalCard({ approval, focused, onFocus, onApprove, onReject }) {
           </div>
         </div>
       </div>
+
+      {proposalId && (
+        <ProposalPreviewPanel proposalId={proposalId} tenantId={proposalTenantId} />
+      )}
 
       <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03]">
         <button
