@@ -5,7 +5,8 @@ Supports typed events, client subscriptions, and notification persistence.
 import json
 import logging
 import asyncio
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
 from typing import Set, Optional
 
 logger = logging.getLogger(__name__)
@@ -113,7 +114,17 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 @router.websocket("/ws/captain")
-async def captain_websocket_endpoint(ws: WebSocket):
+async def captain_websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
+    from app.core.config import settings
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("role") != "captain":
+            await ws.close(code=4003)
+            return
+    except JWTError:
+        await ws.close(code=4001)
+        return
+
     await ws.accept()
     _captain_clients.add(ws)
     try:
