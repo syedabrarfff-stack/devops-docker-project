@@ -66,6 +66,7 @@ import DepartmentsView from './components/departments/DepartmentsView'
 import CaptainBridge from './components/frontier/CaptainBridge'
 import RevenueIntelligence from './components/frontier/RevenueIntelligence'
 import WarRoom from './components/frontier/WarRoom'
+import WarRoomHQ from './components/dashboard/WarRoom'
 import SystemHUD from './components/frontier/SystemHUD'
 import ExpertCouncil from './components/frontier/ExpertCouncil'
 import Relationships from './components/frontier/Relationships'
@@ -122,6 +123,7 @@ export const VIEWS = {
   captainBridge: { path: controlPath('/captain-bridge'), title: 'Captain Bridge',        Component: CaptainBridge },
   revenueIntel:  { path: controlPath('/revenue-intelligence'), title: 'Revenue Intelligence', Component: RevenueIntelligence },
   warRoom:       { path: controlPath('/war-room'),       title: 'War Room',              Component: WarRoom },
+  warRoomHQ:    { path: controlPath('/war-room-hq'),    title: 'War Room HQ',           Component: WarRoomHQ },
   systemHud:     { path: controlPath('/system-hud'),     title: 'System HUD',            Component: SystemHUD },
   expertCouncil: { path: controlPath('/expert-council'), title: 'Expert Council',        Component: ExpertCouncil },
   relationships: { path: controlPath('/relationships'),  title: 'Relationships',         Component: Relationships },

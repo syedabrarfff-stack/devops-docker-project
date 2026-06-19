@@ -8,6 +8,7 @@ const VIEW_PATHS = {
   captainBridge: '/control-room/captain-bridge',
   approvals: '/control-room/approvals',
   warRoom: '/control-room/war-room',
+  warRoomHQ: '/control-room/war-room-hq',
   systemHud: '/control-room/system-hud',
   leads: '/control-room/leads',
   outreach: '/control-room/outreach',

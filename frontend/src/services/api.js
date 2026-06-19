@@ -89,7 +89,10 @@ export const getChatHistory = (sessionId) => api.get(`/api/v1/history/${sessionI
 export const getProviders = () => api.get('/api/v1/providers').then((r) => r.data)
 
 // Briefing
-export const getMorningBriefing = () => api.get('/api/v1/briefing/morning').then((r) => r.data)
+export const getMorningBriefing = (tenantId = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1') =>
+  api.get('/api/v1/briefing/morning', { params: { tenant_id: tenantId } }).then((r) => r.data)
+export const getMorningBriefingAI = () => api.get('/api/v1/briefing/morning-ai').then((r) => r.data)
+export const triggerOpportunityRadar = () => api.post('/api/v1/briefing/opportunity-radar').then((r) => r.data)
 export const getSystemStatus = () => api.get('/api/v1/briefing/status').then((r) => r.data)
 
 // Approvals

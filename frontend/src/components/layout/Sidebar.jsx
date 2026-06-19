@@ -5,7 +5,7 @@ import {
   Zap, Activity, UserCircle, Target, Mail, ListTodo, Bell, Clock,
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
-  DollarSign, Cpu, MessageCircle, Network, MonitorDot,
+  DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -16,7 +16,8 @@ const NAV = [
   { id: 'briefing',       path: '/control-room/briefing', label: 'Briefings',     icon: Newspaper },
   { id: 'captainBridge',  path: '/control-room/captain-bridge', label: 'Captain Bridge', icon: UserCircle },
   { id: 'approvals',      path: '/control-room/approvals', label: 'Approvals',     icon: CheckSquare },
-  { id: 'warRoom',        path: '/control-room/war-room', label: 'War Room',      icon: Shield },
+  { id: 'warRoom',        path: '/control-room/war-room',    label: 'War Room',      icon: Shield },
+  { id: 'warRoomHQ',     path: '/control-room/war-room-hq', label: 'War Room HQ',   icon: Crosshair },
   { id: 'systemHud',      path: '/control-room/system-hud', label: 'System HUD',    icon: Activity },
   { id: 'leads',          path: '/control-room/leads', label: 'Leads',         icon: Target },
   { id: 'outreach',       path: '/control-room/outreach', label: 'Outreach',      icon: Mail },
