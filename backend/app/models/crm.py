@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, Text, Boolean, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Text, Boolean, DateTime, JSON, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import JarvisBase as Base
@@ -13,7 +13,7 @@ class Contact(Base):
     phone       = Column(String(50))
     linkedin    = Column(String(300))
     title       = Column(String(150))      # Job title
-    company_id  = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    company_id  = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     country     = Column(String(100))
     timezone    = Column(String(60))
     status      = Column(String(30), default="lead", index=True)   # lead/prospect/qualified/client/churned
@@ -42,7 +42,7 @@ class Company(Base):
     revenue_range = Column(String(50))    # <1M / 1-10M / 10-50M / 50M+
     tech_stack    = Column(JSON, default=list)
     pain_points   = Column(JSON, default=list)
-    status        = Column(String(30), default="prospect")
+    status        = Column(String(30), default="prospect", index=True)
     score         = Column(Integer, default=0)
     notes         = Column(Text)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
@@ -57,8 +57,8 @@ class Deal(Base):
 
     id           = Column(Integer, primary_key=True, autoincrement=True)
     title        = Column(String(300), nullable=False)
-    contact_id   = Column(Integer, ForeignKey("contacts.id"), nullable=True)
-    company_id   = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    contact_id   = Column(Integer, ForeignKey("contacts.id"), nullable=True, index=True)
+    company_id   = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     value        = Column(Float, default=0.0)
     currency     = Column(String(10), default="USD")
     stage        = Column(String(50), default="discovery", index=True)

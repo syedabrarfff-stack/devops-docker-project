@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Index, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import JarvisBase
@@ -12,6 +12,7 @@ class CivilizationLedger(JarvisBase):
     __tablename__ = "civilization_ledger"
     __table_args__ = (
         UniqueConstraint("tenant_id", "record_hash", name="uq_civilization_ledger_hash"),
+        Index("ix_civilization_ledger_tenant_event_type", "tenant_id", "event_type"),
     )
 
     event_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)

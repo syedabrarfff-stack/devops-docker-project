@@ -10,6 +10,7 @@ back to /jarvis-data/outputs/ for Claude to consume.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -44,13 +45,13 @@ class GitHubBridge:
         Returns: {leads: [...], sequences: [...], decks: [...],
                   market_report: {...}, metadata: {...}}
         """
-        effective_date = date_str or self.get_latest_date_folder()
+        effective_date = date_str or await asyncio.to_thread(self.get_latest_date_folder)
         if not effective_date:
             logger.warning("[GitHubBridge] No date folder found in %s/daily/", self.REPO_DATA_PATH)
             return {}
 
         daily_path = Path(self.REPO_DATA_PATH) / "daily" / effective_date
-        if not daily_path.exists():
+        if not await asyncio.to_thread(daily_path.exists):
             logger.warning("[GitHubBridge] Daily folder not found: %s", daily_path)
             return {}
 
@@ -76,12 +77,13 @@ class GitHubBridge:
 
         for filename, key in file_map.items():
             file_path = daily_path / filename
-            if not file_path.exists():
+            if not await asyncio.to_thread(file_path.exists):
                 logger.debug("[GitHubBridge] File not found (skipping): %s", file_path)
                 continue
 
             try:
-                data = json.loads(file_path.read_text(encoding="utf-8"))
+                raw = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+                data = json.loads(raw)
                 package[key] = data
                 logger.info("[GitHubBridge] Loaded %s: %s records", filename,
                             len(data) if isinstance(data, list) else "object")
@@ -98,21 +100,23 @@ class GitHubBridge:
         Returns all markdown reports and JSON files as dict keyed by filename.
         """
         intel_path = Path(self.REPO_DATA_PATH) / "intelligence"
-        if not intel_path.exists():
+        if not await asyncio.to_thread(intel_path.exists):
             logger.debug("[GitHubBridge] Intelligence directory not found: %s", intel_path)
             return {}
 
         package: dict[str, Any] = {}
 
-        for file_path in sorted(intel_path.iterdir()):
-            if file_path.name.startswith(".") or file_path.is_dir():
+        all_files = sorted(await asyncio.to_thread(list, intel_path.iterdir()))
+        for file_path in all_files:
+            if file_path.name.startswith(".") or await asyncio.to_thread(file_path.is_dir):
                 continue
 
             try:
+                raw = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
                 if file_path.suffix == ".json":
-                    content = json.loads(file_path.read_text(encoding="utf-8"))
+                    content = json.loads(raw)
                 elif file_path.suffix in (".md", ".txt"):
-                    content = file_path.read_text(encoding="utf-8")
+                    content = raw
                 else:
                     continue
 
@@ -139,7 +143,7 @@ class GitHubBridge:
         output_path = Path(self.REPO_DATA_PATH) / "outputs"
 
         try:
-            output_path.mkdir(parents=True, exist_ok=True)
+            await asyncio.to_thread(output_path.mkdir, parents=True, exist_ok=True)
         except OSError as exc:
             logger.error("[GitHubBridge] Cannot create outputs directory: %s", exc)
             return ""
@@ -154,10 +158,8 @@ class GitHubBridge:
                 "written_at": datetime.now(UTC).isoformat(),
                 "data": data,
             }
-            file_path.write_text(
-                json.dumps(output_data, indent=2, default=str, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            serialized = json.dumps(output_data, indent=2, default=str, ensure_ascii=False)
+            await asyncio.to_thread(file_path.write_text, serialized, encoding="utf-8")
             logger.info("[GitHubBridge] Written output: %s", file_path)
             return str(file_path)
         except OSError as exc:

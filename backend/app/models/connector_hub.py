@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Integer, String, UniqueConstraint, Index
 from sqlalchemy import UUID as SUUID
 from sqlalchemy import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -27,6 +27,10 @@ class ConnectorHubIngestion(JarvisBase):
     from /jarvis-data/daily/YYYY-MM-DD/ into JARVIS.
     """
     __tablename__ = "connector_hub_ingestions"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "date", name="uq_connector_hub_ingestions_tenant_date"),
+        Index("ix_connector_hub_ingestions_tenant_date", "tenant_id", "date"),
+    )
 
     # Override base created_at/updated_at to avoid having updated_at here
     date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
@@ -47,6 +51,9 @@ class ConnectorHubPackage(JarvisBase):
     Tracks the raw data received, processing status, and AI Council verdict.
     """
     __tablename__ = "connector_hub_packages"
+    __table_args__ = (
+        Index("ix_connector_hub_packages_tenant_type", "tenant_id", "package_type"),
+    )
 
     package_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False)

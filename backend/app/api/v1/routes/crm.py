@@ -87,9 +87,12 @@ async def list_contacts(
 
 
 @router.patch("/contacts/{contact_id}")
-async def update_contact(contact_id: int, body: ContactUpdate, db: AsyncSession = Depends(get_db)):
+async def update_contact(contact_id: int, request: Request, body: ContactUpdate, db: AsyncSession = Depends(get_db)):
+    resolved = _resolve_crm_tenant_id(request, None)
     contact = await crm.update_contact(db, contact_id, body.model_dump(exclude_none=True))
     if not contact:
+        raise HTTPException(404, "Contact not found")
+    if contact.tenant_id != resolved:
         raise HTTPException(404, "Contact not found")
     await db.commit()
     return {"id": contact.id, "status": contact.status}
@@ -144,9 +147,12 @@ async def list_deals(
 
 
 @router.patch("/deals/{deal_id}")
-async def update_deal(deal_id: int, body: DealUpdate, db: AsyncSession = Depends(get_db)):
+async def update_deal(deal_id: int, request: Request, body: DealUpdate, db: AsyncSession = Depends(get_db)):
+    resolved = _resolve_crm_tenant_id(request, None)
     deal = await crm.update_deal(db, deal_id, body.model_dump(exclude_none=True))
     if not deal:
+        raise HTTPException(404, "Deal not found")
+    if deal.tenant_id != resolved:
         raise HTTPException(404, "Deal not found")
     await db.commit()
     return {"id": deal.id, "stage": deal.stage, "value": deal.value}

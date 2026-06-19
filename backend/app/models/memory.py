@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Text, DateTime, JSON, Float, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -63,6 +63,9 @@ class ConversationSummary(Base):
 
 class MemoryOperational(JarvisBase):
     __tablename__ = "memory_operational"
+    __table_args__ = (
+        Index("ix_memory_operational_tenant_created", "tenant_id", "created_at"),
+    )
 
     category: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -73,6 +76,9 @@ class MemoryOperational(JarvisBase):
 
 class MemoryStrategic(JarvisBase):
     __tablename__ = "memory_strategic"
+    __table_args__ = (
+        Index("ix_memory_strategic_tenant_created", "tenant_id", "created_at"),
+    )
 
     category: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -103,6 +109,7 @@ class MemoryGraphNode(JarvisBase):
     __tablename__ = "memory_graph_nodes"
     __table_args__ = (
         UniqueConstraint("tenant_id", "source_table", "source_id", name="uq_memory_graph_source"),
+        Index("ix_memory_graph_nodes_tenant_updated", "tenant_id", "updated_at"),
     )
 
     node_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)

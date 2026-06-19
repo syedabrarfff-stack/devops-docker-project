@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import JarvisBase
@@ -12,6 +12,7 @@ class ScheduledJob(JarvisBase):
     __tablename__ = "scheduled_jobs"
     __table_args__ = (
         UniqueConstraint("tenant_id", "job_id", name="uq_scheduled_jobs_tenant_job_id"),
+        Index("ix_scheduled_jobs_enabled_next_run", "enabled", "next_run_at"),
     )
 
     job_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
@@ -31,6 +32,9 @@ class ScheduledJob(JarvisBase):
 
 class JobFailure(JarvisBase):
     __tablename__ = "job_failures"
+    __table_args__ = (
+        Index("ix_job_failures_job_name_status", "job_name", "status"),
+    )
 
     job_name: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="open", index=True)

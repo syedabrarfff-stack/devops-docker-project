@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Integer, JSON, String, Text
+from sqlalchemy import DateTime, Enum, Index, Integer, JSON, String, Text
 from sqlalchemy import UUID as SUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +19,9 @@ class ApprovalStatus(str, enum.Enum):
 
 class ApprovalRequest(JarvisBase):
     __tablename__ = "approval_requests"
+    __table_args__ = (
+        Index("ix_approval_requests_tenant_status", "tenant_id", "status"),
+    )
 
     action_type: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)

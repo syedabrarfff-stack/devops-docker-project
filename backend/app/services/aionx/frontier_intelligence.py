@@ -81,7 +81,7 @@ async def frontier_status(db: AsyncSession) -> dict[str, Any]:
     counts = {}
     for table in FRONTIER_TABLES:
         try:
-            result = await db.execute(text(f"SELECT COUNT(*) FROM {table}"))
+            result = await db.execute(text(f'SELECT COUNT(*) FROM "{table}"'))
             counts[table] = int(result.scalar_one())
         except Exception:
             counts[table] = -1

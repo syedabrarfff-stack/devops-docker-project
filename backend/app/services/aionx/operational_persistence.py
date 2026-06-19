@@ -444,7 +444,7 @@ async def operational_persistence_status(db: AsyncSession) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for table in tables:
         try:
-            result = await db.execute(text(f"SELECT COUNT(*) FROM {table}"))
+            result = await db.execute(text(f'SELECT COUNT(*) FROM "{table}"'))
             counts[table] = int(result.scalar_one())
         except Exception:
             counts[table] = -1

@@ -7,6 +7,7 @@ Usage:
     await set_credential(db, "GMAIL_REFRESH_TOKEN", value)
     val = await get_credential(db, "GMAIL_REFRESH_TOKEN")
 """
+import asyncio
 import os
 import hmac
 import hashlib
@@ -118,7 +119,7 @@ async def get_credential(db, key: str) -> Optional[str]:
             return decrypt(row.value)
         except Exception as exc:
             logger.warning("Credential decryption failed for key %s: %s", key, exc)
-    ssm_val = _ssm_get(key)
+    ssm_val = await asyncio.to_thread(_ssm_get, key)
     if ssm_val:
         return ssm_val
     return getattr(settings, key, None)
@@ -136,7 +137,7 @@ async def set_credential(db, key: str, value: str) -> None:
     else:
         db.add(SecureCredential(key=key, value=enc, source="local"))
     await db.flush()
-    _ssm_put(key, value)
+    await asyncio.to_thread(_ssm_put, key, value)
 
 
 async def delete_credential(db, key: str) -> None:

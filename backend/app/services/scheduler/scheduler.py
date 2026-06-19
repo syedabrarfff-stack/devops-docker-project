@@ -210,11 +210,11 @@ class TenantAwareSQLAlchemyJobStore(SQLAlchemyJobStore):
             with self.engine.begin() as connection:
                 connection.execute(
                     text(
-                        f"ALTER TABLE {self.jobs_t.name} "
+                        f'ALTER TABLE "{self.jobs_t.name}" '
                         f"ADD COLUMN tenant_id {column_type} NOT NULL DEFAULT '{default_tenant}'"
                     )
                 )
-                connection.execute(text(f"CREATE INDEX IF NOT EXISTS idx_{self.jobs_t.name}_tenant_id ON {self.jobs_t.name} (tenant_id)"))
+                connection.execute(text(f'CREATE INDEX IF NOT EXISTS "idx_{self.jobs_t.name}_tenant_id" ON "{self.jobs_t.name}" (tenant_id)'))
         except Exception as exc:
             logger.warning("Could not ensure tenant_id on APScheduler job table: %s", exc)
 
