@@ -61,6 +61,6 @@ infra/terraform/tfplan
 
 # ─── IDE ─────────────────────────────────────────────────────────
 .idea/
-.vscode/
+.vscode/settings.json
 *.swp
 *.swo

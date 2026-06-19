@@ -1,0 +1,116 @@
+{
+  "folders": [
+    {
+      "name": "🧠 JARVIS HQ",
+      "path": "."
+    },
+    {
+      "name": "⚙️ Backend — FastAPI",
+      "path": "backend"
+    },
+    {
+      "name": "🎨 Frontend — React",
+      "path": "frontend"
+    },
+    {
+      "name": "☁️ Infrastructure — Terraform",
+      "path": "infra/terraform"
+    },
+    {
+      "name": "🐳 Docker — Compose",
+      "path": "infrastructure"
+    },
+    {
+      "name": "📊 Monitoring — Grafana/Prometheus",
+      "path": "monitoring"
+    },
+    {
+      "name": "📋 Memory — .jarvis",
+      "path": ".jarvis"
+    }
+  ],
+  "settings": {
+    "editor.fontSize": 14,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true,
+    "editor.rulers": [100],
+    "editor.wordWrap": "on",
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/node_modules": true,
+      "**/.git": false
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/__pycache__/**": true
+    },
+    "python.defaultInterpreterPath": "/usr/local/bin/python",
+    "python.formatting.provider": "black",
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.tabSize": 4
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.tabSize": 2
+    },
+    "[javascriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.tabSize": 2
+    },
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.tabSize": 2
+    },
+    "[terraform]": {
+      "editor.defaultFormatter": "hashicorp.terraform"
+    },
+    "terminal.integrated.fontSize": 13,
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.editor.enablePreview": false,
+    "explorer.openEditors.visible": 0,
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "breadcrumbs.enabled": true,
+    "editor.minimap.enabled": false
+  },
+  "extensions": {
+    "recommendations": [
+      "continue.continue",
+      "amazonwebservices.aws-toolkit-vscode",
+      "ms-azuretools.vscode-docker",
+      "GitHub.vscode-pull-request-github",
+      "eamodio.gitlens",
+      "humao.rest-client",
+      "rangav.vscode-thunder-client",
+      "ms-python.python",
+      "ms-python.black-formatter",
+      "hashicorp.terraform",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "bradlc.vscode-tailwindcss",
+      "ms-vscode.live-server",
+      "yzhang.markdown-all-in-one"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "JARVIS Backend (FastAPI)",
+        "type": "python",
+        "request": "launch",
+        "module": "uvicorn",
+        "args": ["app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
+        "cwd": "${workspaceFolder}/backend",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/backend"
+        },
+        "console": "integratedTerminal"
+      }
+    ]
+  }
+}

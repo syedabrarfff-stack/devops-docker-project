@@ -1,0 +1,183 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "🚀 JARVIS: Start Full Stack",
+      "type": "shell",
+      "command": "docker compose up -d && echo '\\n✅ Stack started. Logs: docker compose logs -f backend'",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🛑 JARVIS: Stop Stack",
+      "type": "shell",
+      "command": "docker compose down",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "📋 JARVIS: Backend Logs",
+      "type": "shell",
+      "command": "docker compose logs -f backend",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🗃️ JARVIS: Run Migrations",
+      "type": "shell",
+      "command": "docker compose exec backend alembic upgrade head",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🔍 JARVIS: Migration Status",
+      "type": "shell",
+      "command": "docker compose exec backend alembic current && docker compose exec backend alembic history --verbose | head -20",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🏥 JARVIS: Health Check",
+      "type": "shell",
+      "command": "curl -s http://localhost:8000/health | python3 -m json.tool && echo '---' && curl -s http://localhost:8000/readyz | python3 -m json.tool",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🔑 JARVIS: Get Captain Token",
+      "type": "shell",
+      "command": "curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -m json.tool",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "📊 JARVIS: API Status (HUD)",
+      "type": "shell",
+      "command": "TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login -H 'Content-Type: application/json' -d \"{\\\"username\\\":\\\"${env:CAPTAIN_USERNAME}\\\",\\\"password\\\":\\\"${env:CAPTAIN_PASSWORD}\\\"}\" | python3 -c \"import sys,json; print(json.load(sys.stdin)['access_token'])\") && curl -s -H \"Authorization: Bearer $TOKEN\" http://localhost:8000/api/v1/system/hud | python3 -m json.tool",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "☁️ AWS: Terraform Plan",
+      "type": "shell",
+      "command": "terraform plan",
+      "options": {
+        "cwd": "${workspaceFolder}/infra/terraform"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "☁️ AWS: Terraform Apply",
+      "type": "shell",
+      "command": "terraform apply",
+      "options": {
+        "cwd": "${workspaceFolder}/infra/terraform"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🐳 Docker: Rebuild Backend",
+      "type": "shell",
+      "command": "docker compose build backend && docker compose up -d backend",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🐳 Docker: Shell into Backend",
+      "type": "shell",
+      "command": "docker compose exec backend /bin/bash",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "🌐 Frontend: Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "📈 Open Grafana Dashboard",
+      "type": "shell",
+      "command": "echo 'Open: http://localhost:3001 (admin / see .env)'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🔭 Open Prometheus",
+      "type": "shell",
+      "command": "echo 'Open: http://localhost:9090'",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🧠 JARVIS: New Migration",
+      "type": "shell",
+      "command": "read -p 'Migration name: ' name && docker compose exec backend alembic revision --autogenerate -m \"$name\"",
+      "options": {
+        "cwd": "${workspaceFolder}/infrastructure"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

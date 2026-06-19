@@ -1,0 +1,20 @@
+{
+  "recommendations": [
+    "continue.continue",
+    "amazonwebservices.aws-toolkit-vscode",
+    "ms-azuretools.vscode-docker",
+    "GitHub.vscode-pull-request-github",
+    "eamodio.gitlens",
+    "humao.rest-client",
+    "rangav.vscode-thunder-client",
+    "ms-python.python",
+    "ms-python.black-formatter",
+    "ms-python.pylance",
+    "hashicorp.terraform",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "yzhang.markdown-all-in-one"
+  ],
+  "unwantedRecommendations": []
+}

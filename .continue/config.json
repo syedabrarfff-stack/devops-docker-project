@@ -1,0 +1,91 @@
+{
+  "models": [
+    {
+      "title": "Claude Sonnet 4.6 — Code & Implementation",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "apiKeyEnvVar": "ANTHROPIC_API_KEY",
+      "systemMessage": "You are JARVIS, the operational intelligence core of Aliyar Solutions. You are working inside the JARVIS codebase. Before any implementation: read .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, and .jarvis/DECISIONS.md. Follow all conventions in CLAUDE.md. Never expose secrets. Active branch: claude/jarvis-cans-api-integration-ZThTD. Tech stack: FastAPI + SQLAlchemy 2.0 async + PostgreSQL 16 + Redis 7 + React 18 + Vite + Tailwind. Migration chain is currently at 0029. All new routes must register in backend/app/api/v1/__init__.py."
+    },
+    {
+      "title": "GPT-4o — Strategy & Cross-Validation",
+      "provider": "openai",
+      "model": "gpt-4o",
+      "apiKeyEnvVar": "OPENAI_API_KEY",
+      "systemMessage": "You are a senior advisor to JARVIS, the AI operating system of Aliyar Solutions. You provide strategic review, architectural second opinions, and cross-validation of implementations. Context: FastAPI backend, React frontend, AWS ECS Fargate, 11-provider AI router. Company: Aliyar Solutions, CEO Syed Abrar. Read .jarvis/DECISIONS.md before advising on architecture."
+    },
+    {
+      "title": "Gemini Pro — Research & Long Context",
+      "provider": "google",
+      "model": "gemini-pro",
+      "apiKeyEnvVar": "GOOGLE_API_KEY",
+      "systemMessage": "You are the Research Intelligence Officer of JARVIS at Aliyar Solutions. You handle long-context analysis, market research, competitive intelligence, and technology landscape scanning. When given a research task, produce structured, actionable intelligence reports. Context: Building a self-compounding technology company. Revenue target: $10,000-$30,000/month Phase 2."
+    },
+    {
+      "title": "DeepSeek — Fast Code Generation",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "apiKeyEnvVar": "DEEPSEEK_API_KEY",
+      "systemMessage": "You are a fast code generation specialist for JARVIS at Aliyar Solutions. You produce clean, production-ready Python (FastAPI/SQLAlchemy) and JavaScript (React/Zustand) code following the patterns already established in the codebase. No debug code. No placeholder comments. No secrets in code."
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "DeepSeek Autocomplete",
+    "provider": "deepseek",
+    "model": "deepseek-coder",
+    "apiKeyEnvVar": "DEEPSEEK_API_KEY"
+  },
+  "contextProviders": [
+    {
+      "name": "file",
+      "params": {}
+    },
+    {
+      "name": "code",
+      "params": {}
+    },
+    {
+      "name": "docs",
+      "params": {}
+    },
+    {
+      "name": "diff",
+      "params": {}
+    },
+    {
+      "name": "terminal",
+      "params": {}
+    },
+    {
+      "name": "problems",
+      "params": {}
+    },
+    {
+      "name": "folder",
+      "params": {}
+    }
+  ],
+  "slashCommands": [
+    {
+      "name": "jarvis-state",
+      "description": "Show JARVIS current state and pending tasks",
+      "prompt": "Read and summarize the following files for me: .jarvis/CURRENT_STATE.md, .jarvis/CURRENT_TASK.md, .jarvis/REVENUE_STATE.md. Give me a 10-line executive briefing: what's built, what's pending, what's the next action."
+    },
+    {
+      "name": "new-route",
+      "description": "Generate a new FastAPI route following JARVIS conventions",
+      "prompt": "Generate a new FastAPI route module following JARVIS conventions. Pattern: async functions, SQLAlchemy 2.0, rate limiting with @limiter.limit, JWT auth with get_current_captain dependency where needed, BackgroundTasks for email. Register in backend/app/api/v1/__init__.py. Describe the route I want to create."
+    },
+    {
+      "name": "new-migration",
+      "description": "Generate an Alembic migration following the chain",
+      "prompt": "Generate an Alembic migration. Current chain ends at 0029_trust_engine. Next migration number is 0030. Include: proper down_revision, upgrade() and downgrade() functions, appropriate indexes. Describe the schema change needed."
+    },
+    {
+      "name": "council",
+      "description": "Convene multi-model council on a decision",
+      "prompt": "I need a multi-model council review. Give me three perspectives on the following architectural/strategic decision: first as a senior backend engineer (practical, risk-focused), then as a growth strategist (revenue impact, client experience), then as a security auditor (risk surface, compliance). Decision to review:"
+    }
+  ],
+  "allowAnonymousTelemetry": false
+}
