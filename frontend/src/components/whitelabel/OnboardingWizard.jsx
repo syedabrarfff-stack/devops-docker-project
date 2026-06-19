@@ -172,7 +172,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
                     <label className="block text-xs text-white/50 mb-1">Ideal Client Profile</label>
                     <textarea value={market.icp_description} onChange={e => setMarket(m => ({ ...m, icp_description: e.target.value }))}
                       placeholder="50-500 employee companies, B2B, £2M+ revenue, have tried automation before but failed..."
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white/90 outline-none focus:border-blue-500/40 h-24 resize-none" />
+                      maxLength={5000} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white/90 outline-none focus:border-blue-500/40 h-24 resize-none" />
                   </div>
                 </div>
               )}

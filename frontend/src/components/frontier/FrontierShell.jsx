@@ -203,13 +203,14 @@ export function ActionCard({ title, subtitle, description, children }) {
   )
 }
 
-export function Textarea({ value, onChange, placeholder, rows = 4 }) {
+export function Textarea({ value, onChange, placeholder, rows = 4, maxLength }) {
   return (
     <textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
       rows={rows}
       placeholder={placeholder}
+      maxLength={maxLength}
       className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
     />
   )

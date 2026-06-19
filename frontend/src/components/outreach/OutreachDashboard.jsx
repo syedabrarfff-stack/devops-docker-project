@@ -46,6 +46,7 @@ function SequenceCard({ seq }) {
       <form onSubmit={enroll} className="flex gap-2">
         <input value={enrollId} onChange={e => setEnrollId(e.target.value)}
           placeholder="Lead ID to enroll"
+          maxLength={36}
           className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white placeholder-gray-600 text-xs focus:outline-none focus:border-blue-500/40" />
         <button type="submit" disabled={enrolling || !enrollId.trim()}
           className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/20 rounded-lg text-xs transition-colors disabled:opacity-40">
@@ -666,12 +667,14 @@ export default function OutreachDashboard() {
                   placeholder="Recipient email *"
                   type="email"
                   required
+                  maxLength={320}
                   className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
                 />
                 <input
                   value={directForm.to_name}
                   onChange={e => setDirectForm(f => ({ ...f, to_name: e.target.value }))}
                   placeholder="Recipient name"
+                  maxLength={200}
                   className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
                 />
               </div>
@@ -680,6 +683,7 @@ export default function OutreachDashboard() {
                 onChange={e => setDirectForm(f => ({ ...f, subject: e.target.value }))}
                 placeholder="Subject *"
                 required
+                maxLength={998}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40"
               />
               <textarea
@@ -688,6 +692,7 @@ export default function OutreachDashboard() {
                 placeholder="Email body *"
                 required
                 rows={8}
+                maxLength={500000}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500/40 resize-none"
               />
               <button
@@ -716,12 +721,13 @@ export default function OutreachDashboard() {
             <h2 className="text-lg font-bold text-white mb-4">New Outreach Sequence</h2>
             <div className="space-y-3">
               {[
-                { key: "name", placeholder: "Sequence name *" },
-                { key: "target_industry", placeholder: "Target industry (saas, hotel, clinic...)" },
-                { key: "target_country", placeholder: "Target country (usa, uk, canada...)" },
-                { key: "service_offered", placeholder: "Service offered (AI automation, DevOps...)" },
+                { key: "name", placeholder: "Sequence name *", maxLength: 200 },
+                { key: "target_industry", placeholder: "Target industry (saas, hotel, clinic...)", maxLength: 100 },
+                { key: "target_country", placeholder: "Target country (usa, uk, canada...)", maxLength: 100 },
+                { key: "service_offered", placeholder: "Service offered (AI automation, DevOps...)", maxLength: 200 },
               ].map(f => (
                 <input key={f.key} value={newSeq[f.key]} onChange={e => setNewSeq(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder}
+                  maxLength={f.maxLength}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
               ))}
             </div>

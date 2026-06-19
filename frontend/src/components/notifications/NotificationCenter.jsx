@@ -76,9 +76,9 @@ function SendNotificationModal({ onClose, onSent }) {
         <h2 className="text-lg font-bold text-white mb-4">Send Notification</h2>
         <div className="space-y-3">
           <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="Title *" className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
+            placeholder="Title *" maxLength={500} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           <textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-            placeholder="Body" rows={3} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50 resize-none" />
+            placeholder="Body" rows={3} maxLength={10000} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50 resize-none" />
           <div className="flex gap-2">
             <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value }))}
               className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none">

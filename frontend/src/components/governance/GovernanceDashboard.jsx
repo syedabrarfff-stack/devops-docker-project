@@ -117,9 +117,10 @@ function InvoicesTab() {
         <div className="glass rounded-xl p-5 border border-blue-500/20">
           <h3 className="text-sm font-semibold text-white mb-4">Create Invoice (requires Captain approval before sending)</h3>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            {[["client_name","Client Name"],["client_email","Client Email"],["client_company","Company"],["description","Service Description"]].map(([k,p]) => (
+            {[["client_name","Client Name",200],["client_email","Client Email",320],["client_company","Company",200],["description","Service Description",2000]].map(([k,p,m]) => (
               <input key={k} value={form[k]} onChange={e => setForm(f => ({...f,[k]:e.target.value}))}
                 placeholder={p}
+                maxLength={m}
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
             ))}
           </div>
@@ -275,15 +276,17 @@ function ProposalsTab() {
       <div className="glass rounded-xl p-5 border border-white/5">
         <h3 className="text-sm font-semibold text-white mb-3">Generate AI Proposal</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">
-          {[["client_name","Client Name *"],["client_company","Company"],["client_email","Email"],["service_type","Service Type *"]].map(([k,p]) => (
+          {[["client_name","Client Name *",200],["client_company","Company",200],["client_email","Email",320],["service_type","Service Type *",200]].map(([k,p,m]) => (
             <input key={k} value={form[k]} onChange={e => setForm(f => ({...f,[k]:e.target.value}))}
               placeholder={p}
+              maxLength={m}
               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           ))}
         </div>
         <textarea value={form.context} onChange={e => setForm(f => ({...f,context:e.target.value}))}
           placeholder="Context: pain points, goals, industry, budget signals..."
           rows={2}
+          maxLength={10000}
           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none mb-3 resize-none" />
         <div className="grid grid-cols-3 gap-3 mb-4">
           <select value={form.style} onChange={e => setForm(f => ({...f,style:e.target.value}))}
@@ -380,12 +383,14 @@ function SystemTestTab() {
             value={testForm.prospect_name}
             onChange={e => setTestForm(f => ({...f, prospect_name: e.target.value}))}
             placeholder="Prospect name"
+            maxLength={200}
             className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white placeholder-gray-500 text-sm"
           />
           <input
             value={testForm.prospect_email}
             onChange={e => setTestForm(f => ({...f, prospect_email: e.target.value}))}
             placeholder="Email"
+            maxLength={320}
             className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white placeholder-gray-500 text-sm"
           />
           <input
@@ -543,7 +548,7 @@ function IncidentsTab() {
           <h3 className="text-sm font-semibold text-white mb-3">Declare Incident</h3>
           <div className="space-y-3">
             <input value={form.title} onChange={e => setForm(f => ({...f,title:e.target.value}))}
-              placeholder="Incident title" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none" />
+              placeholder="Incident title" maxLength={300} className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none" />
             <div className="grid grid-cols-2 gap-3">
               <select value={form.severity} onChange={e => setForm(f => ({...f,severity:e.target.value}))}
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none">
@@ -556,6 +561,7 @@ function IncidentsTab() {
             </div>
             <textarea value={form.description} onChange={e => setForm(f => ({...f,description:e.target.value}))}
               placeholder="Describe what happened..." rows={2}
+              maxLength={10000}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none resize-none" />
             <div className="flex gap-3">
               <button onClick={declare} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium">
@@ -621,9 +627,10 @@ function DemosTab() {
     setGenerating(false)
   }
 
-  const field = (key, placeholder) => (
+  const field = (key, placeholder, maxLength) => (
     <input key={key} value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
       placeholder={placeholder}
+      maxLength={maxLength}
       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
   )
 
@@ -632,11 +639,11 @@ function DemosTab() {
       <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
         <h3 className="text-sm font-semibold text-white">Generate Sales Demo Package</h3>
         <div className="grid grid-cols-2 gap-3">
-          {field('company_name', 'Company name')}
-          {field('industry', 'Industry (e.g. dental, logistics)')}
+          {field('company_name', 'Company name', 200)}
+          {field('industry', 'Industry (e.g. dental, logistics)', 100)}
         </div>
-        {field('pain_points', 'Pain points — comma separated (e.g. missed calls, slow invoicing)')}
-        {field('lead_id', 'Lead ID (optional — UUID if tying to a lead record)')}
+        {field('pain_points', 'Pain points — comma separated (e.g. missed calls, slow invoicing)', 2000)}
+        {field('lead_id', 'Lead ID (optional — UUID if tying to a lead record)', 36)}
         <button onClick={generate} disabled={generating}
           className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors">
           {generating ? 'Generating demo…' : '🎯 Generate Demo'}

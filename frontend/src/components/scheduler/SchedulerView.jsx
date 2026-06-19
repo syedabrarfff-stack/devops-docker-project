@@ -221,10 +221,10 @@ export default function SchedulerView() {
 
             <div className="space-y-3">
               <input value={form.job_id} onChange={e => setForm(f => ({ ...f, job_id: e.target.value }))}
-                placeholder="Job ID (unique, e.g. weekly_report) *"
+                placeholder="Job ID (unique, e.g. weekly_report) *" maxLength={100}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Display name *"
+                placeholder="Display name *" maxLength={300}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
 
               {newJobType === "cron" ? (

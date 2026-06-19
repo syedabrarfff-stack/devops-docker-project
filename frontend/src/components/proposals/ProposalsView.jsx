@@ -99,17 +99,20 @@ function ConvertToClientModal({ proposal, onClose, onSuccess }) {
           <div className="space-y-1">
             <label className="text-xs text-gray-400">Company Name *</label>
             <input required value={form.company_name} onChange={e => set('company_name')(e.target.value)}
+              maxLength={200}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Contact Name</label>
               <input value={form.contact_name} onChange={e => set('contact_name')(e.target.value)}
+                maxLength={200}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Email</label>
               <input type="email" value={form.email} onChange={e => set('email')(e.target.value)}
+                maxLength={320}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-jarvis-cyan/60" />
             </div>
           </div>
@@ -156,13 +159,14 @@ function Field({ label, children }) {
   )
 }
 
-function TextInput({ value, onChange, placeholder, type = 'text' }) {
+function TextInput({ value, onChange, placeholder, type = 'text', maxLength }) {
   return (
     <input
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      maxLength={maxLength}
       className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-600 focus:border-jarvis-cyan/60 transition-colors"
     />
   )
@@ -570,14 +574,14 @@ export default function ProposalsView() {
           <form onSubmit={generate} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Client name *">
-                <TextInput value={form.client_name} onChange={setField('client_name')} placeholder="John Smith" />
+                <TextInput value={form.client_name} onChange={setField('client_name')} placeholder="John Smith" maxLength={200} />
               </Field>
               <Field label="Company">
-                <TextInput value={form.client_company} onChange={setField('client_company')} placeholder="Acme Corp" />
+                <TextInput value={form.client_company} onChange={setField('client_company')} placeholder="Acme Corp" maxLength={200} />
               </Field>
             </div>
             <Field label="Email">
-              <TextInput type="email" value={form.client_email} onChange={setField('client_email')} placeholder="john@acme.com" />
+              <TextInput type="email" value={form.client_email} onChange={setField('client_email')} placeholder="john@acme.com" maxLength={320} />
             </Field>
             <Field label="Service *">
               <SelectInput value={form.service_type} onChange={setField('service_type')}>
@@ -590,6 +594,7 @@ export default function ProposalsView() {
                 onChange={(e) => setField('context')(e.target.value)}
                 placeholder="Client pain points, timeline, goals, or any specific context…"
                 rows={3}
+                maxLength={10000}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-600 focus:border-jarvis-cyan/60 resize-none transition-colors"
               />
             </Field>

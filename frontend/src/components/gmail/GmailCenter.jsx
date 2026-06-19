@@ -141,20 +141,20 @@ export default function GmailCenter() {
             <div>
               <label className="text-slate-400 text-xs mb-1 block">To</label>
               <input value={compose.to} onChange={e => setCompose(p => ({...p, to: e.target.value}))}
-                placeholder="recipient@email.com"
+                placeholder="recipient@email.com" maxLength={320}
                 className="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500/50" />
             </div>
             <div>
               <label className="text-slate-400 text-xs mb-1 block">Subject</label>
               <input value={compose.subject} onChange={e => setCompose(p => ({...p, subject: e.target.value}))}
-                placeholder="Subject line"
+                placeholder="Subject line" maxLength={998}
                 className="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500/50" />
             </div>
             <div>
               <label className="text-slate-400 text-xs mb-1 block">Message</label>
               <textarea value={compose.body} onChange={e => setCompose(p => ({...p, body: e.target.value}))}
                 placeholder="Write your message..."
-                rows={8}
+                rows={8} maxLength={500000}
                 className="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-blue-500/50" />
             </div>
             <button onClick={handleSend} disabled={sending || !compose.to || !compose.subject || !compose.body}

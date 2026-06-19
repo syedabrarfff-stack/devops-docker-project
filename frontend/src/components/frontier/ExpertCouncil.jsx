@@ -59,8 +59,8 @@ export default function ExpertCouncil() {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           <ActionCard title="Convene Expert Council" subtitle="Ask one decision-quality question. Include evidence, client context, or risk notes.">
             <form onSubmit={convene} className="space-y-3">
-              <Textarea value={question} onChange={setQuestion} placeholder="What should Aliyar Solutions do, and what evidence should the council weigh?" />
-              <Textarea value={context} onChange={setContext} rows={3} placeholder="Optional context as JSON or plain notes." />
+              <Textarea value={question} onChange={setQuestion} placeholder="What should Aliyar Solutions do, and what evidence should the council weigh?" maxLength={8000} />
+              <Textarea value={context} onChange={setContext} rows={3} placeholder="Optional context as JSON or plain notes." maxLength={8000} />
               <label className="flex items-center gap-2 text-sm text-gray-300">
                 <input type="checkbox" checked={quick} onChange={(event) => setQuick(event.target.checked)} />
                 Quick council

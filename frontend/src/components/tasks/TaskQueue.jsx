@@ -250,7 +250,7 @@ export default function TaskQueue() {
                 {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>)}
               </select>
               <textarea value={delegateForm.message} onChange={e => setDelegateForm(p => ({ ...p, message: e.target.value }))}
-                placeholder="Task description / delegation message…" rows={2}
+                placeholder="Task description / delegation message…" rows={2} maxLength={10000}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
               <button onClick={delegateToAgent} disabled={delegating || !delegateForm.message.trim()}
                 className="w-full py-2 rounded-lg bg-blue-600/80 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-medium transition-colors">
@@ -261,7 +261,7 @@ export default function TaskQueue() {
             <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/50">Broadcast to All Agents</p>
               <textarea value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)}
-                placeholder="Message from Captain to all AI employees…" rows={2}
+                placeholder="Message from Captain to all AI employees…" rows={2} maxLength={32000}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
               <button onClick={broadcastToAgents} disabled={broadcasting || !broadcastMsg.trim()}
                 className="w-full py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 disabled:opacity-40 text-xs font-bold transition-colors">
@@ -334,7 +334,7 @@ export default function TaskQueue() {
                 {['directive', 'question', 'update', 'escalation', 'acknowledgement'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <textarea value={msgForm.content} onChange={e => setMsgForm(f => ({ ...f, content: e.target.value }))}
-                placeholder="Message content…" rows={3}
+                placeholder="Message content…" rows={3} maxLength={32000}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500/50 resize-none" />
               <button onClick={sendMessage} disabled={msgSending || !msgForm.content.trim()}
                 className="w-full py-2 rounded-lg bg-blue-600/80 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-medium transition-colors">
@@ -357,9 +357,9 @@ export default function TaskQueue() {
             <h2 className="text-lg font-bold text-white mb-4">Enqueue Task</h2>
             <div className="space-y-3">
               <input value={newTask.title} onChange={e => setNewTask(p => ({ ...p, title: e.target.value }))} placeholder="Task title *"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
+                maxLength={500} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
               <textarea value={newTask.description} onChange={e => setNewTask(p => ({ ...p, description: e.target.value }))} placeholder="Description (optional)"
-                rows={3} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50 resize-none" />
+                rows={3} maxLength={10000} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50 resize-none" />
               <select value={newTask.assigned_to} onChange={e => setNewTask(p => ({ ...p, assigned_to: e.target.value }))}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500/50">
                 {AGENTS.map(a => <option key={a} value={a}>{a.replace(/_/g, " ")}</option>)}

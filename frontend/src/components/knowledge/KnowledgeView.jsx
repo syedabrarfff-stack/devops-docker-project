@@ -220,6 +220,7 @@ export default function KnowledgeView() {
                 value={sopForm.title}
                 onChange={e => setSopForm(p => ({ ...p, title: e.target.value }))}
                 placeholder="SOP title (e.g. 'Client onboarding for AI automation projects')"
+                maxLength={300}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
               />
               <div className="flex gap-3">
@@ -236,6 +237,7 @@ export default function KnowledgeView() {
                 onChange={e => setSopForm(p => ({ ...p, context: e.target.value }))}
                 rows={2}
                 placeholder="Additional context (optional)"
+                maxLength={5000}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
               />
               <div className="flex gap-2">
@@ -294,6 +296,7 @@ export default function KnowledgeView() {
                 value={learnForm.title}
                 onChange={e => setLearnForm(p => ({ ...p, title: e.target.value }))}
                 placeholder="Learning title"
+                maxLength={300}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
               />
               <div className="grid grid-cols-3 gap-3">
@@ -327,12 +330,14 @@ export default function KnowledgeView() {
                 value={learnForm.what_happened}
                 onChange={e => setLearnForm(p => ({ ...p, what_happened: e.target.value }))}
                 rows={2} placeholder="What happened?"
+                maxLength={10000}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
               />
               <textarea
                 value={learnForm.lesson}
                 onChange={e => setLearnForm(p => ({ ...p, lesson: e.target.value }))}
                 rows={2} placeholder="Key lesson learned"
+                maxLength={5000}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
               />
               <div className="flex gap-2">
@@ -394,6 +399,7 @@ export default function KnowledgeView() {
               <form onSubmit={addEntry} className="space-y-3">
                 <input value={entryForm.title} onChange={e => setEntryForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="Title *"
+                  maxLength={300}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60" />
                 <div className="grid grid-cols-2 gap-3">
                   <select value={entryForm.category} onChange={e => setEntryForm(f => ({ ...f, category: e.target.value }))}
@@ -402,13 +408,16 @@ export default function KnowledgeView() {
                   </select>
                   <input value={entryForm.source} onChange={e => setEntryForm(f => ({ ...f, source: e.target.value }))}
                     placeholder="Source (e.g. Captain, client call)"
+                    maxLength={200}
                     className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500" />
                 </div>
                 <textarea value={entryForm.content} onChange={e => setEntryForm(f => ({ ...f, content: e.target.value }))}
                   placeholder="Knowledge content *" rows={4}
+                  maxLength={100000}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60 resize-none" />
                 <input value={entryForm.tags} onChange={e => setEntryForm(f => ({ ...f, tags: e.target.value }))}
                   placeholder="Tags — comma separated (e.g. pricing, dental, objection)"
+                  maxLength={500}
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500" />
                 <div className="flex gap-3">
                   <button type="submit" disabled={entryLoading || !entryForm.title.trim() || !entryForm.content.trim()}
@@ -442,6 +451,7 @@ export default function KnowledgeView() {
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && search()}
               placeholder="Search SOPs, learnings, delivery lessons, client notes…"
+              maxLength={500}
               className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-gray-500 focus:border-jarvis-cyan/60"
             />
             <button onClick={search} disabled={searchLoading} className="btn-primary inline-flex items-center gap-2">

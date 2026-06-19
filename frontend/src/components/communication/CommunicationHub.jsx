@@ -232,6 +232,7 @@ export default function CommunicationHub() {
             value={pairingNumber}
             onChange={(e) => setPairingNumber(e.target.value)}
             placeholder="Optional Bahrain WhatsApp number, e.g. 973xxxxxxxx"
+            maxLength={20}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-jarvis-cyan/40"
           />
           <button onClick={getQr} disabled={busy} className="btn-primary">Retrieve Pairing Code</button>
@@ -273,8 +274,10 @@ export default function CommunicationHub() {
       >
         <div className="grid gap-3 lg:grid-cols-[260px_1fr_auto]">
           <input value={number} onChange={(e) => setNumber(e.target.value)} placeholder="973xxxxxxxx"
+            maxLength={20}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-jarvis-cyan/40" />
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Message"
+            maxLength={4096}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-jarvis-cyan/40" />
           <button onClick={sendTest} disabled={busy || !number || !text} className="btn-primary inline-flex items-center gap-2">
             <Send size={14} />

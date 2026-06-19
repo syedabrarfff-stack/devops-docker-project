@@ -139,10 +139,12 @@ export default function SyncView() {
           <input value={syncConfig.industries}
             onChange={e => setSyncConfig(s => ({ ...s, industries: e.target.value }))}
             placeholder="Industries (comma-separated, e.g. SaaS, Hotel)"
+            maxLength={2000}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           <input value={syncConfig.countries}
             onChange={e => setSyncConfig(s => ({ ...s, countries: e.target.value }))}
             placeholder="Countries (comma-separated, e.g. US, GB, CA)"
+            maxLength={1000}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           <div className="flex gap-3 items-center">
             <input type="number" value={syncConfig.limit} min={1} max={100}
@@ -169,6 +171,7 @@ export default function SyncView() {
         <div className="flex gap-3">
           <input value={enrichId} onChange={e => setEnrichId(e.target.value)}
             placeholder="Contact ID"
+            maxLength={36}
             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           <button onClick={enrichContact} disabled={!enrichId || enriching}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
@@ -196,6 +199,7 @@ export default function SyncView() {
         <div className="flex gap-3">
           <input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
             placeholder="https://your-domain.com/api/v1/sync/telegram/webhook"
+            maxLength={2000}
             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
           <button onClick={registerWebhook} disabled={!webhookUrl}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">

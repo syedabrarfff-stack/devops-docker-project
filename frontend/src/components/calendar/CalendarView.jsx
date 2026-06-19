@@ -170,15 +170,16 @@ export default function CalendarView() {
             <h2 className="text-lg font-bold text-white mb-4">New Event</h2>
             <div className="space-y-3">
               {[
-                { key: "summary", placeholder: "Event title *" },
-                { key: "description", placeholder: "Description" },
+                { key: "summary", placeholder: "Event title *", maxLength: 500 },
+                { key: "description", placeholder: "Description", maxLength: 5000 },
                 { key: "start", placeholder: "Start (leave empty for +1h)", type: "datetime-local" },
                 { key: "end", placeholder: "End (leave empty for +2h)", type: "datetime-local" },
-                { key: "attendees", placeholder: "Attendees (comma-separated emails)" },
+                { key: "attendees", placeholder: "Attendees (comma-separated emails)", maxLength: 10000 },
               ].map(f => (
                 <input key={f.key} type={f.type || "text"} value={newEvent[f.key]}
                   onChange={e => setNewEvent(p => ({ ...p, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
+                  maxLength={f.maxLength}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
               ))}
             </div>
@@ -198,13 +199,14 @@ export default function CalendarView() {
             <p className="text-gray-500 text-xs mb-4">JARVIS will create a calendar event for the next available business day at 10 AM UTC.</p>
             <div className="space-y-3">
               {[
-                { key: "lead_email", placeholder: "Lead email *" },
-                { key: "lead_name", placeholder: "Lead name *" },
-                { key: "company", placeholder: "Company *" },
-                { key: "service", placeholder: "Service offered" },
+                { key: "lead_email", placeholder: "Lead email *", maxLength: 320 },
+                { key: "lead_name", placeholder: "Lead name *", maxLength: 200 },
+                { key: "company", placeholder: "Company *", maxLength: 200 },
+                { key: "service", placeholder: "Service offered", maxLength: 200 },
               ].map(f => (
                 <input key={f.key} value={meeting[f.key]} onChange={e => setMeeting(p => ({ ...p, [f.key]: e.target.value }))}
                   placeholder={f.placeholder}
+                  maxLength={f.maxLength}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500/50" />
               ))}
             </div>
