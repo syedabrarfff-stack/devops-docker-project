@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -23,11 +23,12 @@ class DemoGenerateRequest(BaseModel):
     industry: Optional[str] = Field(default=None, max_length=100)
     pain_points: list[str] = Field(default_factory=list)
     company_name: Optional[str] = Field(default=None, max_length=300)
+    prospect_email: Optional[str] = Field(default=None, max_length=320)
     tenant_id: Optional[UUID] = None
 
 
 @router.post("/generate")
-async def generate_demo(body: DemoGenerateRequest, request: Request):
+async def generate_demo(body: DemoGenerateRequest, request: Request, bg: BackgroundTasks):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     demo = await demo_builder.generate(
         tenant_id,
@@ -36,7 +37,10 @@ async def generate_demo(body: DemoGenerateRequest, request: Request):
         pain_points=body.pain_points,
         company_name=body.company_name,
     )
-    return _demo_payload(demo)
+    payload = _demo_payload(demo)
+    if body.prospect_email:
+        bg.add_task(_send_demo_email, body.prospect_email, body.company_name or "", payload["pdf_url"])
+    return payload
 
 
 @router.get("/{lead_id}")
@@ -92,6 +96,26 @@ def _demo_payload(demo: DemoPackage) -> dict:
         "pdf_url": f"{settings.APP_BASE_URL.rstrip('/')}/api/v1/demos/{demo.lead_id or demo.id}/pdf",
         "metadata": demo.metadata_json or {},
     }
+
+
+async def _send_demo_email(email: str, company_name: str, pdf_url: str) -> None:
+    import logging
+    from app.services.outreach.email_transport import send_outbound_email
+
+    subject = "Your Custom Solution Demo — Aliyar Solutions"
+    body = (
+        f"Hello,\n\n"
+        f"Our team has prepared a personalised solution demonstration"
+        f"{' for ' + company_name if company_name else ''}.\n\n"
+        f"Access your demo package here:\n{pdf_url}\n\n"
+        "We would love to walk you through this on a brief call. "
+        "Please reply to schedule 15 minutes at your convenience.\n\n"
+        "Warm regards,\nAliyar Solutions Team"
+    )
+    try:
+        await send_outbound_email(to=email, subject=subject, body=body, to_name="")
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Demo email delivery failed for %s: %s", email, exc)
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:

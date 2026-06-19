@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -38,7 +38,7 @@ class ClientUpdateRequest(BaseModel):
 
 
 @router.post("")
-async def create_client(request: Request, body: ClientCreateRequest):
+async def create_client(request: Request, body: ClientCreateRequest, bg: BackgroundTasks):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     async with AsyncSessionLocal() as session:
         async with session.begin():
@@ -84,6 +84,9 @@ async def create_client(request: Request, body: ClientCreateRequest):
         )
     except Exception as exc:
         logger.warning("Telegram notification failed for new client %s: %s", body.company_name, exc)
+
+    if serialized.get("email"):
+        bg.add_task(_send_welcome_email, serialized)
 
     return {"client": serialized}
 
@@ -205,6 +208,35 @@ def _clean_email(value: str | None) -> str | None:
     if "@" not in cleaned or "." not in cleaned.rsplit("@", 1)[-1]:
         raise HTTPException(status_code=400, detail="email must be valid")
     return cleaned
+
+
+async def _send_welcome_email(client: dict) -> None:
+    from app.services.outreach.email_transport import send_outbound_email
+
+    email = client.get("email") or ""
+    if not email:
+        return
+    contact = client.get("contact_name") or "there"
+    company = client.get("company_name") or ""
+    tier = (client.get("package_tier") or "Growth").capitalize()
+    body = (
+        f"Hello {contact},\n\n"
+        f"Welcome to Aliyar Solutions. Your {tier} package is now active.\n\n"
+        "Our team will be in touch within 24 hours with your onboarding schedule "
+        "and project kickoff details.\n\n"
+        "In the meantime, if you have any immediate questions, "
+        "please reply directly to this message.\n\n"
+        "Warm regards,\nAliyar Solutions Team"
+    )
+    try:
+        await send_outbound_email(
+            to=email,
+            subject=f"Welcome to Aliyar Solutions — {company}",
+            body=body,
+            to_name=contact,
+        )
+    except Exception as exc:
+        logger.warning("Welcome email failed for client %s: %s", client.get("company_name"), exc)
 
 
 def _serialize_client(client: Client) -> dict:

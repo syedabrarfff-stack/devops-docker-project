@@ -67,7 +67,7 @@ async def list_invoices(
 
 
 @router.post("/invoices")
-async def create_invoice(req: CreateInvoiceRequest, db: AsyncSession = Depends(get_db)):
+async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import create_invoice as _create, update_invoice_status
     from app.services.governance.auto_approval import should_auto_approve_invoice
     from app.core.config import settings
@@ -92,6 +92,9 @@ async def create_invoice(req: CreateInvoiceRequest, db: AsyncSession = Depends(g
         async with db.begin():
             ok = await update_invoice_status(db, invoice["id"], "sent")
             auto_approved = ok
+
+    if invoice.get("client_email"):
+        bg.add_task(_send_invoice_email_bg, invoice)
 
     approval_required = not auto_approved
     return {
@@ -126,7 +129,7 @@ async def list_proposals(status: Optional[str] = None, db: AsyncSession = Depend
 
 
 @router.post("/proposals/generate")
-async def generate_proposal(req: ProposalRequest, db: AsyncSession = Depends(get_db)):
+async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import generate_proposal as _gen, update_proposal_status
     from app.services.governance.auto_approval import should_auto_approve_proposal
     from app.core.config import settings
@@ -150,6 +153,9 @@ async def generate_proposal(req: ProposalRequest, db: AsyncSession = Depends(get
         async with db.begin():
             ok = await update_proposal_status(db, proposal["id"], "sent")
             auto_approved = ok
+
+    if proposal.get("client_email"):
+        bg.add_task(_send_proposal_email_bg, proposal)
 
     approval_required = not auto_approved
     return {
@@ -396,3 +402,66 @@ def _serialize_perm(p) -> dict:
         "expires_at": p.expires_at.isoformat() if p.expires_at else None,
         "granted_at": p.granted_at.isoformat() if p.granted_at else None,
     }
+
+
+# ── Background email helpers ─────────────────────────────────────────────────
+
+async def _send_invoice_email_bg(invoice: dict) -> None:
+    import re
+    from html import escape
+    from app.services.outreach.email_transport import send_outbound_email
+
+    email = invoice.get("client_email") or ""
+    if not email:
+        return
+    inv_num = invoice.get("invoice_number", "")
+    total = float(invoice.get("total") or 0)
+    due_date = invoice.get("due_date") or "as agreed"
+    client_name = invoice.get("client_name") or ""
+    body = (
+        f"Hello {client_name or 'there'},\n\n"
+        f"Our team has prepared invoice {inv_num} for ${total:,.2f}.\n"
+        f"Due date: {str(due_date)[:10]}.\n\n"
+        "Payment instructions are included on the invoice. "
+        "Please use the invoice number as the payment reference.\n\n"
+        "Warm regards,\nAliyar Solutions Team"
+    )
+    try:
+        await send_outbound_email(
+            to=email,
+            subject=f"Invoice {inv_num} from Aliyar Solutions",
+            body=body,
+            to_name=client_name,
+        )
+    except Exception as exc:
+        logger.warning("Invoice email delivery failed for %s: %s", email, exc)
+
+
+async def _send_proposal_email_bg(proposal: dict) -> None:
+    from app.services.outreach.email_transport import send_outbound_email
+
+    email = proposal.get("client_email") or ""
+    if not email:
+        return
+    client_name = proposal.get("client_name") or ""
+    title = proposal.get("title") or "Proposal"
+    content = (proposal.get("content") or "")[:3000]
+    body = (
+        f"Hello {client_name or 'there'},\n\n"
+        f"Please find our proposal below.\n\n"
+        f"--- {title} ---\n\n"
+        f"{content}\n\n"
+        "--- End of Proposal ---\n\n"
+        "Please let us know how you would like to proceed. "
+        "Our team is ready to begin immediately upon confirmation.\n\n"
+        "Warm regards,\nAliyar Solutions Team"
+    )
+    try:
+        await send_outbound_email(
+            to=email,
+            subject=f"Proposal from Aliyar Solutions — {title}",
+            body=body,
+            to_name=client_name,
+        )
+    except Exception as exc:
+        logger.warning("Proposal email delivery failed for %s: %s", email, exc)
