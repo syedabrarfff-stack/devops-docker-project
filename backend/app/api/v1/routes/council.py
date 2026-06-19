@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 from app.services.ai.council import intelligence_council
@@ -19,6 +20,7 @@ class CouncilConveneRequest(BaseModel):
 
 
 @router.post("/convene")
+@limiter.limit("20/minute")
 async def convene_council(request: Request, body: CouncilConveneRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:

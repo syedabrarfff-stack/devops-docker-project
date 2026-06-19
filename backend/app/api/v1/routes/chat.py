@@ -1,17 +1,21 @@
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db, set_tenant_context
+from app.core.rate_limit import limiter
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.ai.router import ai_router, JARVIS_SYSTEM_PROMPT
 from app.services.ai.base_provider import Message, TaskType
 from app.models.conversation import Conversation
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(get_db)):
     tenant_id = settings.JARVIS_DEFAULT_TENANT_ID
     if tenant_id:
         await set_tenant_context(db, tenant_id)

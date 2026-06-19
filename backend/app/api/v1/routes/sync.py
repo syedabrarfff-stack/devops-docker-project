@@ -6,7 +6,8 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from app.core.rate_limit import limiter
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import select
@@ -26,7 +27,8 @@ class SyncConfig(BaseModel):
 
 
 @router.post("/apollo")
-async def run_apollo_sync(body: SyncConfig = SyncConfig(), db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def run_apollo_sync(request: Request, body: SyncConfig = SyncConfig(), db: AsyncSession = Depends(get_db)):
     """Fetch contacts from Apollo.io and upsert into CRM."""
     count = await sync_from_apollo(
         db, limit=body.limit,

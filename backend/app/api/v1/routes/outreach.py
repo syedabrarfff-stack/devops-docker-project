@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from urllib.parse import unquote
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, Response
+from app.core.rate_limit import limiter
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -109,7 +110,9 @@ async def _generate_ai_steps(seq_id: int, industry: str, country: str, service: 
 
 
 @router.post("/sequences/{sequence_id}/enroll")
+@limiter.limit("30/minute")
 async def enroll_contacts(
+    request: Request,
     sequence_id: int,
     body: EnrollIn,
     db: AsyncSession = Depends(get_db),
@@ -132,6 +135,7 @@ async def queue_lead_outreach(lead_id: UUID, request: Request, tenant_id: Option
 
 
 @router.post("/execute")
+@limiter.limit("10/minute")
 async def execute_outreach(request: Request, body: ExecuteOutreachIn = Body(default_factory=ExecuteOutreachIn)):
     resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
     sent = await outreach_engine.execute_due_outreach(

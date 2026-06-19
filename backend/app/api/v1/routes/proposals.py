@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, HTTPException, Request
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -28,6 +29,7 @@ class ProposalActionRequest(BaseModel):
 
 
 @router.post("/generate")
+@limiter.limit("30/minute")
 async def generate_proposal(request: Request, body: GenerateProposalRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     async with AsyncSessionLocal() as session:

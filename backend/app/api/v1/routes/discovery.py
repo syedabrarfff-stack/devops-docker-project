@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.lead import Lead
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,8 @@ class LocalMarketRequest(BaseModel):
 
 
 @discover_router.post("/run")
-async def run_discovery(body: RunDiscoveryRequest, request: Request):
+@limiter.limit("20/minute")
+async def run_discovery(request: Request, body: RunDiscoveryRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     targets = [_target_to_dict(target) for target in body.targets]
     if not targets:
@@ -65,7 +67,8 @@ async def run_discovery(body: RunDiscoveryRequest, request: Request):
 
 
 @discover_router.post("/free-sources")
-async def run_free_source_discovery(body: FreeSourcesRequest, request: Request):
+@limiter.limit("20/minute")
+async def run_free_source_discovery(request: Request, body: FreeSourcesRequest):
     from app.services.revenue_activation.free_discovery import free_discovery_engine
 
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
