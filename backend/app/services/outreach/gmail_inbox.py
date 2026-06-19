@@ -67,20 +67,20 @@ def _get_body(msg) -> tuple[str, str]:
             if ct == "text/plain":
                 try:
                     text = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to decode text/plain email part: %s", exc)
             elif ct == "text/html":
                 try:
                     html = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to decode text/html email part: %s", exc)
     else:
         try:
             payload = msg.get_payload(decode=True)
             if payload:
                 text = payload.decode("utf-8", errors="replace")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to decode email payload: %s", exc)
     return text[:3000], html[:5000]
 
 

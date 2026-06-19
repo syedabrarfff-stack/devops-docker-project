@@ -85,7 +85,8 @@ def _extract_body(msg) -> tuple[str, str]:
                     plain = decoded
                 elif ct == "text/html" and not html:
                     html = decoded
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to decode email part: %s", exc)
                 continue
     else:
         try:
@@ -93,8 +94,8 @@ def _extract_body(msg) -> tuple[str, str]:
             if payload:
                 charset = msg.get_content_charset() or "utf-8"
                 plain = payload.decode(charset, errors="replace")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to decode email payload: %s", exc)
     return plain, html
 
 

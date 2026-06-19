@@ -9,7 +9,7 @@ router = APIRouter(prefix="/civilization", tags=["civilization"])
 
 
 @router.get("/ledger")
-async def civilization_ledger(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(200, le=1000)):
+async def civilization_ledger(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(200, ge=1, le=1000)):
     from app.services.civilization import civilization_ledger as ledger_service
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -17,7 +17,7 @@ async def civilization_ledger(request: Request, tenant_id: Optional[UUID] = None
 
 
 @router.get("/milestones")
-async def civilization_milestones(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(200, le=1000)):
+async def civilization_milestones(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(200, ge=1, le=1000)):
     from app.services.civilization import civilization_ledger as ledger_service
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)

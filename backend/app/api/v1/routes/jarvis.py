@@ -100,7 +100,7 @@ async def jarvis_chat_endpoint(body: ChatRequest, db: AsyncSession = Depends(get
 async def get_memory(
     query: str = Query("", description="Search query"),
     memory_type: Optional[str] = Query(None),
-    limit: int = Query(20, le=100),
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     """What does JARVIS remember? Search or browse all memories."""
@@ -152,7 +152,7 @@ async def trigger_learning_cycle(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/evolution-log")
-async def evolution_log(limit: int = Query(10, le=30), db: AsyncSession = Depends(get_db)):
+async def evolution_log(limit: int = Query(10, ge=1, le=30), db: AsyncSession = Depends(get_db)):
     """JARVIS evolution history — what it has learned over time."""
     history = await get_evolution_history(db, limit=limit)
     return {"history": history, "total": len(history)}

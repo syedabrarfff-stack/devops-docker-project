@@ -144,17 +144,29 @@ async def get_audit_log(db: AsyncSession, limit: int = 100, provider: Optional[s
 
 
 async def get_cost_summary(db: AsyncSession, days: int = 7) -> dict:
-    """Rolling N-day cost summary."""
+    """Rolling N-day cost summary — single query instead of N daily queries."""
     from datetime import timedelta
-    summaries = []
-    for i in range(days - 1, -1, -1):
-        d = date.today() - timedelta(days=i)
-        day_summary = await get_daily_cost(db, d)
-        summaries.append({"date": d.isoformat(), "cost_usd": day_summary["total_cost_usd"]})
-    total_7d = sum(s["cost_usd"] for s in summaries)
+    from sqlalchemy import cast, Date as SADate
+    today = date.today()
+    window_start = datetime.combine(today - timedelta(days=days - 1), datetime.min.time())
+    rows = (await db.execute(
+        select(
+            cast(AIRequestLog.created_at, SADate).label("day"),
+            func.sum(AIRequestLog.cost_estimate_usd).label("cost"),
+        )
+        .where(AIRequestLog.created_at >= window_start)
+        .group_by(cast(AIRequestLog.created_at, SADate))
+    )).all()
+    cost_by_day = {str(r.day): round(float(r.cost or 0), 4) for r in rows}
+    summaries = [
+        {"date": (today - timedelta(days=i)).isoformat(),
+         "cost_usd": cost_by_day.get((today - timedelta(days=i)).isoformat(), 0.0)}
+        for i in range(days - 1, -1, -1)
+    ]
+    total = sum(s["cost_usd"] for s in summaries)
     return {
         "days": days,
-        "total_cost_usd": round(total_7d, 4),
+        "total_cost_usd": round(total, 4),
         "daily": summaries,
-        "avg_daily_usd": round(total_7d / days, 4),
+        "avg_daily_usd": round(total / days, 4),
     }

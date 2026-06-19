@@ -602,7 +602,7 @@ async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSessio
 @router.get("/emails/pending")
 async def list_pending_emails(
     request: Request,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     tenant_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -661,7 +661,7 @@ async def list_pending_emails(
 
 @router.post("/emails/process-due")
 async def process_due_emails(
-    limit: int = Query(10, le=50),
+    limit: int = Query(10, ge=1, le=50),
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
 ):

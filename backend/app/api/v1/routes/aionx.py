@@ -278,7 +278,7 @@ async def operational_persistence(db: AsyncSession = Depends(get_db)) -> dict[st
 
 @router.get("/operational-persistence/latest")
 async def operational_persistence_latest(
-    limit: int = Query(10, le=50),
+    limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await latest_persisted_records(db, limit)
@@ -474,7 +474,7 @@ async def compute_wisdom(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 async def decision_genealogy(
     client_id: uuid.UUID | None = Query(None),
     mission_id: uuid.UUID | None = Query(None),
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     return await get_decision_genealogy(db, client_id=client_id, mission_id=mission_id, limit=limit)

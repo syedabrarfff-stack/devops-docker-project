@@ -73,7 +73,7 @@ async def stage_transition(
 @router.get("/pipeline/{client_id}/history")
 async def pipeline_history(
     client_id: uuid.UUID,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     return await get_stage_history(db, client_id, limit=limit)

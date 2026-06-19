@@ -67,11 +67,16 @@ async def recall(
         scored.sort(key=lambda x: (-x[0], -x[1].importance))
         results = [m for _, m in scored[:limit]]
 
-    for m in results:
-        await db.execute(update(Memory).where(Memory.id == m.id).values(
-            access_count=m.access_count + 1,
-            last_accessed=datetime.now(timezone.utc)
-        ))
+    if results:
+        result_ids = [m.id for m in results]
+        await db.execute(
+            update(Memory)
+            .where(Memory.id.in_(result_ids))
+            .values(
+                access_count=Memory.access_count + 1,
+                last_accessed=datetime.now(timezone.utc),
+            )
+        )
     return results
 
 

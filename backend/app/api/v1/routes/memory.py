@@ -44,7 +44,7 @@ async def recall_memory(
     query: str,
     session_id: Optional[str] = None,
     memory_type: Optional[str] = None,
-    limit: int = Query(10, le=50),
+    limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
     memories = await mem.recall(db, query=query, session_id=session_id,

@@ -138,12 +138,14 @@ async def update_deal(db: AsyncSession, deal_id: int, data: dict) -> Optional[De
 
 async def pipeline_stats(db: AsyncSession) -> dict:
     stages = ("discovery", "proposal", "negotiation", "closed_won", "closed_lost")
-    pipeline = {}
-    total_value = 0.0
-    for s in stages:
-        count = await db.scalar(select(func.count()).select_from(Deal).where(Deal.stage == s))
-        value = await db.scalar(select(func.sum(Deal.value)).where(Deal.stage == s)) or 0.0
-        pipeline[s] = {"count": count or 0, "value": round(value, 2)}
-        if s not in ("closed_lost",):
-            total_value += value
+    rows = (await db.execute(
+        select(Deal.stage, func.count().label("n"), func.coalesce(func.sum(Deal.value), 0).label("v"))
+        .where(Deal.stage.in_(stages))
+        .group_by(Deal.stage)
+    )).all()
+    agg = {s: (0, 0.0) for s in stages}
+    for stage, count, value in rows:
+        agg[stage] = (count, float(value))
+    pipeline = {s: {"count": agg[s][0], "value": round(agg[s][1], 2)} for s in stages}
+    total_value = sum(agg[s][1] for s in stages if s != "closed_lost")
     return {"pipeline": pipeline, "total_pipeline_value": round(total_value, 2)}

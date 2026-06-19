@@ -121,7 +121,7 @@ async def _trigger_auto_outreach(lead_id: UUID, lead, tenant_id: UUID):
 async def list_leads(
     status: Optional[str] = None,
     min_score: int = 0,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     rows = await leads.list_leads(db, status=status, min_score=min_score, limit=limit)
@@ -158,7 +158,7 @@ async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/bulk-score")
-async def bulk_score(limit: int = Query(20, le=50), db: AsyncSession = Depends(get_db)):
+async def bulk_score(limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
     count = await leads.bulk_score(db, limit=limit)
     await db.commit()
     return {"scored": count}

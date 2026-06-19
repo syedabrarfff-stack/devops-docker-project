@@ -11,7 +11,7 @@ class TaskIn(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
     description: Optional[str] = Field(default="", max_length=10_000)
     task_type: Optional[str] = Field(default="general", max_length=100)
-    priority: Optional[int] = 5
+    priority: Optional[int] = Field(default=5, ge=1, le=10)
     assigned_to: Optional[str] = Field(default="jarvis", max_length=100)
     payload: Optional[dict] = None
 
@@ -30,7 +30,7 @@ class DelegateIn(BaseModel):
     task_title: str = Field(..., min_length=1, max_length=500)
     task_description: Optional[str] = Field(default="", max_length=10_000)
     task_type: Optional[str] = Field(default="research", max_length=100)
-    priority: Optional[int] = 5
+    priority: Optional[int] = Field(default=5, ge=1, le=10)
     payload: Optional[dict] = None
 
 
@@ -59,7 +59,7 @@ async def queue_stats(db: AsyncSession = Depends(get_db)):
 async def list_tasks(
     status: Optional[str] = None,
     assigned_to: Optional[str] = None,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select, desc

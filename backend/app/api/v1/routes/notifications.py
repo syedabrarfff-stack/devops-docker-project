@@ -32,7 +32,7 @@ class NotifyIn(BaseModel):
 async def list_notifications(
     unread_only: bool = False,
     category: Optional[str] = None,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(NotificationLog).order_by(desc(NotificationLog.created_at)).limit(limit)

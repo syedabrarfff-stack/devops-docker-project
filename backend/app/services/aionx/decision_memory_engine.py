@@ -223,19 +223,27 @@ async def get_decision_genealogy(
 
     result = await db.execute(query)
     decisions = result.scalars().all()
+    if not decisions:
+        return []
+
+    decision_ids = [d.id for d in decisions]
+
+    options_rows = (await db.execute(
+        select(DecisionOption).where(DecisionOption.decision_id.in_(decision_ids))
+    )).scalars().all()
+    options_by_decision: dict[uuid.UUID, list] = {}
+    for o in options_rows:
+        options_by_decision.setdefault(o.decision_id, []).append(o)
+
+    outcomes_rows = (await db.execute(
+        select(DecisionOutcome).where(DecisionOutcome.decision_id.in_(decision_ids))
+    )).scalars().all()
+    outcome_by_decision: dict[uuid.UUID, Any] = {o.decision_id: o for o in outcomes_rows}
 
     genealogy = []
     for d in decisions:
-        options_result = await db.execute(
-            select(DecisionOption).where(DecisionOption.decision_id == d.id)
-        )
-        options = options_result.scalars().all()
-
-        outcome_result = await db.execute(
-            select(DecisionOutcome).where(DecisionOutcome.decision_id == d.id)
-        )
-        outcome = outcome_result.scalar_one_or_none()
-
+        options = options_by_decision.get(d.id, [])
+        outcome = outcome_by_decision.get(d.id)
         genealogy.append({
             "decision_id": str(d.id),
             "created_at": d.created_at.isoformat(),

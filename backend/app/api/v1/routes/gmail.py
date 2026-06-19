@@ -69,7 +69,7 @@ async def fetch_inbox(db: AsyncSession = Depends(get_db)):
 async def inbox(
     category: Optional[str] = Query(None, description="client_reply, new_inquiry, follow_up, spam, other"),
     needs_action: Optional[bool] = Query(None),
-    limit: int = Query(50, le=100),
+    limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0),
     db: AsyncSession = Depends(get_db),
 ):

@@ -77,7 +77,7 @@ async def create_contact(body: ContactIn, db: AsyncSession = Depends(get_db)):
 async def list_contacts(
     status: Optional[str] = None,
     company_id: Optional[int] = None,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     contacts = await crm.list_contacts(db, status=status, company_id=company_id, limit=limit)
@@ -113,7 +113,7 @@ async def create_company(body: CompanyIn, db: AsyncSession = Depends(get_db)):
 async def list_companies(
     industry: Optional[str] = None,
     country: Optional[str] = None,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     companies = await crm.list_companies(db, industry=industry, country=country, limit=limit)
@@ -134,7 +134,7 @@ async def create_deal(body: DealIn, db: AsyncSession = Depends(get_db)):
 async def list_deals(
     stage: Optional[str] = None,
     min_value: float = 0,
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     deals = await crm.list_deals(db, stage=stage, min_value=min_value, limit=limit)
