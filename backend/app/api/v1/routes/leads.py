@@ -559,6 +559,138 @@ async def lead_stats(db: AsyncSession = Depends(get_db)):
     return await leads.lead_stats(db)
 
 
+@router.get("/{lead_id}")
+async def get_lead_profile(
+    lead_id: UUID,
+    request: Request,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Full 360° lead profile: lead data + proposals + trust brief + outreach history."""
+    from sqlalchemy import select
+    from app.core.database import set_tenant_context
+    from app.models.lead import Lead
+    from app.models.governance import Proposal, Contract
+    from app.models.trust_engine import ExecutiveOpportunityBrief
+    from app.models.revenue import OutreachLog
+
+    resolved = _resolve_tenant_id(request, tenant_id)
+    await set_tenant_context(db, str(resolved))
+
+    lead = await db.scalar(
+        select(Lead).where(Lead.tenant_id == resolved, Lead.id == lead_id)
+    )
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    proposals_rows = (await db.scalars(
+        select(Proposal)
+        .where(Proposal.tenant_id == resolved, Proposal.lead_id == lead_id)
+        .order_by(Proposal.created_at.desc())
+        .limit(10)
+    )).all()
+
+    brief = await db.scalar(
+        select(ExecutiveOpportunityBrief)
+        .where(ExecutiveOpportunityBrief.lead_id == lead_id)
+        .order_by(ExecutiveOpportunityBrief.created_at.desc())
+        .limit(1)
+    )
+
+    outreach_rows = (await db.scalars(
+        select(OutreachLog)
+        .where(OutreachLog.lead_id == lead_id)
+        .order_by(OutreachLog.sent_at.desc())
+        .limit(8)
+    )).all()
+
+    contracts_rows = (await db.scalars(
+        select(Contract)
+        .where(
+            Contract.tenant_id == resolved,
+            Contract.proposal_id.in_([p.id for p in proposals_rows]) if proposals_rows else False,
+        )
+        .order_by(Contract.created_at.desc())
+        .limit(5)
+    )).all() if proposals_rows else []
+
+    return {
+        "lead": {
+            "id": str(lead.id),
+            "company": _lead_company(lead),
+            "contact_name": lead.contact_name,
+            "email": lead.email,
+            "phone": lead.phone,
+            "whatsapp_number": getattr(lead, "whatsapp_number", None),
+            "linkedin_url": getattr(lead, "linkedin_url", None),
+            "website": lead.website or lead.company_website,
+            "industry": lead.industry,
+            "country": lead.country,
+            "score": lead.score,
+            "tier": lead.tier,
+            "status": lead.status.value if hasattr(lead.status, "value") else lead.status,
+            "source": lead.source,
+            "pain_points": lead.pain_points or [],
+            "signal_breakdown": lead.signal_breakdown or {},
+            "assigned_persona": lead.assigned_persona,
+            "qualification_status": lead.qualification_status,
+            "outreach_eligible": lead.outreach_eligible,
+            "outreach_count": lead.outreach_count,
+            "last_contact": (lead.last_contact or lead.last_contacted).isoformat() if (lead.last_contact or lead.last_contacted) else None,
+            "notes": lead.notes,
+            "ai_analysis": getattr(lead, "ai_analysis", None),
+            "loss_reason": getattr(lead, "loss_reason", None),
+            "created_at": lead.created_at.isoformat() if lead.created_at else None,
+        },
+        "proposals": [
+            {
+                "id": p.id,
+                "title": p.title,
+                "package_tier": p.package_tier,
+                "service_type": p.service_type,
+                "status": p.status,
+                "invoice_number": p.invoice_number,
+                "pdf_url": p.pdf_url,
+                "pricing": p.pricing or {},
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in proposals_rows
+        ],
+        "contracts": [
+            {
+                "id": c.id,
+                "client_company": c.client_company,
+                "service_type": c.service_type,
+                "status": c.status,
+                "proposal_id": c.proposal_id,
+                "signed_at": c.signed_at.isoformat() if c.signed_at else None,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in contracts_rows
+        ],
+        "trust_brief": {
+            "narrative": brief.narrative,
+            "opportunities": brief.opportunities or [],
+            "quick_wins": brief.quick_wins or [],
+            "estimated_roi": brief.estimated_roi,
+            "trust_score_at_creation": brief.trust_score_at_creation,
+            "created_at": brief.created_at.isoformat() if brief.created_at else None,
+        } if brief else None,
+        "outreach": [
+            {
+                "id": str(o.id),
+                "channel": o.channel.value if hasattr(o.channel, "value") else o.channel,
+                "subject": o.subject,
+                "status": o.status.value if hasattr(o.status, "value") else o.status,
+                "sent_from_persona": o.sent_from_persona,
+                "sequence_step": o.sequence_step,
+                "sent_at": o.sent_at.isoformat() if o.sent_at else None,
+            }
+            for o in outreach_rows
+        ],
+    }
+
+
 @router.post("/{lead_id}/loss")
 async def record_lead_loss(
     lead_id: UUID,

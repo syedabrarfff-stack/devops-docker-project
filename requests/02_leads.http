@@ -1,6 +1,11 @@
 @leadId = PASTE_LEAD_ID_HERE
 
 ###
+# GET Lead Profile — 360° view: lead + proposals + contracts + trust brief + outreach (requires JWT)
+GET {{baseUrl}}/leads/{{leadId}}
+Authorization: Bearer {{token}}
+
+###
 # GET Leads — list all (requires JWT)
 GET {{baseUrl}}/leads
 Authorization: Bearer {{token}}

@@ -134,6 +134,7 @@ export const updateClientStatus = (id, data) => api.post(`/api/v1/clients/${id}/
 
 // Leads
 export const getLeads = (params) => api.get('/api/v1/leads/', { params }).then(r => r.data)
+export const getLeadProfile = (leadId, tenantId) => api.get(`/api/v1/leads/${leadId}`, { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const createLead = (data) => api.post('/api/v1/leads/', data).then(r => r.data)
 export const scoreLead = (id) => api.post(`/api/v1/leads/${id}/score`).then(r => r.data)
 export const bulkScoreLeads = () => api.post('/api/v1/leads/bulk-score').then(r => r.data)

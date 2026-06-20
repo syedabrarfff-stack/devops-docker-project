@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { api, importLeadsCsv, downloadLeadCsvTemplate, launchCampaign } from "../../services/api";
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { api, importLeadsCsv, downloadLeadCsvTemplate, launchCampaign, getLeadProfile } from "../../services/api";
 import useJarvisStore from "../../store/useJarvisStore";
 
 const DEFAULT_TENANT = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1'
@@ -437,9 +437,293 @@ function CallBriefModal({ lead, onClose }) {
   )
 }
 
+const PIPELINE_STEPS = ['NEW', 'CONTACTED', 'DEMO', 'PROPOSAL', 'WON']
+const PROPOSAL_STATUS_COLOR = { draft: 'text-gray-400', sent: 'text-blue-400', accepted: 'text-green-400', declined: 'text-red-400', negotiating: 'text-yellow-400' }
+const CONTRACT_STATUS_COLOR = { draft: 'text-gray-400', sent: 'text-blue-400', signed: 'text-green-400', cancelled: 'text-red-400' }
+
+function LeadProfilePanel({ leadId, onClose, onGenerateProposal, onCallBrief }) {
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState(null)
+  const [generatingProposal, setGeneratingProposal] = useState(false)
+  const [proposalTier, setProposalTier] = useState('GROWTH')
+  const [proposalResult, setProposalResult] = useState(null)
+  const [proposalErr, setProposalErr] = useState(null)
+
+  useEffect(() => {
+    setLoading(true); setErr(null); setProfile(null)
+    getLeadProfile(leadId)
+      .then(d => setProfile(d))
+      .catch(e => setErr(e?.response?.data?.detail || 'Failed to load lead profile'))
+      .finally(() => setLoading(false))
+  }, [leadId])
+
+  async function handleGenerateProposal() {
+    if (!profile) return
+    setGeneratingProposal(true); setProposalErr(null); setProposalResult(null)
+    try {
+      const r = await api.post('/api/v1/proposals/generate', {
+        lead_id: profile.lead.id,
+        package_tier: proposalTier,
+        tenant_id: '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1',
+      })
+      setProposalResult(r.data)
+    } catch (e) {
+      setProposalErr(e?.response?.data?.detail || 'Proposal generation failed')
+    }
+    setGeneratingProposal(false)
+  }
+
+  const lead = profile?.lead
+  const currentStepIdx = lead ? PIPELINE_STEPS.indexOf(String(lead.status).toUpperCase()) : -1
+
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex" onClick={onClose}>
+        {/* Backdrop */}
+        <div className="flex-1 bg-black/50 backdrop-blur-sm" />
+        {/* Panel */}
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 28, stiffness: 250 }}
+          className="w-full max-w-xl bg-[#0a0a0f] border-l border-white/10 flex flex-col overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-widest">Lead Profile</p>
+              {lead && <p className="text-lg font-bold text-white mt-0.5">{lead.company}</p>}
+            </div>
+            <button onClick={onClose} className="text-gray-500 hover:text-white text-xl transition-colors">✕</button>
+          </div>
+
+          {loading && <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">Loading profile…</div>}
+          {err && <div className="flex-1 flex items-center justify-center text-red-400 text-sm p-8 text-center">{err}</div>}
+
+          {profile && (
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+
+              {/* Score + Status */}
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-white/5 border border-white/10 px-5 py-3 text-center min-w-[80px]">
+                  <p className={`text-3xl font-black ${lead.score >= 80 ? 'text-red-400' : lead.score >= 60 ? 'text-orange-400' : lead.score >= 40 ? 'text-yellow-400' : 'text-gray-400'}`}>{lead.score}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">SCORE</p>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Status:</span>
+                    <span className={`text-xs font-semibold ${STATUS_COLORS[normaliseStatus(lead.status)] || 'text-gray-400'}`}>{lead.status}</span>
+                  </div>
+                  {lead.tier && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Tier:</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded border ${TIER_COLORS[lead.tier] || ''}`}>{lead.tier}</span>
+                    </div>
+                  )}
+                  {lead.assigned_persona && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">Assigned to:</span>
+                      <span className="text-xs text-purple-400">{lead.assigned_persona}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pipeline Breadcrumb */}
+              <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Pipeline Stage</p>
+                <div className="flex items-center gap-1">
+                  {PIPELINE_STEPS.map((step, i) => (
+                    <div key={step} className="flex items-center gap-1 flex-1">
+                      <div className={`flex-1 h-1 rounded-full ${i <= currentStepIdx ? 'bg-blue-500' : 'bg-white/10'}`} />
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${i <= currentStepIdx ? 'bg-blue-400' : 'bg-white/20'}`} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-1">
+                  {PIPELINE_STEPS.map((step, i) => (
+                    <span key={step} className={`text-[9px] ${i <= currentStepIdx ? 'text-blue-400' : 'text-gray-600'}`}>{step}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contact Details */}
+              <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-2">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Contact</p>
+                {lead.contact_name && <p className="text-sm text-white font-medium">{lead.contact_name}</p>}
+                {lead.email && <a href={`mailto:${lead.email}`} className="text-sm text-blue-400 hover:text-blue-300 block">{lead.email}</a>}
+                {(lead.phone || lead.whatsapp_number) && (
+                  <a href={`https://wa.me/${(lead.whatsapp_number || lead.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-sm text-green-400 hover:text-green-300 flex items-center gap-1">
+                    <span>📱</span>{lead.whatsapp_number || lead.phone}
+                  </a>
+                )}
+                {lead.linkedin_url && <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-300 hover:text-blue-200">🔗 LinkedIn</a>}
+                {lead.website && <a href={lead.website} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-gray-200 truncate block">{lead.website}</a>}
+                <div className="flex gap-4 pt-1 text-xs text-gray-500">
+                  {lead.industry && <span>{lead.industry}</span>}
+                  {lead.country && <span>{lead.country}</span>}
+                </div>
+              </div>
+
+              {/* Trust Brief */}
+              {profile.trust_brief && (
+                <div className="rounded-xl bg-indigo-500/5 border border-indigo-500/20 p-4">
+                  <p className="text-[10px] text-indigo-300 uppercase tracking-widest mb-2">JARVIS Intelligence Brief</p>
+                  {profile.trust_brief.narrative && (
+                    <p className="text-sm text-gray-300 leading-relaxed mb-3">{profile.trust_brief.narrative}</p>
+                  )}
+                  {profile.trust_brief.quick_wins?.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-green-400 font-semibold">Quick Wins</p>
+                      {profile.trust_brief.quick_wins.map((w, i) => (
+                        <p key={i} className="text-xs text-gray-400 flex gap-1.5"><span className="text-green-400 shrink-0">›</span>{w}</p>
+                      ))}
+                    </div>
+                  )}
+                  {profile.trust_brief.estimated_roi && (
+                    <p className="text-xs text-yellow-400 mt-2 font-semibold">ROI: {profile.trust_brief.estimated_roi}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Pain Points */}
+              {lead.pain_points?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Pain Points</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lead.pain_points.map((pp, i) => (
+                      <span key={i} className="text-xs px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">{pp}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Proposals */}
+              {profile.proposals?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Proposals ({profile.proposals.length})</p>
+                  <div className="space-y-2">
+                    {profile.proposals.map(p => (
+                      <div key={p.id} className="rounded-xl bg-white/5 border border-white/10 p-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm text-white font-medium truncate">{p.title || `Proposal #${p.id}`}</p>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-gray-500">{p.package_tier}</span>
+                            <span className={`text-xs font-semibold ${PROPOSAL_STATUS_COLOR[p.status] || 'text-gray-400'}`}>{p.status}</span>
+                            {p.pricing?.monthly_retainer && <span className="text-xs text-green-400">${p.pricing.monthly_retainer}/mo</span>}
+                          </div>
+                        </div>
+                        {p.pdf_url && (
+                          <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 shrink-0">PDF →</a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Contracts */}
+              {profile.contracts?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Contracts ({profile.contracts.length})</p>
+                  <div className="space-y-2">
+                    {profile.contracts.map(c => (
+                      <div key={c.id} className="rounded-xl bg-white/5 border border-white/10 p-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-white font-medium">{c.service_type || `Contract #${c.id}`}</p>
+                          <span className={`text-xs font-semibold ${CONTRACT_STATUS_COLOR[c.status] || 'text-gray-400'}`}>{c.status}</span>
+                          {c.signed_at && <span className="text-xs text-gray-500 ml-2">Signed {c.signed_at.slice(0,10)}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Outreach History */}
+              {profile.outreach?.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Outreach History ({profile.outreach.length})</p>
+                  <div className="space-y-2">
+                    {profile.outreach.map((o, i) => (
+                      <div key={o.id || i} className="rounded-xl bg-white/5 border border-white/10 p-3">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs text-gray-400">{o.sent_from_persona} · Step {o.sequence_step}</span>
+                          <span className={`text-[10px] font-semibold ${o.status === 'REPLIED' ? 'text-green-400' : o.status === 'OPENED' ? 'text-blue-400' : 'text-gray-500'}`}>{o.status}</span>
+                        </div>
+                        {o.subject && <p className="text-xs text-gray-300 truncate">{o.subject}</p>}
+                        {o.sent_at && <p className="text-[10px] text-gray-600 mt-0.5">{o.sent_at.slice(0,10)}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Proposal */}
+              <div className="rounded-xl bg-blue-500/5 border border-blue-500/20 p-4">
+                <p className="text-[10px] text-blue-300 uppercase tracking-widest mb-3">Generate Proposal</p>
+                {proposalResult ? (
+                  <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-sm text-green-300">
+                    Proposal #{proposalResult.proposal_id} generated — {proposalResult.package_tier}
+                    {proposalResult.pdf_url && <a href={proposalResult.pdf_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-400 hover:text-blue-300">View PDF →</a>}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2 mb-3">
+                      {['STARTER', 'GROWTH', 'ENTERPRISE'].map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setProposalTier(t)}
+                          className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${proposalTier === t ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    {proposalErr && <p className="text-xs text-red-400 mb-2">{proposalErr}</p>}
+                    <button
+                      onClick={handleGenerateProposal}
+                      disabled={generatingProposal}
+                      className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+                    >
+                      {generatingProposal ? 'Generating…' : 'Generate Proposal →'}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex gap-2 pb-4">
+                <button
+                  onClick={() => { onCallBrief(lead); onClose() }}
+                  className="flex-1 py-2.5 rounded-xl border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 text-xs font-semibold transition-colors"
+                >
+                  📞 Call Brief
+                </button>
+                <button
+                  onClick={async () => {
+                    try { await api.post(`/api/v1/outreach/queue/${lead.id}`) } catch {}
+                    onClose()
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs font-semibold transition-colors"
+                >
+                  📧 Queue Outreach
+                </button>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  )
+}
+
 const LEAD_STATUSES = ['NEW', 'CONTACTED', 'REPLIED', 'DEMO', 'NURTURE', 'PROPOSAL', 'WON', 'LOST'];
 
-function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh, onLoss, selected, onToggle }) {
+function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRefresh, onLoss, onProfile, selected, onToggle }) {
   const [scoring, setScoring] = useState(false);
   const [queuing, setQueuing] = useState(false);
   const [linkedInSending, setLinkedInSending] = useState(false);
@@ -474,7 +758,12 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRe
             className="mt-1 h-3.5 w-3.5 rounded accent-emerald-500 cursor-pointer flex-shrink-0"
           />
           <div>
-            <p className="font-semibold text-white">{leadCompany(lead)}</p>
+            <button
+              onClick={() => onProfile && onProfile(lead.id)}
+              className="font-semibold text-white hover:text-blue-300 transition-colors text-left"
+            >
+              {leadCompany(lead)}
+            </button>
             <p className="text-sm text-gray-400">{lead.contact_name || "-"}</p>
           </div>
         </div>
@@ -594,6 +883,12 @@ function LeadRow({ lead, onScore, onProposal, onCallBrief, onQueueOutreach, onRe
                 </button>
               )}
               <button
+                onClick={() => onProfile && onProfile(lead.id)}
+                className="text-xs px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-colors font-semibold"
+              >
+                Profile →
+              </button>
+              <button
                 onClick={() => onProposal(lead)}
                 className="text-xs px-3 py-1 rounded-lg bg-jarvis-cyan/10 hover:bg-jarvis-cyan/20 text-jarvis-cyan border border-jarvis-cyan/20 transition-colors font-semibold"
               >
@@ -639,6 +934,7 @@ export default function LeadsDashboard() {
   const [showCampaign, setShowCampaign] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [campaignResult, setCampaignResult] = useState(null);
+  const [profileLeadId, setProfileLeadId] = useState(null);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -925,13 +1221,22 @@ export default function LeadsDashboard() {
           {filtered.length === 0 ? (
             <p className="text-gray-500 col-span-3 text-center py-8">No leads found. Add your first lead.</p>
           ) : (
-            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} selected={selectedIds.has(l.id)} onToggle={toggleLead} />)
+            filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} onProfile={setProfileLeadId} selected={selectedIds.has(l.id)} onToggle={toggleLead} />)
           )}
         </div>
       )}
 
       {/* Call Brief Panel */}
       {callBriefLead && <CallBriefModal lead={callBriefLead} onClose={() => setCallBriefLead(null)} />}
+
+      {/* Lead Profile Panel */}
+      {profileLeadId && (
+        <LeadProfilePanel
+          leadId={profileLeadId}
+          onClose={() => setProfileLeadId(null)}
+          onCallBrief={(lead) => { setCallBriefLead(lead); setProfileLeadId(null) }}
+        />
+      )}
 
       {/* Discover Leads Modal */}
       {showDiscover && (
