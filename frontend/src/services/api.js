@@ -445,4 +445,47 @@ export const getConnectorHubStatus = () => api.get('/api/v1/connector-hub/status
 export const getCaptainMirrorProfile  = () => api.get('/api/v1/captain/mirror/profile').then(r => r.data)
 export const recordCaptainDecision    = (payload) => api.post('/api/v1/captain/mirror/record', payload).then(r => r.data)
 
+// Layer 18 — Truth Engine
+export const recordPrediction         = (payload)          => api.post('/api/v1/truth/prediction', payload).then(r => r.data)
+export const recordOutcome            = (eventId, payload) => api.post(`/api/v1/truth/outcome/${eventId}`, payload).then(r => r.data)
+export const getTruthReport           = ()                 => api.get('/api/v1/truth/report').then(r => r.data)
+export const getAccuracyDashboard     = ()                 => api.get('/api/v1/truth/accuracy').then(r => r.data)
+export const runRealityCheck          = (payload)          => api.post('/api/v1/truth/reality-check', payload).then(r => r.data)
+
+// Layer 18 — Operational Resilience
+export const triggerIncident          = (payload)          => api.post('/api/v1/resilience/incident', payload).then(r => r.data)
+export const resolveIncident          = (eventId, payload) => api.post(`/api/v1/resilience/incident/${eventId}/resolve`, payload).then(r => r.data)
+export const getActiveIncidents       = ()                 => api.get('/api/v1/resilience/active').then(r => r.data)
+export const getResilienceStatus      = ()                 => api.get('/api/v1/resilience/status').then(r => r.data)
+export const getPlaybooks             = ()                 => api.get('/api/v1/resilience/playbooks').then(r => r.data)
+export const getPlaybook              = (incidentType)     => api.get(`/api/v1/resilience/playbooks/${incidentType}`).then(r => r.data)
+
+// Layer 18 — Financial Intelligence
+export const computeFinancialSnapshot = ()                 => api.post('/api/v1/financial/snapshot').then(r => r.data)
+export const getCFOBriefing           = ()                 => api.get('/api/v1/financial/cfo-briefing').then(r => r.data)
+export const generateCashflowForecast = (horizonDays)     => api.post('/api/v1/financial/cashflow-forecast', { horizon_days: horizonDays }).then(r => r.data)
+export const getFinancialHealthScore  = ()                 => api.get('/api/v1/financial/health-score').then(r => r.data)
+
+// Layer 18 — Learning Engine
+export const extractDeliveryLessons   = (payload)          => api.post('/api/v1/learning/extract-lessons', payload).then(r => r.data)
+export const getLearningDashboard     = ()                 => api.get('/api/v1/learning/dashboard').then(r => r.data)
+export const getLearningRecommendations = (type)           => api.get('/api/v1/learning/recommendations', { params: type ? { recommendation_type: type } : {} }).then(r => r.data)
+export const applyRecommendation      = (recId, payload)   => api.post(`/api/v1/learning/recommendations/${recId}/apply`, payload).then(r => r.data)
+export const generateSOPRecommendation = (payload)         => api.post('/api/v1/learning/generate-sop', payload).then(r => r.data)
+export const optimizeProposal         = ()                 => api.post('/api/v1/learning/optimize-proposal').then(r => r.data)
+export const optimizeOutreach         = ()                 => api.post('/api/v1/learning/optimize-outreach').then(r => r.data)
+
+// Layer 18 — Founder Dependency
+export const runFounderAssessment     = ()                 => api.post('/api/v1/founder/assess').then(r => r.data)
+export const getFounderDependencyReport = ()               => api.get('/api/v1/founder/report').then(r => r.data)
+export const getFounderDependencyScore  = ()               => api.get('/api/v1/founder/score').then(r => r.data)
+export const getAutomationOpportunities = ()               => api.get('/api/v1/founder/opportunities').then(r => r.data)
+
+// Layer 18 — Competitive Moat
+export const runMoatScan              = ()                 => api.post('/api/v1/moat/scan').then(r => r.data)
+export const getMoatReport            = ()                 => api.get('/api/v1/moat/report').then(r => r.data)
+export const getMoatScore             = ()                 => api.get('/api/v1/moat/score').then(r => r.data)
+export const getMoatDimensions        = ()                 => api.get('/api/v1/moat/dimensions').then(r => r.data)
+export const getMoatThreats           = ()                 => api.get('/api/v1/moat/threats').then(r => r.data)
+
 export default api

@@ -324,6 +324,13 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "self_healer", "func": _job_self_healer, "kind": "interval", "minutes": 15},
         # Opportunity Radar — 06:00 UTC (11:30 IST) — surface idle hot leads before workday
         {"job_id": "daily_opportunity_radar", "func": daily_opportunity_radar, "hour": 6, "minute": 0},
+        # Layer 18 — Truth, Validation & Resilience
+        {"job_id": "daily_truth_reality_check", "func": daily_truth_reality_check, "hour": 23, "minute": 30},
+        {"job_id": "weekly_financial_health", "func": weekly_financial_health, "hour": 7, "minute": 0, "day_of_week": "mon"},
+        {"job_id": "weekly_founder_dependency", "func": weekly_founder_dependency, "hour": 7, "minute": 30, "day_of_week": "mon"},
+        {"job_id": "weekly_moat_scan", "func": weekly_moat_scan, "hour": 8, "minute": 0, "day_of_week": "mon"},
+        {"job_id": "weekly_cashflow_forecast", "func": weekly_cashflow_forecast, "hour": 8, "minute": 30, "day_of_week": "mon"},
+        {"job_id": "weekly_learning_optimization", "func": weekly_learning_optimization, "hour": 9, "minute": 0, "day_of_week": "mon"},
     ]
 
 
@@ -1190,3 +1197,86 @@ def _format_stats_summary(rows: list[dict]) -> str:
         f"executed={row.get('executed_followups', 0)}, failed={row.get('failed_followups', 0)}"
         for row in rows
     )
+
+
+# ── Layer 18 — Truth, Validation & Resilience Jobs ───────────────────────────
+
+async def daily_truth_reality_check() -> None:
+    """Nightly truth engine sweep: run reality checks across all prediction types."""
+    from app.services.intelligence.truth_engine import truth_engine
+    checks = ["lead_score", "trust_score", "proposal_acceptance", "revenue_forecast", "client_health"]
+    completed = 0
+    for tenant_id in await _target_tenant_ids():
+        for check_type in checks:
+            try:
+                await truth_engine.run_reality_check(tenant_id, check_type)
+                completed += 1
+            except Exception as exc:
+                logger.warning("Reality check %s failed for tenant %s: %s", check_type, tenant_id, exc)
+    await _record_job_result("daily_truth_reality_check", "success", {"checks_run": completed})
+
+
+async def weekly_financial_health() -> None:
+    """Monday morning: compute financial health snapshot + CFO briefing."""
+    from app.services.intelligence.financial_intelligence import financial_intelligence
+    computed = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            await financial_intelligence.compute_weekly_health(tenant_id)
+            computed += 1
+        except Exception as exc:
+            logger.warning("Weekly financial health failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_financial_health", "success", {"tenants": computed})
+
+
+async def weekly_founder_dependency() -> None:
+    """Monday: assess founder dependency score and alert if critical."""
+    from app.services.intelligence.founder_dependency import founder_dependency_engine
+    assessed = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            await founder_dependency_engine.run_weekly_assessment(tenant_id)
+            assessed += 1
+        except Exception as exc:
+            logger.warning("Founder dependency assessment failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_founder_dependency", "success", {"tenants": assessed})
+
+
+async def weekly_moat_scan() -> None:
+    """Monday: run competitive moat scan across all dimensions."""
+    from app.services.intelligence.moat_engine import moat_engine
+    scanned = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            await moat_engine.run_weekly_moat_scan(tenant_id)
+            scanned += 1
+        except Exception as exc:
+            logger.warning("Moat scan failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_moat_scan", "success", {"tenants": scanned})
+
+
+async def weekly_cashflow_forecast() -> None:
+    """Monday: generate 30/60/90 day cashflow forecasts."""
+    from app.services.intelligence.financial_intelligence import financial_intelligence
+    forecasted = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            await financial_intelligence.generate_cashflow_forecast(tenant_id, horizon_days=90)
+            forecasted += 1
+        except Exception as exc:
+            logger.warning("Cashflow forecast failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_cashflow_forecast", "success", {"tenants": forecasted})
+
+
+async def weekly_learning_optimization() -> None:
+    """Monday: generate outreach and proposal optimization recommendations."""
+    from app.services.intelligence.learning_engine import learning_engine
+    optimized = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            await learning_engine.generate_outreach_optimization(tenant_id)
+            await learning_engine.generate_proposal_optimization(tenant_id)
+            optimized += 1
+        except Exception as exc:
+            logger.warning("Learning optimization failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_learning_optimization", "success", {"tenants": optimized})

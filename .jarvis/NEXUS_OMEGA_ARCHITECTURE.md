@@ -1334,9 +1334,93 @@ down_revision = '0029_trust_engine'  # ALWAYS match last migration
 
 20 documented lessons in `.jarvis/LESSONS.md` — read before touching existing systems.
 
+Next migration: `0031_...` (down_revision = '0030_truth_validation_resilience')
+
+---
+
+# PHASE 7 — LAYER 18: TRUTH, VALIDATION & BUSINESS RESILIENCE
+
+**Commit:** `feat(phase-7): Layer 18 — 6 engines, 10 tables, 6 routes, 6 views, 6 scheduler jobs`
+**Status:** ✅ Complete
+
+This layer transforms JARVIS from intelligent OS into self-correcting, reality-anchored, revenue-optimizing autonomous company.
+
+## 6 Engines
+
+### 1. Truth Engine (`backend/app/services/intelligence/truth_engine.py`)
+Every prediction JARVIS makes is tracked against actual outcome. Tracks calibration, MAE, trend. Auto-adjusts AI model confidence weights.
+- Tables: `truth_events`, `prediction_accuracy`, `reality_checks`
+- Routes: `backend/app/api/v1/routes/truth_engine.py` — prefix `/truth`
+- Endpoints: POST /truth/prediction, POST /truth/outcome/{id}, GET /truth/report, GET /truth/accuracy, POST /truth/reality-check
+- View: `frontend/src/components/truth/TruthEngine.jsx`
+
+### 2. Operational Resilience Engine (`backend/app/services/intelligence/resilience_engine.py`)
+10 incident playbooks (AWS outage, DB outage, AI provider outage, SES, Stripe, Redis, DNS, security, client churn, Captain unavailable). Auto-detects, auto-responds, tracks RTO/RPO.
+- Playbook registry: `backend/app/services/intelligence/incident_playbooks.py`
+- Table: `resilience_events`
+- Routes: `backend/app/api/v1/routes/resilience.py` — prefix `/resilience`
+- Endpoints: POST /resilience/incident, POST /resilience/incident/{id}/resolve, GET /resilience/active, GET /resilience/status, GET /resilience/playbooks, GET /resilience/playbooks/{type}
+- View: `frontend/src/components/resilience/ResilienceEngine.jsx`
+
+### 3. Financial Intelligence Engine (`backend/app/services/intelligence/financial_intelligence.py`)
+Virtual CFO. TOTAL_MONTHLY_OPEX = 430.0 (infra 180 + AI 150 + tools 100). Gross margin, runway, concentration risk, health grade A/B/C/D. 30/60/90 day cashflow forecasts.
+- Tables: `financial_health`, `cashflow_forecasts`
+- Routes: `backend/app/api/v1/routes/financial_intel.py` — prefix `/financial`
+- Endpoints: POST /financial/snapshot, GET /financial/cfo-briefing, POST /financial/cashflow-forecast, GET /financial/health-score
+- View: `frontend/src/components/financial/FinancialIntelligence.jsx`
+
+### 4. Learning & Evolution Engine (`backend/app/services/intelligence/learning_engine.py`)
+Converts every delivery into institutional advantage. AI-extracts lessons, generates SOP recommendations, optimizes proposals and outreach.
+- Tables: `improvement_recommendations`, `delivery_lessons`
+- Routes: `backend/app/api/v1/routes/learning.py` — prefix `/learning`
+- Endpoints: POST /learning/extract-lessons, GET /learning/dashboard, GET /learning/recommendations, POST /learning/recommendations/{id}/apply, POST /learning/generate-sop, POST /learning/optimize-proposal, POST /learning/optimize-outreach
+- View: `frontend/src/components/learning/LearningEngine.jsx`
+
+### 5. Founder Dependency Engine (`backend/app/services/intelligence/founder_dependency.py`)
+Measures how operationally dependent Aliyar Solutions is on Captain. TARGET = 20.0, CRITICAL = 80.0. 5 sub-scores: approval, revenue, client, decision, operational dependency.
+- Table: `dependency_scores`
+- Routes: `backend/app/api/v1/routes/founder.py` — prefix `/founder`
+- Endpoints: POST /founder/assess, GET /founder/report, GET /founder/score, GET /founder/opportunities
+- View: `frontend/src/components/founder/FounderDependency.jsx`
+
+### 6. Competitive Moat Engine (`backend/app/services/intelligence/moat_engine.py`)
+7 dimensions: proprietary data, case studies, delivery intelligence, relationship graph, institutional wisdom, automation advantage, operational speed. Defensibility: vulnerable/building/strong/fortress.
+- Table: `moat_metrics`
+- Routes: `backend/app/api/v1/routes/moat.py` — prefix `/moat`
+- Endpoints: POST /moat/scan, GET /moat/report, GET /moat/score, GET /moat/dimensions, GET /moat/threats
+- View: `frontend/src/components/moat/MoatEngine.jsx`
+
+## Migration
+- File: `backend/alembic/versions/0030_truth_validation_resilience.py`
+- down_revision = '0029_trust_engine'
+- Creates 10 tables: truth_events, prediction_accuracy, reality_checks, resilience_events, financial_health, cashflow_forecasts, improvement_recommendations, delivery_lessons, dependency_scores, moat_metrics
+
+## Scheduler Jobs (6 new — total now 39)
+| Job ID | Schedule | Engine |
+|---|---|---|
+| daily_truth_reality_check | 23:30 daily | Truth Engine |
+| weekly_financial_health | Mon 07:00 | Financial Intelligence |
+| weekly_founder_dependency | Mon 07:30 | Founder Dependency |
+| weekly_moat_scan | Mon 08:00 | Competitive Moat |
+| weekly_cashflow_forecast | Mon 08:30 | Financial Intelligence |
+| weekly_learning_optimization | Mon 09:00 | Learning Engine |
+
+## API Helpers
+All 22 Layer 18 API calls are in `frontend/src/services/api.js` under comments:
+- `// Layer 18 — Truth Engine`
+- `// Layer 18 — Operational Resilience`
+- `// Layer 18 — Financial Intelligence`
+- `// Layer 18 — Learning Engine`
+- `// Layer 18 — Founder Dependency`
+- `// Layer 18 — Competitive Moat`
+
+## Sidebar Navigation
+6 new entries in `frontend/src/components/layout/Sidebar.jsx`:
+truthEngine, resilienceEngine, financialIntel, learningEngine, founderDependency, moatEngine
+
 ---
 
 *JARVIS — Aliyar Solutions | Operational Intelligence Core*
 *This is the permanent, complete, final master architecture reference.*
-*30 parts. Every file read. Every layer documented. Three months captured in one document.*
+*30 parts + Phase 7 Layer 18. Every file read. Every layer documented.*
 *Any model, any session, any device reads this and knows everything.*

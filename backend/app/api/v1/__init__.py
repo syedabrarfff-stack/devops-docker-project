@@ -40,6 +40,7 @@ from app.api.v1.routes import whitelabel
 from app.api.v1.routes import payments
 from app.api.v1.routes import telegram_webhook
 from app.api.v1.routes import trust
+from app.api.v1.routes import truth_engine, resilience, financial_intel, learning, founder, moat
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -118,3 +119,10 @@ api_router.include_router(payments.router)
 api_router.include_router(payments.webhook_router)
 api_router.include_router(telegram_webhook.router)
 api_router.include_router(trust.router)
+# Layer 18 — Truth, Validation & Resilience
+api_router.include_router(truth_engine.router)
+api_router.include_router(resilience.router)
+api_router.include_router(financial_intel.router)
+api_router.include_router(learning.router)
+api_router.include_router(founder.router)
+api_router.include_router(moat.router)

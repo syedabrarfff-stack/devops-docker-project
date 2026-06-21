@@ -84,6 +84,18 @@ from app.models.team_member import TeamMember
 from app.models.gmail import GmailMessage
 from app.models.credentials import OAuthToken, SecureCredential
 from app.models.trust_engine import ExecutiveOpportunityBrief, LeadEngagementEvent, ReferralRequest
+from app.models.truth_resilience import (
+    TruthEvent,
+    PredictionAccuracy,
+    RealityCheck,
+    ResilienceEvent,
+    FinancialHealth,
+    CashflowForecast,
+    ImprovementRecommendation,
+    DeliveryLesson,
+    DependencyScore,
+    MoatMetrics,
+)
 
 
 MODEL_MODULES = (
@@ -119,6 +131,7 @@ MODEL_MODULES = (
     "aionx_organs",
     "credentials",
     "trust_engine",
+    "truth_resilience",
 )
 
 
@@ -215,4 +228,14 @@ __all__ = [
     "ExecutiveOpportunityBrief",
     "LeadEngagementEvent",
     "ReferralRequest",
+    "TruthEvent",
+    "PredictionAccuracy",
+    "RealityCheck",
+    "ResilienceEvent",
+    "FinancialHealth",
+    "CashflowForecast",
+    "ImprovementRecommendation",
+    "DeliveryLesson",
+    "DependencyScore",
+    "MoatMetrics",
 ]

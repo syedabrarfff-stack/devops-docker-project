@@ -6,6 +6,7 @@ import {
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
+  TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -47,6 +48,13 @@ const NAV = [
   { id: 'research',       path: '/control-room/research', label: 'Research',      icon: Microscope },
   { id: 'governance',     path: '/control-room/governance', label: 'Governance',    icon: Shield },
   { id: 'catalog',        path: '/control-room/catalog', label: 'Catalog',       icon: Layers },
+  // Layer 18 — Truth, Validation & Resilience
+  { id: 'truthEngine',      path: '/control-room/truth-engine',      label: 'Truth Engine',      icon: TrendingUp },
+  { id: 'resilienceEngine', path: '/control-room/resilience',        label: 'Resilience',        icon: HeartPulse },
+  { id: 'financialIntel',   path: '/control-room/financial-intel',   label: 'Financial Intel',   icon: PiggyBank },
+  { id: 'learningEngine',   path: '/control-room/learning-engine',   label: 'Learning Engine',   icon: GraduationCap },
+  { id: 'founderDependency', path: '/control-room/founder-dependency', label: 'Founder Dependency', icon: UserMinus },
+  { id: 'moatEngine',       path: '/control-room/moat-engine',       label: 'Competitive Moat',  icon: Castle },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

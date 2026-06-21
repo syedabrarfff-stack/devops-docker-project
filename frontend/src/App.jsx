@@ -84,6 +84,12 @@ import IntelligenceDashboard from './components/intelligence/IntelligenceDashboa
 import SyncView from './components/sync/SyncView'
 import TeamRegistry from './components/team/TeamRegistry'
 import OnboardingWizard from './components/whitelabel/OnboardingWizard'
+import TruthEngine from './components/truth/TruthEngine'
+import ResilienceEngine from './components/resilience/ResilienceEngine'
+import FinancialIntelligence from './components/financial/FinancialIntelligence'
+import LearningEngine from './components/learning/LearningEngine'
+import FounderDependency from './components/founder/FounderDependency'
+import MoatEngine from './components/moat/MoatEngine'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -140,6 +146,13 @@ export const VIEWS = {
   sync:              { path: controlPath('/sync'),               title: 'Data Sync',         Component: SyncView },
   team:              { path: controlPath('/team'),               title: 'Team Registry',     Component: TeamRegistry },
   whitelabel:        { path: controlPath('/whitelabel'),         title: 'White-label Setup', Component: OnboardingWizard },
+  // Layer 18 — Truth, Validation & Resilience
+  truthEngine:       { path: controlPath('/truth-engine'),        title: 'Truth Engine',            Component: TruthEngine },
+  resilienceEngine:  { path: controlPath('/resilience'),          title: 'Resilience Engine',       Component: ResilienceEngine },
+  financialIntel:    { path: controlPath('/financial-intel'),     title: 'Financial Intelligence',  Component: FinancialIntelligence },
+  learningEngine:    { path: controlPath('/learning-engine'),     title: 'Learning Engine',         Component: LearningEngine },
+  founderDependency: { path: controlPath('/founder-dependency'),  title: 'Founder Dependency',      Component: FounderDependency },
+  moatEngine:        { path: controlPath('/moat-engine'),         title: 'Competitive Moat',        Component: MoatEngine },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)
