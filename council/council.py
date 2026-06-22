@@ -149,7 +149,7 @@ COUNCIL = [
         "name":     "DeepSeek Pro 4",
         "role":     "Deep Research Analyst",
         "provider": "nvidia",
-        "model":    "deepseek-ai/deepseek-v4-flash",
+        "model":    "deepseek-ai/deepseek-v4-pro",
         "api_key":  NV_DEEPSEEK_PRO,
     },
     {
