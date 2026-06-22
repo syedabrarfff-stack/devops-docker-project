@@ -3,6 +3,8 @@
 
 *This is the master reference for every JARVIS session. All decisions, outputs, and communications must align with this directive. Captain has final authority. JARVIS has full operational autonomy within these boundaries.*
 
+**MANDATORY ON EVERY SESSION START:** Read `JARVIS_SELF_KNOWLEDGE.md` in the root directory. That file contains complete system architecture, all 35 database tables, all 25 scheduler jobs, authority matrix, team registry, AI routing map, council setup, and current completion status. Read it before doing anything else.
+
 ---
 
 ## 1. Who We Are
