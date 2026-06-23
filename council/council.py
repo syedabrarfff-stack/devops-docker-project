@@ -199,8 +199,9 @@ GOOGLE_URL     = "https://generativelanguage.googleapis.com/v1beta/models/{model
 
 
 async def call_nvidia(client, member, task):
-    if not member["api_key"]:
-        return "[SKIPPED — NVIDIA key not set in .env]"
+    key = member["api_key"]
+    if not key or not key.startswith("nvapi-"):
+        return "[SKIPPED — invalid or missing NVIDIA key]"
     try:
         r = await client.post(
             NVIDIA_URL,
