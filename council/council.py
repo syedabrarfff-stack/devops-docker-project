@@ -274,37 +274,40 @@ async def call_google(client, member, task):
         return f"[ERROR: {str(e)[:150]}]"
 
 
-async def call_bedrock_api_key(prompt, max_tokens=2048):
-    """Use Bedrock Bearer Token — direct httpx call, no boto3 needed."""
-    endpoint = f"https://bedrock.{AWS_REGION}.amazonaws.com/v1/messages"
-    headers = {
-        "Authorization": f"Bearer {BEDROCK_API_KEY}",
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-    }
+def call_bedrock_api_key_sync(prompt, max_tokens=2048):
+    """Use Bedrock long-term API key (ABSK...) via AnthropicBedrock SDK."""
+    try:
+        from anthropic import AnthropicBedrock
+    except ImportError:
+        install("anthropic")
+        from anthropic import AnthropicBedrock
+
+    # Set bearer token so SDK picks it up
+    os.environ["AWS_BEARER_TOKEN_BEDROCK"] = BEDROCK_API_KEY
+
+    client = AnthropicBedrock(aws_region=AWS_REGION)
+
     MODELS = [
         "anthropic.claude-opus-4-8-20250514-v1:0",
-        "ap.anthropic.claude-opus-4-8-20250514-v1:0",
         "anthropic.claude-sonnet-4-6-20251120-v1:0",
-        "ap.anthropic.claude-sonnet-4-6-20251120-v1:0",
         "anthropic.claude-opus-4-5-20251101-v1:0",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
     ]
     last_error = ""
-    async with httpx.AsyncClient() as client:
-        for model in MODELS:
-            try:
-                r = await client.post(
-                    endpoint,
-                    headers=headers,
-                    json={"model": model, "max_tokens": max_tokens,
-                          "messages": [{"role": "user", "content": prompt}]},
-                    timeout=90.0,
-                )
-                r.raise_for_status()
-                return r.json()["content"][0]["text"].strip()
-            except Exception as e:
-                last_error = str(e)[:200]
+    for model in MODELS:
+        try:
+            msg = client.messages.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            last_error = str(e)[:200]
     raise RuntimeError(f"Bedrock API Key failed all models. Last: {last_error}")
+
+
+async def call_bedrock_api_key(prompt, max_tokens=2048):
+    return await asyncio.to_thread(call_bedrock_api_key_sync, prompt, max_tokens)
 
 
 def call_bedrock_sync(model_id, prompt, max_tokens=2048):
@@ -327,13 +330,11 @@ def call_bedrock_sync(model_id, prompt, max_tokens=2048):
     else:
         client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
-    # Try Converse API first (cleaner), fall back to invoke_model
     CANDIDATES = [
-        model_id,
-        "global.anthropic.claude-opus-4-8",
-        "global.anthropic.claude-sonnet-4-6",
-        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "anthropic.claude-opus-4-8-20250514-v1:0",
         "anthropic.claude-sonnet-4-6-20251120-v1:0",
+        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
     ]
     seen = set()
     candidates = [m for m in CANDIDATES if m and not (m in seen or seen.add(m))]
