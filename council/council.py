@@ -3,7 +3,7 @@
 JARVIS AI COUNCIL — Aliyar Solutions
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 One task → 14 models respond simultaneously
-Claude Opus synthesizes the final verdict
+AWS Bedrock Claude Opus 4.8 synthesizes the final verdict
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -50,6 +50,12 @@ ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY", "")
 OPENROUTER_KEY   = os.getenv("OPENROUTER_API_KEY", "")
 GOOGLE_KEY       = os.getenv("GOOGLE_API_KEY", "")
 
+# AWS Bedrock — PRIMARY synthesizer (Claude Opus 4.8)
+AWS_ACCESS_KEY   = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_KEY   = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_REGION       = os.getenv("AWS_REGION", "us-east-1")
+AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "")
+
 # 10 NVIDIA keys — one per model
 NV_LLAMA4_MAV   = os.getenv("NVIDIA_KEY_LLAMA4_MAV",   "")
 NV_LLAMA4_SCOUT = os.getenv("NVIDIA_KEY_LLAMA4_SCOUT", "")
@@ -69,12 +75,13 @@ NV_MINIMAX      = os.getenv("NVIDIA_KEY_MINIMAX",       "")
 
 COUNCIL = [
 
-    # ── SYNTHESIZER — reads all responses, writes final verdict ───────────────
+    # ── SYNTHESIZER — AWS Bedrock Claude Opus 4.8 (PRIMARY) ──────────────────
     {
-        "name":        "Claude Opus — Chief Synthesizer",
+        "name":        "Claude Opus 4.8 — Bedrock Chief Synthesizer",
         "role":        "Supreme Council Synthesizer",
-        "provider":    "anthropic",
-        "model":       "claude-opus-4-5",
+        "provider":    "bedrock",
+        "model":       "global.anthropic.claude-opus-4-8",
+        "fallback_model": "claude-opus-4-5",
         "api_key":     ANTHROPIC_KEY,
         "synthesizer": True,
     },
@@ -266,12 +273,91 @@ async def call_google(client, member, task):
         return f"[ERROR: {str(e)[:150]}]"
 
 
+def call_bedrock_sync(model_id, prompt, max_tokens=2048):
+    """Synchronous Bedrock call — runs in thread pool via asyncio.to_thread."""
+    try:
+        import boto3
+    except ImportError:
+        install("boto3")
+        import boto3
+
+    session_kwargs = {}
+    if AWS_ACCESS_KEY and AWS_SECRET_KEY:
+        session_kwargs["aws_access_key_id"]     = AWS_ACCESS_KEY
+        session_kwargs["aws_secret_access_key"] = AWS_SECRET_KEY
+        if AWS_SESSION_TOKEN:
+            session_kwargs["aws_session_token"] = AWS_SESSION_TOKEN
+
+    if session_kwargs:
+        client = boto3.Session(**session_kwargs).client("bedrock-runtime", region_name=AWS_REGION)
+    else:
+        client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+
+    # Try Converse API first (cleaner), fall back to invoke_model
+    CANDIDATES = [
+        model_id,
+        "global.anthropic.claude-opus-4-8",
+        "global.anthropic.claude-sonnet-4-6",
+        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "anthropic.claude-sonnet-4-6-20251120-v1:0",
+    ]
+    seen = set()
+    candidates = [m for m in CANDIDATES if m and not (m in seen or seen.add(m))]
+
+    last_error = ""
+    for cid in candidates:
+        try:
+            resp = client.converse(
+                modelId=cid,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig={"maxTokens": max_tokens, "temperature": 0.2},
+            )
+            text = "".join(
+                p.get("text", "")
+                for p in resp.get("output", {}).get("message", {}).get("content", [])
+            )
+            if text:
+                return text.strip()
+        except Exception as e:
+            last_error = str(e)[:200]
+    raise RuntimeError(f"Bedrock failed all candidates. Last error: {last_error}")
+
+
+async def call_bedrock_synthesizer(prompt, max_tokens=2048, model_id="global.anthropic.claude-opus-4-8"):
+    """Async wrapper — Bedrock PRIMARY, Anthropic direct FALLBACK."""
+    if AWS_ACCESS_KEY and AWS_SECRET_KEY:
+        try:
+            result = await asyncio.to_thread(call_bedrock_sync, model_id, prompt, max_tokens)
+            return result
+        except Exception as e:
+            print(f"  ⚠️  Bedrock failed ({str(e)[:80]}), falling back to Anthropic direct...")
+
+    # Fallback: Anthropic direct API
+    if ANTHROPIC_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    ANTHROPIC_URL,
+                    headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01",
+                             "Content-Type": "application/json"},
+                    json={"model": "claude-opus-4-5", "max_tokens": max_tokens,
+                          "messages": [{"role": "user", "content": prompt}]},
+                    timeout=90.0,
+                )
+                r.raise_for_status()
+                return r.json()["content"][0]["text"].strip()
+        except Exception as e:
+            return f"[ERROR synthesizer: {str(e)[:150]}]"
+    return "[ERROR: No Bedrock credentials and no Anthropic key available]"
+
+
 async def query_member(client, member, task):
     p = member["provider"]
     if p == "anthropic":   return await call_anthropic(client, member, task)
     if p == "nvidia":      return await call_nvidia(client, member, task)
     if p == "openrouter":  return await call_openrouter(client, member, task)
     if p == "google":      return await call_google(client, member, task)
+    if p == "bedrock":     return await call_bedrock_synthesizer(task)
     return "[Unknown provider]"
 
 
@@ -329,7 +415,7 @@ Your job:
 
 COUNCIL VERDICT:"""
 
-        final = await call_anthropic(client, synthesizer, synthesis_prompt, max_tokens=2048)
+        final = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
 
         print(f"{B}{G}{'═'*65}{RS}")
         print(f"{B}{G}  🏆  COUNCIL VERDICT{RS}")
