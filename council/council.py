@@ -275,35 +275,45 @@ async def call_google(client, member, task):
 
 
 def call_bedrock_api_key_sync(prompt, max_tokens=2048):
-    """Use Bedrock long-term API key (ABSK...) via AnthropicBedrock SDK."""
-    try:
-        from anthropic import AnthropicBedrock
-    except ImportError:
-        install("anthropic")
-        from anthropic import AnthropicBedrock
+    """Use Bedrock long-term API key (ABSK...) via direct httpx call."""
+    import urllib.request, json as _json
 
-    # Set bearer token so SDK picks it up
-    os.environ["AWS_BEARER_TOKEN_BEDROCK"] = BEDROCK_API_KEY
-
-    client = AnthropicBedrock(aws_region=AWS_REGION)
-
+    ENDPOINTS = [
+        f"https://bedrock.{AWS_REGION}.amazonaws.com/v1/messages",
+        f"https://bedrock-runtime.{AWS_REGION}.amazonaws.com/v1/messages",
+    ]
     MODELS = [
         "anthropic.claude-opus-4-8-20250514-v1:0",
         "anthropic.claude-sonnet-4-6-20251120-v1:0",
         "anthropic.claude-opus-4-5-20251101-v1:0",
         "anthropic.claude-3-5-sonnet-20241022-v2:0",
     ]
+    headers_base = {
+        "Authorization": f"Bearer {BEDROCK_API_KEY}",
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+    }
+
     last_error = ""
-    for model in MODELS:
-        try:
-            msg = client.messages.create(
-                model=model, max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return msg.content[0].text.strip()
-        except Exception as e:
-            last_error = str(e)[:200]
-    raise RuntimeError(f"Bedrock API Key failed all models. Last: {last_error}")
+    for endpoint in ENDPOINTS:
+        for model in MODELS:
+            try:
+                body = _json.dumps({
+                    "model": model, "max_tokens": max_tokens,
+                    "messages": [{"role": "user", "content": prompt}],
+                }).encode()
+                req = urllib.request.Request(endpoint, data=body,
+                      headers=headers_base, method="POST")
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = _json.loads(resp.read())
+                    if "content" in data:
+                        return data["content"][0]["text"].strip()
+                    last_error = f"Unexpected response: {str(data)[:200]}"
+            except urllib.error.HTTPError as e:
+                last_error = f"HTTP {e.code} {endpoint} {model}: {e.read().decode()[:200]}"
+            except Exception as e:
+                last_error = str(e)[:200]
+    raise RuntimeError(f"Bedrock API Key failed. Last: {last_error}")
 
 
 async def call_bedrock_api_key(prompt, max_tokens=2048):
@@ -322,7 +332,8 @@ def call_bedrock_sync(model_id, prompt, max_tokens=2048):
     if AWS_ACCESS_KEY and AWS_SECRET_KEY:
         session_kwargs["aws_access_key_id"]     = AWS_ACCESS_KEY
         session_kwargs["aws_secret_access_key"] = AWS_SECRET_KEY
-        if AWS_SESSION_TOKEN:
+        # Only use session token if it looks valid (real tokens are 100+ chars)
+        if AWS_SESSION_TOKEN and len(AWS_SESSION_TOKEN) > 50:
             session_kwargs["aws_session_token"] = AWS_SESSION_TOKEN
 
     if session_kwargs:
