@@ -342,10 +342,11 @@ def call_bedrock_sync(model_id, prompt, max_tokens=2048):
         client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
     CANDIDATES = [
-        "anthropic.claude-opus-4-8-20250514-v1:0",
-        "anthropic.claude-sonnet-4-6-20251120-v1:0",
-        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "ap.anthropic.claude-opus-4-8-20250514-v1:0",
+        "ap.anthropic.claude-sonnet-4-6-20251120-v1:0",
+        "ap.anthropic.claude-3-5-sonnet-20241022-v2:0",
         "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "anthropic.claude-3-haiku-20240307-v1:0",
     ]
     seen = set()
     candidates = [m for m in CANDIDATES if m and not (m in seen or seen.add(m))]
