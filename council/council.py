@@ -364,23 +364,40 @@ COUNCIL VERDICT:"""
 
 
 def main():
-    print(f"\n{B}  JARVIS AI Council — Aliyar Solutions{RS}")
-    print(f"  14 models. One task. One verdict.\n")
+    print(f"\n{B}{C}{'═'*65}{RS}")
+    print(f"{B}{C}   JARVIS AI Council — Aliyar Solutions{RS}")
+    print(f"{C}   14 models. One task. One verdict.{RS}")
+    print(f"{C}   Type your task and press Enter. Type 'quit' to exit.{RS}")
+    print(f"{B}{C}{'═'*65}{RS}\n")
 
+    # If task passed as command line argument, run once and exit
     if len(sys.argv) > 1:
         task = " ".join(sys.argv[1:])
-    else:
-        try:
-            task = input("  Enter your task: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\nAborted.")
-            return
-
-    if not task:
-        print("  No task entered.")
+        asyncio.run(run_council(task))
         return
 
-    asyncio.run(run_council(task))
+    # Otherwise run in continuous loop
+    while True:
+        try:
+            print(f"\n{Y}  Ask the Council anything. Type 'quit' to exit.{RS}")
+            task = input(f"  {B}Your task:{RS} ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print(f"\n{Y}  Council session ended. Goodbye Captain.{RS}\n")
+            break
+
+        if not task:
+            print(f"  {Y}Please enter a task.{RS}")
+            continue
+
+        if task.lower() in ("quit", "exit", "bye", "q"):
+            print(f"\n{Y}  Council session ended. Goodbye Captain.{RS}\n")
+            break
+
+        asyncio.run(run_council(task))
+
+        print(f"\n{C}{'─'*65}{RS}")
+        print(f"{Y}  Ready for your next task, Captain.{RS}")
+        print(f"{C}{'─'*65}{RS}")
 
 
 if __name__ == "__main__":
