@@ -51,9 +51,10 @@ OPENROUTER_KEY   = os.getenv("OPENROUTER_API_KEY", "")
 GOOGLE_KEY       = os.getenv("GOOGLE_API_KEY", "")
 
 # AWS Bedrock — PRIMARY synthesizer (Claude Opus 4.8)
-AWS_ACCESS_KEY   = os.getenv("AWS_ACCESS_KEY_ID", "")
+BEDROCK_API_KEY  = os.getenv("BEDROCK_API_KEY", "")       # Bedrock API Key (simplest)
+AWS_ACCESS_KEY   = os.getenv("AWS_ACCESS_KEY_ID", "")     # IAM credentials (alternative)
 AWS_SECRET_KEY   = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-AWS_REGION       = os.getenv("AWS_REGION", "us-east-1")
+AWS_REGION       = os.getenv("AWS_REGION", "ap-south-1")
 AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN", "")
 
 # 10 NVIDIA keys — one per model
@@ -273,6 +274,41 @@ async def call_google(client, member, task):
         return f"[ERROR: {str(e)[:150]}]"
 
 
+def call_bedrock_api_key_sync(prompt, max_tokens=2048):
+    """Use Bedrock API Key with Anthropic SDK — simplest auth, no IAM needed."""
+    try:
+        import anthropic
+    except ImportError:
+        install("anthropic")
+        import anthropic
+
+    client = anthropic.Anthropic(
+        base_url=f"https://bedrock.{AWS_REGION}.amazonaws.com",
+        api_key=BEDROCK_API_KEY,
+    )
+
+    MODELS = [
+        f"ap.anthropic.claude-opus-4-8-20250514-v1:0",
+        f"ap.anthropic.claude-sonnet-4-6-20251120-v1:0",
+        "anthropic.claude-opus-4-8-20250514-v1:0",
+        "anthropic.claude-sonnet-4-6-20251120-v1:0",
+        "anthropic.claude-opus-4-5-20251101-v1:0",
+    ]
+
+    last_error = ""
+    for model in MODELS:
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            last_error = str(e)[:200]
+    raise RuntimeError(f"Bedrock API Key failed all models. Last: {last_error}")
+
+
 def call_bedrock_sync(model_id, prompt, max_tokens=2048):
     """Synchronous Bedrock call — runs in thread pool via asyncio.to_thread."""
     try:
@@ -324,13 +360,23 @@ def call_bedrock_sync(model_id, prompt, max_tokens=2048):
 
 
 async def call_bedrock_synthesizer(prompt, max_tokens=2048, model_id="global.anthropic.claude-opus-4-8"):
-    """Async wrapper — Bedrock PRIMARY, Anthropic direct FALLBACK."""
+    """Async wrapper — Bedrock API Key → IAM → Anthropic direct."""
+
+    # Try 1: Bedrock API Key (simplest — from Bedrock Getting Started page)
+    if BEDROCK_API_KEY:
+        try:
+            result = await asyncio.to_thread(call_bedrock_api_key_sync, prompt, max_tokens)
+            return result
+        except Exception as e:
+            print(f"  ⚠️  Bedrock API Key failed ({str(e)[:80]}), trying IAM...")
+
+    # Try 2: IAM credentials (boto3)
     if AWS_ACCESS_KEY and AWS_SECRET_KEY:
         try:
             result = await asyncio.to_thread(call_bedrock_sync, model_id, prompt, max_tokens)
             return result
         except Exception as e:
-            print(f"  ⚠️  Bedrock failed ({str(e)[:80]}), falling back to Anthropic direct...")
+            print(f"  ⚠️  Bedrock IAM failed ({str(e)[:80]}), falling back to Anthropic direct...")
 
     # Fallback: Anthropic direct API
     if ANTHROPIC_KEY:

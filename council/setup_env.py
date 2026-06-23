@@ -27,6 +27,9 @@ keys.append(ask("AWS_SESSION_TOKEN (press Enter to skip if not using temp creds)
 region_input = input("  AWS_REGION (press Enter for us-east-1): ").strip()
 keys.append(("AWS_REGION", region_input if region_input else "us-east-1"))
 
+print("\n── BEDROCK API KEY (simplest Bedrock auth — from Getting Started page) ─")
+keys.append(ask("BEDROCK_API_KEY (from Bedrock console → Getting Started → API Key, press Enter to skip)", "BEDROCK_API_KEY"))
+
 print("\n── ANTHROPIC DIRECT (FALLBACK — only if Bedrock fails) ─")
 keys.append(ask("ANTHROPIC_API_KEY (starts with sk-ant-, press Enter to skip)", "ANTHROPIC_API_KEY"))
 
