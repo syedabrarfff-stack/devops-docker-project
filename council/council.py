@@ -477,32 +477,69 @@ async def run_council(task):
         print(f"{C}{'─'*65}{RS}\n")
 
         valid = [r for r in council_responses if not r["response"].startswith("[")]
+        skipped = len(council_responses) - len(valid)
 
-        synthesis_prompt = f"""You are the Chief AI Strategist for Aliyar Solutions, a global technology company.
+        synthesis_prompt = f"""You are the Supreme Strategic Intelligence of Aliyar Solutions — a global technology company.
 
-The AI Council of {len(valid)} expert models has reviewed this task:
+The full AI Council ({len(valid)} active members) has independently analyzed this task for the CEO (Captain):
 
+═══════════════════════════════════════
 TASK: {task}
+═══════════════════════════════════════
 
 COUNCIL INPUTS:
-{json.dumps([{"expert": r["member"], "role": r["role"], "input": r["response"][:500]} for r in valid], indent=2)}
+{json.dumps([{"expert": r["member"], "role": r["role"], "analysis": r["response"][:600]} for r in valid], indent=2)}
 
-Your job:
-1. Extract the BEST ideas from each council member
-2. Identify strong consensus points
-3. Flag any important disagreements
-4. Produce ONE definitive, authoritative answer superior to any individual response
-5. Structure it clearly for Captain
+═══════════════════════════════════════
+YOUR MANDATE:
+═══════════════════════════════════════
+
+Synthesize a DEFINITIVE executive verdict that is superior to any individual response.
+Structure your verdict EXACTLY as follows — no deviation:
+
+## VERDICT
+[One crisp paragraph: the authoritative answer or recommendation. Decisive. No hedging.]
+
+## KEY INSIGHTS
+[3-5 bullet points — the most valuable, non-obvious insights from across the council]
+
+## ACTION PLAN
+[Numbered steps Captain should take. Concrete. Executable. In priority order.]
+
+## RISKS & WATCH-OUTS
+[2-3 critical risks or failure modes Captain must be aware of. Skip if none are significant.]
+
+## COUNCIL CONSENSUS
+[What all or most members agreed on — 1-2 sentences]
+
+RULES:
+- Write as a senior executive advisor, not a chatbot
+- Be specific to Aliyar Solutions context
+- Cut anything generic or obvious
+- If members disagreed significantly, note it under Risks
+- Total length: 400-600 words maximum
 
 COUNCIL VERDICT:"""
 
         final = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
 
         print(f"{B}{G}{'═'*65}{RS}")
-        print(f"{B}{G}  🏆  COUNCIL VERDICT{RS}")
+        print(f"{B}{G}  🏆  COUNCIL VERDICT  ({len(valid)}/{len(council_responses)} members active){RS}")
         print(f"{G}{'═'*65}{RS}\n")
-        print(f"{W}{final}{RS}\n")
-        print(f"{G}{'═'*65}{RS}")
+
+        # Colorize section headers for readability
+        for line in final.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                print(f"{B}{C}{line}{RS}")
+            elif stripped.startswith("- ") or stripped.startswith("• "):
+                print(f"{W}{line}{RS}")
+            elif stripped and stripped[0].isdigit() and stripped[1:3] in (". ", ") "):
+                print(f"{Y}{line}{RS}")
+            else:
+                print(f"{W}{line}{RS}")
+
+        print(f"\n{G}{'═'*65}{RS}")
 
         try:
             show = input(f"\n{Y}  Show individual responses? (y/n): {RS}").strip().lower()
@@ -520,12 +557,17 @@ COUNCIL VERDICT:"""
         ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = os.path.join(SESSIONS_DIR, f"council_{ts}.txt")
         with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"JARVIS AI COUNCIL SESSION\n")
-            f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Task: {task}\n\n")
-            f.write(f"{'='*65}\nCOUNCIL VERDICT\n{'='*65}\n{final}\n\n")
+            f.write(f"JARVIS AI COUNCIL SESSION — Aliyar Solutions\n")
+            f.write(f"{'='*65}\n")
+            f.write(f"Date   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Task   : {task}\n")
+            f.write(f"Council: {len(valid)}/{len(council_responses)} members active\n")
+            f.write(f"{'='*65}\n\n")
+            f.write(f"COUNCIL VERDICT\n{'='*65}\n{final}\n\n")
+            f.write(f"\n{'='*65}\nINDIVIDUAL MEMBER RESPONSES\n{'='*65}\n")
             for r in council_responses:
-                f.write(f"\n{'─'*65}\n{r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
+                status = "ACTIVE" if not r["response"].startswith("[") else "SKIPPED"
+                f.write(f"\n{'─'*65}\n[{status}] {r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
 
         print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
 
