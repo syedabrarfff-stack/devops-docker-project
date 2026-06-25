@@ -13,6 +13,12 @@ import sys
 import json
 from datetime import datetime
 
+# Always resolve paths relative to THIS script, not the working directory.
+# This means: python council.py OR python council/council.py both work from any location.
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+SESSIONS_DIR = os.path.join(SCRIPT_DIR, "sessions")
+ENV_FILE     = os.path.join(SCRIPT_DIR, ".env")
+
 def install(pkg):
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "-q"])
@@ -35,11 +41,11 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ENV_FILE)
 except ImportError:
     install("python-dotenv")
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ENV_FILE)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -510,9 +516,9 @@ COUNCIL VERDICT:"""
                 print(f"{C}{'─'*65}{RS}")
                 print(r["response"])
 
-        os.makedirs("sessions", exist_ok=True)
+        os.makedirs(SESSIONS_DIR, exist_ok=True)
         ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"sessions/council_{ts}.txt"
+        filename = os.path.join(SESSIONS_DIR, f"council_{ts}.txt")
         with open(filename, "w", encoding="utf-8") as f:
             f.write(f"JARVIS AI COUNCIL SESSION\n")
             f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")

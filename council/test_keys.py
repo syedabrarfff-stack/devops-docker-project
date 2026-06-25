@@ -18,12 +18,14 @@ try:
 except ImportError:
     install("httpx"); import httpx
 
+_ENV = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(_ENV)
 except ImportError:
     install("python-dotenv")
-    from dotenv import load_dotenv; load_dotenv()
+    from dotenv import load_dotenv; load_dotenv(_ENV)
 
 try:
     from colorama import Fore, Style, init

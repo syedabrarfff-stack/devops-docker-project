@@ -7,6 +7,11 @@ secrets/**
 !secrets/.gitkeep
 infrastructure/nginx/.htpasswd
 
+# ─── AI Council sessions (transcripts, not source code) ──────────
+council/sessions/*.txt
+council/sessions/*.md
+council/__pycache__/
+
 # ─── Logs & Backups ──────────────────────────────────────────────
 logs/
 logs/**
