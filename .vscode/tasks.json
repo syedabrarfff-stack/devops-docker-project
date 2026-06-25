@@ -2,6 +2,32 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Council: Ask the AI Council",
+      "type": "shell",
+      "command": "python council.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Install Requirements",
+      "type": "shell",
+      "command": "pip install -r requirements.txt",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "🚀 JARVIS: Start Full Stack",
       "type": "shell",
       "command": "docker compose up -d && echo '\\n✅ Stack started. Logs: docker compose logs -f backend'",
