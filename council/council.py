@@ -69,6 +69,20 @@ NV_DEEPSEEK_V4  = os.getenv("NVIDIA_KEY_DEEPSEEK_V4",  "")
 NV_DEEPSEEK_PRO = os.getenv("NVIDIA_KEY_DEEPSEEK_PRO", "")
 NV_MINIMAX      = os.getenv("NVIDIA_KEY_MINIMAX",       "")
 
+# Collected for startup status display
+NV_KEYS = {
+    "NVIDIA_KEY_LLAMA4_MAV":   NV_LLAMA4_MAV,
+    "NVIDIA_KEY_LLAMA4_SCOUT": NV_LLAMA4_SCOUT,
+    "NVIDIA_KEY_LLAMA33":      NV_LLAMA33,
+    "NVIDIA_KEY_QWEN":         NV_QWEN,
+    "NVIDIA_KEY_KIMI":         NV_KIMI,
+    "NVIDIA_KEY_MISTRAL":      NV_MISTRAL,
+    "NVIDIA_KEY_ZAIGLAM":      NV_ZAIGLAM,
+    "NVIDIA_KEY_DEEPSEEK_V4":  NV_DEEPSEEK_V4,
+    "NVIDIA_KEY_DEEPSEEK_PRO": NV_DEEPSEEK_PRO,
+    "NVIDIA_KEY_MINIMAX":      NV_MINIMAX,
+}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  THE 14 COUNCIL MEMBERS
@@ -510,12 +524,72 @@ COUNCIL VERDICT:"""
         print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
 
 
-def main():
+def _provider_status_line(label, key, hint=""):
+    if key and len(key) > 10:
+        preview = key[:8] + "..." + key[-4:]
+        return f"  {G}✓{RS}  {label:<28} {preview}"
+    msg = f"  {R}✗{RS}  {label:<28} not configured"
+    if hint:
+        msg += f"  {Y}← {hint}{RS}"
+    return msg
+
+
+def print_startup_status():
     print(f"\n{B}{C}{'═'*65}{RS}")
     print(f"{B}{C}   JARVIS AI Council — Aliyar Solutions{RS}")
-    print(f"{C}   14 models. One task. One verdict.{RS}")
-    print(f"{C}   Type your task and press Enter. Type 'quit' to exit.{RS}")
-    print(f"{B}{C}{'═'*65}{RS}\n")
+    print(f"{C}{'═'*65}{RS}")
+
+    # Synthesizer
+    bedrock_active  = bool(BEDROCK_API_KEY and len(BEDROCK_API_KEY) > 10)
+    iam_active      = bool(AWS_ACCESS_KEY and AWS_SECRET_KEY)
+    anthropic_active = bool(ANTHROPIC_KEY and len(ANTHROPIC_KEY) > 10)
+
+    if bedrock_active:
+        synth_line = f"  {G}✓{RS}  Synthesizer: Claude Opus 4.8 via {B}Bedrock API Key{RS} (primary)"
+    elif iam_active:
+        synth_line = f"  {Y}~{RS}  Synthesizer: Claude Opus 4.8 via {B}Bedrock IAM{RS} (API key not set)"
+    elif anthropic_active:
+        synth_line = f"  {Y}~{RS}  Synthesizer: Claude Opus 4.5 via {B}Anthropic direct{RS} (Bedrock not set)"
+    else:
+        synth_line = f"  {R}✗{RS}  Synthesizer: {R}NO CREDENTIALS — add keys to .env{RS}"
+
+    print(f"\n{B}  Synthesizer{RS}")
+    print(synth_line)
+
+    print(f"\n{B}  Council members{RS}")
+    print(_provider_status_line("Claude Sonnet 4.6 (Anthropic)", ANTHROPIC_KEY,
+                                "add ANTHROPIC_API_KEY to .env"))
+    nv_key_any = next((v for v in NV_KEYS.values() if v and v.startswith("nvapi-")), "")
+    nv_count   = sum(1 for v in NV_KEYS.values() if v and v.startswith("nvapi-"))
+    if nv_count:
+        print(f"  {G}✓{RS}  NVIDIA NIM ({nv_count}/10 slots set)        {nv_key_any[:8]}...{nv_key_any[-4:]}")
+    else:
+        print(f"  {R}✗{RS}  NVIDIA NIM (0/10)                      not configured  {Y}← add NVIDIA_KEY_* to .env{RS}")
+    print(_provider_status_line("Google Gemini 2.5 Pro", GOOGLE_KEY,
+                                "get key at aistudio.google.com"))
+    print(_provider_status_line("OpenRouter / AI21 Jamba", OPENROUTER_KEY,
+                                "add OPENROUTER_API_KEY to .env"))
+
+    # Council member count estimate
+    active = sum([
+        bool(ANTHROPIC_KEY),
+        nv_count,
+        bool(GOOGLE_KEY),
+        bool(OPENROUTER_KEY),
+    ])
+    print(f"\n{C}  Ready: ~{active + nv_count - (1 if nv_count else 0)} members active  |  "
+          f"run python test_keys.py for full live test{RS}")
+    print(f"{C}{'═'*65}{RS}\n")
+
+
+def main():
+    print_startup_status()
+
+    # If task passed as command line argument, run once and exit
+    if len(sys.argv) > 1:
+        task = " ".join(sys.argv[1:])
+        asyncio.run(run_council(task))
+        return
 
     # If task passed as command line argument, run once and exit
     if len(sys.argv) > 1:
