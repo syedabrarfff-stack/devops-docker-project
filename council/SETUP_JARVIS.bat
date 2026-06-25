@@ -32,11 +32,14 @@ echo NVIDIA_KEY_ZAIGLAM=PASTE_YOUR_NVAPI_KEY_HERE
 echo NVIDIA_KEY_DEEPSEEK_V4=PASTE_YOUR_NVAPI_KEY_HERE
 echo NVIDIA_KEY_DEEPSEEK_PRO=PASTE_YOUR_NVAPI_KEY_HERE
 echo NVIDIA_KEY_MINIMAX=PASTE_YOUR_NVAPI_KEY_HERE
+echo TELEGRAM_BOT_TOKEN=PASTE_YOUR_BOT_TOKEN_HERE
+echo TELEGRAM_CAPTAIN_ID=PASTE_YOUR_TELEGRAM_USER_ID_HERE
 ) > .env
 
 echo.
 echo ✅ .env file created at: %~dp0.env
 echo.
-echo Now run:  python council.py
+echo To run council:       python council.py
+echo To run Telegram bot:  python telegram_bot.py
 echo.
 pause
