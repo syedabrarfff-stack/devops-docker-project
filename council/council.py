@@ -442,53 +442,17 @@ async def query_member(client, member, task):
     return "[Unknown provider]"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  MAIN COUNCIL SESSION
-# ═══════════════════════════════════════════════════════════════════════════════
+SYNTHESIS_PROMPT_TEMPLATE = """\
+You are the Supreme Strategic Intelligence of Aliyar Solutions — a global technology company.
 
-async def run_council(task):
-    synthesizer = next(m for m in COUNCIL if m.get("synthesizer"))
-    members     = [m for m in COUNCIL if not m.get("synthesizer")]
-
-    print(f"\n{B}{C}{'═'*65}{RS}")
-    print(f"{B}{C}   JARVIS AI COUNCIL — Aliyar Solutions{RS}")
-    print(f"{C}{'═'*65}{RS}")
-    print(f"{W}   Task   : {task[:70]}{'...' if len(task)>70 else ''}{RS}")
-    print(f"{W}   Council: {len(members)} members + {synthesizer['name']}{RS}")
-    print(f"{W}   Time   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RS}")
-    print(f"{C}{'═'*65}{RS}\n")
-    print(f"{Y}⚡  Consulting all {len(members)} council members simultaneously...{RS}\n")
-
-    async with httpx.AsyncClient() as client:
-
-        results = await asyncio.gather(*[query_member(client, m, task) for m in members], return_exceptions=True)
-
-        council_responses = []
-        for i, (member, result) in enumerate(zip(members, results), 1):
-            if isinstance(result, Exception):
-                result = f"[ERROR: {str(result)[:150]}]"
-            is_err = result.startswith("[")
-            icon = f"{R}❌{RS}" if is_err else f"{G}✅{RS}"
-            print(f"  {icon} [{i:02d}] {B}{member['name']:<30}{RS} {member['role']}")
-            council_responses.append({"member": member["name"], "role": member["role"], "response": result})
-
-        print(f"\n{C}{'─'*65}{RS}")
-        print(f"{B}{Y}  🏛️  {synthesizer['name']} synthesizing verdict...{RS}")
-        print(f"{C}{'─'*65}{RS}\n")
-
-        valid = [r for r in council_responses if not r["response"].startswith("[")]
-        skipped = len(council_responses) - len(valid)
-
-        synthesis_prompt = f"""You are the Supreme Strategic Intelligence of Aliyar Solutions — a global technology company.
-
-The full AI Council ({len(valid)} active members) has independently analyzed this task for the CEO (Captain):
+The full AI Council ({active} active members) has independently analyzed this task for the CEO (Captain):
 
 ═══════════════════════════════════════
 TASK: {task}
 ═══════════════════════════════════════
 
 COUNCIL INPUTS:
-{json.dumps([{"expert": r["member"], "role": r["role"], "analysis": r["response"][:600]} for r in valid], indent=2)}
+{inputs}
 
 ═══════════════════════════════════════
 YOUR MANDATE:
@@ -521,55 +485,144 @@ RULES:
 
 COUNCIL VERDICT:"""
 
-        final = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
 
-        print(f"{B}{G}{'═'*65}{RS}")
-        print(f"{B}{G}  🏆  COUNCIL VERDICT  ({len(valid)}/{len(council_responses)} members active){RS}")
-        print(f"{G}{'═'*65}{RS}\n")
+async def run_council_progressive(task: str, on_model_done=None):
+    """
+    Fire all council members simultaneously with optional live progress callback.
 
-        # Colorize section headers for readability
-        for line in final.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("## "):
-                print(f"{B}{C}{line}{RS}")
-            elif stripped.startswith("- ") or stripped.startswith("• "):
-                print(f"{W}{line}{RS}")
-            elif stripped and stripped[0].isdigit() and stripped[1:3] in (". ", ") "):
-                print(f"{Y}{line}{RS}")
-            else:
-                print(f"{W}{line}{RS}")
+    on_model_done(name: str, success: bool, done: int, total: int) is awaited
+    as each model responds — enables real-time streaming to Telegram or API clients.
 
-        print(f"\n{G}{'═'*65}{RS}")
+    Returns: (council_responses, verdict, active_count, total_count)
+    """
+    members = [m for m in COUNCIL if not m.get("synthesizer")]
+    total   = len(members)
+    done_state = {"count": 0}
 
-        try:
-            show = input(f"\n{Y}  Show individual responses? (y/n): {RS}").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            show = "n"
+    async def run_one(client, member):
+        result = await query_member(client, member, task)
+        if isinstance(result, Exception):
+            result = f"[ERROR: {str(result)[:150]}]"
+        success = not str(result).startswith("[")
+        done_state["count"] += 1
+        if on_model_done:
+            try:
+                await on_model_done(member["name"], success, done_state["count"], total)
+            except Exception:
+                pass
+        return {"member": member["name"], "role": member["role"], "response": str(result)}
 
-        if show == "y":
-            for r in council_responses:
-                print(f"\n{C}{'─'*65}{RS}")
-                print(f"{B}{r['member']}{RS}  |  {r['role']}")
-                print(f"{C}{'─'*65}{RS}")
-                print(r["response"])
+    async with httpx.AsyncClient() as client:
+        raw = await asyncio.gather(
+            *[run_one(client, m) for m in members],
+            return_exceptions=True,
+        )
 
-        os.makedirs(SESSIONS_DIR, exist_ok=True)
-        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(SESSIONS_DIR, f"council_{ts}.txt")
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"JARVIS AI COUNCIL SESSION — Aliyar Solutions\n")
-            f.write(f"{'='*65}\n")
-            f.write(f"Date   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Task   : {task}\n")
-            f.write(f"Council: {len(valid)}/{len(council_responses)} members active\n")
-            f.write(f"{'='*65}\n\n")
-            f.write(f"COUNCIL VERDICT\n{'='*65}\n{final}\n\n")
-            f.write(f"\n{'='*65}\nINDIVIDUAL MEMBER RESPONSES\n{'='*65}\n")
-            for r in council_responses:
-                status = "ACTIVE" if not r["response"].startswith("[") else "SKIPPED"
-                f.write(f"\n{'─'*65}\n[{status}] {r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
+    council_responses = []
+    for i, r in enumerate(raw):
+        if isinstance(r, Exception):
+            council_responses.append({
+                "member":   members[i]["name"],
+                "role":     members[i]["role"],
+                "response": f"[ERROR: {str(r)[:150]}]",
+            })
+        else:
+            council_responses.append(r)
 
-        print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
+    valid = [r for r in council_responses if not r["response"].startswith("[")]
+
+    synthesis_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
+        active=len(valid),
+        task=task,
+        inputs=json.dumps(
+            [{"expert": r["member"], "role": r["role"], "analysis": r["response"][:600]} for r in valid],
+            indent=2,
+        ),
+    )
+
+    verdict = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
+    return council_responses, verdict, len(valid), len(council_responses)
+
+
+def _save_session(task, council_responses, verdict, prefix="council"):
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = os.path.join(SESSIONS_DIR, f"{prefix}_{ts}.txt")
+    active   = sum(1 for r in council_responses if not r["response"].startswith("["))
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"JARVIS AI COUNCIL SESSION — Aliyar Solutions\n{'='*65}\n")
+        f.write(f"Date   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Task   : {task}\n")
+        f.write(f"Council: {active}/{len(council_responses)} members active\n")
+        f.write(f"{'='*65}\n\n")
+        f.write(f"COUNCIL VERDICT\n{'='*65}\n{verdict}\n\n")
+        f.write(f"\n{'='*65}\nINDIVIDUAL MEMBER RESPONSES\n{'='*65}\n")
+        for r in council_responses:
+            status = "ACTIVE" if not r["response"].startswith("[") else "SKIPPED"
+            f.write(f"\n{'─'*65}\n[{status}] {r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
+    return filename
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  MAIN COUNCIL SESSION (terminal interactive)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def run_council(task):
+    synthesizer = next(m for m in COUNCIL if m.get("synthesizer"))
+    members     = [m for m in COUNCIL if not m.get("synthesizer")]
+
+    print(f"\n{B}{C}{'═'*65}{RS}")
+    print(f"{B}{C}   JARVIS AI COUNCIL — Aliyar Solutions{RS}")
+    print(f"{C}{'═'*65}{RS}")
+    print(f"{W}   Task   : {task[:70]}{'...' if len(task)>70 else ''}{RS}")
+    print(f"{W}   Council: {len(members)} members + {synthesizer['name']}{RS}")
+    print(f"{W}   Time   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{RS}")
+    print(f"{C}{'═'*65}{RS}\n")
+    print(f"{Y}⚡  Consulting all {len(members)} council members simultaneously...{RS}\n")
+
+    completed = [0]
+
+    async def on_done(name, success, done, total):
+        icon = f"{G}✅{RS}" if success else f"{R}❌{RS}"
+        print(f"  {icon} [{done:02d}/{total}] {B}{name:<30}{RS}")
+
+    council_responses, final, active, total = await run_council_progressive(task, on_done)
+
+    print(f"\n{C}{'─'*65}{RS}")
+    print(f"{B}{Y}  🏛️  {synthesizer['name']} synthesizing verdict...{RS}")
+    print(f"{C}{'─'*65}{RS}\n")
+
+    print(f"{B}{G}{'═'*65}{RS}")
+    print(f"{B}{G}  🏆  COUNCIL VERDICT  ({active}/{total} members active){RS}")
+    print(f"{G}{'═'*65}{RS}\n")
+
+    for line in final.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            print(f"{B}{C}{line}{RS}")
+        elif stripped.startswith("- ") or stripped.startswith("• "):
+            print(f"{W}{line}{RS}")
+        elif stripped and stripped[0].isdigit() and stripped[1:3] in (". ", ") "):
+            print(f"{Y}{line}{RS}")
+        else:
+            print(f"{W}{line}{RS}")
+
+    print(f"\n{G}{'═'*65}{RS}")
+
+    try:
+        show = input(f"\n{Y}  Show individual responses? (y/n): {RS}").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        show = "n"
+
+    if show == "y":
+        for r in council_responses:
+            print(f"\n{C}{'─'*65}{RS}")
+            print(f"{B}{r['member']}{RS}  |  {r['role']}")
+            print(f"{C}{'─'*65}{RS}")
+            print(r["response"])
+
+    filename = _save_session(task, council_responses, final, prefix="council")
+    print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
 
 
 def _provider_status_line(label, key, hint=""):
@@ -632,12 +685,6 @@ def print_startup_status():
 
 def main():
     print_startup_status()
-
-    # If task passed as command line argument, run once and exit
-    if len(sys.argv) > 1:
-        task = " ".join(sys.argv[1:])
-        asyncio.run(run_council(task))
-        return
 
     # If task passed as command line argument, run once and exit
     if len(sys.argv) > 1:

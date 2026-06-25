@@ -54,6 +54,19 @@
       }
     },
     {
+      "label": "Council: Start REST API Server",
+      "type": "shell",
+      "command": "python api.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
       "label": "Council: Run Full Diagnostic",
       "type": "shell",
       "command": "python test_keys.py",
