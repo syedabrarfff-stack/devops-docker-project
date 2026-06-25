@@ -28,6 +28,19 @@
       }
     },
     {
+      "label": "Council: Run Full Diagnostic",
+      "type": "shell",
+      "command": "python test_keys.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
       "label": "🚀 JARVIS: Start Full Stack",
       "type": "shell",
       "command": "docker compose up -d && echo '\\n✅ Stack started. Logs: docker compose logs -f backend'",
