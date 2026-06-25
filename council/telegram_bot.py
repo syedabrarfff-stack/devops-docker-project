@@ -208,16 +208,67 @@ def _is_captain(update: Update) -> bool:
     return update.effective_user.id == CAPTAIN_ID_INT
 
 
+def _list_sessions(prefix: str = "") -> list[dict]:
+    """Return session files sorted newest-first with metadata."""
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    sessions = []
+    for fname in sorted(os.listdir(SESSIONS_DIR), reverse=True):
+        if not fname.endswith(".txt"):
+            continue
+        if prefix and not fname.startswith(prefix):
+            continue
+        path = os.path.join(SESSIONS_DIR, fname)
+        task_line = ""
+        date_line = ""
+        try:
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("Task   :") or line.startswith("Task:"):
+                        task_line = line.split(":", 1)[1].strip()
+                    if line.startswith("Date   :") or line.startswith("Date:"):
+                        date_line = line.split(":", 1)[1].strip()
+                    if task_line and date_line:
+                        break
+        except Exception:
+            pass
+        sessions.append({"file": fname, "path": path, "task": task_line, "date": date_line})
+    return sessions
+
+
+def _read_verdict_from_file(path: str) -> str:
+    """Extract just the COUNCIL VERDICT section from a session file."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        # Find between COUNCIL VERDICT and INDIVIDUAL MEMBER RESPONSES
+        start = content.find("COUNCIL VERDICT\n")
+        if start == -1:
+            start = content.find("VERDICT\n=")
+        end   = content.find("INDIVIDUAL MEMBER RESPONSES", start)
+        if start == -1:
+            return content[:2000]
+        section = content[start:end if end != -1 else start + 3000]
+        # Strip the header line
+        lines = section.splitlines()
+        return "\n".join(lines[2:]).strip()[:2500]
+    except Exception as e:
+        return f"[Could not read session: {e}]"
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _is_captain(update):
         return
     await update.message.reply_text(
         "🏛️ *JARVIS AI Council — Online*\n\n"
-        "Send me any task or question\\. All 14 models will fire simultaneously\\. "
-        "Claude Opus 4\\.8 synthesizes the final verdict\\.\n\n"
-        "Examples:\n"
-        "• _What pricing strategy should Aliyar use for enterprise clients?_\n"
-        "• _How do I close the healthcare lead who hasn't responded in 3 days?_\n"
+        "Send any task → 14 models fire → verdict delivered\\.\n\n"
+        "*Commands:*\n"
+        "/history — last 8 council sessions\n"
+        "/last — re\\-read most recent verdict\n"
+        "/find keyword — search past sessions\n"
+        "/status — provider health\n\n"
+        "*Examples:*\n"
+        "• _What pricing should Aliyar use for enterprise clients?_\n"
+        "• _How do I close the healthcare lead who hasn't responded?_\n"
         "• _Write a cold outreach email for a logistics company_",
         parse_mode=ParseMode.MARKDOWN_V2,
     )
@@ -242,6 +293,67 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"_Run /diagnose to test all keys live_"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN_V2)
+
+
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not _is_captain(update):
+        return
+    sessions = _list_sessions()[:8]
+    if not sessions:
+        await update.message.reply_text("No council sessions yet\\. Send a task to get started\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        return
+    lines = ["📚 *Recent Council Sessions*\n"]
+    for i, s in enumerate(sessions, 1):
+        date  = _escape(s["date"][:16]) if s["date"] else "unknown"
+        task  = _escape(s["task"][:55]) + ("\\.\\.\\." if len(s["task"]) > 55 else "")
+        lines.append(f"`{i}.` {date}\n    _{task}_")
+    lines.append(f"\n_Use /last to re\\-read the latest verdict_")
+    lines.append(f"_Use /find keyword to search sessions_")
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
+
+
+async def cmd_last(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not _is_captain(update):
+        return
+    sessions = _list_sessions()
+    if not sessions:
+        await update.message.reply_text("No sessions yet\\.", parse_mode=ParseMode.MARKDOWN_V2)
+        return
+    s       = sessions[0]
+    verdict = _read_verdict_from_file(s["path"])
+    header  = f"🔁 *Last Session*\n_{_escape(s['date'][:16])}_\n_{_escape(s['task'][:80])}_\n\n"
+    full    = header + _escape(verdict)
+    if len(full) <= 4000:
+        await update.message.reply_text(full, parse_mode=ParseMode.MARKDOWN_V2)
+    else:
+        await update.message.reply_text(header, parse_mode=ParseMode.MARKDOWN_V2)
+        # Send verdict without escaping (it was already escaped by council)
+        chunks = [verdict[i:i+3800] for i in range(0, len(verdict), 3800)]
+        for chunk in chunks:
+            await update.message.reply_text(_escape(chunk), parse_mode=ParseMode.MARKDOWN_V2)
+
+
+async def cmd_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not _is_captain(update):
+        return
+    keyword = " ".join(context.args).strip().lower() if context.args else ""
+    if not keyword:
+        await update.message.reply_text("Usage: /find keyword", parse_mode=ParseMode.MARKDOWN_V2)
+        return
+    sessions = _list_sessions()
+    matches  = [s for s in sessions if keyword in s["task"].lower()]
+    if not matches:
+        await update.message.reply_text(
+            f"No sessions found matching _{_escape(keyword)}_",
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return
+    lines = [f"🔍 *Found {len(matches)} session(s) for* _{_escape(keyword)}_\n"]
+    for i, s in enumerate(matches[:6], 1):
+        date = _escape(s["date"][:16]) if s["date"] else "unknown"
+        task = _escape(s["task"][:60]) + ("\\.\\.\\." if len(s["task"]) > 60 else "")
+        lines.append(f"`{i}.` {date}\n    _{task}_")
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN_V2)
 
 
 async def handle_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -308,6 +420,9 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start",   cmd_start))
     app.add_handler(CommandHandler("status",  cmd_status))
+    app.add_handler(CommandHandler("history", cmd_history))
+    app.add_handler(CommandHandler("last",    cmd_last))
+    app.add_handler(CommandHandler("find",    cmd_find))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_task))
     app.run_polling(drop_pending_updates=True)
 

@@ -41,6 +41,19 @@
       }
     },
     {
+      "label": "Council: Browse Session History",
+      "type": "shell",
+      "command": "python sessions_viewer.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
       "label": "Council: Run Full Diagnostic",
       "type": "shell",
       "command": "python test_keys.py",
