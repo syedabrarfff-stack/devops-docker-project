@@ -12,6 +12,7 @@ const API_PREFIX = '/api/v1'
 const API_RESOURCES = new Set([
   'agent-ops',
   'agents',
+  'ghost',
   'ai-ops',
   'aionx',
   'approvals',
@@ -487,5 +488,11 @@ export const getMoatReport            = ()                 => api.get('/api/v1/m
 export const getMoatScore             = ()                 => api.get('/api/v1/moat/score').then(r => r.data)
 export const getMoatDimensions        = ()                 => api.get('/api/v1/moat/dimensions').then(r => r.data)
 export const getMoatThreats           = ()                 => api.get('/api/v1/moat/threats').then(r => r.data)
+
+// GHOST — AI Outreach Intelligence Engine
+export const ghostPersonas       = ()         => api.get('/api/v1/ghost/personas').then(r => r.data)
+export const ghostSuggestPersona = (params)   => api.get('/api/v1/ghost/persona/suggest', { params }).then(r => r.data)
+export const ghostSequence       = (payload)  => api.post('/api/v1/ghost/sequence', payload, { timeout: 120000 }).then(r => r.data)
+export const ghostSend           = (payload)  => api.post('/api/v1/ghost/send', payload).then(r => r.data)
 
 export default api

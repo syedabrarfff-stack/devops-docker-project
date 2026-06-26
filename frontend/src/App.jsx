@@ -91,6 +91,7 @@ import LearningEngine from './components/learning/LearningEngine'
 import FounderDependency from './components/founder/FounderDependency'
 import MoatEngine from './components/moat/MoatEngine'
 import OmegaDashboard from './components/omega/OmegaDashboard'
+import GhostWriter from './components/ghost/GhostWriter'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -156,6 +157,8 @@ export const VIEWS = {
   moatEngine:        { path: controlPath('/moat-engine'),         title: 'Competitive Moat',        Component: MoatEngine },
   // OMEGA Global Intelligence Swarm
   omega:             { path: controlPath('/omega'),               title: 'OMEGA Swarm',             Component: OmegaDashboard },
+  // GHOST — AI Outreach Intelligence Engine
+  ghost:             { path: controlPath('/ghost'),               title: 'GHOST Outreach AI',       Component: GhostWriter },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

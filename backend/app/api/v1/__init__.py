@@ -42,6 +42,7 @@ from app.api.v1.routes import telegram_webhook
 from app.api.v1.routes import trust
 from app.api.v1.routes import truth_engine, resilience, financial_intel, learning, founder, moat
 from app.api.v1.routes import omega
+from app.api.v1.routes import ghost
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -129,3 +130,5 @@ api_router.include_router(founder.router)
 api_router.include_router(moat.router)
 # OMEGA — Global Intelligence Swarm
 api_router.include_router(omega.router)
+# GHOST — AI Outreach Intelligence Engine
+api_router.include_router(ghost.router)

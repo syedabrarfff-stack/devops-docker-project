@@ -6,7 +6,7 @@ import {
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
-  TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle,
+  TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -56,6 +56,7 @@ const NAV = [
   { id: 'founderDependency', path: '/control-room/founder-dependency', label: 'Founder Dependency', icon: UserMinus },
   { id: 'moatEngine',       path: '/control-room/moat-engine',       label: 'Competitive Moat',  icon: Castle },
   { id: 'omega',            path: '/control-room/omega',             label: 'OMEGA Swarm',       icon: Zap },
+  { id: 'ghost',            path: '/control-room/ghost',             label: 'GHOST Writer',      icon: Ghost },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 
