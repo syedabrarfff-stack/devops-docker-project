@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronRight,
   Clock, DollarSign, Loader2, RefreshCw, Send, Shield,
@@ -265,6 +265,11 @@ export default function CouncilView() {
   const [councilType, setCouncilType] = useState('standard')
   const [convening,   setConvening]   = useState(false)
   const [lastResult,  setLastResult]  = useState(null)
+  // Live streaming state
+  const [liveVotes,    setLiveVotes]    = useState([])   // votes arriving in real-time
+  const [liveProgress, setLiveProgress] = useState(null) // {done, total}
+  const [livePhase,    setLivePhase]    = useState(null) // 'gathering'|'done'|null
+  const abortRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -283,16 +288,66 @@ export default function CouncilView() {
     e?.preventDefault()
     const q = (overrideQ || question).trim()
     if (!q) return
+
     setConvening(true)
     setLastResult(null)
+    setLiveVotes([])
+    setLiveProgress(null)
+    setLivePhase('gathering')
     if (overrideQ) setQuestion(overrideQ)
+
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
     try {
-      const r = await api.post('/api/v1/council/convene', { question: q, context: {}, council_type: councilType })
-      setLastResult(r.data)
-      setQuestion('')
-      await load()
+      const resp = await fetch('/api/v1/council/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        body: JSON.stringify({ question: q, context: {}, council_type: councilType }),
+        signal: ctrl.signal,
+      })
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+
+      const reader = resp.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop()
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let ev
+          try { ev = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (ev.type === 'start') {
+            setLiveProgress({ done: 0, total: ev.total })
+          } else if (ev.type === 'vote') {
+            setLiveVotes(prev => [...prev, ev.vote])
+            setLiveProgress({ done: ev.done, total: ev.total })
+          } else if (ev.type === 'result') {
+            setLastResult(ev)
+            setLivePhase('done')
+            setQuestion('')
+            load()
+          } else if (ev.type === 'error') {
+            setLastResult({ error: ev.message })
+            setLivePhase('done')
+          } else if (ev.type === 'done') {
+            setLivePhase('done')
+          }
+        }
+      }
     } catch (err) {
-      setLastResult({ error: err.response?.data?.detail || err.message })
+      if (err.name !== 'AbortError') {
+        setLastResult({ error: err.message })
+        setLivePhase('done')
+      }
     }
     setConvening(false)
   }
@@ -423,6 +478,39 @@ export default function CouncilView() {
             </button>
           </div>
         </form>
+
+        {/* Live streaming progress */}
+        {livePhase === 'gathering' && liveProgress && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                <span>Council members responding live</span>
+                <span>{liveProgress.done} / {liveProgress.total}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-jarvis-cyan to-jarvis-gold transition-all duration-500"
+                  style={{ width: `${liveProgress.total > 0 ? Math.round((liveProgress.done / liveProgress.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+            {liveVotes.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Live Votes</p>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {liveVotes.map((v, i) => <MemberVoteCard key={i} vote={v} />)}
+                  {/* Pending placeholders */}
+                  {Array.from({ length: Math.max(0, liveProgress.total - liveVotes.length) }).map((_, i) => (
+                    <div key={`pending-${i}`} className="rounded-lg border border-white/5 bg-white/2 p-2.5 flex items-center gap-2 opacity-40">
+                      <div className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+                      <span className="text-[11px] text-gray-500">waiting…</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <CouncilResultPanel result={lastResult} />
       </section>
