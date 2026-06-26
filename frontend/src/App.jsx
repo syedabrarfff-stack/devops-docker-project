@@ -90,6 +90,7 @@ import FinancialIntelligence from './components/financial/FinancialIntelligence'
 import LearningEngine from './components/learning/LearningEngine'
 import FounderDependency from './components/founder/FounderDependency'
 import MoatEngine from './components/moat/MoatEngine'
+import OmegaDashboard from './components/omega/OmegaDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -153,6 +154,8 @@ export const VIEWS = {
   learningEngine:    { path: controlPath('/learning-engine'),     title: 'Learning Engine',         Component: LearningEngine },
   founderDependency: { path: controlPath('/founder-dependency'),  title: 'Founder Dependency',      Component: FounderDependency },
   moatEngine:        { path: controlPath('/moat-engine'),         title: 'Competitive Moat',        Component: MoatEngine },
+  // OMEGA Global Intelligence Swarm
+  omega:             { path: controlPath('/omega'),               title: 'OMEGA Swarm',             Component: OmegaDashboard },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

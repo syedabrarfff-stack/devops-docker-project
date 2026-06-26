@@ -55,6 +55,7 @@ const NAV = [
   { id: 'learningEngine',   path: '/control-room/learning-engine',   label: 'Learning Engine',   icon: GraduationCap },
   { id: 'founderDependency', path: '/control-room/founder-dependency', label: 'Founder Dependency', icon: UserMinus },
   { id: 'moatEngine',       path: '/control-room/moat-engine',       label: 'Competitive Moat',  icon: Castle },
+  { id: 'omega',            path: '/control-room/omega',             label: 'OMEGA Swarm',       icon: Zap },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

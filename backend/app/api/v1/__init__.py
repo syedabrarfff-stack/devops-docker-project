@@ -41,6 +41,7 @@ from app.api.v1.routes import payments
 from app.api.v1.routes import telegram_webhook
 from app.api.v1.routes import trust
 from app.api.v1.routes import truth_engine, resilience, financial_intel, learning, founder, moat
+from app.api.v1.routes import omega
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -126,3 +127,5 @@ api_router.include_router(financial_intel.router)
 api_router.include_router(learning.router)
 api_router.include_router(founder.router)
 api_router.include_router(moat.router)
+# OMEGA — Global Intelligence Swarm
+api_router.include_router(omega.router)
