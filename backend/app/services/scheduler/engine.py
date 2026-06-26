@@ -260,11 +260,12 @@ async def _register_default_jobs() -> None:
         logger.warning("AIONX job registration failed: %s", exc)
 
     # ── Autonomous Self-Healer — runs every 15 minutes ────────────────────────
-    # Resets failed AI circuit breakers, refills empty lead pipelines,
-    # resumes paused scheduler jobs, and alerts Captain for what it can't fix.
     add_interval_job("self_healer", _job_self_healer, minutes=15)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer)")
+    # ── NEXUS Heartbeat — runs every hour ─────────────────────────────────────
+    add_interval_job("nexus_heartbeat", _job_nexus_heartbeat, hours=1)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat)")
 
 
 async def _job_morning_briefing() -> None:
@@ -860,3 +861,28 @@ async def _job_self_healer() -> None:
         await run_self_healing_cycle()
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+
+
+async def _job_nexus_heartbeat() -> None:
+    """NEXUS heartbeat — runs every hour. Pulses pipeline state, notifies Captain of drafts."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.nexus.heartbeat import run_pulse
+        from app.services.autopilot.pipeline import get_pending_drafts
+
+        async with AsyncSessionLocal() as db:
+            pulse = await run_pulse(db)
+
+        pending = await get_pending_drafts(None)
+        if pending:
+            try:
+                from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
+                await notify_autopilot_drafts_pending(pending)
+            except Exception:
+                pass
+
+        action = pulse.get("action_signal", "MONITOR")
+        logger.info("NEXUS heartbeat: %s | drafts=%d | signal=%s",
+                    pulse.get("timestamp", "?"), len(pending), action)
+    except Exception as exc:
+        logger.warning("NEXUS heartbeat job failed: %s", exc)
