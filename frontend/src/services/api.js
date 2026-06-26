@@ -12,6 +12,7 @@ const API_PREFIX = '/api/v1'
 const API_RESOURCES = new Set([
   'agent-ops',
   'agents',
+  'autopilot',
   'ghost',
   'ai-ops',
   'aionx',
@@ -488,6 +489,17 @@ export const getMoatReport            = ()                 => api.get('/api/v1/m
 export const getMoatScore             = ()                 => api.get('/api/v1/moat/score').then(r => r.data)
 export const getMoatDimensions        = ()                 => api.get('/api/v1/moat/dimensions').then(r => r.data)
 export const getMoatThreats           = ()                 => api.get('/api/v1/moat/threats').then(r => r.data)
+
+// AUTOPILOT — Autonomous Outreach Pipeline
+export const autopilotIgnite      = (payload) => api.post('/api/v1/autopilot/ignite', payload, { timeout: 300000 }).then(r => r.data)
+export const autopilotStatus      = ()         => api.get('/api/v1/autopilot/status').then(r => r.data)
+export const autopilotPending     = ()         => api.get('/api/v1/autopilot/pending').then(r => r.data)
+export const autopilotAll         = ()         => api.get('/api/v1/autopilot/all').then(r => r.data)
+export const autopilotApprove     = (id)       => api.post(`/api/v1/autopilot/approve/${id}`).then(r => r.data)
+export const autopilotReject      = (id, body) => api.post(`/api/v1/autopilot/reject/${id}`, body).then(r => r.data)
+export const autopilotApproveAll  = ()         => api.post('/api/v1/autopilot/approve-all').then(r => r.data)
+export const autopilotEditDraft   = (id, body) => api.patch(`/api/v1/autopilot/draft/${id}`, body).then(r => r.data)
+export const autopilotClear       = ()         => api.delete('/api/v1/autopilot/clear').then(r => r.data)
 
 // GHOST — AI Outreach Intelligence Engine
 export const ghostPersonas       = ()         => api.get('/api/v1/ghost/personas').then(r => r.data)

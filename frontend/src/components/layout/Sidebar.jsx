@@ -57,6 +57,7 @@ const NAV = [
   { id: 'moatEngine',       path: '/control-room/moat-engine',       label: 'Competitive Moat',  icon: Castle },
   { id: 'omega',            path: '/control-room/omega',             label: 'OMEGA Swarm',       icon: Zap },
   { id: 'ghost',            path: '/control-room/ghost',             label: 'GHOST Writer',      icon: Ghost },
+  { id: 'autopilot',        path: '/control-room/autopilot',         label: 'AUTOPILOT',         icon: Cpu },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

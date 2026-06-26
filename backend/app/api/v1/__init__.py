@@ -43,6 +43,7 @@ from app.api.v1.routes import trust
 from app.api.v1.routes import truth_engine, resilience, financial_intel, learning, founder, moat
 from app.api.v1.routes import omega
 from app.api.v1.routes import ghost
+from app.api.v1.routes import autopilot
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -132,3 +133,5 @@ api_router.include_router(moat.router)
 api_router.include_router(omega.router)
 # GHOST — AI Outreach Intelligence Engine
 api_router.include_router(ghost.router)
+# AUTOPILOT — Autonomous Outreach Pipeline
+api_router.include_router(autopilot.router)
