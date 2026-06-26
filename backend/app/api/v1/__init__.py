@@ -44,6 +44,8 @@ from app.api.v1.routes import truth_engine, resilience, financial_intel, learnin
 from app.api.v1.routes import omega
 from app.api.v1.routes import ghost
 from app.api.v1.routes import autopilot
+from app.api.v1.routes import signal
+from app.api.v1.routes import nexus
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -135,3 +137,7 @@ api_router.include_router(omega.router)
 api_router.include_router(ghost.router)
 # AUTOPILOT — Autonomous Outreach Pipeline
 api_router.include_router(autopilot.router)
+# SIGNAL — AI Pipeline Intelligence Scanner
+api_router.include_router(signal.router)
+# NEXUS — Supreme Autonomous Intelligence Core
+api_router.include_router(nexus.router)

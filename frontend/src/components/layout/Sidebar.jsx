@@ -7,6 +7,7 @@ import {
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
   TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
+  Radio, Infinity,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -58,6 +59,8 @@ const NAV = [
   { id: 'omega',            path: '/control-room/omega',             label: 'OMEGA Swarm',       icon: Zap },
   { id: 'ghost',            path: '/control-room/ghost',             label: 'GHOST Writer',      icon: Ghost },
   { id: 'autopilot',        path: '/control-room/autopilot',         label: 'AUTOPILOT',         icon: Cpu },
+  { id: 'signal',           path: '/control-room/signal',            label: 'SIGNAL',            icon: Radio },
+  { id: 'nexus',            path: '/control-room/nexus',             label: 'NEXUS Core',        icon: Infinity },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

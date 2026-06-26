@@ -93,6 +93,8 @@ import MoatEngine from './components/moat/MoatEngine'
 import OmegaDashboard from './components/omega/OmegaDashboard'
 import GhostWriter from './components/ghost/GhostWriter'
 import AutopilotDashboard from './components/autopilot/AutopilotDashboard'
+import SignalDashboard from './components/signal/SignalDashboard'
+import NexusCore from './components/nexus/NexusCore'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -162,6 +164,10 @@ export const VIEWS = {
   ghost:             { path: controlPath('/ghost'),               title: 'GHOST Outreach AI',       Component: GhostWriter },
   // AUTOPILOT — Autonomous Outreach Pipeline
   autopilot:         { path: controlPath('/autopilot'),           title: 'AUTOPILOT Pipeline',      Component: AutopilotDashboard },
+  // SIGNAL — AI Pipeline Intelligence Scanner
+  signal:            { path: controlPath('/signal'),              title: 'Pipeline Intelligence',   Component: SignalDashboard },
+  // NEXUS — Supreme Autonomous Intelligence Core
+  nexus:             { path: controlPath('/nexus'),               title: 'JARVIS NEXUS',            Component: NexusCore },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

@@ -14,6 +14,8 @@ const API_RESOURCES = new Set([
   'agents',
   'autopilot',
   'ghost',
+  'nexus',
+  'signal',
   'ai-ops',
   'aionx',
   'approvals',
@@ -506,5 +508,18 @@ export const ghostPersonas       = ()         => api.get('/api/v1/ghost/personas
 export const ghostSuggestPersona = (params)   => api.get('/api/v1/ghost/persona/suggest', { params }).then(r => r.data)
 export const ghostSequence       = (payload)  => api.post('/api/v1/ghost/sequence', payload, { timeout: 120000 }).then(r => r.data)
 export const ghostSend           = (payload)  => api.post('/api/v1/ghost/send', payload).then(r => r.data)
+
+// SIGNAL — AI Pipeline Intelligence Scanner
+export const signalStatus        = (params)   => api.get('/api/v1/signal/status', { params }).then(r => r.data)
+export const signalLeads         = (params)   => api.get('/api/v1/signal/leads', { params }).then(r => r.data)
+
+// NEXUS — Supreme Autonomous Intelligence Core
+export const nexusStatus         = ()         => api.get('/api/v1/nexus/status').then(r => r.data)
+export const nexusConstitution   = ()         => api.get('/api/v1/nexus/constitution').then(r => r.data)
+export const nexusDecisions      = (limit)    => api.get('/api/v1/nexus/decisions', { params: { limit } }).then(r => r.data)
+export const nexusPulse          = ()         => api.get('/api/v1/nexus/pulse').then(r => r.data)
+export const nexusHealth         = ()         => api.get('/api/v1/nexus/health').then(r => r.data)
+export const nexusTriggerHeal    = (subsystem)=> api.post('/api/v1/nexus/heal', { subsystem }).then(r => r.data)
+export const nexusTriggerCycle   = ()         => api.post('/api/v1/nexus/cycle', {}, { timeout: 300000 }).then(r => r.data)
 
 export default api
