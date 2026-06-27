@@ -186,6 +186,9 @@ export const createIntervalJob = (data) => api.post('/api/v1/scheduler/jobs/inte
 export const deleteSchedulerJob = (id) => api.delete(`/api/v1/scheduler/jobs/${id}`).then(r => r.data)
 export const pauseJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/pause`).then(r => r.data)
 export const resumeJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/resume`).then(r => r.data)
+export const triggerJobNow = (id) => api.post(`/api/v1/scheduler/jobs/${id}/trigger`).then(r => r.data)
+export const getSchedulerFailures = (status) => api.get('/api/v1/scheduler/failures', { params: status ? { status } : {} }).then(r => r.data)
+export const resolveJobFailure = (id) => api.patch(`/api/v1/scheduler/failures/${id}/resolve`).then(r => r.data)
 
 // Phase 3 — Calendar
 export const getCalendarEvents = (params) => api.get('/api/v1/calendar/events', { params }).then(r => r.data)

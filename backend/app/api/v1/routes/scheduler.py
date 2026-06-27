@@ -196,6 +196,42 @@ async def list_job_failures(
     ]
 
 
+@router.patch("/failures/{failure_id}/resolve", dependencies=[Depends(get_current_captain)])
+async def resolve_job_failure(failure_id: str, db: AsyncSession = Depends(get_db)):
+    """Mark an open job failure as resolved."""
+    from sqlalchemy import select
+    from app.models.scheduling import JobFailure
+
+    try:
+        fid = uuid.UUID(failure_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid failure ID")
+
+    row = (await db.execute(select(JobFailure).where(JobFailure.id == fid))).scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Failure not found")
+
+    row.status = "resolved"
+    await db.commit()
+    return {"id": failure_id, "status": "resolved"}
+
+
+@router.post("/jobs/{job_id}/trigger", dependencies=[Depends(get_current_captain)])
+async def trigger_job_now(job_id: str):
+    """Trigger a scheduled job to run immediately (within 2 seconds)."""
+    from datetime import timezone, timedelta
+    from app.services.scheduler.engine import get_scheduler
+
+    scheduler = get_scheduler()
+    job = scheduler.get_job(job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{job_id}' not found in scheduler")
+
+    run_at = datetime.now(timezone.utc) + timedelta(seconds=2)
+    scheduler.modify_job(job_id, next_run_time=run_at)
+    return {"job_id": job_id, "status": "triggered", "runs_at": run_at.isoformat()}
+
+
 def _metadata_tenant_id(request: Request) -> uuid.UUID:
     raw = getattr(request.state, "tenant_id", None) or settings.JARVIS_DEFAULT_TENANT_ID
     if not raw:

@@ -1,13 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../../services/api";
+import { triggerJobNow, getSchedulerFailures, resolveJobFailure } from "../../services/api";
 
 const TRIGGER_ICONS = { cron: "🕐", interval: "🔄", date: "📅" };
 const AGENTS = ["jarvis", "growth_manager", "ops_manager", "lead_scout", "outreach_agent",
                 "crm_agent", "research_agent", "content_writer", "reporting_agent"];
 const TASK_TYPES = ["lead_scoring", "outreach", "briefing", "contact_sync", "analysis", "research", "custom"];
 
-function JobCard({ job, dbJob, onPause, onResume, onDelete }) {
+function JobCard({ job, dbJob, onPause, onResume, onDelete, onTrigger }) {
   const isPaused = !job.next_run;
+  const [triggering, setTriggering] = useState(false);
+
+  async function handleTrigger() {
+    setTriggering(true);
+    try { await onTrigger(job.id); } finally { setTriggering(false); }
+  }
+
   return (
     <div className="glass rounded-xl p-4 border border-white/5 hover:border-blue-500/20 transition-all">
       <div className="flex items-start justify-between mb-3">
@@ -18,7 +26,11 @@ function JobCard({ job, dbJob, onPause, onResume, onDelete }) {
           </p>
           <p className="text-xs text-gray-500 mt-0.5 font-mono">{job.trigger}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
+          <button onClick={handleTrigger} disabled={triggering}
+            className="text-xs px-2 py-1 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 transition-colors disabled:opacity-40">
+            {triggering ? '…' : '▶ Now'}
+          </button>
           {isPaused ? (
             <button onClick={() => onResume(job.id)}
               className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors">
@@ -44,12 +56,46 @@ function JobCard({ job, dbJob, onPause, onResume, onDelete }) {
   );
 }
 
+function FailureCard({ failure, onResolve }) {
+  const [resolving, setResolving] = useState(false);
+
+  async function handleResolve() {
+    setResolving(true);
+    try { await onResolve(failure.id); } finally { setResolving(false); }
+  }
+
+  return (
+    <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">{failure.job_name}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+              {failure.status}
+            </span>
+            {failure.retry_count > 0 && (
+              <span className="text-[10px] text-amber-400">↩ {failure.retry_count}x</span>
+            )}
+          </div>
+          <p className="text-xs text-white/60 font-mono truncate">{failure.error}</p>
+          <p className="text-[10px] text-white/30 mt-1">
+            {failure.created_at ? new Date(failure.created_at).toLocaleString() : '—'}
+          </p>
+        </div>
+        <button onClick={handleResolve} disabled={resolving}
+          className="flex-shrink-0 text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-40">
+          {resolving ? '…' : '✓ Resolve'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function SchedulerView() {
   const [jobs, setJobs] = useState([]);
   const [dbJobs, setDbJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("jobs");
-  const [failures, setFailures] = useState(null);
+  const [failures, setFailures] = useState([]);
   const [failuresLoading, setFailuresLoading] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [newJobType, setNewJobType] = useState("cron");
@@ -60,7 +106,21 @@ export default function SchedulerView() {
     agent: "jarvis", task_type: "custom", payload: "{}",
   });
 
-  useEffect(() => { load(); }, []);
+  const loadFailures = useCallback(async () => {
+    setFailuresLoading(true);
+    try {
+      const data = await getSchedulerFailures();
+      setFailures(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Failed to load failures:", e);
+    }
+    setFailuresLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+    loadFailures();
+  }, [loadFailures]);
 
   async function load() {
     setLoading(true);
@@ -102,24 +162,20 @@ export default function SchedulerView() {
     await api.delete(`/api/v1/scheduler/jobs/${id}`);
     load();
   }
-
-  async function loadFailures() {
-    setFailuresLoading(true);
-    try {
-      const r = await api.get("/api/v1/scheduler/failures");
-      setFailures(r.data);
-    } catch (e) { setFailures({ error: e.response?.data?.detail || e.message }); }
-    setFailuresLoading(false);
+  async function handleTrigger(id) {
+    await triggerJobNow(id);
+    setTimeout(load, 2500);
+  }
+  async function handleResolve(id) {
+    await resolveJobFailure(id);
+    setFailures(prev => prev.filter(f => f.id !== id));
   }
 
   const dbJobMap = Object.fromEntries(dbJobs.map(j => [j.job_id, j]));
 
-  const DEFAULT_JOBS = jobs.filter(j =>
-    ["daily_briefing", "lead_scoring_sweep", "outreach_processor", "contact_sync"].includes(j.id)
-  );
-  const CUSTOM_JOBS = jobs.filter(j =>
-    !["daily_briefing", "lead_scoring_sweep", "outreach_processor", "contact_sync"].includes(j.id)
-  );
+  const DEFAULT_IDS = ["daily_briefing", "lead_scoring_sweep", "outreach_processor", "contact_sync"];
+  const DEFAULT_JOBS = jobs.filter(j => DEFAULT_IDS.includes(j.id));
+  const CUSTOM_JOBS = jobs.filter(j => !DEFAULT_IDS.includes(j.id));
 
   return (
     <div className="p-6 space-y-6">
@@ -139,18 +195,22 @@ export default function SchedulerView() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="glass rounded-xl p-4 border border-white/5">
           <p className="text-gray-400 text-xs mb-1">Total Jobs</p>
           <p className="text-2xl font-bold text-white">{jobs.length}</p>
         </div>
         <div className="glass rounded-xl p-4 border border-white/5">
-          <p className="text-gray-400 text-xs mb-1">Default Jobs</p>
+          <p className="text-gray-400 text-xs mb-1">Built-in</p>
           <p className="text-2xl font-bold text-green-400">{DEFAULT_JOBS.length}</p>
         </div>
         <div className="glass rounded-xl p-4 border border-white/5">
-          <p className="text-gray-400 text-xs mb-1">Custom Jobs</p>
+          <p className="text-gray-400 text-xs mb-1">Custom</p>
           <p className="text-2xl font-bold text-blue-400">{CUSTOM_JOBS.length}</p>
+        </div>
+        <div className={`glass rounded-xl p-4 border ${failures.length > 0 ? 'border-red-500/30' : 'border-white/5'}`}>
+          <p className="text-gray-400 text-xs mb-1">Open Failures</p>
+          <p className={`text-2xl font-bold ${failures.length > 0 ? 'text-red-400' : 'text-white'}`}>{failures.length}</p>
         </div>
       </div>
 
@@ -164,7 +224,7 @@ export default function SchedulerView() {
               <div className="space-y-3">
                 {DEFAULT_JOBS.map(job => (
                   <JobCard key={job.id} job={job} dbJob={dbJobMap[job.id]}
-                    onPause={handlePause} onResume={handleResume} onDelete={handleDelete} />
+                    onPause={handlePause} onResume={handleResume} onDelete={handleDelete} onTrigger={handleTrigger} />
                 ))}
               </div>
             </div>
@@ -175,7 +235,7 @@ export default function SchedulerView() {
               <div className="space-y-3">
                 {CUSTOM_JOBS.map(job => (
                   <JobCard key={job.id} job={job} dbJob={dbJobMap[job.id]}
-                    onPause={handlePause} onResume={handleResume} onDelete={handleDelete} />
+                    onPause={handlePause} onResume={handleResume} onDelete={handleDelete} onTrigger={handleTrigger} />
                 ))}
               </div>
             </div>
@@ -191,16 +251,28 @@ export default function SchedulerView() {
       {/* Job Failures */}
       <div className="glass rounded-xl p-5 border border-white/5 space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-white/40">Job Failures</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/40">Job Failures</p>
+            {failures.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold">
+                {failures.length}
+              </span>
+            )}
+          </div>
           <button onClick={loadFailures} disabled={failuresLoading}
             className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white text-xs transition-colors disabled:opacity-40">
-            {failuresLoading ? 'Loading…' : '↺ Load Failures'}
+            {failuresLoading ? 'Loading…' : '↺ Refresh'}
           </button>
         </div>
-        {failures && (
-          <pre className="text-xs text-gray-300 overflow-auto max-h-48 rounded-lg border border-white/10 bg-black/20 p-3">
-            {JSON.stringify(failures, null, 2)}
-          </pre>
+        {failures.length === 0 && !failuresLoading && (
+          <p className="text-xs text-white/25 text-center py-4">No open failures — all jobs healthy.</p>
+        )}
+        {failures.length > 0 && (
+          <div className="space-y-2">
+            {failures.map(f => (
+              <FailureCard key={f.id} failure={f} onResolve={handleResolve} />
+            ))}
+          </div>
         )}
       </div>
 

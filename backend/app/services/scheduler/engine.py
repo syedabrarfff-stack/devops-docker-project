@@ -154,16 +154,27 @@ def resume_job(job_id: str) -> bool:
 
 # ── Job failure persistence ───────────────────────────────────────────────────
 
+_SYSTEM_TENANT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
 async def _record_job_failure(job_name: str, error: str, tb_str: str = "") -> None:
     """Persist a scheduler job failure to DB. Alert Captain after 3 consecutive open failures."""
+    import uuid as _uuid
     try:
         from app.core.database import AsyncSessionLocal
         from app.models.scheduling import JobFailure
         from sqlalchemy import select, func
 
+        tenant_id = (
+            _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+            if settings.JARVIS_DEFAULT_TENANT_ID
+            else _uuid.UUID(_SYSTEM_TENANT_ID)
+        )
+
         async with AsyncSessionLocal() as db:
             async with db.begin():
                 db.add(JobFailure(
+                    tenant_id=tenant_id,
                     job_name=job_name,
                     status="open",
                     error=error[:2000],
