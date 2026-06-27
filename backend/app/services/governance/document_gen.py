@@ -110,6 +110,8 @@ async def generate_proposal(
             task_type=TaskType.STRATEGY,
             max_tokens=2500,
         )
+        if response.error:
+            raise ValueError(response.error)
         content = response.content.strip()
     except Exception as e:
         logger.warning(f"Proposal generation failed: {e}")
@@ -325,6 +327,7 @@ async def generate_contract(
     service_type: str,
     scope: str,
     pricing: dict,
+    tenant_id=None,
 ) -> dict:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -347,6 +350,8 @@ async def generate_contract(
             task_type=TaskType.STRATEGY,
             max_tokens=3000,
         )
+        if response.error:
+            raise ValueError(response.error)
         content = response.content.strip()
     except Exception as e:
         logger.warning("Contract generation AI failed: %s", e)
@@ -362,6 +367,7 @@ async def generate_contract(
         )
 
     contract = Contract(
+        tenant_id=_resolve_doc_tenant(tenant_id),
         proposal_id=proposal_id,
         client_name=client_name,
         client_email=client_email,

@@ -62,11 +62,14 @@ async def _heal_ai_providers(report: dict) -> None:
             if ph.state == "OPEN":
                 # Probe with a minimal test — if it passes, force reset
                 try:
-                    await ai_router.chat(
+                    probe, _ = await ai_router.chat(
                         [Message(role="user", content="ping")],
                         task_type=TaskType.FAST,
                         force_provider=name,
                     )
+                    if probe.error:
+                        still_open.append(name)
+                        continue
                     health_monitor.reset(name)
                     recovered.append(name)
                     report["actions"].append(f"circuit_breaker_reset:{name}")

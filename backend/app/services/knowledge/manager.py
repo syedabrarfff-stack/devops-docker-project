@@ -69,6 +69,8 @@ async def generate_sop(
             system_prompt="You are an operations expert. Return only valid JSON.",
             max_tokens=2000,
         )
+        if response.error:
+            raise ValueError(response.error)
         raw = response.content.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]

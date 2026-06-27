@@ -460,7 +460,6 @@ export const recordPrediction         = (payload)          => api.post('/api/v1/
 export const recordOutcome            = (eventId, payload) => api.post(`/api/v1/truth/outcome/${eventId}`, payload).then(r => r.data)
 export const getTruthReport           = ()                 => api.get('/api/v1/truth/report').then(r => r.data)
 export const getAccuracyDashboard     = ()                 => api.get('/api/v1/truth/accuracy').then(r => r.data)
-export const recordPrediction         = (payload)          => api.post('/api/v1/truth/prediction', payload).then(r => r.data)
 export const runRealityCheck          = (payload)          => api.post('/api/v1/truth/reality-check', payload).then(r => r.data)
 
 // Layer 18 — Operational Resilience

@@ -106,9 +106,10 @@ ACTIONS PENDING: {metrics.get('pending_approvals', 0)}
         system_prompt=BRIEFING_PROMPT,
         max_tokens=1500,
     )
+    briefing_content = response.content if not response.error else f"Good {greeting.split()[-1].lower()}, Captain. JARVIS operational. AI briefing temporarily unavailable — {response.error}"
 
     return {
-        "briefing": response.content,
+        "briefing": briefing_content,
         "metrics": metrics,
         "model": response.model,
         "provider": response.provider,
