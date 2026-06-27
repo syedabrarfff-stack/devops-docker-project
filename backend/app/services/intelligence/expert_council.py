@@ -122,6 +122,8 @@ async def _run_agent(
             system_prompt=agent_config["system"],
             max_tokens=800,
         )
+        if response.error:
+            raise ValueError(response.error)
         parsed = _parse_agent_response(response.content, agent_name)
         parsed["agent"] = agent_name
         return parsed

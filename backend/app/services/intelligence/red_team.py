@@ -84,6 +84,8 @@ async def _analyze_attack_vector(vector: dict) -> dict[str, Any]:
             system_prompt=RED_TEAM_SYSTEM,
             max_tokens=600,
         )
+        if response.error:
+            raise ValueError(response.error)
         parsed = _parse_json_response(response.content)
         return {
             "vector_id": vector["id"],
@@ -196,6 +198,8 @@ class RedTeamEngine:
                 system_prompt=RED_TEAM_SYSTEM,
                 max_tokens=900,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
             return {
                 "tenant_id": str(tenant_id),

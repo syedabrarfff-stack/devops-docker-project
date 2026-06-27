@@ -107,6 +107,8 @@ class CialdiniEngine:
                 system_prompt=CIALDINI_SYSTEM,
                 max_tokens=1200,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
 
             # Normalize principles_applied
@@ -185,6 +187,8 @@ class CialdiniEngine:
                     system_prompt=CIALDINI_SYSTEM,
                     max_tokens=800,
                 )
+                if response.error:
+                    raise ValueError(response.error)
                 parsed = _parse_json_response(response.content)
 
                 sequence.append({

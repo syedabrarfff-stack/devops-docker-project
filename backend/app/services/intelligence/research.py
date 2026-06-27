@@ -78,6 +78,8 @@ async def generate_report(
             system_prompt="You are a strategic business analyst. Return only valid JSON objects.",
             max_tokens=2500,
         )
+        if response.error:
+            raise ValueError(response.error)
 
         raw = response.content.strip()
         if raw.startswith("```"):
