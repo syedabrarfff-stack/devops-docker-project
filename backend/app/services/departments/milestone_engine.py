@@ -423,6 +423,8 @@ Analysis: {reasoning[:2000]}"""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.FAST,
             )
+            if response.error:
+                raise ValueError(response.error)
             items = json.loads(response.content.strip())
             return items if isinstance(items, list) else [str(reasoning[:200])]
         except Exception:

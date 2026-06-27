@@ -25,7 +25,9 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from email.header import decode_header
+from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse as _urlparse
 
 import httpx
 from sqlalchemy import select
@@ -43,6 +45,79 @@ from app.services.outreach.reply_handler import reply_handler
 logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+
+_SNS_CERT_HOST_SUFFIX = ".amazonaws.com"
+
+# SNS fields included in the canonical string for each message type (order matters)
+_SNS_SIGN_FIELDS: dict[str, list[str]] = {
+    "Notification": ["Message", "MessageId", "Subject", "Timestamp", "TopicArn", "Type"],
+    "SubscriptionConfirmation": ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+    "UnsubscribeConfirmation": ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+}
+
+
+@lru_cache(maxsize=16)
+def _get_sns_cert_pem_cached(cert_url: str) -> bytes | None:
+    """Download and cache an SNS signing certificate (sync, for lru_cache compatibility)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(cert_url, timeout=5) as resp:  # noqa: S310
+            return resp.read()
+    except Exception as exc:
+        logger.warning("SNS cert fetch failed for %s: %s", cert_url, exc)
+        return None
+
+
+def _verify_sns_signature(body: dict) -> bool:
+    """Verify AWS SNS message signature. Returns True if valid or if verification cannot run.
+
+    On signature mismatch returns False. On missing cryptography library or cert
+    fetch failure, logs a warning and returns True (fail-open to avoid blocking
+    legitimate notifications during cold-start or transient cert download issues).
+    """
+    cert_url = body.get("SigningCertURL", "")
+    signature_b64 = body.get("Signature", "")
+    msg_type = body.get("Type", "")
+
+    if not cert_url or not signature_b64 or msg_type not in _SNS_SIGN_FIELDS:
+        return True  # Can't verify — allow through
+
+    # Validate cert URL origin before fetching (prevent SSRF to forged certs)
+    try:
+        parsed = _urlparse(cert_url)
+        if parsed.scheme != "https" or not (parsed.hostname or "").endswith(_SNS_CERT_HOST_SUFFIX):
+            logger.warning("SNS signature rejected: cert URL origin invalid: %s", cert_url)
+            return False
+    except Exception:
+        return True
+
+    pem = _get_sns_cert_pem_cached(cert_url)
+    if not pem:
+        logger.warning("SNS signature skipped: cert unavailable for %s", cert_url)
+        return True  # Fail-open on transient cert fetch issues
+
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography import x509
+
+        cert = x509.load_pem_x509_certificate(pem)
+        pub_key = cert.public_key()
+
+        # Build canonical string
+        fields = _SNS_SIGN_FIELDS[msg_type]
+        parts = []
+        for field in fields:
+            if field in body:
+                parts.append(f"{field}\n{body[field]}\n")
+        canonical = "".join(parts).encode("utf-8")
+
+        sig_bytes = base64.b64decode(signature_b64)
+        pub_key.verify(sig_bytes, canonical, padding.PKCS1v15(), hashes.SHA1())  # SNS uses SHA1
+        return True
+    except Exception as exc:
+        logger.warning("SNS signature verification failed: %s", exc)
+        return False
 
 
 def _default_tenant() -> uuid.UUID:
@@ -165,6 +240,11 @@ async def process_ses_sns_notification(raw_body: bytes) -> dict[str, Any]:
         return {"accepted": False, "error": "invalid_json"}
 
     msg_type = body.get("Type", "")
+
+    # Verify SNS message signature before processing
+    if not _verify_sns_signature(body):
+        logger.warning("SNS notification rejected: invalid signature (type=%s)", msg_type)
+        return {"accepted": False, "error": "invalid_signature"}
 
     # SNS subscription confirmation — auto-confirm
     if msg_type == "SubscriptionConfirmation":
