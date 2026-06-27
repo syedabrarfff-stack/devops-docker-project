@@ -192,8 +192,15 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: Backgr
     if req.status in ("accepted", "won"):
         try:
             from app.services.notifications.telegram import notify_telegram
-            proposals = await get_proposals(db)
-            p = next((x for x in proposals if x.get("id") == proposal_id), {})
+            from app.models.governance import Proposal as _Proposal
+            from sqlalchemy import select as _select
+            _p_row = (await db.execute(_select(_Proposal).where(_Proposal.id == proposal_id))).scalar_one_or_none()
+            p = {
+                "id": _p_row.id, "client_name": _p_row.client_name,
+                "client_email": _p_row.client_email, "client_company": _p_row.client_company,
+                "service_type": _p_row.service_type, "content": _p_row.content,
+                "pricing": _p_row.pricing,
+            } if _p_row else {}
             company = p.get("client_company") or p.get("client_name") or "Client"
             mrr = p.get("pricing", {}).get("monthly_retainer", 0) or 0
             mrr_text = f"\n💰 *MRR:* ${mrr:,.0f}/mo" if mrr else ""

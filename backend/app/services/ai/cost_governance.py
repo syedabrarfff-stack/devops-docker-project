@@ -144,7 +144,11 @@ async def should_use_claude(
 
 
 async def claude_governance_status() -> dict:
-    spent_today, spent_window = await _claude_spend()
+    try:
+        spent_today, spent_window = await _claude_spend()
+    except Exception as exc:
+        logger.warning("claude_governance_status: DB unavailable: %s", exc)
+        spent_today, spent_window = 0.0, 0.0
     usable_budget = settings.CLAUDE_BUDGET_TOTAL_USD * (1.0 - settings.CLAUDE_RESERVE_RATIO)
     reserve = settings.CLAUDE_BUDGET_TOTAL_USD - usable_budget
     daily_limit = usable_budget / max(1, settings.CLAUDE_BUDGET_WINDOW_DAYS)
@@ -191,24 +195,34 @@ def _projected_call_cost(
 
 
 async def _claude_spend() -> tuple[float, float]:
-    tenant_id = settings.JARVIS_DEFAULT_TENANT_ID or "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    import uuid as _uuid
+    tenant_id_str = settings.JARVIS_DEFAULT_TENANT_ID or "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    try:
+        tenant_uuid = _uuid.UUID(str(tenant_id_str))
+    except (ValueError, AttributeError):
+        tenant_uuid = None
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     window_start = today_start - timedelta(days=max(1, settings.CLAUDE_BUDGET_WINDOW_DAYS) - 1)
 
     async with AsyncSessionLocal() as session:
         async with session.begin():
-            await set_tenant_context(session, tenant_id)
+            await set_tenant_context(session, tenant_id_str)
+            _base_filters = [
+                AICostLedger.provider == "anthropic",
+            ]
+            if tenant_uuid is not None:
+                _base_filters.append(AICostLedger.tenant_id == tenant_uuid)
             today = await session.scalar(
                 select(func.coalesce(func.sum(AICostLedger.cost_usd), 0.0)).where(
-                    AICostLedger.provider == "anthropic",
+                    *_base_filters,
                     AICostLedger.created_at >= today_start,
                     AICostLedger.created_at <= now,
                 )
             )
             window = await session.scalar(
                 select(func.coalesce(func.sum(AICostLedger.cost_usd), 0.0)).where(
-                    AICostLedger.provider == "anthropic",
+                    *_base_filters,
                     AICostLedger.created_at >= window_start,
                     AICostLedger.created_at <= now,
                 )
