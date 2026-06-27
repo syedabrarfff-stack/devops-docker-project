@@ -307,6 +307,38 @@ async def process_ses_sns_notification(raw_body: bytes) -> dict[str, Any]:
                         "confidence": reply_result.get("confidence_score", 0.7),
                     },
                 )
+
+        # ── Immediate Captain Telegram alert ─────────────────────────────────
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            from app.api.v1.routes.ws import broadcast
+
+            company = lead.company_name or lead.company or from_email
+            classification = reply_result.get("classification", "reply")
+            preview = reply_text[:200].replace("*", "").replace("_", "").strip()
+            score = getattr(lead, "score", 0) or 0
+
+            tg_lines = [
+                f"📬 *Lead Reply Received* — {company}\n",
+                f"*From:* {from_email}",
+                f"*Subject:* {subject[:80]}",
+                f"*Lead Score:* {int(score)}",
+                f"*Classification:* {classification.upper()}",
+                f"\n_{preview}_" if preview else "",
+                "\n/leads for pipeline | /drafts for pending emails",
+            ]
+            await notify_telegram("\n".join(l for l in tg_lines if l))
+
+            await broadcast("lead_reply", {
+                "lead_id": str(lead_id),
+                "company": company,
+                "from_email": from_email,
+                "classification": classification,
+                "score": float(score),
+            })
+        except Exception:
+            pass
+
     elif lead_id:
         # Has lead but no extractable text — record the event only
         processing["action"] = "event_recorded_no_text"

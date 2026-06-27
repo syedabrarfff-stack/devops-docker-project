@@ -1,5 +1,5 @@
 # JARVIS — Complete Self-Knowledge
-## Installed: 2026-06-22 | Source: Full Codebase Audit
+## Installed: 2026-06-22 | Updated: 2026-06-27 | Source: Full Codebase Audit
 
 *Every JARVIS session must read this file on startup. This is operational self-awareness.*
 
@@ -117,7 +117,14 @@ Run with: `python council.py` from `council/` directory
 - `biweekly_research_report` — Sunday 07:00
 - `monthly_weight_adjust` — 1st of month — Council weight recalibration
 - `speed_to_lead_5min` — Webhook-triggered
-- `self_healer` — Continuous health remediation
+- `self_healer` — Every 15 minutes — Autonomous system recovery
+
+### Phase 25-26 Additions (2026-06-27)
+- `nexus_heartbeat` — Every hour — Autonomous pipeline intelligence + AUTOPILOT trigger
+- `lead_embedding_sweep` — 03:15 UTC — Semantic vector generation for all leads
+- `captain_dashboard_briefing` — 06:55 UTC — Live pipeline stats + revenue via Telegram
+- `weekly_performance_briefing` — Saturday 19:00 UTC — 7-day performance summary
+- `nightly_signal_scan` — 02:00 UTC — AI scan all active leads, notify on HOT/WARM signals
 
 ---
 
@@ -198,7 +205,10 @@ Health endpoints: `/health` (shallow) · `/readyz` (deep — checks DB, AI, Redi
 ## WHAT IS COMPLETE vs IN PROGRESS
 
 ### Fully Operational
-Multi-provider AI routing · lead discovery & scoring · email outreach & reply handling · proposal generation (4 styles) · invoice management · CRM sync · Gmail OAuth · Google Calendar · team routing · service catalog · memory system · AIONX decision intelligence · WhatsApp (Evolution API) · approval governance · AI council voting · APScheduler (25 jobs)
+Multi-provider AI routing · lead discovery & scoring · email outreach & reply handling · proposal generation (4 styles) · invoice management · CRM sync · Gmail OAuth · Google Calendar · team routing · service catalog · memory system · AIONX decision intelligence · WhatsApp (Evolution API) · approval governance · AI council voting · APScheduler (30+ jobs)
+
+### Phase 25-26 Fully Operational (2026-06-27)
+NEXUS autonomous outreach (Redis-locked, hourly heartbeat) · Semantic lead search (OpenAI embeddings + cosine similarity) · Telegram bot with 15+ commands + inline approval buttons · Captain morning dashboard (06:55 daily, live DB stats) · Weekly performance briefing (Saturday) · Nightly signal scan (HOT/WARM lead alerts) · Full NEXUS heal protocols (all 8 subsystems) · WebSocket real-time events (draft sent/rejected, NEXUS pulse) · Lead reply Telegram alerts (SES inbound → immediate Captain notification) · Revenue snapshot in Telegram · Bulk approve-all with confirmation
 
 ### Partial
 LinkedIn outreach (framework ready, needs activation) · voice systems (Evolution API integrated, prompting pending) · client digital twins (framework ready, calibration pending) · counterfactual simulations (models ready, optimization ongoing)
@@ -210,6 +220,13 @@ White-label licensing · real-time speech-to-text · video generation · mobile 
 
 ## INVOICE NUMBERING
 Format: `ALY-YYYYMM-XXXX` — e.g., `ALY-202406-0047`
+
+## TELEGRAM BOT COMMANDS (Phase 25-26)
+/status · /heal · /nexus · /leads · /pipeline · /revenue · /scout · /briefing
+/drafts · /draft <id> · /approve_draft <id> · /reject_draft <id> · /approve_all
+/approve <id> · /reject <id> · /queue · /help
+Inline buttons: approve_draft: · reject_draft: · approve_all_drafts:confirm · approve: · reject:
+Webhook: POST /api/v1/telegram/webhook (registered with Telegram)
 
 ## OUTREACH COMPLIANCE
 Max 5 steps per sequence · Do-Not-Contact enforced · Speed-to-lead SLA: 5 minutes
