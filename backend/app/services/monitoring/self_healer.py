@@ -37,6 +37,7 @@ async def run_self_healing_cycle() -> dict:
         _heal_lead_pipeline(report),
         _heal_scheduler_jobs(report),
         _heal_redis(report),
+        _heal_job_failures(report),
         return_exceptions=True,
     )
 
@@ -154,6 +155,47 @@ async def _heal_redis(report: dict) -> None:
     except Exception as exc:
         report["alerts"].append(f"Redis unreachable — caching and rate limiting degraded: {exc}")
         logger.warning("Self-healer: Redis ping failed: %s", exc)
+
+
+async def _heal_job_failures(report: dict) -> None:
+    """Auto-resolve open job failures for jobs that have recovered and are running again."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.scheduling import JobFailure
+        from app.services.scheduler.scheduler import get_scheduler, get_jobs
+        from sqlalchemy import select, update
+
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(
+                select(JobFailure.id, JobFailure.job_name)
+                .where(JobFailure.status == "open")
+                .limit(100)
+            )).all()
+
+        if not rows:
+            return
+
+        running_job_ids = {j["id"] for j in get_jobs()}
+        to_resolve = [r.id for r in rows if r.job_name in running_job_ids]
+
+        if not to_resolve:
+            return
+
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await db.execute(
+                    update(JobFailure)
+                    .where(JobFailure.id.in_(to_resolve))
+                    .values(status="auto_resolved")
+                )
+
+        resolved_names = list({r.job_name for r in rows if r.id in set(to_resolve)})
+        report["actions"].append(f"auto_resolved_job_failures:{len(to_resolve)}")
+        logger.info("Self-healer: auto-resolved %d failure(s) for recovered jobs: %s",
+                    len(to_resolve), resolved_names)
+
+    except Exception as exc:
+        logger.warning("Self-healer job failure recovery failed: %s", exc)
 
 
 async def _alert_captain(report: dict) -> None:

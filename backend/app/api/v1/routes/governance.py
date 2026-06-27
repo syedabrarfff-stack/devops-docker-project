@@ -313,26 +313,25 @@ async def run_test_workflow(
 @router.get("/auto-approval-stats")
 async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
-    from app.models.governance import Invoice, Proposal
+    from app.models.revenue import Invoice, InvoiceStatus
+    from app.models.governance import Proposal
     from app.core.config import settings
 
-    # Count auto-approved invoices (sent immediately upon creation, no draft -> sent manual step)
+    # Count auto-approved invoices — use amount_usd (Invoice has no .total column)
     invoices_result = await db.execute(
         select(
             func.count(Invoice.id).label("total"),
-            func.sum(Invoice.total).label("total_value"),
-        ).where(Invoice.status == "sent")
+            func.sum(Invoice.amount_usd).label("total_value"),
+        ).where(Invoice.status == InvoiceStatus.SENT)
     )
     inv_row = invoices_result.first()
 
-    # Count auto-approved proposals
-    proposals_result = await db.execute(
-        select(
-            func.count(Proposal.id).label("total"),
-            func.sum(Proposal.value).label("total_value"),
-        ).where(Proposal.status == "sent")
-    )
-    prop_row = proposals_result.first()
+    # Proposal.value doesn't exist — pricing is a JSON dict; sum monthly_retainer in Python
+    prop_rows = (await db.execute(
+        select(Proposal.pricing).where(Proposal.status == "sent")
+    )).scalars().all()
+    prop_count = len(prop_rows)
+    prop_value = sum(float((p or {}).get("monthly_retainer", 0) or 0) for p in prop_rows)
 
     return {
         "thresholds": {
@@ -345,8 +344,8 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
             "total_value": float(inv_row[1] or 0),
         },
         "auto_approved_proposals": {
-            "count": prop_row[0] or 0,
-            "total_value": float(prop_row[1] or 0),
+            "count": prop_count,
+            "total_value": prop_value,
         },
         "system_status": "autonomous_governance_enabled"
     }
