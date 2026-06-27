@@ -163,6 +163,16 @@ class OutreachEngine:
                     if item.lead_id:
                         pending_by_lead.setdefault(item.lead_id, []).append(item)
 
+                # Batch-load all pending approvals once, before the loop
+                all_pending_approvals = (
+                    await session.execute(
+                        select(ApprovalRequest).where(
+                            ApprovalRequest.tenant_id == tenant_uuid,
+                            ApprovalRequest.status == ApprovalStatus.PENDING,
+                        )
+                    )
+                ).scalars().all()
+
                 for lead_id, lead_items in pending_by_lead.items():
                     lead = await self._get_lead(session, tenant_uuid, lead_id)
                     logs = await self.generate_sequence(lead, tenant_uuid)
@@ -182,14 +192,7 @@ class OutreachEngine:
                             **serialized_steps[0],
                         }
 
-                    approvals = (
-                        await session.execute(
-                            select(ApprovalRequest).where(
-                                ApprovalRequest.tenant_id == tenant_uuid,
-                                ApprovalRequest.status == ApprovalStatus.PENDING,
-                            )
-                        )
-                    ).scalars().all()
+                    approvals = all_pending_approvals
                     item_ids = {str(item.id) for item in lead_items}
                     step_by_queue_id = {str(item.id): int(item.sequence_step or 1) for item in lead_items}
                     email_by_step = {int(step["step"]): step for step in serialized_steps}

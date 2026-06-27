@@ -585,22 +585,32 @@ async def _handle_revenue(chat_id: str, db) -> None:
     try:
         from sqlalchemy import select, func
         from app.models.revenue import Invoice, InvoiceStatus
+        import uuid as _uuid
+        _tid = None
+        if settings.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+        _tf = [Invoice.tenant_id == _tid] if _tid else []
 
         total_all = await db.scalar(
-            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
+            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(*_tf)
         ) or 0.0
 
         total_paid = await db.scalar(
             select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0))
-            .where(Invoice.status == InvoiceStatus.PAID)
+            .where(*_tf, Invoice.status == InvoiceStatus.PAID)
         ) or 0.0
 
         total_outstanding = await db.scalar(
             select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
-            .where(Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]))
+            .where(*_tf, Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]))
         ) or 0.0
 
-        invoice_count = await db.scalar(select(func.count()).select_from(Invoice)) or 0
+        invoice_count = await db.scalar(
+            select(func.count()).select_from(Invoice).where(*_tf)
+        ) or 0
 
         lines = [
             "💰 *Revenue Snapshot*\n",
@@ -619,22 +629,32 @@ async def _handle_pipeline(chat_id: str, db) -> None:
     try:
         from sqlalchemy import select, func
         from app.models.lead import Lead, LeadStatus
+        import uuid as _uuid
+        _tid = None
+        if settings.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+        _tf = [Lead.tenant_id == _tid] if _tid else []
 
         lines = ["📊 *Pipeline Breakdown*\n"]
 
         for status in LeadStatus:
             cnt = await db.scalar(
-                select(func.count()).select_from(Lead).where(Lead.status == status)
+                select(func.count()).select_from(Lead).where(*_tf, Lead.status == status)
             ) or 0
             if cnt:
                 lines.append(f"  {status.value:<12} {cnt}")
 
-        avg_q = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0))
+        avg_q = await db.scalar(
+            select(func.avg(Lead.score)).where(*_tf, Lead.score > 0)
+        )
         avg_score = round(float(avg_q or 0), 1)
 
         top_q = (await db.execute(
             select(Lead.company, Lead.score)
-            .where(Lead.score >= 75, Lead.status == LeadStatus.NEW)
+            .where(*_tf, Lead.score >= 75, Lead.status == LeadStatus.NEW)
             .order_by(Lead.score.desc())
             .limit(3)
         )).all()
@@ -685,6 +705,15 @@ async def notify_captain_morning_briefing(db) -> None:
     from datetime import datetime, timezone
     from sqlalchemy import select, func
     from app.models.lead import Lead, LeadStatus
+    import uuid as _uuid
+
+    _tid = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+    _tf = [Lead.tenant_id == _tid] if _tid else []
 
     now = datetime.now(timezone.utc)
     date_str = now.strftime("%A, %d %b %Y")
@@ -693,21 +722,22 @@ async def notify_captain_morning_briefing(db) -> None:
 
     # ── Pipeline stats ────────────────────────────────────────────────────────
     try:
-        total = await db.scalar(select(func.count()).select_from(Lead)) or 0
+        total = await db.scalar(select(func.count()).select_from(Lead).where(*_tf)) or 0
         hot = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.score >= 75)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.score >= 75)
         ) or 0
         warm = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.score >= 45, Lead.score < 75)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.score >= 45, Lead.score < 75)
         ) or 0
         new_leads = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.status == LeadStatus.NEW)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.status == LeadStatus.NEW)
         ) or 0
         contacted = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.status == LeadStatus.CONTACTED)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.status == LeadStatus.CONTACTED)
         ) or 0
         eligible = await db.scalar(
             select(func.count()).select_from(Lead).where(
+                *_tf,
                 Lead.outreach_eligible.is_(True),
                 Lead.status == LeadStatus.NEW,
                 Lead.score >= 45,
@@ -726,7 +756,7 @@ async def notify_captain_morning_briefing(db) -> None:
     try:
         hot_rows = (await db.execute(
             select(Lead)
-            .where(Lead.score >= 75, Lead.status == LeadStatus.NEW)
+            .where(*_tf, Lead.score >= 75, Lead.status == LeadStatus.NEW)
             .order_by(Lead.score.desc())
             .limit(3)
         )).scalars().all()
@@ -823,6 +853,15 @@ async def notify_weekly_performance_briefing(db) -> None:
     from datetime import datetime, timezone, timedelta
     from sqlalchemy import select, func
     from app.models.lead import Lead, LeadStatus
+    import uuid as _uuid
+
+    _tid = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+    _tf = [Lead.tenant_id == _tid] if _tid else []
 
     now = datetime.now(timezone.utc)
     week_start = now - timedelta(days=7)
@@ -831,14 +870,15 @@ async def notify_weekly_performance_briefing(db) -> None:
     # ── Lead velocity ─────────────────────────────────────────────────────────
     try:
         new_this_week = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.created_at >= week_start)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.created_at >= week_start)
         ) or 0
-        total = await db.scalar(select(func.count()).select_from(Lead)) or 0
+        total = await db.scalar(select(func.count()).select_from(Lead).where(*_tf)) or 0
         hot = await db.scalar(
-            select(func.count()).select_from(Lead).where(Lead.score >= 75)
+            select(func.count()).select_from(Lead).where(*_tf, Lead.score >= 75)
         ) or 0
         contacted_week = await db.scalar(
             select(func.count()).select_from(Lead).where(
+                *_tf,
                 Lead.outreach_sent.is_(True),
                 Lead.updated_at >= week_start,
             )
