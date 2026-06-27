@@ -211,14 +211,13 @@ class ProspectPsychologyEngine:
         )
         messages = [Message(role="user", content=f"Prospect profile:\n{lead_summary}")]
         try:
-            response = await ai_router.complete(
-                messages=messages,
+            response, _ = await ai_router.chat(
+                messages,
                 system_prompt=system_prompt,
                 task_type="REASONING",
-                tenant_id=str(tenant_id),
             )
             import json as _json
-            ai_insights = _json.loads(response.content)
+            ai_insights = _json.loads(response.content or "{}")
         except Exception as exc:
             logger.warning("AI psychology analysis failed: %s", exc)
             ai_insights = {"executive_summary": "AI analysis unavailable", "confidence_score": 0.0}
