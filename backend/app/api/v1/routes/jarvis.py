@@ -230,7 +230,7 @@ async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
     try:
         memory_context = await build_context(db, query="recent client activity leads proposals", limit=5)
 
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[
                 {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
                 {"role": "user", "content": (
@@ -243,7 +243,7 @@ async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
             task_type="FAST",
             max_tokens=120,
         )
-        greeting_text = response.get("content", f"Good {time_of_day}, Captain. JARVIS operational.")
+        greeting_text = response.content or f"Good {time_of_day}, Captain. JARVIS operational."
     except Exception:
         greeting_text = f"Good {time_of_day}, Captain. All systems running."
 
@@ -289,7 +289,7 @@ async def jarvis_ai_health():
         import time
         t0 = time.monotonic()
         try:
-            resp = await _router.chat(
+            resp, _ = await _router.chat(
                 messages=[{"role": "user", "content": "Reply with one word: operational"}],
                 task_type="FAST",
                 max_tokens=5,
@@ -300,7 +300,7 @@ async def jarvis_ai_health():
                 "status": "online",
                 "latency_ms": latency,
                 "model": model,
-                "response": resp.get("content", "")[:20],
+                "response": (resp.content or "")[:20],
             }
         except Exception as ex:
             return name, {

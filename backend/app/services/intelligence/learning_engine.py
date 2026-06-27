@@ -142,14 +142,14 @@ Return 2-3 specific, actionable lessons in JSON array format:
 [{{"title": "...", "body": "...", "category": "technical|communication|scoping|timeline|pricing|client_management", "do_next_time": "...", "tags": ["..."]}}]
 
 Return only valid JSON."""
-            response = await ai_router.route(
+            from app.services.ai.base_provider import Message
+            response, _ = await ai_router.chat(
+                [Message(role="user", content=prompt)],
                 task_type=TaskType.ANALYSIS,
-                prompt=prompt,
-                tenant_id=None,
                 max_tokens=800,
             )
             import json
-            content = response.get("content", "[]")
+            content = response.content or "[]"
             start = content.find("[")
             end = content.rfind("]") + 1
             if start >= 0 and end > start:

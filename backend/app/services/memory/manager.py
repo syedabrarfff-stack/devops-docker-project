@@ -224,12 +224,12 @@ async def maybe_summarise(
     )
     try:
         from app.services.ai.router import ai_router
-        resp = await ai_router.chat(
+        resp, _ = await ai_router.chat(
             messages=[{"role": "user", "content": prompt}],
             task_type="FAST",
             max_tokens=600,
         )
-        summary_text = resp.get("content", f"Conversation of {len(rows)} turns.")
+        summary_text = resp.content or f"Conversation of {len(rows)} turns."
     except Exception:
         summary_text = f"Conversation covering {len(rows)} turns."
 

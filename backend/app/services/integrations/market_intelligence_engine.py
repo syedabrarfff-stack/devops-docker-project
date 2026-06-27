@@ -83,10 +83,9 @@ The report must be structured as valid JSON with these exact fields:
 Base this on real market data, trends, and Aliyar's ICP: companies with 5-200 employees in UK, UAE, USA, Australia, Canada needing AI automation, DevOps, or CRM infrastructure."""
 
         try:
-            response = await ai_router.route(
-                messages=[Message(role="user", content=prompt)],
+            response, _ = await ai_router.chat(
+                [Message(role="user", content=prompt)],
                 task_type=TaskType.RESEARCH,
-                tenant_id=str(tenant_id),
             )
 
             raw = (response.content or "").strip()
@@ -149,10 +148,9 @@ Output as valid JSON:
 Focus on companies in UK, UAE, USA, Australia that are currently using Apollo.io but lack the infrastructure to properly execute on their leads."""
 
         try:
-            response = await ai_router.route(
-                messages=[Message(role="user", content=prompt)],
+            response, _ = await ai_router.chat(
+                [Message(role="user", content=prompt)],
                 task_type=TaskType.STRATEGY,
-                tenant_id=str(tenant_id),
             )
 
             raw = (response.content or "").strip()
@@ -218,10 +216,9 @@ Return as valid JSON array:
 Focus on real, current problems: AI adoption gaps, post-pandemic scaling, regulatory compliance, e-commerce growth pains, DevOps talent shortage."""
 
         try:
-            response = await ai_router.route(
-                messages=[Message(role="user", content=prompt)],
+            response, _ = await ai_router.chat(
+                [Message(role="user", content=prompt)],
                 task_type=TaskType.RESEARCH,
-                tenant_id=str(tenant_id),
             )
 
             raw = (response.content or "").strip()

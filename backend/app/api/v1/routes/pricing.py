@@ -133,7 +133,7 @@ async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Dep
             f"Services requested: {', '.join(body.services_needed) if body.services_needed else 'digital transformation'}. "
             f"Sound premium, confident, outcome-focused. No fluff. First person as 'Aliyar Solutions'."
         )
-        resp = await ai_router.chat(
+        resp, _ = await ai_router.chat(
             messages=[
                 {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
                 {"role": "user", "content": prompt},
@@ -141,7 +141,7 @@ async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Dep
             task_type="FAST",
             max_tokens=100,
         )
-        positioning = resp.get("content", "")
+        positioning = resp.content or ""
     except Exception:
         positioning = (
             f"Aliyar Solutions is ready to deploy a complete {tier}-tier solution for {body.company_name}. "

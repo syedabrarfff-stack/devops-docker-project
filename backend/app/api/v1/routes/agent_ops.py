@@ -140,7 +140,7 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -155,9 +155,9 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
             "agent_role": agent["role"],
             "team": agent["team"],
             "captain_message": body.message,
-            "agent_response": response.get("content", ""),
-            "model": response.get("model", ""),
-            "provider": response.get("provider", ""),
+            "agent_response": response.content or "",
+            "model": response.model or "",
+            "provider": response.provider or "",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -194,7 +194,7 @@ async def chat_with_team(team_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -209,9 +209,9 @@ async def chat_with_team(team_id: str, body: AgentChatRequest):
             "manager": team["manager"],
             "agents": [a["name"] for a in team["agents"]],
             "captain_message": body.message,
-            "team_response": response.get("content", ""),
-            "model": response.get("model", ""),
-            "provider": response.get("provider", ""),
+            "team_response": response.content or "",
+            "model": response.model or "",
+            "provider": response.provider or "",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:

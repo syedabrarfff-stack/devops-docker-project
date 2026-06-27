@@ -94,12 +94,12 @@ async def _categorise_email(from_email: str, subject: str, body: str) -> dict:
             subject=subject[:200],
             body=body[:800]
         )
-        resp = await ai_router.chat(
+        resp, _ = await ai_router.chat(
             messages=[{"role": "user", "content": prompt}],
             task_type="FAST",
             max_tokens=200,
         )
-        content = resp.get("content", "").strip()
+        content = (resp.content or "").strip()
         # strip markdown code fences if present
         if content.startswith("```"):
             content = content.split("```")[1]
