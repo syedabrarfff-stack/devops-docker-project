@@ -95,6 +95,26 @@ async def websocket_endpoint(ws: WebSocket):
                 "clients": len(_clients),
             },
         }))
+        # Send last known NEXUS state immediately so clients don't wait up to 1 hour
+        try:
+            from app.services.nexus.heartbeat import get_latest_pulse
+            last_pulse = await get_latest_pulse()
+            if last_pulse:
+                await ws.send_text(json.dumps({
+                    "type": "nexus_pulse",
+                    "data": {
+                        "action_signal": last_pulse.get("action_signal", "MONITOR"),
+                        "hot_leads": last_pulse.get("pipeline", {}).get("hot_leads", 0),
+                        "pending_drafts": last_pulse.get("autopilot_pending", 0),
+                        "ai_available": last_pulse.get("ai_available", False),
+                        "pipeline": last_pulse.get("pipeline", {}),
+                        "ai_status": last_pulse.get("ai_status", {}),
+                        "timestamp": last_pulse.get("timestamp"),
+                        "_source": "reconnect_cache",
+                    },
+                }))
+        except Exception:
+            pass
         while True:
             data = await asyncio.wait_for(ws.receive_text(), timeout=30)
             msg = json.loads(data)

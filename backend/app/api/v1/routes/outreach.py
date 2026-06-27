@@ -798,10 +798,14 @@ async def _generate_briefs_background(
                 lead = await db.scalar(select(Lead).where(Lead.id == lead_id))
                 if not lead:
                     continue
+                # Capture scalar values before session closes to avoid DetachedInstanceError
+                company = lead.company_name or lead.company or ""
+                industry = lead.industry or ""
+                pain_points = lead.pain_points or []
             await brief_generator.generate(
-                company_name=lead.company_name or lead.company or "",
-                industry=lead.industry or "",
-                pain_points=lead.pain_points or [],
+                company_name=company,
+                industry=industry,
+                pain_points=pain_points,
                 lead_id=lead_id,
                 tenant_id=tenant_id,
             )

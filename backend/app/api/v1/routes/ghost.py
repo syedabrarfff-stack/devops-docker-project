@@ -288,15 +288,15 @@ async def compose_and_send(
     if not subject:
         subject = f"A thought for {lead.get('company_name') or 'your team'}"
 
-    sent = await send_client_email(
+    success, error, method = await send_client_email(
         db=db,
-        to_email=to_email,
-        to_name=lead.get("contact_name"),
+        to=to_email,
         subject=subject,
         body=body_text,
-        from_name=persona["name"],
-        from_email=persona["email"],
+        to_name=lead.get("contact_name") or "",
     )
+    if not success:
+        raise HTTPException(status_code=502, detail=f"Email send failed: {error}")
 
     # Increment outreach count on lead
     if body.lead_id:
@@ -313,7 +313,7 @@ async def compose_and_send(
         "to": to_email,
         "subject": subject,
         "persona": persona["name"],
-        "message_id": sent.get("message_id") if isinstance(sent, dict) else None,
+        "method": method,
     }
 
 

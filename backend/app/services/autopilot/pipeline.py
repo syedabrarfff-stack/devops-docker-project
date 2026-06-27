@@ -292,7 +292,7 @@ async def run_autopilot_cycle(
 
 # ── Draft CRUD ─────────────────────────────────────────────────────────────────
 
-async def get_pending_drafts(tenant_id: str) -> list[dict]:
+async def get_pending_drafts(tenant_id: str | None) -> list[dict]:
     drafts = await _load_drafts(tenant_id)
     return [d for d in drafts if d["status"] == "pending"]
 

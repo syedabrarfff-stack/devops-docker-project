@@ -601,11 +601,11 @@ async def _job_overnight_proposal_engine() -> None:
         from app.services.ai.router import ai_router
         from app.services.memory.manager import store_memory
         from sqlalchemy import select, and_
-        from app.models.lead import Lead
+        from app.models.lead import Lead, LeadStatus
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Lead)
-                .where(and_(Lead.score >= 7, Lead.status == "new"))
+                .where(and_(Lead.score >= 7, Lead.status == LeadStatus.NEW))
                 .order_by(Lead.score.desc())
                 .limit(5)
             )
@@ -636,7 +636,7 @@ async def _job_overnight_proposal_engine() -> None:
                             tags=["proposal", "overnight", str(lead.id)],
                             key=f"proposal:lead:{lead.id}",
                         )
-                        lead.status = "proposal_drafted"
+                        lead.status = LeadStatus.PROPOSAL
                 except Exception as ex:
                     logger.warning(f"Proposal draft failed for lead {lead.id}: {ex}")
             await db.commit()
