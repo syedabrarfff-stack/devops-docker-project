@@ -57,6 +57,8 @@ class ReferralEngine:
                 task_type=TaskType.STRATEGY,
                 max_tokens=400,
             )
+            if response.error:
+                raise ValueError(response.error)
             return response.content.strip()
         except Exception as e:
             logger.warning("ReferralEngine: AI failed for %s: %s", request_type, e)

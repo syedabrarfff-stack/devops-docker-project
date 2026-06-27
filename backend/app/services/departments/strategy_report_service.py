@@ -288,6 +288,8 @@ Return only valid JSON."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.STRATEGY,
             )
+            if response.error:
+                raise ValueError(response.error)
             return json.loads(response.content.strip())
         except Exception:
             return {"weekly_intelligence": "Collection pending"}
