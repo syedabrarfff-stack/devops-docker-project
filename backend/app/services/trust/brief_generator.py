@@ -53,9 +53,11 @@ class BriefGenerator:
                 task_type=TaskType.STRATEGY,
                 max_tokens=1500,
             )
+            if response.error:
+                raise ValueError(response.error)
             raw = response.content.strip()
             parsed = json.loads(raw)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError, AttributeError):
             logger.warning("BriefGenerator: JSON parse failed, using stub data")
             parsed = {
                 "bottlenecks": [],

@@ -322,7 +322,9 @@ Length: 600-900 words."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.STRATEGY,
             )
-            return response.content
+            if response.error:
+                raise ValueError(response.error)
+            return response.content or f"Strategy report for {report_date.strftime('%Y-%m-%d')} — AI analysis pending."
         except Exception as exc:
             logger.warning("Strategy report generation failed: %s", exc)
             return f"Strategy report for {report_date.strftime('%Y-%m-%d')} — data collection complete, analysis pending."
@@ -368,6 +370,8 @@ Return only valid JSON array."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.FAST,
             )
+            if response.error:
+                raise ValueError(response.error)
             items = json.loads(response.content.strip())
             return items if isinstance(items, list) else []
         except Exception:

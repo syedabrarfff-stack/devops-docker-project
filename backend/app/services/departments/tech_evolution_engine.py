@@ -298,6 +298,8 @@ Return only valid JSON array, no markdown."""
                 [Message(role="user", content=discovery_prompt)],
                 task_type=TaskType.RESEARCH,
             )
+            if response.error:
+                raise ValueError(response.error)
             discoveries = json.loads(_clean_json(response.content))
             return discoveries if isinstance(discoveries, list) else []
         except Exception as exc:
@@ -335,7 +337,9 @@ Write at senior-architect level. Be specific and actionable."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.STRATEGY,
             )
-            return response.content
+            if response.error:
+                raise ValueError(response.error)
+            return response.content or f"Adoption guide generation pending for {tech.technology_name}"
         except Exception as exc:
             logger.warning("Adoption guide generation failed: %s", exc)
             return f"Adoption guide generation pending for {tech.technology_name}"
