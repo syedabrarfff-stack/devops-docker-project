@@ -340,6 +340,18 @@ async def approve_draft(tenant_id: str, draft_id: str) -> dict:
     stats["total_sent"] = stats.get("total_sent", 0) + 1
     await _update_stats(tenant_id, stats)
 
+    # Real-time WebSocket push
+    try:
+        from app.api.v1.routes.ws import broadcast
+        await broadcast("autopilot_draft_sent", {
+            "draft_id": draft_id,
+            "to": to_email,
+            "method": method,
+            "lead_company": draft.get("lead_company", ""),
+        })
+    except Exception:
+        pass
+
     return {"sent": True, "to": to_email, "method": method}
 
 
@@ -351,6 +363,17 @@ async def reject_draft(tenant_id: str, draft_id: str, reason: str = "") -> None:
     draft["status"] = "rejected"
     draft["reject_reason"] = reason
     await _save_drafts(tenant_id, drafts)
+
+    # Real-time WebSocket push
+    try:
+        from app.api.v1.routes.ws import broadcast
+        await broadcast("autopilot_draft_rejected", {
+            "draft_id": draft_id,
+            "reason": reason,
+            "lead_company": draft.get("lead_company", ""),
+        })
+    except Exception:
+        pass
 
 
 async def edit_draft(

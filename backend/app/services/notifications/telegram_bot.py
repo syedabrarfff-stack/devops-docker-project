@@ -759,6 +759,38 @@ async def notify_captain_morning_briefing(db) -> None:
     except Exception:
         pass
 
+    # ── Revenue snapshot ──────────────────────────────────────────────────────
+    try:
+        from sqlalchemy import select, func
+        from app.models.revenue import Invoice, InvoiceStatus
+        total_paid = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0))
+            .where(Invoice.status == InvoiceStatus.PAID)
+        ) or 0.0
+        outstanding = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
+            .where(Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]))
+        ) or 0.0
+        if total_paid or outstanding:
+            lines.append(
+                f"\n💰 *Revenue*\n"
+                f"  Collected: ${float(total_paid):,.0f} | Outstanding: ${float(outstanding):,.0f}"
+            )
+    except Exception:
+        pass
+
+    # ── Last NEXUS decision ───────────────────────────────────────────────────
+    try:
+        from app.services.nexus.heartbeat import get_decisions
+        decisions = await get_decisions(1)
+        if decisions:
+            d = decisions[0]
+            action = d.get("action") or d.get("primary_decision", {}).get("action", "")
+            if action:
+                lines.append(f"\n🧠 *Last NEXUS Action:* `{action}`")
+    except Exception:
+        pass
+
     # ── Scheduler health ──────────────────────────────────────────────────────
     try:
         from app.services.scheduler.engine import get_scheduler, get_jobs

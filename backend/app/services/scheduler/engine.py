@@ -944,6 +944,19 @@ async def _job_nexus_heartbeat() -> None:
 
         logger.info("NEXUS heartbeat: signal=%s | drafts=%d | autonomous=%s",
                     action, len(pending), action == "OUTREACH_READY" and not pending)
+
+        # Push pulse to frontend via WebSocket
+        try:
+            from app.api.v1.routes.ws import broadcast
+            await broadcast("nexus_pulse", {
+                "action_signal": pulse.get("action_signal", "MONITOR"),
+                "hot_leads": pulse.get("pipeline", {}).get("hot_leads", 0),
+                "pending_drafts": len(pending),
+                "ai_available": pulse.get("ai_available", False),
+            })
+        except Exception:
+            pass
+
     except Exception as exc:
         logger.warning("NEXUS heartbeat job failed: %s", exc)
 
