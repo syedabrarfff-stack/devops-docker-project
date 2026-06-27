@@ -3,6 +3,7 @@ AI Cost Tracker — per-model USD rate table, daily aggregation, surge detection
 All rates are approximate and based on publicly published pricing.
 """
 import logging
+import uuid as _uuid_mod
 from datetime import datetime, date
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,8 @@ from sqlalchemy import select, func
 from app.models.ai_audit import AIRequestLog
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_TENANT = _uuid_mod.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 # ─── Cost table (USD per 1,000 tokens — blended input+output estimate) ────────
 # Format: (provider, model_substring) -> cost_per_1k_tokens
@@ -73,6 +76,7 @@ async def log_request(
 ) -> AIRequestLog:
     cost = estimate_cost(provider, model, tokens_used)
     entry = AIRequestLog(
+        tenant_id=_SYSTEM_TENANT,
         provider=provider,
         model=model,
         task_type=task_type,
