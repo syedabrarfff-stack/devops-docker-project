@@ -505,3 +505,109 @@ async def _handle_autopilot_draft_action(chat_id: str, draft_ref: str, action: s
             )
     except Exception as e:
         await send_message(chat_id, f"❌ Action failed: {e}")
+
+
+# ── Captain Morning Dashboard Briefing ───────────────────────────────────────
+
+async def notify_captain_morning_briefing(db) -> None:
+    """
+    Rich morning dashboard sent to Captain at 06:55.
+    Real DB stats: pipeline, hot leads, pending drafts, scheduler, NEXUS signal.
+    """
+    chat_id = str(settings.TELEGRAM_CHAT_ID or "")
+    if not chat_id:
+        return
+
+    from datetime import datetime, timezone
+    from sqlalchemy import select, func
+    from app.models.lead import Lead, LeadStatus
+
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%A, %d %b %Y")
+
+    lines = [f"☀️ *Good morning, Captain* — {date_str}\n"]
+
+    # ── Pipeline stats ────────────────────────────────────────────────────────
+    try:
+        total = (await db.execute(func.count(Lead.id).select())).scalar() or 0
+        hot = (await db.execute(
+            select(func.count(Lead.id)).where(Lead.score >= 75)
+        )).scalar() or 0
+        warm = (await db.execute(
+            select(func.count(Lead.id)).where(Lead.score >= 45, Lead.score < 75)
+        )).scalar() or 0
+        new_leads = (await db.execute(
+            select(func.count(Lead.id)).where(Lead.status == LeadStatus.NEW)
+        )).scalar() or 0
+        contacted = (await db.execute(
+            select(func.count(Lead.id)).where(Lead.status == LeadStatus.CONTACTED)
+        )).scalar() or 0
+        eligible = (await db.execute(
+            select(func.count(Lead.id)).where(
+                Lead.outreach_eligible.is_(True),
+                Lead.status == LeadStatus.NEW,
+                Lead.score >= 45,
+            )
+        )).scalar() or 0
+
+        lines.append(
+            f"📊 *Pipeline*\n"
+            f"  Total: {total} | 🔥 Hot: {hot} | ☀️ Warm: {warm}\n"
+            f"  New: {new_leads} | Contacted: {contacted} | Ready: {eligible}"
+        )
+    except Exception:
+        lines.append("📊 Pipeline: data unavailable")
+
+    # ── Top 3 HOT leads ───────────────────────────────────────────────────────
+    try:
+        hot_rows = (await db.execute(
+            select(Lead)
+            .where(Lead.score >= 75, Lead.status == LeadStatus.NEW)
+            .order_by(Lead.score.desc())
+            .limit(3)
+        )).scalars().all()
+        if hot_rows:
+            lines.append("\n🔥 *Top Hot Leads*")
+            for l in hot_rows:
+                company = l.company_name or l.company or "?"
+                industry = l.industry or "?"
+                lines.append(f"  • *{company}* ({industry}) — score {int(l.score)}")
+    except Exception:
+        pass
+
+    # ── Pending drafts ────────────────────────────────────────────────────────
+    try:
+        from app.services.autopilot.pipeline import get_pending_drafts
+        pending = await get_pending_drafts(None)
+        if pending:
+            lines.append(f"\n✉️ *{len(pending)} draft{'s' if len(pending) != 1 else ''} awaiting approval* — /drafts to review")
+        else:
+            lines.append("\n✉️ No pending drafts")
+    except Exception:
+        pass
+
+    # ── NEXUS last signal ─────────────────────────────────────────────────────
+    try:
+        from app.services.nexus.heartbeat import get_latest_pulse
+        pulse = await get_latest_pulse()
+        if pulse:
+            signal = pulse.get("action_signal", "MONITOR")
+            signal_emoji = {"OUTREACH_READY": "🚀", "DRAFTS_PENDING": "✉️", "MONITOR": "📡"}.get(signal, "📡")
+            lines.append(f"\n{signal_emoji} *NEXUS Signal:* {signal}")
+    except Exception:
+        pass
+
+    # ── Scheduler health ──────────────────────────────────────────────────────
+    try:
+        from app.services.scheduler.engine import get_scheduler, get_jobs
+        sched = get_scheduler()
+        if sched and sched.running:
+            job_count = len(get_jobs())
+            lines.append(f"⏰ Scheduler: {job_count} jobs running")
+        else:
+            lines.append("⏰ Scheduler: ⚠️ STOPPED — /heal")
+    except Exception:
+        pass
+
+    lines.append("\n_/help for all commands_")
+    await send_message(chat_id, "\n".join(lines))

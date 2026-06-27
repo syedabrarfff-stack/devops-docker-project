@@ -268,7 +268,10 @@ async def _register_default_jobs() -> None:
     # ── Semantic Lead Embedding Sweep — nightly at 03:15 ──────────────────────
     add_cron_job("lead_embedding_sweep", _job_embed_leads, hour=3, minute=15)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings)")
+    # ── Captain Dashboard Briefing — 06:55 every day ──────────────────────────
+    add_cron_job("captain_dashboard_briefing", _job_captain_dashboard_briefing, hour=6, minute=55)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Captain Briefing)")
 
 
 async def _job_morning_briefing() -> None:
@@ -879,16 +882,23 @@ async def _job_embed_leads() -> None:
 
 
 async def _job_nexus_heartbeat() -> None:
-    """NEXUS heartbeat — runs every hour. Pulses pipeline state, notifies Captain of drafts."""
+    """
+    NEXUS heartbeat — runs every hour.
+    Pulses pipeline state. If action_signal is OUTREACH_READY and no drafts
+    are pending, autonomously triggers AUTOPILOT (max 5 leads, min_score 75).
+    A Redis lock prevents re-triggering within 4 hours.
+    """
     try:
         from app.core.database import AsyncSessionLocal
         from app.services.nexus.heartbeat import run_pulse
-        from app.services.autopilot.pipeline import get_pending_drafts
+        from app.services.autopilot.pipeline import get_pending_drafts, run_autopilot_cycle
 
         async with AsyncSessionLocal() as db:
             pulse = await run_pulse(db)
 
+        action = pulse.get("action_signal", "MONITOR")
         pending = await get_pending_drafts(None)
+
         if pending:
             try:
                 from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
@@ -896,8 +906,47 @@ async def _job_nexus_heartbeat() -> None:
             except Exception:
                 pass
 
-        action = pulse.get("action_signal", "MONITOR")
-        logger.info("NEXUS heartbeat: %s | drafts=%d | signal=%s",
-                    pulse.get("timestamp", "?"), len(pending), action)
+        # Autonomous outreach trigger — fire when pipeline is ready and queue is clear
+        if action == "OUTREACH_READY" and not pending:
+            lock_acquired = False
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL or "redis://localhost:6379")
+                lock_acquired = await r.set(
+                    "nexus:auto_outreach:lock", "1",
+                    nx=True, ex=14400  # 4-hour lock
+                )
+                await r.aclose()
+            except Exception:
+                lock_acquired = True  # Redis down — allow trigger (in-memory fallback)
+
+            if lock_acquired:
+                logger.info("NEXUS AUTONOMOUS: OUTREACH_READY — triggering AUTOPILOT (max 5 leads)")
+                try:
+                    result = await run_autopilot_cycle(max_leads=5, min_score=75.0)
+                    logger.info("NEXUS AUTONOMOUS: composed=%s skipped=%s",
+                                result.get("composed", 0), result.get("skipped", 0))
+                    from app.services.nexus.heartbeat import log_decision
+                    await log_decision({
+                        "action": "auto_outreach_triggered",
+                        "composed": result.get("composed", 0),
+                        "source": "nexus_heartbeat",
+                    })
+                except Exception as exc:
+                    logger.warning("NEXUS autonomous outreach failed: %s", exc)
+
+        logger.info("NEXUS heartbeat: signal=%s | drafts=%d | autonomous=%s",
+                    action, len(pending), action == "OUTREACH_READY" and not pending)
     except Exception as exc:
         logger.warning("NEXUS heartbeat job failed: %s", exc)
+
+
+async def _job_captain_dashboard_briefing() -> None:
+    """Captain morning dashboard — 06:55 daily. Sends real pipeline stats via Telegram."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.notifications.telegram_bot import notify_captain_morning_briefing
+        async with AsyncSessionLocal() as db:
+            await notify_captain_morning_briefing(db)
+    except Exception as exc:
+        logger.warning("Captain dashboard briefing failed: %s", exc)

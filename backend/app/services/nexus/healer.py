@@ -142,7 +142,7 @@ async def heal_subsystem(subsystem: str, db) -> dict:
         result["success"] = True
         result["detail"] = "Captain notified of autopilot queue overflow via Telegram."
         try:
-            from app.services.communication.telegram import notify_telegram
+            from app.services.notifications.telegram import notify_telegram
             await notify_telegram(
                 "⚠️ NEXUS HEALER: AUTOPILOT queue has >20 pending drafts. "
                 "Review and bulk-approve via /control-room/autopilot."
