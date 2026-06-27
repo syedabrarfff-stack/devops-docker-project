@@ -341,7 +341,7 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
             await set_tenant_context(session, str(tid))
 
             total_invoiced = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(Invoice.tenant_id == tid)
+                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tid)
             ) or 0)
             total_paid = float(await session.scalar(
                 select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
@@ -349,7 +349,7 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
                 )
             ) or 0)
             overdue_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(
+                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
                     Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
                 )
             ) or 0)
@@ -364,7 +364,7 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
                 )
             ) or 0)
             sent_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(
+                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
                     Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.SENT
                 )
             ) or 0)
@@ -588,7 +588,7 @@ async def _gather_war_room(tid: uuid.UUID):
             async with session.begin():
                 await set_tenant_context(session, str(tid))
                 invoiced = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(Invoice.tenant_id == tid)
+                    select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tid)
                 ) or 0)
                 paid = float(await session.scalar(
                     select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
@@ -596,7 +596,7 @@ async def _gather_war_room(tid: uuid.UUID):
                     )
                 ) or 0)
                 overdue_amt = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.amount_usd), 0.0)).where(
+                    select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
                         Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
                     )
                 ) or 0)
