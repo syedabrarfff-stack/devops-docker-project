@@ -74,6 +74,9 @@ class Lead(JarvisBase):
     last_contacted: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict)
 
+    # Semantic vector — stored as JSON list[float] until pgvector extension is enabled
+    embedding_vec: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
 
 class WorkflowRun(JarvisBase):
     __tablename__ = "workflow_runs"

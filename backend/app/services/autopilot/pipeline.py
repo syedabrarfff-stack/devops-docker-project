@@ -255,16 +255,21 @@ async def run_autopilot_cycle(
         "last_skipped": skipped,
     })
 
-    # Notify Captain
-    try:
-        from app.services.notifications.telegram import notify_telegram
-        await notify_telegram(
-            f"*JARVIS AUTOPILOT*\n"
-            f"{composed} email{'s' if composed != 1 else ''} composed and awaiting your approval.\n"
-            f"Open the Autopilot dashboard to review and send."
-        )
-    except Exception:
-        pass
+    # Notify Captain with inline approve/reject buttons
+    truly_new = [d for d in new_drafts if d["lead_id"] not in existing_lead_ids]
+    if truly_new:
+        try:
+            from app.services.notifications.telegram_bot import (
+                notify_autopilot_draft_ready,
+                notify_autopilot_drafts_pending,
+            )
+            if len(truly_new) <= 3:
+                for draft in truly_new:
+                    await notify_autopilot_draft_ready(draft)
+            else:
+                await notify_autopilot_drafts_pending(truly_new)
+        except Exception:
+            pass
 
     return {
         "status": "ok",

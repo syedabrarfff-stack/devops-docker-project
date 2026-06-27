@@ -596,6 +596,51 @@ async def conscience_evaluate(
     return result
 
 
+# ── Semantic Lead Search ──────────────────────────────────────────────────────
+
+@router.get("/semantic-search")
+async def semantic_search_leads(
+    q: str,
+    limit: int = 10,
+    min_similarity: float = 0.3,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Semantic similarity search across all leads.
+    Returns leads ranked by cosine similarity to the natural-language query.
+
+    Requires OPENAI_API_KEY. Leads are vectorized nightly by the
+    lead_embedding_sweep scheduler job (daily 03:15).
+    """
+    from app.services.intelligence.lead_embeddings import semantic_search_leads as _search
+    if not q or len(q.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Query must be at least 3 characters")
+    results = await _search(q.strip(), db, limit=min(limit, 50), min_similarity=min_similarity)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+    }
+
+
+@router.post("/semantic-search/embed/{lead_id}")
+async def embed_single_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Immediately generate and store an embedding for a specific lead."""
+    from app.services.intelligence.lead_embeddings import embed_lead
+    success = await embed_lead(str(lead_id), db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Lead not found or embedding failed (check OPENAI_API_KEY)")
+    return {"lead_id": str(lead_id), "embedded": True}
+
+
+@router.post("/semantic-search/embed-batch")
+async def embed_batch_leads(limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """Manually trigger embedding sweep for leads without vectors."""
+    from app.services.intelligence.lead_embeddings import embed_pending_leads
+    result = await embed_pending_leads(db, limit=min(limit, 200))
+    return result
+
+
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
     from app.core.config import settings
 

@@ -265,7 +265,10 @@ async def _register_default_jobs() -> None:
     # ── NEXUS Heartbeat — runs every hour ─────────────────────────────────────
     add_interval_job("nexus_heartbeat", _job_nexus_heartbeat, hours=1)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat)")
+    # ── Semantic Lead Embedding Sweep — nightly at 03:15 ──────────────────────
+    add_cron_job("lead_embedding_sweep", _job_embed_leads, hour=3, minute=15)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings)")
 
 
 async def _job_morning_briefing() -> None:
@@ -861,6 +864,18 @@ async def _job_self_healer() -> None:
         await run_self_healing_cycle()
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+
+
+async def _job_embed_leads() -> None:
+    """Nightly semantic embedding sweep — vectorizes leads without embeddings."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.lead_embeddings import embed_pending_leads
+        async with AsyncSessionLocal() as db:
+            result = await embed_pending_leads(db, limit=100)
+        logger.info("Lead embedding sweep: %s", result)
+    except Exception as exc:
+        logger.warning("Lead embedding sweep failed: %s", exc)
 
 
 async def _job_nexus_heartbeat() -> None:
