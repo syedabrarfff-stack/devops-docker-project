@@ -6,6 +6,14 @@ import {
 } from 'lucide-react'
 import api from '../../services/api'
 
+const _getAuthHeader = () => {
+  try {
+    const raw = localStorage.getItem('jarvis_auth')
+    if (raw) { const { token } = JSON.parse(raw); if (token) return { Authorization: `Bearer ${token}` } }
+  } catch {}
+  return {}
+}
+
 // ── Council type options ──────────────────────────────────────────────────────
 
 const COUNCIL_TYPES = [
@@ -302,7 +310,7 @@ export default function CouncilView() {
     try {
       const resp = await fetch('/api/v1/council/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ..._getAuthHeader() },
         body: JSON.stringify({ question: q, context: {}, council_type: councilType }),
         signal: ctrl.signal,
       })

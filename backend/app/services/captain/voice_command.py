@@ -96,6 +96,8 @@ Classify the intent and extract relevant entities. Return ONLY valid JSON:
                 task_type=TaskType.FAST,
                 max_tokens=600,
             )
+            if response.error:
+                raise ValueError(response.error)
             result = _parse_json_response(response.content)
             if result and "intent" in result:
                 result["transcript"] = transcript
@@ -159,6 +161,8 @@ SCRIPT REQUIREMENTS:
                 task_type=TaskType.FAST,
                 max_tokens=400,
             )
+            if response.error:
+                raise ValueError(response.error)
             script = response.content.strip()
             if len(script) > 100:
                 return script

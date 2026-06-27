@@ -55,6 +55,9 @@ class TechRadarEngine:
             system_prompt="You are a senior technology radar analyst. Return only valid JSON arrays.",
             max_tokens=4500,
         )
+        if response.error:
+            logger.warning("Tech radar AI call failed: %s", response.error)
+            return []
 
         entries_data = _parse_json_array(response.content)
         if not entries_data:

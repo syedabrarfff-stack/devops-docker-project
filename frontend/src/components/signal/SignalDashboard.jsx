@@ -9,6 +9,14 @@ import { api } from '../../services/api'
 
 const BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : ''
 
+const _getAuthHeader = () => {
+  try {
+    const raw = localStorage.getItem('jarvis_auth')
+    if (raw) { const { token } = JSON.parse(raw); if (token) return { Authorization: `Bearer ${token}` } }
+  } catch {}
+  return {}
+}
+
 const TIER_STYLE = {
   HOT:  { bg: 'bg-red-500/10',     border: 'border-red-500/30',     text: 'text-red-400',     dot: 'bg-red-400' },
   WARM: { bg: 'bg-amber-500/10',   border: 'border-amber-500/30',   text: 'text-amber-400',   dot: 'bg-amber-400' },
@@ -241,7 +249,7 @@ export default function SignalDashboard() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/signal/scan/pipeline`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
         body: JSON.stringify({ limit: scanSettings.limit, min_score: scanSettings.min_score }),
         signal: ctrl.signal,
       })
@@ -298,7 +306,7 @@ export default function SignalDashboard() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/signal/brief/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
         body: JSON.stringify({ signals }),
         signal: ctrl.signal,
       })

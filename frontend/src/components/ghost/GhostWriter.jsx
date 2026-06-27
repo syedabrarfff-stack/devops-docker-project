@@ -31,6 +31,14 @@ const PERSONA_COLORS = {
 
 const BASE_URL = import.meta.env.DEV ? 'http://localhost:8000' : ''
 
+const _getAuthHeader = () => {
+  try {
+    const raw = localStorage.getItem('jarvis_auth')
+    if (raw) { const { token } = JSON.parse(raw); if (token) return { Authorization: `Bearer ${token}` } }
+  } catch {}
+  return {}
+}
+
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }) {
@@ -249,7 +257,7 @@ export default function GhostWriter() {
     try {
       const res = await fetch(`${BASE_URL}/api/v1/ghost/compose/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
         body: JSON.stringify(body),
         signal: ctrl.signal,
       })

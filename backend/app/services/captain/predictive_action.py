@@ -67,6 +67,8 @@ Priority 1 = most urgent. Sort by priority ascending."""
                 task_type=TaskType.STRATEGY,
                 max_tokens=1000,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
             if isinstance(parsed, list):
                 return parsed[:5]
@@ -141,6 +143,8 @@ confidence must be float 0.0–1.0."""
                 task_type=TaskType.STRATEGY,
                 max_tokens=500,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
             if isinstance(parsed, dict):
                 return parsed
@@ -192,6 +196,8 @@ Return ONLY valid JSON:
                 task_type=TaskType.STRATEGY,
                 max_tokens=900,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
             if isinstance(parsed, dict):
                 parsed["generated_at"] = datetime.now(UTC).isoformat()

@@ -75,6 +75,8 @@ Return ONLY valid JSON with these exact keys:
                 task_type=TaskType.ANALYSIS,
                 max_tokens=800,
             )
+            if response.error:
+                raise ValueError(response.error)
             structured = _parse_json_response(response.content)
         except Exception as exc:
             logger.warning("AI lead intake failed: %s", exc)
@@ -138,6 +140,8 @@ Return ONLY valid JSON with these exact keys:
                 task_type=TaskType.ANALYSIS,
                 max_tokens=1200,
             )
+            if response.error:
+                raise ValueError(response.error)
             structured = _parse_json_response(response.content)
         except Exception as exc:
             logger.warning("Brain dump parsing failed: %s", exc)
@@ -187,6 +191,8 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                 task_type=TaskType.ANALYSIS,
                 max_tokens=800,
             )
+            if response.error:
+                raise ValueError(response.error)
             structured = _parse_json_response(response.content)
         except Exception as exc:
             logger.warning("Email intelligence extraction failed: %s", exc)

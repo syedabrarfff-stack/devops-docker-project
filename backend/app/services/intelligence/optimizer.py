@@ -93,6 +93,8 @@ async def analyze_system(db: AsyncSession, tenant_id=None) -> int:
             system_prompt="You are an expert systems architect. Return only valid JSON arrays.",
             max_tokens=3000,
         )
+        if response.error:
+            raise ValueError(response.error)
 
         raw = response.content.strip()
         if raw.startswith("```"):
