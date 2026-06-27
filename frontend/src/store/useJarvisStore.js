@@ -91,6 +91,14 @@ const useJarvisStore = create((set, get) => ({
   systemHealth: null,
   setSystemHealth: (systemHealth) => set({ systemHealth }),
 
+  // NEXUS pulse (real-time from WebSocket)
+  nexusPulse: null,
+  setNexusPulse: (pulse) => set({ nexusPulse: pulse }),
+
+  // Autopilot draft count (live)
+  pendingDrafts: 0,
+  setPendingDrafts: (n) => set({ pendingDrafts: n }),
+
   // AI providers
   providers: {},
   setProviders: (p) => set({ providers: p }),
@@ -144,6 +152,44 @@ const useJarvisStore = create((set, get) => ({
         if (msg.type === 'approval_decided') {
           get().setPendingApprovals(Math.max(0, get().pendingApprovals - 1))
           get().addNotification({ type: 'info', message: `Approval ${msg.data.status}: ${msg.data.title}`, level: 'info' })
+        }
+        if (msg.type === 'nexus_pulse') {
+          get().setNexusPulse(msg.data)
+          if (typeof msg.data?.pending_drafts === 'number') {
+            get().setPendingDrafts(msg.data.pending_drafts)
+          }
+        }
+        if (msg.type === 'autopilot_draft_sent') {
+          get().setPendingDrafts(Math.max(0, get().pendingDrafts - 1))
+          get().addNotification({
+            type: 'success',
+            message: `Email sent to ${msg.data.lead_company || msg.data.to}`,
+            level: 'success',
+          })
+        }
+        if (msg.type === 'autopilot_draft_rejected') {
+          get().setPendingDrafts(Math.max(0, get().pendingDrafts - 1))
+        }
+        if (msg.type === 'lead_reply') {
+          get().addNotification({
+            type: 'lead',
+            message: `${msg.data.company || msg.data.from_email} replied to your outreach`,
+            level: 'warning',
+          })
+        }
+        if (msg.type === 'notification') {
+          get().addNotification({
+            type: msg.data.category || 'info',
+            message: msg.data.body || msg.data.title,
+            level: msg.data.level || 'info',
+          })
+        }
+        if (msg.type === 'task_completed') {
+          get().addNotification({
+            type: 'task',
+            message: `Task completed: ${msg.data.task_type || msg.data.id}`,
+            level: 'info',
+          })
         }
       } catch {}
     }
