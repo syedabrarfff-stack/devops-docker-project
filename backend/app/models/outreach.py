@@ -123,6 +123,7 @@ class FollowUpQueue(JarvisBase):
     __tablename__ = "follow_up_queue"
     __table_args__ = (
         Index("ix_follow_up_queue_status_scheduled_at", "status", "scheduled_at"),
+        Index("ix_follow_up_queue_tenant_status_scheduled_at", "tenant_id", "status", "scheduled_at"),
     )
 
     lead_id: Mapped[uuid.UUID | None] = mapped_column(
