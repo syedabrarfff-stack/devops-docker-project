@@ -220,7 +220,7 @@ class ReplyHandler:
                 force_model="claude-opus-4-7",
                 max_tokens=650,
             )
-            if response.error or response.demo or not response.content.strip():
+            if response.error or response.demo or not (response.content or "").strip():
                 return _fallback_response(lead, classification)
             return _clean_client_response(response.content, lead, classification)
         except Exception as exc:

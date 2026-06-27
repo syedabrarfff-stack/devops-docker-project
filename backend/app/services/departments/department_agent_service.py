@@ -488,9 +488,11 @@ Return only valid JSON, no markdown."""
 
         import json
         try:
+            if response.error:
+                raise ValueError(response.error)
             metrics = json.loads(response.content.strip())
         except Exception:
-            metrics = {"raw": response.content}
+            metrics = {"raw": response.content or response.error or "unavailable"}
 
         return {
             "tenant_id": str(tenant_uuid),
@@ -593,6 +595,8 @@ Return only a single number between 0 and 100."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.FAST,
             )
+            if response.error:
+                raise ValueError(response.error)
             score = float(response.content.strip().split()[0])
             return max(0.0, min(100.0, score))
         except Exception:

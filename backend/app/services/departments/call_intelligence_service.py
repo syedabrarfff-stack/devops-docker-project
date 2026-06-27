@@ -405,6 +405,8 @@ Return only valid JSON, no markdown."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.STRATEGY,
             )
+            if response.error:
+                raise ValueError(response.error)
             data = json.loads(response.content.strip())
             return data
         except Exception as exc:
@@ -576,6 +578,8 @@ Return only valid JSON."""
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.ANALYSIS,
             )
+            if response.error:
+                raise ValueError(response.error)
             return json.loads(response.content.strip())
         except Exception:
             return {
@@ -591,6 +595,8 @@ Analysis: {reasoning[:1500]}"""
             response, _ = await ai_router.chat(
                 [Message(role="user", content=prompt)], task_type=TaskType.FAST
             )
+            if response.error:
+                raise ValueError(response.error)
             items = json.loads(response.content.strip())
             return items if isinstance(items, list) else []
         except Exception:
