@@ -534,7 +534,17 @@ export const nexusTriggerPulse   = ()         => api.post('/api/v1/nexus/pulse/t
 export const nexusThink          = (state)    => api.post('/api/v1/nexus/think', { pipeline_state: state || null }, { timeout: 120000 }).then(r => r.data)
 
 // Revenue
-export const getRevenueSummary   = (params)   => api.get('/api/v1/revenue/summary', { params }).then(r => r.data)
-export const getRevenueInvoices  = (params)   => api.get('/api/v1/revenue/invoices', { params }).then(r => r.data)
+export const getRevenueSummary      = (params)      => api.get('/api/v1/revenue/summary', { params }).then(r => r.data)
+export const getRevenueInvoices     = (params)      => api.get('/api/v1/revenue/invoices', { params }).then(r => r.data)
+export const getRevenueWarRoom      = (tenantId)    => api.get('/api/v1/revenue/war-room', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueARR          = (tenantId)    => api.get('/api/v1/revenue/arr', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenuePipeline     = (tenantId)    => api.get('/api/v1/revenue/pipeline', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueForecast     = (tenantId)    => api.get('/api/v1/revenue/forecast', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueHealth       = (tenantId)    => api.get('/api/v1/revenue/health', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRetentionCohorts    = (tenantId)    => api.get('/api/v1/revenue/cohorts', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueClients      = (tenantId)    => api.get('/api/v1/revenue/clients', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueSegments     = (tenantId)    => api.get('/api/v1/revenue/segments', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueSnapshot     = (tenantId)    => api.get('/api/v1/revenue/snapshot', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getMRRChart            = (tenantId)    => api.get('/api/v1/revenue/mrr-chart', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 
 export default api

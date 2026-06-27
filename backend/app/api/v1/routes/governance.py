@@ -32,6 +32,7 @@ class CreateInvoiceRequest(BaseModel):
     currency: str = Field(default="USD", max_length=10)
     notes: str = Field(default="", max_length=5_000)
     due_days: int = Field(default=14, ge=1, le=365)
+    tenant_id: Optional[UUID] = None
 
 class ProposalRequest(BaseModel):
     client_name: str = Field(..., min_length=1, max_length=200)
@@ -41,6 +42,7 @@ class ProposalRequest(BaseModel):
     context: str = Field(default="", max_length=10_000)
     style: str = Field(default="standard", max_length=50)
     pricing: dict = {}
+    tenant_id: Optional[UUID] = None
 
 class AgentPermissionRequest(BaseModel):
     agent_name: str = Field(..., max_length=100)
@@ -92,6 +94,7 @@ async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: Asy
             currency=req.currency,
             notes=req.notes,
             due_days=req.due_days,
+            tenant_id=req.tenant_id,
         )
 
     # Check if invoice qualifies for auto-approval
@@ -153,6 +156,7 @@ async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: Async
             context=req.context,
             pricing=req.pricing,
             style=req.style,
+            tenant_id=req.tenant_id,
         )
 
     # Check if proposal qualifies for auto-approval
