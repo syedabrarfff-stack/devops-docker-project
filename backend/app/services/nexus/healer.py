@@ -150,6 +150,65 @@ async def heal_subsystem(subsystem: str, db) -> dict:
         except Exception:
             result["detail"] += " (Telegram notification failed — check TG config)"
 
+    elif subsystem == "ai_provider":
+        # Try resetting circuit breakers for open providers
+        try:
+            from app.services.ai.health_monitor import health_monitor
+            reset_count = 0
+            for name, ph in list(health_monitor._providers.items()):
+                if ph.state == "OPEN":
+                    health_monitor.reset(name)
+                    reset_count += 1
+            if reset_count:
+                result["action"] = "circuit_breaker_reset"
+                result["success"] = True
+                result["detail"] = f"Reset {reset_count} open circuit breaker(s). Providers will retry on next request."
+            else:
+                result["action"] = "noop"
+                result["detail"] = "No open circuit breakers found. Check ANTHROPIC_API_KEY env variable."
+        except Exception as exc:
+            result["detail"] = f"Circuit breaker reset failed: {exc}"
+
+    elif subsystem in ("signal", "ghost"):
+        # Signal and Ghost both depend on AI provider — probe and report
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            result["action"] = "provider_verified"
+            result["success"] = True
+            result["detail"] = f"{subsystem.upper()} is operational — AI key is configured."
+        else:
+            result["action"] = "captain_alert"
+            result["success"] = False
+            result["detail"] = f"{subsystem.upper()} requires ANTHROPIC_API_KEY. Set it in AWS Secrets Manager."
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"🔴 NEXUS HEALER: {subsystem.upper()} is degraded — ANTHROPIC_API_KEY missing. "
+                    "Add to AWS Secrets Manager and redeploy."
+                )
+            except Exception:
+                pass
+
+    elif subsystem in ("database", "pipeline"):
+        # Verify DB connectivity; pipeline health mirrors database
+        try:
+            from sqlalchemy import text
+            await db.execute(text("SELECT 1"))
+            result["action"] = "connectivity_verified"
+            result["success"] = True
+            result["detail"] = f"{subsystem.capitalize()} is connected and healthy."
+        except Exception as exc:
+            result["action"] = "captain_alert"
+            result["detail"] = f"Database unreachable: {exc}. Check RDS connectivity and VPC security groups."
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"🔴 NEXUS HEALER: DATABASE critical failure — {exc}. "
+                    "Check AWS RDS and VPC security groups immediately."
+                )
+            except Exception:
+                pass
+
     else:
         result["detail"] = f"No heal protocol defined for subsystem: {subsystem}"
 

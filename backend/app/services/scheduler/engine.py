@@ -271,7 +271,14 @@ async def _register_default_jobs() -> None:
     # ── Captain Dashboard Briefing — 06:55 every day ──────────────────────────
     add_cron_job("captain_dashboard_briefing", _job_captain_dashboard_briefing, hour=6, minute=55)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Captain Briefing)")
+    # ── Weekly Performance Briefing — Saturday 19:00 UTC ─────────────────────
+    add_cron_job("weekly_performance_briefing", _job_weekly_performance_briefing,
+                 day_of_week="sat", hour=19, minute=0)
+
+    # ── Nightly Signal Pipeline Scan — 02:00 UTC ─────────────────────────────
+    add_cron_job("nightly_signal_scan", _job_nightly_signal_scan, hour=2, minute=0)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Daily Briefing + Weekly Performance + Nightly Signal Scan)")
 
 
 async def _job_morning_briefing() -> None:
@@ -950,3 +957,79 @@ async def _job_captain_dashboard_briefing() -> None:
             await notify_captain_morning_briefing(db)
     except Exception as exc:
         logger.warning("Captain dashboard briefing failed: %s", exc)
+
+
+async def _job_weekly_performance_briefing() -> None:
+    """Weekly Saturday 19:00 UTC — full 7-day performance summary via Telegram."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.notifications.telegram_bot import notify_weekly_performance_briefing
+        async with AsyncSessionLocal() as db:
+            await notify_weekly_performance_briefing(db)
+    except Exception as exc:
+        logger.warning("Weekly performance briefing failed: %s", exc)
+
+
+async def _job_nightly_signal_scan() -> None:
+    """Nightly 02:00 UTC — scan all active pipeline leads and brief Captain on high signals."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.lead import Lead, LeadStatus
+        from sqlalchemy import select, and_
+
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(
+                select(Lead)
+                .where(
+                    and_(
+                        Lead.score >= 45,
+                        Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE, LeadStatus.CONTACTED]),
+                    )
+                )
+                .order_by(Lead.score.desc())
+                .limit(30)
+            )).scalars().all()
+
+        if not rows:
+            logger.info("Nightly signal scan: no leads to scan")
+            return
+
+        from app.services.signal.scanner import scan_lead
+        signals = []
+        for lead in rows:
+            try:
+                lead_dict = {
+                    "id": str(lead.id),
+                    "company_name": lead.company_name or "",
+                    "company": lead.company or "",
+                    "industry": lead.industry or "",
+                    "score": lead.score,
+                    "status": lead.status.value if lead.status else "NEW",
+                    "pain_points": lead.pain_points or "",
+                    "contact_name": lead.contact_name or "",
+                    "email": lead.email or "",
+                    "country": lead.country or "",
+                    "notes": lead.notes or "",
+                    "outreach_count": lead.outreach_count or 0,
+                }
+                result = await scan_lead(lead_dict)
+                if result.get("intent_tier") in ("HOT", "WARM"):
+                    signals.append(result)
+            except Exception:
+                continue
+
+        logger.info("Nightly signal scan: %d leads scanned, %d high signals", len(rows), len(signals))
+
+        if signals:
+            from app.services.notifications.telegram import notify_telegram
+            lines = [f"📡 *Nightly Signal Scan — {len(signals)} high-signal lead(s)*\n"]
+            for s in signals[:5]:
+                company = s.get("lead_company", "?")
+                tier = s.get("intent_tier", "?")
+                why_now = (s.get("why_now") or "")[:80]
+                lines.append(f"• *{company}* [{tier}] — {why_now}")
+            if len(signals) > 5:
+                lines.append(f"\n_...and {len(signals) - 5} more. Review in /control-room/signal_")
+            await notify_telegram("\n".join(lines))
+    except Exception as exc:
+        logger.warning("Nightly signal scan failed: %s", exc)

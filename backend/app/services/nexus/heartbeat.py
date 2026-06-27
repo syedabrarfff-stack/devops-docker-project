@@ -195,5 +195,9 @@ async def run_pulse(db: Any) -> dict:
         else "MONITOR"
     )
 
+    # Convenience booleans for quick checks in notification handlers
+    pulse["ai_available"] = pulse["subsystems"].get("ai_provider") == "configured"
+    pulse["redis_ok"] = pulse["subsystems"].get("redis") == "healthy"
+
     await store_pulse(pulse)
     return pulse

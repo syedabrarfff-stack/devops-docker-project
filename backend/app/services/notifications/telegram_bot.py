@@ -24,21 +24,32 @@ BASE = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}" if settings.
 
 HELP_TEXT = """🤖 *JARVIS Command Menu*
 
-/status — System health, AI providers, scheduler, Redis
-/heal — Run autonomous self-healing cycle now
-/nexus — NEXUS heartbeat pulse (pipeline snapshot)
-/leads — Top 5 leads awaiting scoring
-/briefing — AI morning briefing
-/drafts — List pending AUTOPILOT email drafts
-/draft <id> — View a specific draft (first 8 chars of ID)
-/approve_draft <id> — Approve & send an AUTOPILOT draft
-/reject_draft <id> — Reject an AUTOPILOT draft
+*Pipeline & Leads*
+/leads — Top 5 leads by score
+/pipeline — Full pipeline breakdown by stage
+/scout — Trigger lead discovery now
+
+*AUTOPILOT Drafts*
+/drafts — List pending email drafts
+/draft <id> — View a specific draft
+/approve\\_draft <id> — Approve & send
+/reject\\_draft <id> — Reject a draft
+/approve\\_all — Approve ALL pending drafts
+
+*Governance*
 /approve <id> — Approve a governance request
 /reject <id> — Reject a governance request
-/queue — Task queue statistics
+
+*System*
+/status — Full system health report
+/heal — Run self-healing cycle
+/nexus — NEXUS heartbeat pulse
+/revenue — Quick revenue snapshot
+/queue — Task queue stats
+/briefing — AI morning briefing
 /help — This menu
 
-You can also just *type anything* — JARVIS will respond with AI.
+Type anything to chat with JARVIS.
 """
 
 
@@ -90,6 +101,14 @@ async def handle_command(chat_id: str, cmd: str, args: list[str]) -> None:
             await _handle_autopilot_draft_action(chat_id, args[0], "approve")
         elif cmd == "reject_draft" and args:
             await _handle_autopilot_draft_action(chat_id, args[0], "reject")
+        elif cmd == "approve_all":
+            await _handle_approve_all(chat_id)
+        elif cmd == "revenue":
+            await _handle_revenue(chat_id, db)
+        elif cmd == "pipeline":
+            await _handle_pipeline(chat_id, db)
+        elif cmd == "scout":
+            await _handle_scout(chat_id)
         elif cmd == "approve" and args:
             try:
                 aid = int(args[0])
@@ -147,7 +166,9 @@ async def handle_update(update: dict, db) -> None:
         data = cq.get("data", "")
         cq_chat = str(cq["message"]["chat"]["id"])
         await answer_callback(cq["id"])
-        if data.startswith("approve_draft:") or data.startswith("reject_draft:"):
+        if data == "approve_all_drafts:confirm":
+            await _handle_approve_all_confirmed(cq_chat)
+        elif data.startswith("approve_draft:") or data.startswith("reject_draft:"):
             action, draft_id = data.split(":", 1)
             act = "approve" if action == "approve_draft" else "reject"
             await _handle_autopilot_draft_action(cq_chat, draft_id, act)
@@ -189,6 +210,14 @@ async def handle_update(update: dict, db) -> None:
         await _handle_autopilot_draft_action(sender_chat, args[0], "approve")
     elif cmd == "reject_draft" and args:
         await _handle_autopilot_draft_action(sender_chat, args[0], "reject")
+    elif cmd == "approve_all":
+        await _handle_approve_all(sender_chat)
+    elif cmd == "revenue":
+        await _handle_revenue(sender_chat, db)
+    elif cmd == "pipeline":
+        await _handle_pipeline(sender_chat, db)
+    elif cmd == "scout":
+        await _handle_scout(sender_chat)
     elif cmd == "approve" and args:
         try:
             await _handle_approval_callback(sender_chat, int(args[0]), "approve", db)
@@ -507,6 +536,139 @@ async def _handle_autopilot_draft_action(chat_id: str, draft_ref: str, action: s
         await send_message(chat_id, f"❌ Action failed: {e}")
 
 
+# ── New command handlers (Phase 26) ──────────────────────────────────────────
+
+async def _handle_approve_all(chat_id: str) -> None:
+    """Show pending draft count with inline Confirm button before bulk-sending."""
+    try:
+        from app.services.autopilot.pipeline import get_pending_drafts
+        drafts = await get_pending_drafts(None)
+        if not drafts:
+            await send_message(chat_id, "✅ No pending drafts to approve.")
+            return
+        count = len(drafts)
+        text = (f"⚡ *Approve All Pending Drafts*\n\n"
+                f"You are about to send *{count} email{'s' if count != 1 else ''}* to leads.\n"
+                f"This action cannot be undone. Confirm?")
+        keyboard = {"inline_keyboard": [[
+            {"text": f"⚡ Yes, Send {count}", "callback_data": "approve_all_drafts:confirm"},
+            {"text": "✗ Cancel", "callback_data": "noop"},
+        ]]}
+        await send_message(chat_id, text, reply_markup=keyboard)
+    except Exception as e:
+        await send_message(chat_id, f"❌ Error: {e}")
+
+
+async def _handle_approve_all_confirmed(chat_id: str) -> None:
+    """Execute bulk approval after Captain confirms via inline button."""
+    await send_message(chat_id, "⚡ Sending all pending drafts…")
+    try:
+        from app.services.autopilot.pipeline import approve_all_pending
+        result = await approve_all_pending(None)
+        sent = result.get("sent", 0)
+        failed = result.get("failed", 0)
+        total = result.get("total", 0)
+        lines = [f"📬 *Bulk Send Complete*\n"]
+        lines.append(f"✅ Sent:   {sent}/{total}")
+        if failed:
+            lines.append(f"❌ Failed: {failed}")
+        lines.append("\nAll drafts have been processed.")
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Bulk approve failed: {e}")
+
+
+async def _handle_revenue(chat_id: str, db) -> None:
+    """Quick revenue snapshot from invoices table."""
+    try:
+        from sqlalchemy import select, func
+        from app.models.revenue import Invoice, InvoiceStatus
+
+        total_all = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
+        ) or 0.0
+
+        total_paid = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0))
+            .where(Invoice.status == InvoiceStatus.PAID)
+        ) or 0.0
+
+        total_outstanding = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
+            .where(Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]))
+        ) or 0.0
+
+        invoice_count = await db.scalar(select(func.count()).select_from(Invoice)) or 0
+
+        lines = [
+            "💰 *Revenue Snapshot*\n",
+            f"Total Invoiced:  ${float(total_all):,.0f}",
+            f"Collected:       ${float(total_paid):,.0f}",
+            f"Outstanding:     ${float(total_outstanding):,.0f}",
+            f"Invoice Count:   {invoice_count}",
+        ]
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Revenue data unavailable: {e}")
+
+
+async def _handle_pipeline(chat_id: str, db) -> None:
+    """Lead pipeline breakdown by status and tier."""
+    try:
+        from sqlalchemy import select, func
+        from app.models.lead import Lead, LeadStatus
+
+        lines = ["📊 *Pipeline Breakdown*\n"]
+
+        for status in LeadStatus:
+            cnt = await db.scalar(
+                select(func.count()).select_from(Lead).where(Lead.status == status)
+            ) or 0
+            if cnt:
+                lines.append(f"  {status.value:<12} {cnt}")
+
+        avg_q = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0))
+        avg_score = round(float(avg_q or 0), 1)
+
+        top_q = (await db.execute(
+            select(Lead.company, Lead.score)
+            .where(Lead.score >= 75, Lead.status == LeadStatus.NEW)
+            .order_by(Lead.score.desc())
+            .limit(3)
+        )).all()
+
+        lines.append(f"\nAvg Score: {avg_score}")
+        if top_q:
+            lines.append("\n🔥 *Top Targets*")
+            for company, score in top_q:
+                lines.append(f"  • {company} ({int(score)})")
+
+        await send_message(chat_id, "\n".join(lines))
+    except Exception as e:
+        await send_message(chat_id, f"❌ Pipeline data unavailable: {e}")
+
+
+async def _handle_scout(chat_id: str) -> None:
+    """Trigger lead discovery scan now."""
+    await send_message(chat_id, "🔍 Triggering lead discovery… results in ~30s.")
+    try:
+        from app.core.config import settings
+        if not settings.JARVIS_DEFAULT_TENANT_ID:
+            await send_message(chat_id, "⚠️ JARVIS_DEFAULT_TENANT_ID not configured.")
+            return
+        from app.services.leads.discovery import lead_discovery_engine
+        targets = [
+            {"query": "business automation AI workflow", "industry": "SaaS", "limit": 15},
+            {"query": "cloud infrastructure DevOps scaling", "industry": "Technology", "limit": 15},
+        ]
+        inserted = await lead_discovery_engine.run_daily_discovery(
+            settings.JARVIS_DEFAULT_TENANT_ID, targets
+        )
+        await send_message(chat_id, f"✅ Scout complete — *{inserted} new leads* added to pipeline.")
+    except Exception as e:
+        await send_message(chat_id, f"❌ Scout failed: {e}")
+
+
 # ── Captain Morning Dashboard Briefing ───────────────────────────────────────
 
 async def notify_captain_morning_briefing(db) -> None:
@@ -529,26 +691,26 @@ async def notify_captain_morning_briefing(db) -> None:
 
     # ── Pipeline stats ────────────────────────────────────────────────────────
     try:
-        total = (await db.execute(func.count(Lead.id).select())).scalar() or 0
-        hot = (await db.execute(
-            select(func.count(Lead.id)).where(Lead.score >= 75)
-        )).scalar() or 0
-        warm = (await db.execute(
-            select(func.count(Lead.id)).where(Lead.score >= 45, Lead.score < 75)
-        )).scalar() or 0
-        new_leads = (await db.execute(
-            select(func.count(Lead.id)).where(Lead.status == LeadStatus.NEW)
-        )).scalar() or 0
-        contacted = (await db.execute(
-            select(func.count(Lead.id)).where(Lead.status == LeadStatus.CONTACTED)
-        )).scalar() or 0
-        eligible = (await db.execute(
-            select(func.count(Lead.id)).where(
+        total = await db.scalar(select(func.count()).select_from(Lead)) or 0
+        hot = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.score >= 75)
+        ) or 0
+        warm = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.score >= 45, Lead.score < 75)
+        ) or 0
+        new_leads = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.status == LeadStatus.NEW)
+        ) or 0
+        contacted = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.status == LeadStatus.CONTACTED)
+        ) or 0
+        eligible = await db.scalar(
+            select(func.count()).select_from(Lead).where(
                 Lead.outreach_eligible.is_(True),
                 Lead.status == LeadStatus.NEW,
                 Lead.score >= 45,
             )
-        )).scalar() or 0
+        ) or 0
 
         lines.append(
             f"📊 *Pipeline*\n"
@@ -610,4 +772,102 @@ async def notify_captain_morning_briefing(db) -> None:
         pass
 
     lines.append("\n_/help for all commands_")
+    await send_message(chat_id, "\n".join(lines))
+
+
+# ── Weekly Performance Briefing ───────────────────────────────────────────────
+
+async def notify_weekly_performance_briefing(db) -> None:
+    """
+    Weekly Saturday 19:00 UTC briefing — full 7-day performance summary.
+    Covers leads discovered, outreach sent, revenue moved, system health.
+    """
+    chat_id = str(settings.TELEGRAM_CHAT_ID or "")
+    if not chat_id:
+        return
+
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, func
+    from app.models.lead import Lead, LeadStatus
+
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=7)
+    lines = [f"📈 *Weekly Performance Report*\n_{now.strftime('%d %b %Y')}_\n"]
+
+    # ── Lead velocity ─────────────────────────────────────────────────────────
+    try:
+        new_this_week = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.created_at >= week_start)
+        ) or 0
+        total = await db.scalar(select(func.count()).select_from(Lead)) or 0
+        hot = await db.scalar(
+            select(func.count()).select_from(Lead).where(Lead.score >= 75)
+        ) or 0
+        contacted_week = await db.scalar(
+            select(func.count()).select_from(Lead).where(
+                Lead.outreach_sent.is_(True),
+                Lead.updated_at >= week_start,
+            )
+        ) or 0
+        lines.append(
+            f"📊 *Leads*\n"
+            f"  New this week: {new_this_week}\n"
+            f"  Total pipeline: {total}\n"
+            f"  Hot (≥75):  {hot}\n"
+            f"  Contacted:  {contacted_week}"
+        )
+    except Exception:
+        lines.append("📊 Lead stats unavailable")
+
+    # ── Autopilot activity ────────────────────────────────────────────────────
+    try:
+        from app.services.autopilot.pipeline import get_autopilot_status
+        status = await get_autopilot_status(None)
+        all_time_sent = status.get("all_time_sent", 0)
+        pending_now = status.get("pending", 0)
+        lines.append(
+            f"\n✉️ *AUTOPILOT*\n"
+            f"  All-time sent: {all_time_sent}\n"
+            f"  Pending review: {pending_now}"
+        )
+    except Exception:
+        pass
+
+    # ── Revenue snapshot ──────────────────────────────────────────────────────
+    try:
+        from app.models.revenue import Invoice, InvoiceStatus
+        paid = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0))
+            .where(Invoice.status == InvoiceStatus.PAID)
+        ) or 0.0
+        outstanding = await db.scalar(
+            select(func.coalesce(func.sum(Invoice.amount_usd), 0.0))
+            .where(Invoice.status.in_([InvoiceStatus.SENT, InvoiceStatus.OVERDUE]))
+        ) or 0.0
+        lines.append(
+            f"\n💰 *Revenue*\n"
+            f"  Collected:    ${float(paid):,.0f}\n"
+            f"  Outstanding:  ${float(outstanding):,.0f}"
+        )
+    except Exception:
+        pass
+
+    # ── System health summary ─────────────────────────────────────────────────
+    try:
+        from app.services.nexus.heartbeat import get_latest_pulse
+        pulse = await get_latest_pulse()
+        if pulse:
+            signal = pulse.get("action_signal", "MONITOR")
+            ai_ok = pulse.get("ai_available", False)
+            redis_ok = pulse.get("redis_ok", False)
+            lines.append(
+                f"\n🔧 *System*\n"
+                f"  NEXUS Signal: {signal}\n"
+                f"  AI Provider:  {'✅' if ai_ok else '❌'}\n"
+                f"  Redis:        {'✅' if redis_ok else '⚠️'}"
+            )
+    except Exception:
+        pass
+
+    lines.append("\n_Have a great weekend, Captain. 🚀_")
     await send_message(chat_id, "\n".join(lines))

@@ -515,6 +515,9 @@ export const ghostSend           = (payload)  => api.post('/api/v1/ghost/send', 
 // SIGNAL — AI Pipeline Intelligence Scanner
 export const signalStatus        = (params)   => api.get('/api/v1/signal/status', { params }).then(r => r.data)
 export const signalLeads         = (params)   => api.get('/api/v1/signal/leads', { params }).then(r => r.data)
+export const signalScanLead      = (leadId)   => `/api/v1/signal/scan/lead/${leadId}`  // SSE URL
+export const signalScanPipeline  = (payload)  => api.post('/api/v1/signal/scan/pipeline', payload, { timeout: 300000 }).then(r => r.data)
+export const signalBriefStream   = (payload)  => api.post('/api/v1/signal/brief', payload, { timeout: 120000 }).then(r => r.data)
 
 // NEXUS — Supreme Autonomous Intelligence Core
 export const nexusStatus         = ()         => api.get('/api/v1/nexus/status').then(r => r.data)
@@ -524,5 +527,11 @@ export const nexusPulse          = ()         => api.get('/api/v1/nexus/pulse').
 export const nexusHealth         = ()         => api.get('/api/v1/nexus/health').then(r => r.data)
 export const nexusTriggerHeal    = (subsystem)=> api.post('/api/v1/nexus/heal', { subsystem }).then(r => r.data)
 export const nexusTriggerCycle   = ()         => api.post('/api/v1/nexus/cycle', {}, { timeout: 300000 }).then(r => r.data)
+export const nexusTriggerPulse   = ()         => api.post('/api/v1/nexus/pulse/trigger').then(r => r.data)
+export const nexusThink          = (state)    => api.post('/api/v1/nexus/think', { pipeline_state: state || null }, { timeout: 120000 }).then(r => r.data)
+
+// Revenue
+export const getRevenueSummary   = (params)   => api.get('/api/v1/revenue/summary', { params }).then(r => r.data)
+export const getRevenueInvoices  = (params)   => api.get('/api/v1/revenue/invoices', { params }).then(r => r.data)
 
 export default api
