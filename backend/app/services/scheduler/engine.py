@@ -612,7 +612,7 @@ async def _job_overnight_proposal_engine() -> None:
             leads = result.scalars().all()
             for lead in leads:
                 try:
-                    response = await ai_router.chat(
+                    response, _ = await ai_router.chat(
                         messages=[{
                             "role": "user",
                             "content": (
@@ -626,7 +626,10 @@ async def _job_overnight_proposal_engine() -> None:
                         task_type="STRATEGY",
                         max_tokens=800,
                     )
-                    proposal_text = response.get("content", "")
+                    if response.error:
+                        logger.warning("Proposal AI failed for lead %s: %s", lead.id, response.error)
+                        continue
+                    proposal_text = response.content or ""
                     if proposal_text:
                         await store_memory(
                             db,
