@@ -83,8 +83,8 @@ async def create_lead(
     await db.commit()
     if auto_score:
         background_tasks.add_task(_score_in_background, lead.id)
-    background_tasks.add_task(_notify_captain_new_lead, lead.company, lead.email, body.source, lead.contact_name)
-    return {"id": lead.id, "company": lead.company, "status": lead.status}
+    background_tasks.add_task(_notify_captain_new_lead, _lead_company(lead), lead.email, body.source, lead.contact_name)
+    return {"id": lead.id, "company": _lead_company(lead), "status": lead.status}
 
 
 async def _notify_captain_new_lead(company: str, email: str | None, source: str | None, contact: str | None) -> None:
@@ -122,9 +122,9 @@ async def _trigger_auto_outreach(lead_id: UUID, lead, tenant_id: UUID):
     try:
         async with AsyncSessionLocal() as db:
             lead_data = {
-                "name": lead.contact_name or lead.company,
+                "name": lead.contact_name or _lead_company(lead),
                 "email": lead.email,
-                "company": lead.company,
+                "company": _lead_company(lead),
                 "quality_score": float(lead.score or 0.75),
                 "status": str(lead.status),
                 "domain_age_days": getattr(lead, "domain_age_days", 400),
