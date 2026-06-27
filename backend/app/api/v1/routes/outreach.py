@@ -115,9 +115,11 @@ async def enroll_contacts(
     request: Request,
     sequence_id: int,
     body: EnrollIn,
+    tenant_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    emails = await seq_service.enroll_contacts(db, sequence_id, body.contact_ids)
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    emails = await seq_service.enroll_contacts(db, sequence_id, body.contact_ids, tenant_id=str(resolved_tenant_id))
     await db.commit()
     return {"enrolled": len(emails), "sequence_id": sequence_id}
 

@@ -55,10 +55,37 @@ async def auto_generate_proposal_for_lead(
 
         auto_approved = False
         if await should_auto_approve_proposal(monthly_retainer):
-            # Auto-approve and mark as sent
-            async with db.begin():
-                ok = await update_proposal_status(db, proposal["id"], "sent")
-                auto_approved = ok
+            # Auto-approve: send the proposal email then mark as sent in DB
+            email_sent = False
+            try:
+                from app.services.outreach.email_transport import send_outbound_email
+                from app.core.config import settings as _cfg
+                subject = f"Proposal: {proposal.get('title', 'Aliyar Solutions Proposal')} — {lead_company}"
+                body = (
+                    f"Dear {lead_name},\n\n"
+                    f"{proposal.get('content', '')}\n\n"
+                    f"Please feel free to reach out with any questions.\n\n"
+                    f"Warm regards,\nAliyar Solutions Team"
+                )
+                ok_send, _, _ = await send_outbound_email(
+                    to=lead_email,
+                    subject=subject,
+                    body=body,
+                    to_name=lead_name,
+                    reply_to=_cfg.SES_REPLY_TO_EMAIL or _cfg.SES_FROM_EMAIL,
+                )
+                email_sent = ok_send
+            except Exception as _exc:
+                logger.warning("Auto-proposal email delivery failed for %s: %s", lead_email, _exc)
+            if email_sent:
+                async with db.begin():
+                    ok = await update_proposal_status(db, proposal["id"], "sent")
+                    auto_approved = ok
+            else:
+                logger.warning(
+                    "Auto-proposal email not sent for lead %s — proposal %s remains draft",
+                    lead_name, proposal["id"],
+                )
 
         logger.info(
             "Auto-proposal generated for lead %s (%s) — value: $%.2f, auto_approved: %s",

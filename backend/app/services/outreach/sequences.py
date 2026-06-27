@@ -210,15 +210,37 @@ async def enroll_contacts(
     db: AsyncSession,
     sequence_id: int,
     contact_ids: list[int],
+    tenant_id: Optional[str] = None,
 ) -> list[OutreachEmail]:
     """Enroll contacts into a sequence by creating scheduled OutreachEmail records."""
+    import uuid as _uuid
     from datetime import datetime, timedelta, timezone
 
-    seq_row = (await db.execute(select(OutreachSequence).where(OutreachSequence.id == sequence_id))).scalar_one_or_none()
+    _tid: Optional[_uuid.UUID] = None
+    if tenant_id is not None:
+        try:
+            _tid = _uuid.UUID(str(tenant_id))
+        except (ValueError, AttributeError):
+            pass
+    if _tid is None:
+        from app.core.config import settings as _cfg
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+
+    seq_q = select(OutreachSequence).where(OutreachSequence.id == sequence_id)
+    if _tid is not None:
+        seq_q = seq_q.where(OutreachSequence.tenant_id == _tid)
+    seq_row = (await db.execute(seq_q)).scalar_one_or_none()
     if not seq_row:
         return []
 
-    contacts = (await db.execute(select(Contact).where(Contact.id.in_(contact_ids)))).scalars().all()
+    contact_q = select(Contact).where(Contact.id.in_(contact_ids))
+    if _tid is not None:
+        contact_q = contact_q.where(Contact.tenant_id == _tid)
+    contacts = (await db.execute(contact_q)).scalars().all()
     created = []
     now = datetime.now(timezone.utc)
 
@@ -238,6 +260,7 @@ async def enroll_contacts(
                 step_number=step.get("step", 1),
                 status="scheduled",
                 scheduled_at=now + timedelta(days=delay),
+                tenant_id=_tid,
             )
             db.add(email)
             created.append(email)

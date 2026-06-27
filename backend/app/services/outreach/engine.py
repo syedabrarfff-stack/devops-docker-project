@@ -233,6 +233,11 @@ class OutreachEngine:
         }
 
     async def execute_due_outreach(self, tenant_id, limit: int = 48, autonomy_stage: str = "outreach_emails") -> int:
+        from app.core.config import settings as _cfg
+        if not _cfg.AUTO_SEND_OUTREACH:
+            logger.info("execute_due_outreach: AUTO_SEND_OUTREACH is disabled, skipping")
+            return 0
+
         tenant_uuid = uuid.UUID(str(tenant_id))
         now = datetime.now(UTC)
         sent = 0

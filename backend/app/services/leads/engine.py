@@ -85,9 +85,20 @@ async def score_lead_with_ai(lead: Lead) -> dict:
                 "recommended_service": "AI automation", "outreach_angle": "Automate your operations"}
 
 
-async def qualify_and_score(db: AsyncSession, lead_id: UUID) -> Optional[Lead]:
+async def qualify_and_score(db: AsyncSession, lead_id: UUID, tenant_id: Optional[UUID] = None) -> Optional[Lead]:
     """Score a lead with Gemini and update the database record."""
-    lead = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
+    _tid = tenant_id
+    if _tid is None:
+        from app.core.config import settings as _cfg
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+    q = select(Lead).where(Lead.id == lead_id)
+    if _tid is not None:
+        q = q.where(Lead.tenant_id == _tid)
+    lead = (await db.execute(q)).scalar_one_or_none()
     if not lead:
         return None
 
