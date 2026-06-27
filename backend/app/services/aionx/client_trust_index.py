@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.aionx_organs import ClientDigitalTwin, MissionOwnershipRecord
+from app.models.aionx_organs import ClientDigitalTwin, ClientTwinInteraction, MissionOwnershipRecord
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +96,9 @@ async def compute_trust_score(
 async def escalate_trust_erosion(
     db: AsyncSession,
     client_id: uuid.UUID,
-    threshold: float = 20.0,  # Alert if drop >20%
+    threshold: float = 20.0,  # Alert if drop >20 points over last 30 days
 ) -> dict[str, Any]:
-    """Alert if client trust is eroding."""
+    """Alert if client trust is eroding based on recent interaction deltas."""
 
     twin = (await db.execute(
         select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
@@ -108,26 +108,37 @@ async def escalate_trust_erosion(
         return {"error": "client twin not found"}
 
     current_score = twin.trust_score or 70
-    # The live twin schema stores current trust only. Historical trust deltas
-    # come from interactions, so absence of history should not create a false alert.
-    previous_score = current_score
 
-    score_change = previous_score - current_score
-    pct_change = (score_change / previous_score * 100) if previous_score > 0 else 0
+    # Sum trust_deltas from interactions in the last 30 days to compute actual erosion.
+    # Negative net delta = trust is falling; if the drop exceeds threshold, alert.
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    recent_delta = (await db.execute(
+        select(func.coalesce(func.sum(ClientTwinInteraction.trust_delta), 0.0)).where(
+            ClientTwinInteraction.twin_id == twin.id,
+            ClientTwinInteraction.occurred_at >= thirty_days_ago,
+        )
+    )).scalar_one()
+    recent_delta = float(recent_delta)
 
-    escalated = pct_change > threshold
+    # previous_score is reconstructed from the current score minus recent adjustments
+    previous_score = max(0.0, current_score - recent_delta)
+    score_change = previous_score - current_score  # positive = erosion (score fell)
+    pct_change = (score_change / previous_score * 100) if previous_score > 0 else 0.0
+
+    escalated = score_change > threshold
 
     if escalated:
         logger.warning(
-            "Client Trust: EROSION ALERT for client %s (%.1f%% drop from %.1f to %.1f)",
-            client_id, pct_change, previous_score, current_score
+            "Client Trust: EROSION ALERT for client %s (%.1f pt drop, %.1f%% — from %.1f to %.1f over 30d)",
+            client_id, score_change, pct_change, previous_score, current_score
         )
 
     return {
         "client_id": str(client_id),
         "current_score": current_score,
-        "previous_score": previous_score,
-        "pct_change": pct_change,
+        "previous_score": round(previous_score, 1),
+        "score_change_30d": round(score_change, 1),
+        "pct_change": round(pct_change, 1),
         "escalated": escalated,
         "escalation_reason": "Trust erosion detected" if escalated else None,
     }

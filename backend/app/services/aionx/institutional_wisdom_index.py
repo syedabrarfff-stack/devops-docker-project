@@ -7,6 +7,7 @@ Score: 0–1000. Starts at 500.
 from __future__ import annotations
 
 import logging
+import uuid as _uuid_mod
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -21,6 +22,19 @@ from app.models.aionx_organs import (
     InstitutionalDebtIndex,
     WisdomIndexSnapshot,
 )
+
+
+def _resolve_tenant(tenant_id=None) -> _uuid_mod.UUID | None:
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, _uuid_mod.UUID) else _uuid_mod.UUID(str(tenant_id))
+    from app.core.config import settings as _cfg
+    raw = getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return _uuid_mod.UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
 
 
 WEIGHTS = {
@@ -43,20 +57,23 @@ MAX_SCORE = 1000.0
 async def compute_weekly_wisdom(
     db: AsyncSession,
     week_of: date | None = None,
+    tenant_id=None,
 ) -> WisdomIndexSnapshot:
     if not week_of:
         week_of = datetime.utcnow().date()
 
+    _tid = _resolve_tenant(tenant_id)
     week_start = datetime.combine(week_of - timedelta(days=7), datetime.min.time())
     week_end = datetime.combine(week_of, datetime.max.time())
 
     # Decision accuracy
-    decisions_result = await db.execute(
-        select(DecisionObject).where(
-            DecisionObject.created_at.between(week_start, week_end),
-            DecisionObject.outcome_summary.is_not(None),
-        )
+    _dq = select(DecisionObject).where(
+        DecisionObject.created_at.between(week_start, week_end),
+        DecisionObject.outcome_summary.is_not(None),
     )
+    if _tid:
+        _dq = _dq.where(DecisionObject.tenant_id == _tid)
+    decisions_result = await db.execute(_dq)
     decisions = decisions_result.scalars().all()
     total = len(decisions)
     correct = sum(1 for d in decisions if d.outcome_summary and "success" in d.outcome_summary.lower())
@@ -78,9 +95,10 @@ async def compute_weekly_wisdom(
     try:
         from sqlalchemy import func as sql_func
         from app.models.aionx_organs import ClientDigitalTwin
-        trust_result = await db.execute(
-            select(sql_func.avg(ClientDigitalTwin.trust_score))
-        )
+        _tq = select(sql_func.avg(ClientDigitalTwin.trust_score))
+        if _tid:
+            _tq = _tq.where(ClientDigitalTwin.tenant_id == _tid)
+        trust_result = await db.execute(_tq)
         avg_trust = trust_result.scalar() or 70.0
         client_retention_ratio = min(1.0, avg_trust / 100.0)
     except Exception as exc:
@@ -127,9 +145,10 @@ async def compute_weekly_wisdom(
     convergence_efficiency_score = convergence_efficiency * WEIGHTS["convergence_efficiency"]
 
     # Previous score
-    prev_result = await db.execute(
-        select(WisdomIndexSnapshot).order_by(WisdomIndexSnapshot.created_at.desc()).limit(1)
-    )
+    _pq = select(WisdomIndexSnapshot).order_by(WisdomIndexSnapshot.created_at.desc()).limit(1)
+    if _tid:
+        _pq = _pq.where(WisdomIndexSnapshot.tenant_id == _tid)
+    prev_result = await db.execute(_pq)
     prev = prev_result.scalar_one_or_none()
     previous_score = prev.wisdom_score if prev else BASE_SCORE
 
@@ -150,6 +169,7 @@ async def compute_weekly_wisdom(
 
     snapshot = WisdomIndexSnapshot(
         week_of=week_of,
+        tenant_id=_tid,
         wisdom_score=round(wisdom_score, 1),
         previous_score=round(previous_score, 1),
         delta=round(wisdom_score - previous_score, 1),
@@ -207,10 +227,12 @@ def _generate_recommendations(score: float, debt_penalty: float) -> list[str]:
     return recs
 
 
-async def get_current_wisdom(db: AsyncSession) -> dict[str, Any]:
-    result = await db.execute(
-        select(WisdomIndexSnapshot).order_by(WisdomIndexSnapshot.created_at.desc()).limit(1)
-    )
+async def get_current_wisdom(db: AsyncSession, tenant_id=None) -> dict[str, Any]:
+    _tid = _resolve_tenant(tenant_id)
+    _q = select(WisdomIndexSnapshot).order_by(WisdomIndexSnapshot.created_at.desc()).limit(1)
+    if _tid:
+        _q = _q.where(WisdomIndexSnapshot.tenant_id == _tid)
+    result = await db.execute(_q)
     snapshot = result.scalar_one_or_none()
     if not snapshot:
         return {"wisdom_score": BASE_SCORE, "narrative": "No data yet — wisdom starts at 500."}

@@ -33,6 +33,18 @@ _EMBED_MODEL = "text-embedding-3-small"
 _EMBED_DIM = 1536
 
 
+def _resolve_tenant(tenant_id) -> "UUID | None":
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, UUID) else UUID(str(tenant_id))
+    raw = getattr(settings, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
+
+
 # ── Text representation ───────────────────────────────────────────────────────
 
 def lead_to_text(lead: Lead) -> str:
@@ -114,13 +126,17 @@ async def embed_lead(lead_id: str, db: AsyncSession) -> bool:
     return True
 
 
-async def embed_pending_leads(db: AsyncSession, limit: int = 50) -> dict[str, Any]:
+async def embed_pending_leads(
+    db: AsyncSession,
+    limit: int = 50,
+    tenant_id: "UUID | None" = None,
+) -> dict[str, Any]:
     """Batch-embed all leads that have no embedding yet. Returns stats dict."""
-    rows = (await db.execute(
-        select(Lead)
-        .where(Lead.embedding_vec.is_(None))
-        .limit(limit)
-    )).scalars().all()
+    _tid = _resolve_tenant(tenant_id)
+    q = select(Lead).where(Lead.embedding_vec.is_(None))
+    if _tid:
+        q = q.where(Lead.tenant_id == _tid)
+    rows = (await db.execute(q.limit(limit))).scalars().all()
 
     succeeded, failed = 0, 0
     for lead in rows:
@@ -143,6 +159,7 @@ async def semantic_search_leads(
     db: AsyncSession,
     limit: int = 10,
     min_similarity: float = 0.3,
+    tenant_id: "UUID | None" = None,
 ) -> list[dict[str, Any]]:
     """
     Return leads ranked by cosine similarity to the query string.
@@ -152,9 +169,11 @@ async def semantic_search_leads(
     if query_vec is None:
         return []
 
-    rows = (await db.execute(
-        select(Lead).where(Lead.embedding_vec.isnot(None))
-    )).scalars().all()
+    _tid = _resolve_tenant(tenant_id)
+    _q = select(Lead).where(Lead.embedding_vec.isnot(None))
+    if _tid:
+        _q = _q.where(Lead.tenant_id == _tid)
+    rows = (await db.execute(_q)).scalars().all()
 
     scored: list[tuple[float, Lead]] = []
     for lead in rows:

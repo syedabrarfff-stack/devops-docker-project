@@ -295,19 +295,26 @@ async def _execute_cascade_step(
 
 async def compute_operational_iq(db: AsyncSession) -> dict[str, Any]:
     """Compress wisdom, decision activity, client health, and threats into one score."""
+    _tid = _tenant_id()
+
     wisdom = await get_current_wisdom(db)
     wisdom_component = min(25.0, (wisdom.get("wisdom_score", 500.0) / 1000.0) * 25.0)
 
     decision_count = (await db.execute(
-        select(func.count()).select_from(DecisionObject)
+        select(func.count()).select_from(DecisionObject).where(
+            DecisionObject.tenant_id == _tid
+        )
     )).scalar_one()
     decision_component = min(25.0, decision_count * 0.5)
 
     avg_trust = (await db.execute(
-        select(func.avg(ClientDigitalTwin.trust_score))
+        select(func.avg(ClientDigitalTwin.trust_score)).where(
+            ClientDigitalTwin.tenant_id == _tid
+        )
     )).scalar_one()
     client_component = ((avg_trust or 50.0) / 100.0) * 25.0
 
+    # SentinelThreat has no tenant_id — global threat intelligence
     critical_threats = (await db.execute(
         select(func.count()).select_from(SentinelThreat).where(
             SentinelThreat.severity == "CRITICAL",
@@ -344,15 +351,22 @@ def _interpret_iq(iq: float) -> str:
 
 async def situational_snapshot(db: AsyncSession) -> dict[str, Any]:
     """Full live picture of the organism for Captain's Glass Wall."""
+    _tid = _tenant_id()
+
     iq = await compute_operational_iq(db)
     wisdom = await get_current_wisdom(db)
 
     decision_count = (await db.execute(
-        select(func.count()).select_from(DecisionObject)
+        select(func.count()).select_from(DecisionObject).where(
+            DecisionObject.tenant_id == _tid
+        )
     )).scalar_one()
     twin_count = (await db.execute(
-        select(func.count()).select_from(ClientDigitalTwin)
+        select(func.count()).select_from(ClientDigitalTwin).where(
+            ClientDigitalTwin.tenant_id == _tid
+        )
     )).scalar_one()
+    # SentinelObservation and SentinelThreat have no tenant_id — global intelligence
     obs_count = (await db.execute(
         select(func.count()).select_from(SentinelObservation)
     )).scalar_one()

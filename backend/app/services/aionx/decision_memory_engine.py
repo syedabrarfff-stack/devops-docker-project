@@ -24,6 +24,19 @@ from app.models.aionx_organs import (
 )
 
 
+def _resolve_tenant(tenant_id=None) -> uuid.UUID | None:
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+    from app.core.config import settings as _cfg
+    raw = getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
+
+
 # ─── DECISION CREATION ───────────────────────────────────────────────────────
 
 async def create_decision_object(
@@ -143,14 +156,17 @@ async def record_outcome(
 async def retrospective_sync(
     db: AsyncSession,
     days: int = 30,
+    tenant_id=None,
 ) -> list[DecisionOutcome]:
+    _tid = _resolve_tenant(tenant_id)
     cutoff = datetime.utcnow() - timedelta(days=days)
-    result = await db.execute(
-        select(DecisionObject).where(
-            DecisionObject.created_at <= cutoff,
-            DecisionObject.outcome_at.is_(None),
-        )
+    _dq = select(DecisionObject).where(
+        DecisionObject.created_at <= cutoff,
+        DecisionObject.outcome_at.is_(None),
     )
+    if _tid:
+        _dq = _dq.where(DecisionObject.tenant_id == _tid)
+    result = await db.execute(_dq)
     pending = result.scalars().all()
 
     outcomes_due = []
@@ -214,8 +230,12 @@ async def get_decision_genealogy(
     client_id: uuid.UUID | None = None,
     mission_id: uuid.UUID | None = None,
     limit: int = 50,
+    tenant_id=None,
 ) -> list[dict[str, Any]]:
+    _tid = _resolve_tenant(tenant_id)
     query = select(DecisionObject).order_by(DecisionObject.created_at.desc()).limit(limit)
+    if _tid:
+        query = query.where(DecisionObject.tenant_id == _tid)
     if client_id:
         query = query.where(DecisionObject.client_id == client_id)
     if mission_id:
@@ -269,17 +289,20 @@ async def get_decision_genealogy(
 async def generate_weekly_retrospective(
     db: AsyncSession,
     week_of: datetime | None = None,
+    tenant_id=None,
 ) -> DecisionRetrospective:
+    _tid = _resolve_tenant(tenant_id)
     if not week_of:
         week_of = datetime.utcnow()
 
     week_start = week_of - timedelta(days=7)
-    result = await db.execute(
-        select(DecisionObject).where(
-            DecisionObject.created_at >= week_start,
-            DecisionObject.created_at <= week_of,
-        )
+    _dq = select(DecisionObject).where(
+        DecisionObject.created_at >= week_start,
+        DecisionObject.created_at <= week_of,
     )
+    if _tid:
+        _dq = _dq.where(DecisionObject.tenant_id == _tid)
+    result = await db.execute(_dq)
     decisions = result.scalars().all()
 
     correct = sum(1 for d in decisions if d.outcome_summary and "success" in d.outcome_summary.lower())

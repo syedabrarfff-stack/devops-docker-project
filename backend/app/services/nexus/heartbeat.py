@@ -144,10 +144,19 @@ async def run_pulse(db: Any) -> dict:
 
     # ── Pipeline metrics ──────────────────────────────────────────────────────
     try:
-        total = await db.scalar(select(func.count()).select_from(Lead)) or 0
-        hot = await db.scalar(select(func.count()).select_from(Lead).where(Lead.score >= 75)) or 0
-        warm = await db.scalar(select(func.count()).select_from(Lead).where(Lead.score.between(45, 74))) or 0
-        eligible = await db.scalar(select(func.count()).select_from(Lead).where(Lead.outreach_eligible == True)) or 0
+        import uuid as _uuid
+        from app.core.config import settings as _cfg
+        _tid = None
+        if getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None):
+            try:
+                _tid = _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+        _tf = [Lead.tenant_id == _tid] if _tid else []
+        total = await db.scalar(select(func.count()).select_from(Lead).where(*_tf)) or 0
+        hot = await db.scalar(select(func.count()).select_from(Lead).where(*_tf, Lead.score >= 75)) or 0
+        warm = await db.scalar(select(func.count()).select_from(Lead).where(*_tf, Lead.score.between(45, 74))) or 0
+        eligible = await db.scalar(select(func.count()).select_from(Lead).where(*_tf, Lead.outreach_eligible == True)) or 0
         pulse["pipeline"] = {
             "total_leads": total, "hot_leads": hot, "warm_leads": warm,
             "eligible_for_outreach": eligible, "cool_cold": max(0, total - hot - warm),
