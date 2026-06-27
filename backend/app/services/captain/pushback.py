@@ -108,6 +108,8 @@ confidence must be float 0.0–1.0."""
                 task_type=TaskType.REASONING,
                 max_tokens=900,
             )
+            if response.error:
+                raise ValueError(response.error)
             result = _parse_json_response(response.content)
             if result and "verdict" in result:
                 result["evaluated_at"] = datetime.now(UTC).isoformat()
@@ -191,6 +193,8 @@ Be ruthlessly honest — Captain needs the truth, not validation."""
                 task_type=TaskType.REASONING,
                 max_tokens=1200,
             )
+            if response.error:
+                raise ValueError(response.error)
             result = _parse_json_response(response.content)
             if result and "stress_score" in result:
                 result["strategy"] = strategy
