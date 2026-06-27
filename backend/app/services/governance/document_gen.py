@@ -15,6 +15,19 @@ from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
 
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_doc_tenant(tenant_id=None):
+    """Return a UUID for tenant_id, falling back to configured default or system UUID."""
+    import uuid as _uuid
+    if tenant_id:
+        return _uuid.UUID(str(tenant_id))
+    from app.core.config import settings
+    tid = settings.JARVIS_DEFAULT_TENANT_ID
+    return _uuid.UUID(str(tid)) if tid else _uuid.UUID(_SYSTEM_TENANT)
+
+
 PROPOSAL_PROMPT = """You are JARVIS — the strategic AI of Aliyar Solutions, a premium AI automation and cloud consulting company.
 
 Generate a high-converting, professional business proposal for the following client and context.
@@ -56,6 +69,7 @@ async def generate_proposal(
     context: str,
     pricing: dict,
     style: str = "standard",
+    tenant_id=None,
 ) -> dict:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -106,7 +120,9 @@ async def generate_proposal(
         )
 
     title = f"{service_type} — {client_company}"
+    _tid = _resolve_doc_tenant(tenant_id)
     proposal = Proposal(
+        tenant_id=_tid,
         title=title,
         client_name=client_name,
         client_email=client_email,
@@ -141,24 +157,28 @@ async def create_invoice(
     currency: str = "USD",
     notes: str = "",
     due_days: int = 14,
+    tenant_id=None,
 ) -> dict:
+    from app.models.revenue import InvoiceStatus
     subtotal = sum(float(i.get("amount", 0)) for i in items)
     tax_amount = subtotal * tax_rate / 100
     total = subtotal + tax_amount
 
     invoice = Invoice(
+        tenant_id=_resolve_doc_tenant(tenant_id),
         invoice_number=_next_invoice_number(),
         client_name=client_name,
         client_email=client_email,
         client_company=client_company,
         items=items,
-        subtotal=Decimal(str(round(subtotal, 2))),
-        tax_rate=Decimal(str(tax_rate)),
-        tax_amount=Decimal(str(round(tax_amount, 2))),
-        total=Decimal(str(round(total, 2))),
+        subtotal=round(subtotal, 2),
+        tax_rate=tax_rate,
+        tax_amount=round(tax_amount, 2),
+        total=round(total, 2),
+        amount_usd=round(subtotal, 2),
         currency=currency,
         notes=notes,
-        status="draft",
+        status=InvoiceStatus.DRAFT,
         due_date=datetime.now(timezone.utc) + timedelta(days=due_days),
     )
     db.add(invoice)
