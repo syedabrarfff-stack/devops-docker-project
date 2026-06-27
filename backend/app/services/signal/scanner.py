@@ -276,7 +276,7 @@ async def generate_brief_stream(signals: list[dict]) -> AsyncIterator[str]:
     try:
         client = anthropic.AsyncAnthropic(api_key=api_key)
         async with client.messages.stream(
-            model="claude-opus-4-8",
+            model="claude-sonnet-4-6",
             max_tokens=700,
             messages=[{"role": "user", "content": prompt}],
         ) as stream:

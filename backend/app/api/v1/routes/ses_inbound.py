@@ -11,10 +11,11 @@ import uuid
 import logging
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_db
 from app.models.lead import Lead, LeadStatus
@@ -60,7 +61,7 @@ async def _process_inbound_background(raw_body: bytes) -> None:
         logger.exception("SES inbound background processing failed")
 
 
-@ops_router.get("/status")
+@ops_router.get("/status", dependencies=[Depends(get_current_captain)])
 async def operational_status(
     tenant_id: Optional[uuid.UUID] = None,
 ) -> dict[str, Any]:

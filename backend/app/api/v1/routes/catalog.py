@@ -4,6 +4,7 @@ Aliyar Solutions Service Catalog API - canonical 25 AIONX capability modules.
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
 from app.services.catalog.catalog_service import (
     get_all_divisions,
@@ -61,19 +62,19 @@ async def capability_modules():
     return get_capability_modules()
 
 
-@router.post("/seed")
+@router.post("/seed", dependencies=[Depends(get_current_captain)])
 async def trigger_seed(db: AsyncSession = Depends(get_db)):
     """Force re-seed if catalog is empty. Idempotent — skips if already seeded."""
     return await sync_canonical_catalog(db)
 
 
-@router.post("/sync-canonical")
+@router.post("/sync-canonical", dependencies=[Depends(get_current_captain)])
 async def trigger_canonical_sync(db: AsyncSession = Depends(get_db)):
     """Delete legacy catalog rows and repopulate the finalized 25 capability modules."""
     return await sync_canonical_catalog(db)
 
 
-@router.patch("/divisions/{code}")
+@router.patch("/divisions/{code}", dependencies=[Depends(get_current_captain)])
 async def update_service(code: str, payload: dict, db: AsyncSession = Depends(get_db)):
     allowed = {"name", "description", "price_range_usd", "pricing_model", "duration_estimate", "is_active", "is_featured"}
     updates = {k: v for k, v in payload.items() if k in allowed}
