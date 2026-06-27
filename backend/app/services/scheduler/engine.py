@@ -371,6 +371,7 @@ async def _job_daily_icp_lead_scoring() -> None:
         logger.info(f"Daily ICP scoring: {promoted} leads promoted")
     except Exception as e:
         logger.warning(f"Daily ICP scoring job failed: {e}")
+        await _record_job_failure("daily_icp_lead_scoring", str(e), _tb.format_exc())
 
 
 async def _job_process_outreach() -> None:
@@ -409,6 +410,7 @@ async def _job_process_outreach() -> None:
         logger.info(f"Outreach: {sent}/{len(due)} emails sent")
     except Exception as e:
         logger.warning(f"Outreach job failed: {e}")
+        await _record_job_failure("outreach_processor", str(e), _tb.format_exc())
 
 
 async def _job_sync_contacts() -> None:
@@ -422,6 +424,7 @@ async def _job_sync_contacts() -> None:
         logger.info(f"Contact sync: {count} synced")
     except Exception as e:
         logger.warning(f"Contact sync job failed: {e}")
+        await _record_job_failure("contact_sync", str(e), _tb.format_exc())
 
 
 # ── Phase 5 — Intelligence jobs ───────────────────────────────────────────────
@@ -578,6 +581,7 @@ async def _job_overnight_lead_discovery() -> None:
         logger.info(f"Overnight lead discovery: {count} leads scored")
     except Exception as e:
         logger.warning(f"Overnight lead discovery failed: {e}")
+        await _record_job_failure("overnight_lead_discovery", str(e), _tb.format_exc())
 
 
 async def _job_overnight_intel_analysis() -> None:
@@ -646,6 +650,7 @@ async def _job_overnight_proposal_engine() -> None:
         logger.info(f"Overnight proposals: {len(leads)} proposals drafted")
     except Exception as e:
         logger.warning(f"Overnight proposal engine failed: {e}")
+        await _record_job_failure("overnight_proposal_engine", str(e), _tb.format_exc())
 
 
 async def _job_overnight_cold_outreach() -> None:
@@ -677,6 +682,7 @@ async def _job_overnight_cold_outreach() -> None:
         logger.info(f"Overnight cold outreach: {sent} emails sent")
     except Exception as e:
         logger.warning(f"Overnight cold outreach failed: {e}")
+        await _record_job_failure("overnight_cold_outreach", str(e), _tb.format_exc())
 
 
 async def _job_overnight_freelance_bids() -> None:
@@ -723,6 +729,7 @@ async def _job_overnight_followup_sequences() -> None:
         logger.info(f"Overnight follow-ups: {sent} sequences sent")
     except Exception as e:
         logger.warning(f"Overnight follow-up sequences failed: {e}")
+        await _record_job_failure("overnight_followup_sequences", str(e), _tb.format_exc())
 
 
 async def _job_overnight_pipeline_health() -> None:
@@ -736,6 +743,7 @@ async def _job_overnight_pipeline_health() -> None:
         logger.info(f"Pipeline health: {count} leads re-scored")
     except Exception as e:
         logger.warning(f"Overnight pipeline health failed: {e}")
+        await _record_job_failure("overnight_pipeline_health", str(e), _tb.format_exc())
 
 
 async def _job_overnight_ops_report() -> None:
@@ -759,6 +767,7 @@ async def _job_overnight_ops_report() -> None:
         logger.info("Overnight ops report stored and ready for Captain")
     except Exception as e:
         logger.warning(f"Overnight ops report failed: {e}")
+        await _record_job_failure("overnight_ops_report", str(e), _tb.format_exc())
 
 
 # ── 6-Layer Autonomous Intelligence System Jobs ───────────────────────────────
@@ -776,6 +785,7 @@ async def _job_daily_strategy_report() -> None:
             )
     except Exception as exc:
         logger.warning("Daily strategy report failed: %s", exc)
+        await _record_job_failure("daily_strategy_report", str(exc), _tb.format_exc())
 
 
 async def _job_milestone_bulk_review() -> None:
@@ -905,6 +915,7 @@ async def _job_scout_network() -> None:
         )
     except Exception as exc:
         logger.warning("ScoutNetwork daily job failed: %s", exc)
+        await _record_job_failure("daily_scout_network", str(exc), _tb.format_exc())
 
 
 async def _job_market_intelligence_generation() -> None:
