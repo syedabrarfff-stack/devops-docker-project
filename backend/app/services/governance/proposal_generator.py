@@ -228,7 +228,7 @@ async def _generate_sections(lead: Lead, tier: str, invoice_number: str) -> dict
             force_model="claude-opus-4-7",
             max_tokens=2200,
         )
-        if response.error or response.demo:
+        if response.error or response.demo or not response.content:
             return _fallback_sections(lead, tier, invoice_number)
         parsed = _parse_sections(response.content)
         return parsed or _fallback_sections(lead, tier, invoice_number)

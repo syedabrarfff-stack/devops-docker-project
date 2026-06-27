@@ -87,7 +87,7 @@ async def test_bedrock():
         "status": "ok",
         "model_id": model_id,
         "latency_ms": latency_ms,
-        "response": response.content[:500],
+        "response": (response.content or "")[:500],
         "tokens_used": response.tokens_used,
     }
 

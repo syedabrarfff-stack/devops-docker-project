@@ -33,12 +33,14 @@ async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(ge
         auto_detect=req.auto_route and not req.force_provider and requested_task_type is None,
     )
 
+    response_text = response.content or (f"JARVIS offline — {response.error}" if response.error else "JARVIS is momentarily unavailable. All systems reconnecting.")
+
     # Persist to DB
     if tenant_id:
         try:
             db.add(Conversation(tenant_id=tenant_id, session_id=req.session_id, role="user", content=req.message))
             db.add(Conversation(
-                tenant_id=tenant_id, session_id=req.session_id, role="jarvis", content=response.content,
+                tenant_id=tenant_id, session_id=req.session_id, role="jarvis", content=response_text,
                 model_used=response.model, task_type=task_type, tokens_used=response.tokens_used,
             ))
             await db.flush()
@@ -47,7 +49,7 @@ async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(ge
             logger.warning("Chat conversation persistence failed for session %s: %s", req.session_id, exc)
 
     return ChatResponse(
-        response=response.content,
+        response=response_text,
         model=response.model,
         provider=response.provider,
         task_type=task_type,
