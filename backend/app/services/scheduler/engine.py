@@ -441,6 +441,7 @@ async def _job_tech_radar_scan() -> None:
         logger.info(f"Tech radar: {count} entries updated")
     except Exception as e:
         logger.warning(f"Tech radar scan failed: {e}")
+        await _record_job_failure("tech_radar_scan", str(e), _tb.format_exc())
 
 
 async def _job_market_intelligence_report() -> None:
@@ -460,6 +461,7 @@ async def _job_market_intelligence_report() -> None:
         logger.info(f"Market intelligence: {generated} tenant reports generated")
     except Exception as e:
         logger.warning(f"Market intelligence report failed: {e}")
+        await _record_job_failure("market_intelligence_report", str(e), _tb.format_exc())
 
 
 async def _job_competitor_monitoring() -> None:
@@ -474,6 +476,7 @@ async def _job_competitor_monitoring() -> None:
         logger.info(f"Competitor monitoring: {changes} changes detected")
     except Exception as e:
         logger.warning(f"Competitor monitoring failed: {e}")
+        await _record_job_failure("competitor_monitoring", str(e), _tb.format_exc())
 
 
 async def _job_intelligence_morning_briefing() -> None:
@@ -490,6 +493,7 @@ async def _job_intelligence_morning_briefing() -> None:
         logger.info(f"Morning briefing: {generated} tenant briefings generated")
     except Exception as e:
         logger.warning(f"Morning briefing failed: {e}")
+        await _record_job_failure("intelligence_morning_briefing", str(e), _tb.format_exc())
 
 
 async def _job_optimization_review() -> None:
@@ -503,6 +507,7 @@ async def _job_optimization_review() -> None:
         logger.info(f"Optimization review: {count} recommendations generated")
     except Exception as e:
         logger.warning(f"Optimization review failed: {e}")
+        await _record_job_failure("optimization_review", str(e), _tb.format_exc())
 
 
 async def _job_research_report() -> None:
@@ -516,6 +521,7 @@ async def _job_research_report() -> None:
         logger.info(f"Research reports: {count} generated")
     except Exception as e:
         logger.warning(f"Research report generation failed: {e}")
+        await _record_job_failure("research_report", str(e), _tb.format_exc())
 
 
 async def _job_self_learning() -> None:
@@ -528,6 +534,7 @@ async def _job_self_learning() -> None:
         logger.info(f"Self-learning complete: {result.get('learnings_stored', 0)} learnings stored")
     except Exception as e:
         logger.warning(f"Self-learning job failed: {e}")
+        await _record_job_failure("self_learning", str(e), _tb.format_exc())
 
 
 async def _job_memory_consolidation() -> None:
@@ -542,6 +549,7 @@ async def _job_memory_consolidation() -> None:
         logger.info(f"Memory consolidation complete: {result}")
     except Exception as e:
         logger.warning(f"Memory consolidation failed: {e}")
+        await _record_job_failure("memory_consolidation", str(e), _tb.format_exc())
 
 
 async def _job_memory_promotion() -> None:
@@ -556,6 +564,7 @@ async def _job_memory_promotion() -> None:
         logger.info(f"Memory promotion complete: {result}")
     except Exception as e:
         logger.warning(f"Memory promotion failed: {e}")
+        await _record_job_failure("memory_promotion", str(e), _tb.format_exc())
 
 
 async def _job_gmail_inbox() -> None:
@@ -595,6 +604,7 @@ async def _job_overnight_intel_analysis() -> None:
         logger.info(f"Overnight intel analysis: {count} insights generated")
     except Exception as e:
         logger.warning(f"Overnight intel analysis failed: {e}")
+        await _record_job_failure("overnight_intel_analysis", str(e), _tb.format_exc())
 
 
 async def _job_overnight_proposal_engine() -> None:
@@ -696,6 +706,7 @@ async def _job_overnight_freelance_bids() -> None:
         logger.info(f"Overnight freelance scan complete — report generated")
     except Exception as e:
         logger.warning(f"Overnight freelance bids failed: {e}")
+        await _record_job_failure("overnight_freelance_bids", str(e), _tb.format_exc())
 
 
 async def _job_overnight_followup_sequences() -> None:
@@ -801,6 +812,7 @@ async def _job_milestone_bulk_review() -> None:
             )
     except Exception as exc:
         logger.warning("Milestone bulk review failed: %s", exc)
+        await _record_job_failure("milestone_bulk_review", str(exc), _tb.format_exc())
 
 
 async def _job_tech_evolution_scan() -> None:
@@ -816,6 +828,7 @@ async def _job_tech_evolution_scan() -> None:
             )
     except Exception as exc:
         logger.warning("Tech evolution scan failed: %s", exc)
+        await _record_job_failure("tech_evolution_scan", str(exc), _tb.format_exc())
 
 
 async def _job_pre_call_briefing_trigger() -> None:
@@ -854,6 +867,7 @@ async def _job_pre_call_briefing_trigger() -> None:
 
     except Exception as exc:
         logger.warning("Pre-call briefing trigger failed: %s", exc)
+        await _record_job_failure("pre_call_briefing_trigger", str(exc), _tb.format_exc())
 
 
 async def _job_weekly_strategy_review() -> None:
@@ -869,6 +883,7 @@ async def _job_weekly_strategy_review() -> None:
             )
     except Exception as exc:
         logger.warning("Weekly strategy review failed: %s", exc)
+        await _record_job_failure("weekly_strategy_review", str(exc), _tb.format_exc())
 
 
 async def _job_dio_health_check() -> None:
@@ -881,6 +896,7 @@ async def _job_dio_health_check() -> None:
             logger.info("DIO health check: tenant=%s | 15 departments confirmed", tenant_id)
     except Exception as exc:
         logger.warning("DIO health check failed: %s", exc)
+        await _record_job_failure("dio_health_check", str(exc), _tb.format_exc())
 
 
 async def _job_connector_hub_ingestion() -> None:
@@ -899,6 +915,7 @@ async def _job_connector_hub_ingestion() -> None:
             )
     except Exception as exc:
         logger.warning("ConnectorHub ingestion failed: %s", exc)
+        await _record_job_failure("connector_hub_ingestion", str(exc), _tb.format_exc())
 
 
 async def _job_scout_network() -> None:
@@ -930,6 +947,7 @@ async def _job_market_intelligence_generation() -> None:
             logger.info("MarketIntelligence: tenant=%s topic=%s", tenant_id, report.get("topic", "unknown"))
     except Exception as exc:
         logger.warning("Market intelligence generation failed: %s", exc)
+        await _record_job_failure("market_intelligence_generation", str(exc), _tb.format_exc())
 
 
 async def _job_self_healer() -> None:
@@ -939,6 +957,7 @@ async def _job_self_healer() -> None:
         await run_self_healing_cycle()
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+        await _record_job_failure("self_healer", str(exc), _tb.format_exc())
 
 
 async def _job_embed_leads() -> None:
@@ -951,6 +970,7 @@ async def _job_embed_leads() -> None:
         logger.info("Lead embedding sweep: %s", result)
     except Exception as exc:
         logger.warning("Lead embedding sweep failed: %s", exc)
+        await _record_job_failure("embed_leads", str(exc), _tb.format_exc())
 
 
 async def _job_nexus_heartbeat() -> None:

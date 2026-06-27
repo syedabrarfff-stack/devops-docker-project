@@ -11,9 +11,10 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, EmailStr
 
+from app.api.v1.routes.auth import get_current_captain
 from app.services.whitelabel.onboarding_service import onboarding
 from app.services.whitelabel.white_label_service import white_label
 
@@ -130,7 +131,7 @@ async def onboarding_step6(tenant_id: UUID):
     return await onboarding.step6_review(tenant_id)
 
 
-@router.post("/onboarding/{tenant_id}/step7-golive")
+@router.post("/onboarding/{tenant_id}/step7-golive", dependencies=[Depends(get_current_captain)])
 async def onboarding_step7(tenant_id: UUID):
     result = await onboarding.step7_go_live(tenant_id)
     if "error" in result:
@@ -140,27 +141,27 @@ async def onboarding_step7(tenant_id: UUID):
 
 # ── Agency Admin Panel ────────────────────────────────────────────────────────
 
-@router.get("/config/{tenant_id}")
+@router.get("/config/{tenant_id}", dependencies=[Depends(get_current_captain)])
 async def get_white_label_config(tenant_id: UUID):
-    """Agency owner sees their full config (passwords masked)."""
+    """Captain-only — full tenant config review (credentials masked)."""
     config = await white_label.get_config(tenant_id)
     if not config:
         raise HTTPException(status_code=404, detail="Tenant not found")
     return config.to_dict()
 
 
-@router.get("/config/{tenant_id}/checklist")
+@router.get("/config/{tenant_id}/checklist", dependencies=[Depends(get_current_captain)])
 async def get_onboarding_checklist(tenant_id: UUID):
     return await white_label.get_onboarding_checklist(tenant_id)
 
 
-@router.get("/config/{tenant_id}/personas")
+@router.get("/config/{tenant_id}/personas", dependencies=[Depends(get_current_captain)])
 async def get_tenant_personas(tenant_id: UUID):
     personas = await white_label.get_tenant_personas(tenant_id)
     return {"personas": personas, "count": len(personas)}
 
 
-@router.get("/config/{tenant_id}/plan-limits")
+@router.get("/config/{tenant_id}/plan-limits", dependencies=[Depends(get_current_captain)])
 async def get_tenant_plan_limits(tenant_id: UUID):
     config = await white_label.get_config(tenant_id)
     if not config:

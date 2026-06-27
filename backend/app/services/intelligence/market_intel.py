@@ -59,6 +59,9 @@ class MarketIntelligenceEngine:
             system_prompt="You are a senior market intelligence analyst for a technology operations company.",
             max_tokens=4500,
         )
+        if response.error:
+            logger.warning("Market intelligence AI failed: %s", response.error)
+            return ""
         report_content = (response.content or "").strip()
         if not report_content:
             logger.warning("Market intelligence report returned empty content")

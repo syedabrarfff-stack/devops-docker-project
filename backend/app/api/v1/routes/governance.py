@@ -135,9 +135,13 @@ async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSe
 # ── Proposals ─────────────────────────────────────────────────────────────────
 
 @router.get("/proposals")
-async def list_proposals(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_proposals(
+    status: Optional[str] = None,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import get_proposals
-    return {"proposals": await get_proposals(db, status=status)}
+    return {"proposals": await get_proposals(db, status=status, tenant_id=tenant_id)}
 
 
 @router.post("/proposals/generate")

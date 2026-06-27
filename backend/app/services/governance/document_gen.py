@@ -199,10 +199,13 @@ async def get_invoices(db: AsyncSession, status: str | None = None, tenant_id=No
     return [_serialize_invoice(i) for i in result.scalars().all()]
 
 
-async def get_proposals(db: AsyncSession, status: str | None = None) -> list[dict]:
+async def get_proposals(db: AsyncSession, status: str | None = None, tenant_id=None) -> list[dict]:
     q = select(Proposal).order_by(Proposal.created_at.desc())
     if status:
         q = q.where(Proposal.status == status)
+    if tenant_id is not None:
+        import uuid as _uuid
+        q = q.where(Proposal.tenant_id == _uuid.UUID(str(tenant_id)))
     result = await db.execute(q)
     return [_serialize_proposal(p) for p in result.scalars().all()]
 

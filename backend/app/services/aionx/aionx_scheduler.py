@@ -214,13 +214,18 @@ async def _job_refresh_twin_predictions() -> None:
     try:
         from sqlalchemy import select
 
+        from app.core.config import settings as _settings
         from app.core.database import AsyncSessionLocal
         from app.models.aionx_organs import ClientDigitalTwin
         from app.services.aionx.client_digital_twin import update_predictions
         from app.services.aionx.orchestration_cortex import fire_event
 
         async with AsyncSessionLocal() as db:
-            twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
+            _q = select(ClientDigitalTwin).limit(500)
+            if _settings.JARVIS_DEFAULT_TENANT_ID:
+                import uuid as _uuid
+                _q = _q.where(ClientDigitalTwin.tenant_id == _uuid.UUID(str(_settings.JARVIS_DEFAULT_TENANT_ID)))
+            twins = (await db.execute(_q)).scalars().all()
             churn_alerts = 0
             for twin in twins:
                 preds = await update_predictions(db, twin.client_id)
@@ -316,13 +321,18 @@ async def _job_debt_assessment() -> None:
 async def _job_trust_erosion_check() -> None:
     logger.info("AIONX: client trust erosion detection")
     try:
+        from app.core.config import settings as _settings
         from app.core.database import AsyncSessionLocal
         from app.services.aionx.client_trust_index import escalate_trust_erosion
         from sqlalchemy import select
         from app.models.aionx_organs import ClientDigitalTwin
 
         async with AsyncSessionLocal() as db:
-            twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
+            _q = select(ClientDigitalTwin).limit(500)
+            if _settings.JARVIS_DEFAULT_TENANT_ID:
+                import uuid as _uuid
+                _q = _q.where(ClientDigitalTwin.tenant_id == _uuid.UUID(str(_settings.JARVIS_DEFAULT_TENANT_ID)))
+            twins = (await db.execute(_q)).scalars().all()
 
             escalations = 0
             for twin in twins:

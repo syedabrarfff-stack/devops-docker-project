@@ -189,7 +189,12 @@ async def run_convergence_session(
         from app.models.aionx_organs import ClientDigitalTwin
         from app.services.aionx.client_trust_index import compute_trust_score
 
-        twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
+        from app.core.config import settings as _cfg
+        _tq = select(ClientDigitalTwin).limit(500)
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            import uuid as _uuid
+            _tq = _tq.where(ClientDigitalTwin.tenant_id == _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID)))
+        twins = (await db.execute(_tq)).scalars().all()
         if twins:
             avg_trust = sum(t.trust_score or 70 for t in twins) / len(twins)
             trust_context = f"\nAverage client trust: {avg_trust:.0f}/100"
