@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import useJarvisStore from '../../store/useJarvisStore'
 import {
   Infinity, Brain, Shield, Heart, Zap, Activity, AlertTriangle,
   CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Play,
@@ -129,6 +130,9 @@ export default function NexusCore() {
   const abortRef = useRef(null)
   const thinkScrollRef = useRef(null)
 
+  const wsNexusPulse = useJarvisStore(s => s.nexusPulse)
+  const wsPendingDrafts = useJarvisStore(s => s.pendingDrafts)
+
   const load = useCallback(async () => {
     try {
       const [s, c, d] = await Promise.all([
@@ -223,10 +227,13 @@ export default function NexusCore() {
     }
   }
 
-  // Pulse data
+  // Pulse data — REST poll as baseline, WebSocket overrides for live fields
   const pulse = status?.latest_pulse
   const pipeline = pulse?.pipeline || {}
   const subsystems = status?.subsystem_health || {}
+  const liveSignal = wsNexusPulse?.action_signal || pulse?.action_signal
+  const liveHotLeads = wsNexusPulse != null ? wsNexusPulse.hot_leads : pipeline.hot_leads
+  const liveDrafts = wsNexusPulse != null ? wsPendingDrafts : pulse?.autopilot_pending
 
   const TABS = [
     { id: 'brain',          label: 'Brain',         icon: <Brain size={14} /> },
@@ -245,7 +252,15 @@ export default function NexusCore() {
             <Infinity size={22} className="text-violet-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">JARVIS NEXUS</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white tracking-tight">JARVIS NEXUS</h1>
+              {wsNexusPulse && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] text-emerald-400 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                  LIVE
+                </span>
+              )}
+            </div>
             <p className="text-xs text-white/40">Supreme Autonomous Intelligence Core · v{status?.version || '1.0.0'}</p>
           </div>
         </div>
@@ -271,13 +286,14 @@ export default function NexusCore() {
       {/* Metric Cards */}
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: 'Total Leads',   value: pipeline.total_leads ?? '—',           color: 'text-white' },
-          { label: 'HOT',           value: pipeline.hot_leads ?? '—',             color: 'text-red-400' },
-          { label: 'WARM',          value: pipeline.warm_leads ?? '—',            color: 'text-amber-400' },
-          { label: 'Eligible',      value: pipeline.eligible_for_outreach ?? '—', color: 'text-emerald-400' },
-          { label: 'Drafts Pending',value: pulse?.autopilot_pending ?? '—',       color: 'text-jarvis-blue' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="glass rounded-xl p-4 border border-white/[0.06]">
+          { label: 'Total Leads',    value: pipeline.total_leads ?? '—',           color: 'text-white',       live: false },
+          { label: 'HOT',            value: liveHotLeads ?? '—',                   color: 'text-red-400',     live: wsNexusPulse != null },
+          { label: 'WARM',           value: pipeline.warm_leads ?? '—',            color: 'text-amber-400',   live: false },
+          { label: 'Eligible',       value: pipeline.eligible_for_outreach ?? '—', color: 'text-emerald-400', live: false },
+          { label: 'Drafts Pending', value: liveDrafts ?? '—',                     color: 'text-jarvis-blue', live: wsNexusPulse != null },
+        ].map(({ label, value, color, live }) => (
+          <div key={label} className="glass rounded-xl p-4 border border-white/[0.06] relative">
+            {live && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             <p className="text-[11px] text-white/40 uppercase tracking-wider">{label}</p>
             <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
@@ -389,13 +405,17 @@ export default function NexusCore() {
                 </p>
                 <div className="text-center py-4">
                   <p className={`text-3xl font-black tracking-widest ${
-                    pulse?.action_signal === 'OUTREACH_READY' ? 'text-emerald-400' :
-                    pulse?.action_signal === 'DRAFTS_PENDING' ? 'text-amber-400' : 'text-white/40'
+                    liveSignal === 'OUTREACH_READY' ? 'text-emerald-400' :
+                    liveSignal === 'DRAFTS_PENDING' ? 'text-amber-400' : 'text-white/40'
                   }`}>
-                    {pulse?.action_signal || 'STANDBY'}
+                    {liveSignal || 'STANDBY'}
                   </p>
                   <p className="text-xs text-white/30 mt-2">
-                    {pulse?.timestamp ? `Last pulse: ${new Date(pulse.timestamp).toLocaleTimeString()}` : 'No pulse yet'}
+                    {wsNexusPulse
+                      ? <span className="text-emerald-400/70">⬤ Live via WebSocket</span>
+                      : pulse?.timestamp
+                        ? `Last pulse: ${new Date(pulse.timestamp).toLocaleTimeString()}`
+                        : 'No pulse yet'}
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 mt-2">

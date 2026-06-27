@@ -4,6 +4,7 @@ Supports cron, interval, and one-shot (date) triggers.
 Jobs survive restarts via job store.
 """
 import logging
+import traceback as _tb
 from datetime import datetime, timezone
 from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -151,6 +152,43 @@ def resume_job(job_id: str) -> bool:
         return False
 
 
+# ── Job failure persistence ───────────────────────────────────────────────────
+
+async def _record_job_failure(job_name: str, error: str, tb_str: str = "") -> None:
+    """Persist a scheduler job failure to DB. Alert Captain after 3 consecutive open failures."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.scheduling import JobFailure
+        from sqlalchemy import select, func
+
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                db.add(JobFailure(
+                    job_name=job_name,
+                    status="open",
+                    error=error[:2000],
+                    traceback=tb_str[:4000] if tb_str else None,
+                ))
+            open_count = await db.scalar(
+                select(func.count()).select_from(JobFailure)
+                .where(JobFailure.job_name == job_name)
+                .where(JobFailure.status == "open")
+            ) or 0
+
+        if open_count >= 3:
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"⚠️ *Scheduler Failure — {job_name}*\n"
+                    f"{open_count} consecutive failures recorded.\n"
+                    f"`{error[:200]}`"
+                )
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.warning("_record_job_failure itself failed for %s: %s", job_name, exc)
+
+
 # ── Default JARVIS jobs ───────────────────────────────────────────────────────
 
 async def _register_default_jobs() -> None:
@@ -290,7 +328,8 @@ async def _job_morning_briefing() -> None:
             from app.core.config import settings
             await _handle_briefing(str(settings.TELEGRAM_CHAT_ID or ""), db)
     except Exception as e:
-        logger.warning(f"Morning briefing job failed: {e}")
+        logger.warning("Morning briefing job failed: %s", e)
+        await _record_job_failure("daily_briefing", str(e), _tb.format_exc())
 
 
 async def _job_score_leads() -> None:
@@ -303,7 +342,8 @@ async def _job_score_leads() -> None:
                 count = await bulk_score(db, limit=20)
         logger.info(f"Lead scoring: {count} leads processed")
     except Exception as e:
-        logger.warning(f"Lead scoring job failed: {e}")
+        logger.warning("Lead scoring job failed: %s", e)
+        await _record_job_failure("lead_scoring_sweep", str(e), _tb.format_exc())
 
 
 async def _job_daily_icp_lead_scoring() -> None:
@@ -959,6 +999,7 @@ async def _job_nexus_heartbeat() -> None:
 
     except Exception as exc:
         logger.warning("NEXUS heartbeat job failed: %s", exc)
+        await _record_job_failure("nexus_heartbeat", str(exc), _tb.format_exc())
 
 
 async def _job_captain_dashboard_briefing() -> None:
@@ -970,6 +1011,7 @@ async def _job_captain_dashboard_briefing() -> None:
             await notify_captain_morning_briefing(db)
     except Exception as exc:
         logger.warning("Captain dashboard briefing failed: %s", exc)
+        await _record_job_failure("captain_dashboard_briefing", str(exc), _tb.format_exc())
 
 
 async def _job_weekly_performance_briefing() -> None:
@@ -981,6 +1023,7 @@ async def _job_weekly_performance_briefing() -> None:
             await notify_weekly_performance_briefing(db)
     except Exception as exc:
         logger.warning("Weekly performance briefing failed: %s", exc)
+        await _record_job_failure("weekly_performance_briefing", str(exc), _tb.format_exc())
 
 
 async def _job_nightly_signal_scan() -> None:
@@ -1096,3 +1139,4 @@ async def _job_nightly_signal_scan() -> None:
 
     except Exception as exc:
         logger.warning("Nightly signal scan failed: %s", exc)
+        await _record_job_failure("nightly_signal_scan", str(exc), _tb.format_exc())
