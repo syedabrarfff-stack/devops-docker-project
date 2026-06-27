@@ -188,6 +188,8 @@ async def generate_sequence_with_ai(
         force_provider="google",
     )
     try:
+        if resp.error:
+            raise ValueError(resp.error)
         text = resp.content.strip()
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()

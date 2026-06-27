@@ -140,6 +140,8 @@ class ScoutNetwork:
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.RESEARCH,
             )
+            if resp.error:
+                raise ValueError(resp.error)
             return {
                 "scout_id": scout_id,
                 "scout_name": profile["name"],

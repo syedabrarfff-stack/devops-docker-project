@@ -303,7 +303,8 @@ async def _handle_briefing(chat_id: str, db) -> None:
             [Message(role="user", content=prompt)],
             task_type=TaskType.FAST,
         )
-        await send_message(chat_id, f"☀️ *Morning Briefing*\n\n{resp.content[:3000]}")
+        briefing = resp.content if not resp.error else f"Briefing AI unavailable — {resp.error}"
+        await send_message(chat_id, f"☀️ *Morning Briefing*\n\n{(briefing or 'No content returned.')[:3000]}")
     except Exception as e:
         await send_message(chat_id, f"Briefing unavailable: {e}")
 
@@ -371,7 +372,8 @@ async def _handle_chat(chat_id: str, text: str, db) -> None:
             task_type=TaskType.FAST,
             system_prompt="You are JARVIS, AI assistant for Aliyar Solutions. Be concise (max 200 words).",
         )
-        await send_message(chat_id, resp.content[:4000])
+        reply = resp.content if not resp.error else f"JARVIS momentarily unavailable — {resp.error}"
+        await send_message(chat_id, (reply or "JARVIS unavailable.")[:4000])
     except Exception as e:
         await send_message(chat_id, f"Error: {e}")
 

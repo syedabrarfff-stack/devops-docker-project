@@ -68,6 +68,8 @@ async def score_lead_with_ai(lead: Lead) -> dict:
     )
 
     try:
+        if resp.error:
+            raise ValueError(resp.error)
         text = resp.content.strip()
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
