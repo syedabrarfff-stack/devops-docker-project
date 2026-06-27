@@ -1044,5 +1044,55 @@ async def _job_nightly_signal_scan() -> None:
             if len(signals) > 5:
                 lines.append(f"\n_...and {len(signals) - 5} more. Review in /control-room/signal_")
             await notify_telegram("\n".join(lines))
+
+        # ── Auto-propose for highest-confidence HOT leads ─────────────────────
+        # Only fires when: intent_tier=HOT, confidence≥85, outreach_count>0
+        # Capped at 2 per nightly run to avoid overwhelming the approval queue
+        hot_candidates = [
+            s for s in signals
+            if s.get("intent_tier") == "HOT"
+            and int(s.get("confidence", 0) or 0) >= 85
+            and int(s.get("lead_score", 0) or 0) >= 75
+        ]
+        proposals_queued = 0
+        for sig in hot_candidates[:2]:
+            if proposals_queued >= 2:
+                break
+            lead_id_str = sig.get("lead_id")
+            if not lead_id_str:
+                continue
+            try:
+                from uuid import UUID
+                from app.services.governance.auto_proposal import auto_generate_proposal_for_lead
+                lead_score = float(sig.get("lead_score", 75))
+                estimated_value = max(3000.0, lead_score * 60)  # score→value heuristic
+                result = await auto_generate_proposal_for_lead(
+                    lead_id=UUID(lead_id_str),
+                    lead_name=sig.get("lead_contact") or "Decision Maker",
+                    lead_email=sig.get("lead_email") or "",
+                    lead_company=sig.get("lead_company") or "Unknown",
+                    estimated_deal_value=estimated_value,
+                    lead_context=f"HOT signal — {sig.get('why_now', '')}",
+                )
+                if result.get("proposal_id"):
+                    proposals_queued += 1
+                    logger.info(
+                        "Auto-proposal queued for HOT lead %s (confidence=%s)",
+                        sig.get("lead_company"), sig.get("confidence")
+                    )
+            except Exception as exc:
+                logger.warning("Auto-proposal failed for lead %s: %s", lead_id_str, exc)
+
+        if proposals_queued:
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"📋 *Auto-Proposals Queued*\n"
+                    f"{proposals_queued} proposal(s) drafted for your highest-confidence HOT leads.\n"
+                    f"Review at /control-room/proposals"
+                )
+            except Exception:
+                pass
+
     except Exception as exc:
         logger.warning("Nightly signal scan failed: %s", exc)

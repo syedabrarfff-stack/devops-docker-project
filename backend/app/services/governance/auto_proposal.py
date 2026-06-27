@@ -30,7 +30,8 @@ async def auto_generate_proposal_for_lead(
     from app.services.governance.auto_approval import auto_approve_proposal
     from app.core.database import AsyncSessionLocal
 
-    if not db:
+    _own_db = db is None
+    if _own_db:
         db = AsyncSessionLocal()
 
     try:
@@ -82,7 +83,7 @@ async def auto_generate_proposal_for_lead(
             "error": str(exc),
         }
     finally:
-        if not db:
+        if _own_db:
             await db.close()
 
 
