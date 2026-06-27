@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useJarvisStore from '../../store/useJarvisStore'
+import { nexusStatus, nexusConstitution, nexusDecisions } from '../../services/api'
 import {
   Infinity, Brain, Shield, Heart, Zap, Activity, AlertTriangle,
   CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Play,
@@ -136,9 +137,9 @@ export default function NexusCore() {
   const load = useCallback(async () => {
     try {
       const [s, c, d] = await Promise.all([
-        fetch(`${BASE_URL}/api/v1/nexus/status`).then(r => r.json()),
-        fetch(`${BASE_URL}/api/v1/nexus/constitution`).then(r => r.json()),
-        fetch(`${BASE_URL}/api/v1/nexus/decisions?limit=20`).then(r => r.json()),
+        nexusStatus(),
+        nexusConstitution(),
+        nexusDecisions(20),
       ])
       setStatus(s)
       setConstitution(c)
@@ -177,10 +178,18 @@ export default function NexusCore() {
     const ctrl = new AbortController()
     abortRef.current = ctrl
 
+    const _getAuthHeader = () => {
+      try {
+        const raw = localStorage.getItem('jarvis_auth')
+        if (raw) { const { token } = JSON.parse(raw); if (token) return { Authorization: `Bearer ${token}` } }
+      } catch {}
+      return {}
+    }
+
     try {
       const resp = await fetch(`${BASE_URL}/api/v1/nexus/cycle`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
         signal: ctrl.signal,
       })
 

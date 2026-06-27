@@ -208,6 +208,14 @@ export default function OmegaDashboard() {
     clearInterval(elapsedInterval.current)
   }, [])
 
+  const _getAuthHeader = () => {
+    try {
+      const raw = localStorage.getItem('jarvis_auth')
+      if (raw) { const { token } = JSON.parse(raw); if (token) return { Authorization: `Bearer ${token}` } }
+    } catch {}
+    return {}
+  }
+
   const ignite = useCallback(async (q) => {
     const qFinal = (q || question).trim()
     if (!qFinal || running) return
@@ -230,7 +238,7 @@ export default function OmegaDashboard() {
     try {
       const resp = await fetch('/api/v1/omega/ignite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream', ..._getAuthHeader() },
         body: JSON.stringify({ question: qFinal }),
       })
 

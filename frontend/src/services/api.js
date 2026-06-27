@@ -460,11 +460,12 @@ export const recordPrediction         = (payload)          => api.post('/api/v1/
 export const recordOutcome            = (eventId, payload) => api.post(`/api/v1/truth/outcome/${eventId}`, payload).then(r => r.data)
 export const getTruthReport           = ()                 => api.get('/api/v1/truth/report').then(r => r.data)
 export const getAccuracyDashboard     = ()                 => api.get('/api/v1/truth/accuracy').then(r => r.data)
+export const recordPrediction         = (payload)          => api.post('/api/v1/truth/prediction', payload).then(r => r.data)
 export const runRealityCheck          = (payload)          => api.post('/api/v1/truth/reality-check', payload).then(r => r.data)
 
 // Layer 18 — Operational Resilience
 export const triggerIncident          = (payload)          => api.post('/api/v1/resilience/incident', payload).then(r => r.data)
-export const resolveIncident          = (eventId, payload) => api.post(`/api/v1/resilience/incident/${eventId}/resolve`, payload).then(r => r.data)
+export const resolveResilienceIncident = (eventId, payload) => api.post(`/api/v1/resilience/incident/${eventId}/resolve`, payload).then(r => r.data)
 export const getActiveIncidents       = ()                 => api.get('/api/v1/resilience/active').then(r => r.data)
 export const getResilienceStatus      = ()                 => api.get('/api/v1/resilience/status').then(r => r.data)
 export const getPlaybooks             = ()                 => api.get('/api/v1/resilience/playbooks').then(r => r.data)

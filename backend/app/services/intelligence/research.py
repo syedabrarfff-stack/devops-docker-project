@@ -4,12 +4,28 @@ on market opportunities, niches, technologies, and competitive landscape.
 """
 import json
 import logging
+import uuid as _uuid_mod
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.intelligence import ResearchReport
 from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_tenant(tenant_id=None) -> _uuid_mod.UUID:
+    if tenant_id:
+        return _uuid_mod.UUID(str(tenant_id))
+    try:
+        from app.core.config import settings
+        tid = settings.JARVIS_DEFAULT_TENANT_ID
+        if tid:
+            return _uuid_mod.UUID(str(tid))
+    except Exception:
+        pass
+    return _uuid_mod.UUID(_SYSTEM_TENANT)
 
 RESEARCH_PROMPT = """You are JARVIS — the intelligence division of Aliyar Solutions, an AI consulting and DevOps agency.
 
@@ -46,6 +62,7 @@ async def generate_report(
     db: AsyncSession,
     topic: str,
     category: str = "market",
+    tenant_id=None,
 ) -> dict | None:
     """Generate and persist a single research report."""
     from app.services.ai.router import ai_router
@@ -82,6 +99,7 @@ async def generate_report(
             conf = "medium"
 
         report = ResearchReport(
+            tenant_id=_resolve_tenant(tenant_id),
             title=str(data.get("title", topic))[:500],
             category=cat,
             summary=data.get("summary", ""),

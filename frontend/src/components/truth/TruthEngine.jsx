@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getTruthReport, getAccuracyDashboard, recordPrediction, runRealityCheck } from '../../services/api'
 
 const PREDICTION_TYPES = ['lead_score','trust_score','proposal_acceptance','revenue_forecast','client_health','council_recommendation','dio_recommendation','delivery_estimate']
 
@@ -30,8 +31,8 @@ export default function TruthEngine() {
     setLoading(true)
     try {
       const [r, a] = await Promise.all([
-        fetch('/api/v1/truth/report', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/truth/accuracy', { credentials: 'include' }).then(r => r.json()),
+        getTruthReport(),
+        getAccuracyDashboard(),
       ])
       setReport(r)
       setAccuracy(Array.isArray(a) ? a : [])
@@ -41,30 +42,20 @@ export default function TruthEngine() {
 
   useEffect(() => { load() }, [])
 
-  const recordPrediction = async () => {
+  const submitPrediction = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/v1/truth/prediction', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...predForm, predicted_value: predForm.predicted_value ? parseFloat(predForm.predicted_value) : null, confidence_score: predForm.confidence_score ? parseFloat(predForm.confidence_score) : null, entity_type: 'general' }),
-      })
-      const data = await res.json()
+      const data = await recordPrediction({ ...predForm, predicted_value: predForm.predicted_value ? parseFloat(predForm.predicted_value) : null, confidence_score: predForm.confidence_score ? parseFloat(predForm.confidence_score) : null, entity_type: 'general' })
       setMsg(`Prediction recorded: ID ${data.id}`)
       setTimeout(() => setMsg(null), 3000)
     } catch (e) { setMsg(`Error: ${e.message}`) }
     setSubmitting(false)
   }
 
-  const runRealityCheck = async () => {
+  const runCheck = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/v1/truth/reality-check', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ check_type: checkType }),
-      })
-      const data = await res.json()
+      const data = await runRealityCheck({ check_type: checkType })
       setMsg(`Reality check complete. Accuracy: ${data.accuracy_pct ? data.accuracy_pct.toFixed(1) + '%' : 'N/A'}`)
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }
@@ -165,7 +156,7 @@ export default function TruthEngine() {
           </select>
           <input className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-white text-sm mb-2" placeholder="Predicted value (number)" value={predForm.predicted_value} onChange={e => setPredForm(p => ({ ...p, predicted_value: e.target.value }))} />
           <input className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-white text-sm mb-3" placeholder="Confidence (0-1)" value={predForm.confidence_score} onChange={e => setPredForm(p => ({ ...p, confidence_score: e.target.value }))} />
-          <button onClick={recordPrediction} disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting ? 'Recording...' : 'Record Prediction'}</button>
+          <button onClick={submitPrediction} disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting ? 'Recording...' : 'Record Prediction'}</button>
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -173,7 +164,7 @@ export default function TruthEngine() {
           <select className="w-full bg-white/10 border border-white/20 rounded-lg p-2 text-white text-sm mb-3" value={checkType} onChange={e => setCheckType(e.target.value)}>
             {PREDICTION_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
           </select>
-          <button onClick={runRealityCheck} disabled={submitting} className="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting ? 'Running...' : 'Run Reality Check'}</button>
+          <button onClick={runCheck} disabled={submitting} className="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting ? 'Running...' : 'Run Reality Check'}</button>
           <button onClick={load} className="w-full bg-white/10 hover:bg-white/20 text-white text-sm py-2 rounded-lg mt-2">Refresh</button>
         </div>
       </div>

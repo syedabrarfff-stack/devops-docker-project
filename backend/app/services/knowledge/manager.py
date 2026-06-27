@@ -4,12 +4,28 @@ Everything JARVIS learns from execution is archived here for reuse and continuou
 """
 import json
 import logging
+import uuid as _uuid_mod
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.knowledge import SOPDocument, LearningRecord, KnowledgeBase
 from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_tenant(tenant_id=None) -> _uuid_mod.UUID:
+    if tenant_id:
+        return _uuid_mod.UUID(str(tenant_id))
+    try:
+        from app.core.config import settings
+        tid = settings.JARVIS_DEFAULT_TENANT_ID
+        if tid:
+            return _uuid_mod.UUID(str(tid))
+    except Exception:
+        pass
+    return _uuid_mod.UUID(_SYSTEM_TENANT)
 
 SOP_GEN_PROMPT = """You are JARVIS — the operations intelligence of Aliyar Solutions.
 
@@ -39,6 +55,7 @@ async def generate_sop(
     title: str,
     category: str,
     context: str = "",
+    tenant_id=None,
 ) -> dict | None:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -60,6 +77,7 @@ async def generate_sop(
         data = json.loads(raw.strip())
 
         sop = SOPDocument(
+            tenant_id=_resolve_tenant(tenant_id),
             title=str(data.get("title", title)),
             category=category,
             summary=data.get("summary", ""),
@@ -87,8 +105,10 @@ async def log_learning(
     what_failed: str = "",
     impact_score: int = 5,
     source: str = "system",
+    tenant_id=None,
 ) -> dict:
     record = LearningRecord(
+        tenant_id=_resolve_tenant(tenant_id),
         category=category,
         event_type=event_type,
         title=title,
@@ -112,8 +132,10 @@ async def add_knowledge(
     content: str,
     tags: list[str] = None,
     source: str = "manual",
+    tenant_id=None,
 ) -> dict:
     entry = KnowledgeBase(
+        tenant_id=_resolve_tenant(tenant_id),
         title=title,
         category=category,
         content=content,
