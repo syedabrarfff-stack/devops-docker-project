@@ -37,6 +37,15 @@ logger = logging.getLogger(__name__)
 _REDIS_KEY = "autopilot:{tenant_id}:drafts"
 _STATS_KEY = "autopilot:{tenant_id}:stats"
 _FALLBACK: dict[str, list[dict]] = {}   # in-memory fallback when Redis is absent
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_tenant(tenant_id: str | None) -> str:
+    """Resolve None or empty tenant_id to the configured default or system tenant."""
+    if tenant_id:
+        return str(tenant_id)
+    tid = settings.JARVIS_DEFAULT_TENANT_ID
+    return str(tid) if tid else _SYSTEM_TENANT
 
 
 # ── Redis helpers ──────────────────────────────────────────────────────────────
@@ -53,8 +62,8 @@ async def _redis():
         return None
 
 
-async def _load_drafts(tenant_id: str) -> list[dict]:
-    key = _REDIS_KEY.format(tenant_id=tenant_id)
+async def _load_drafts(tenant_id: str | None) -> list[dict]:
+    key = _REDIS_KEY.format(tenant_id=_resolve_tenant(tenant_id))
     r = await _redis()
     if r:
         try:
@@ -66,8 +75,8 @@ async def _load_drafts(tenant_id: str) -> list[dict]:
     return _FALLBACK.get(key, [])
 
 
-async def _save_drafts(tenant_id: str, drafts: list[dict]) -> None:
-    key = _REDIS_KEY.format(tenant_id=tenant_id)
+async def _save_drafts(tenant_id: str | None, drafts: list[dict]) -> None:
+    key = _REDIS_KEY.format(tenant_id=_resolve_tenant(tenant_id))
     r = await _redis()
     if r:
         try:
