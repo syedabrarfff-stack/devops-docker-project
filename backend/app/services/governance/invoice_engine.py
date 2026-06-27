@@ -296,6 +296,7 @@ async def _next_invoice_number(session, tenant_id: uuid.UUID) -> str:
         .where(Invoice.tenant_id == tenant_id, Invoice.invoice_number.like(f"{prefix}%"))
         .order_by(Invoice.invoice_number.desc())
         .limit(1)
+        .with_for_update()
     )
     next_number = 1
     if latest:

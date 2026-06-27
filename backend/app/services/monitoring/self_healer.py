@@ -95,9 +95,15 @@ async def _heal_lead_pipeline(report: dict) -> None:
 
         async with AsyncSessionLocal() as db:
             cutoff = datetime.now(UTC) - timedelta(hours=36)
-            recent_count = await db.scalar(
-                select(func.count()).select_from(Lead).where(Lead.created_at >= cutoff)
-            )
+            _lead_q = select(func.count()).select_from(Lead).where(Lead.created_at >= cutoff)
+            if settings.JARVIS_DEFAULT_TENANT_ID:
+                import uuid as _uuid
+                try:
+                    _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+                    _lead_q = _lead_q.where(Lead.tenant_id == _tid)
+                except (ValueError, AttributeError):
+                    pass
+            recent_count = await db.scalar(_lead_q)
 
         if (recent_count or 0) == 0:
             tenant_id = settings.JARVIS_DEFAULT_TENANT_ID

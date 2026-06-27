@@ -104,8 +104,19 @@ async def add_action(db: AsyncSession, incident_id: int, action: str) -> bool:
     return True
 
 
-async def get_incidents(db: AsyncSession, status: str | None = None, limit: int = 50) -> list[dict]:
+async def get_incidents(db: AsyncSession, status: str | None = None, limit: int = 50,
+                        tenant_id=None) -> list[dict]:
+    from app.core.config import settings as _cfg
+    import uuid as _uuid
+    _tid = tenant_id
+    if _tid is None and _cfg.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
     q = select(IncidentReport).order_by(IncidentReport.created_at.desc()).limit(limit)
+    if _tid is not None:
+        q = q.where(IncidentReport.tenant_id == _tid)
     if status:
         q = q.where(IncidentReport.status == status)
     result = await db.execute(q)
