@@ -471,7 +471,7 @@ class IntelligenceCouncil:
             "vote_score": vote_score,
             "confidence": _bounded_float(parsed.get("confidence"), default=70),
             "recommendation": str(parsed.get("recommendation") or _recommendation_from_score(vote_score)).upper(),
-            "reasoning": str(parsed.get("reasoning") or response.content).strip()[:4000],
+            "reasoning": str(parsed.get("reasoning") or response.content or "").strip()[:4000],
             "risks": _as_string_list(parsed.get("risks")),
             "evidence": _as_string_list(parsed.get("evidence")),
             "responded": True,
