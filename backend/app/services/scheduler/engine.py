@@ -942,9 +942,12 @@ async def _job_market_intelligence_generation() -> None:
         from app.services.integrations.market_intelligence_engine import MarketIntelligenceEngine
         engine = MarketIntelligenceEngine()
         for tenant_id in await _target_tenant_ids():
-            report = await engine.generate_daily_market_report()
-            await engine.write_github_intelligence_package(report)
-            logger.info("MarketIntelligence: tenant=%s topic=%s", tenant_id, report.get("topic", "unknown"))
+            _tid = uuid.UUID(str(tenant_id))
+            result = await engine.write_github_intelligence_package(
+                tenant_id=_tid,
+                output_dir="intelligence",
+            )
+            logger.info("MarketIntelligence: tenant=%s files=%d", tenant_id, len(result.get("files_written", [])))
     except Exception as exc:
         logger.warning("Market intelligence generation failed: %s", exc)
         await _record_job_failure("market_intelligence_generation", str(exc), _tb.format_exc())
@@ -995,8 +998,8 @@ async def _job_nexus_heartbeat() -> None:
             try:
                 from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
                 await notify_autopilot_drafts_pending(pending)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("NEXUS: autopilot draft notification failed: %s", exc)
 
         # Autonomous outreach trigger — fire when pipeline is ready and queue is clear
         if action == "OUTREACH_READY" and not pending:
@@ -1009,8 +1012,9 @@ async def _job_nexus_heartbeat() -> None:
                     nx=True, ex=14400  # 4-hour lock
                 )
                 await r.aclose()
-            except Exception:
-                lock_acquired = True  # Redis down — allow trigger (in-memory fallback)
+            except Exception as exc:
+                logger.warning("NEXUS: Redis lock unavailable, skipping autonomous outreach: %s", exc)
+                lock_acquired = False  # safe default: no rate-limit guard = don't trigger
 
             if lock_acquired:
                 logger.info("NEXUS AUTONOMOUS: OUTREACH_READY — triggering AUTOPILOT (max 5 leads)")
@@ -1039,8 +1043,8 @@ async def _job_nexus_heartbeat() -> None:
                 "pending_drafts": len(pending),
                 "ai_available": pulse.get("ai_available", False),
             })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("NEXUS: WebSocket broadcast failed: %s", exc)
 
     except Exception as exc:
         logger.warning("NEXUS heartbeat job failed: %s", exc)
@@ -1179,8 +1183,8 @@ async def _job_nightly_signal_scan() -> None:
                     f"{proposals_queued} proposal(s) drafted for your highest-confidence HOT leads.\n"
                     f"Review at /control-room/proposals"
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Auto-proposal Telegram notify failed: %s", exc)
 
     except Exception as exc:
         logger.warning("Nightly signal scan failed: %s", exc)

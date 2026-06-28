@@ -205,7 +205,8 @@ class StrategyReportService:
     async def _collect_operational_data(self, tenant_uuid: uuid.UUID) -> dict[str, Any]:
         """Collect real-time operational data from all departments."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
 
             # DIO performance
             dios = (await db.execute(
@@ -290,8 +291,9 @@ Return only valid JSON."""
             )
             if response.error:
                 raise ValueError(response.error)
-            return json.loads(response.content.strip())
-        except Exception:
+            return json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Weekly intelligence collection failed: %s", exc)
             return {"weekly_intelligence": "Collection pending"}
 
     async def _generate_report_content(
@@ -374,9 +376,10 @@ Return only valid JSON array."""
             )
             if response.error:
                 raise ValueError(response.error)
-            items = json.loads(response.content.strip())
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("Directive extraction failed: %s", exc)
             return [council_reasoning[:200]]
 
     async def _cascade_directives_to_departments(
@@ -398,7 +401,8 @@ Return only valid JSON array."""
     ) -> uuid.UUID:
         """Persist the strategy report to database."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
 
             report = StrategyReport(
                 tenant_id=tenant_uuid,
@@ -424,7 +428,8 @@ Return only valid JSON array."""
     ) -> None:
         """Update report with Council results and cascaded directives."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
             report = await db.get(StrategyReport, report_id)
             if report:
                 report.council_session_id = uuid.UUID(council_result.session_id)
