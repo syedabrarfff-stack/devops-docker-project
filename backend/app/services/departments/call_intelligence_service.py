@@ -21,6 +21,7 @@ Post-call:
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -402,9 +403,12 @@ Never mention AI, automation, or JARVIS. Always refer to 'our team' and 'Aliyar 
 Return only valid JSON, no markdown."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -575,9 +579,12 @@ Generate a post-call debrief. Return JSON:
 Return only valid JSON."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -594,8 +601,11 @@ Return only valid JSON."""
 Return as JSON array of strings. Only valid JSON.
 Analysis: {reasoning[:1500]}"""
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)], task_type=TaskType.FAST
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)], task_type=TaskType.FAST
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

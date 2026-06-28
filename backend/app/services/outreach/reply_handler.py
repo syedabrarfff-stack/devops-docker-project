@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -41,12 +42,15 @@ class ReplyHandler:
     async def classify_reply(self, reply_text: str) -> tuple[str, float]:
         prompt = _classification_prompt(reply_text)
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                force_provider="anthropic",
-                force_model="claude-opus-4-7",
-                max_tokens=300,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    force_provider="anthropic",
+                    force_model="claude-opus-4-7",
+                    max_tokens=300,
+                ),
+                timeout=60.0,
             )
             if response.error or response.demo:
                 return _heuristic_classification(reply_text)
@@ -213,12 +217,15 @@ class ReplyHandler:
     async def generate_response(self, reply_text: str, lead: Lead, classification: str) -> str:
         prompt = _response_prompt(reply_text, lead, classification)
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                force_provider="anthropic",
-                force_model="claude-opus-4-7",
-                max_tokens=650,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    force_provider="anthropic",
+                    force_model="claude-opus-4-7",
+                    max_tokens=650,
+                ),
+                timeout=60.0,
             )
             if response.error or response.demo or not (response.content or "").strip():
                 return _fallback_response(lead, classification)

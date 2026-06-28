@@ -17,6 +17,7 @@ Weekly (Sunday 07:00 UTC):
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -285,9 +286,12 @@ Return as JSON:
 Return only valid JSON."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -322,9 +326,12 @@ Confident, concise, data-driven. Never mention AI or automation.
 Length: 600-900 words."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -370,9 +377,12 @@ Analysis: {council_reasoning[:2000]}
 Return only valid JSON array."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

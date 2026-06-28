@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -503,12 +504,15 @@ class OutreachEngine:
     async def _generate_steps_with_ai(self, lead: Lead) -> list[dict]:
         prompt = _sequence_prompt(lead)
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                force_provider="anthropic",
-                force_model="claude-sonnet",
-                max_tokens=1400,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    force_provider="anthropic",
+                    force_model="claude-sonnet",
+                    max_tokens=1400,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 logger.warning("AI outreach sequence failed: %s", response.error)

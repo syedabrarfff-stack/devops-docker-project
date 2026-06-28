@@ -11,6 +11,7 @@ One DIO per department. Each DIO:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -481,19 +482,21 @@ Return a JSON object with department_code as keys and metric objects as values.
 Each metric object: {{"health": 85, "kpi_status": "on-track", "achievement": "...", "blocker": "...", "action": "..."}}
 Return only valid JSON, no markdown."""
 
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=metrics_prompt)],
-            task_type=TaskType.ANALYSIS,
-        )
-
         import json
         try:
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=metrics_prompt)],
+                    task_type=TaskType.ANALYSIS,
+                ),
+                timeout=60.0,
+            )
             if response.error:
                 raise ValueError(response.error)
             metrics = json.loads((response.content or "").strip())
         except Exception as exc:
             logger.warning("Department metrics parse failed: %s", exc)
-            metrics = {"raw": response.content or response.error or "unavailable"}
+            metrics = {"raw": "unavailable"}
 
         return {
             "tenant_id": str(tenant_uuid),
@@ -592,9 +595,12 @@ Metrics: {str(metrics)[:200]}
 Return only a single number between 0 and 100."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

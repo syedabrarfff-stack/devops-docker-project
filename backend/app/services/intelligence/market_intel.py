@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -51,20 +52,27 @@ class MarketIntelligenceEngine:
         normalized_topics = [topic.strip() for topic in topics if topic and topic.strip()] or DEFAULT_MARKET_TOPICS
         prompt = MARKET_REPORT_PROMPT.format(topics="\n".join(f"- {topic}" for topic in normalized_topics))
 
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.RESEARCH,
-            force_provider="google",
-            force_model="gemini-pro",
-            system_prompt="You are a senior market intelligence analyst for a technology operations company.",
-            max_tokens=4500,
-        )
-        if response.error:
-            logger.warning("Market intelligence AI failed: %s", response.error)
-            return ""
-        report_content = (response.content or "").strip()
-        if not report_content:
-            logger.warning("Market intelligence report returned empty content")
+        try:
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.RESEARCH,
+                    force_provider="google",
+                    force_model="gemini-pro",
+                    system_prompt="You are a senior market intelligence analyst for a technology operations company.",
+                    max_tokens=4500,
+                ),
+                timeout=60.0,
+            )
+            if response.error:
+                logger.warning("Market intelligence AI failed: %s", response.error)
+                return ""
+            report_content = (response.content or "").strip()
+            if not report_content:
+                logger.warning("Market intelligence report returned empty content")
+                return ""
+        except Exception as exc:
+            logger.warning("Market intelligence AI call failed: %s", exc)
             return ""
 
         async with AsyncSessionLocal() as db:

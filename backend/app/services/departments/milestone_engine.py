@@ -11,6 +11,7 @@ For every milestone a DIO submits:
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -419,9 +420,12 @@ Return only valid JSON, no markdown.
 Analysis: {reasoning[:2000]}"""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

@@ -3,6 +3,7 @@ Scout Network — 9 autonomous AI agents that discover leads globally.
 Each agent specialises in an industry vertical and region.
 Runs daily at 01:30 UTC via APScheduler.
 """
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -136,9 +137,12 @@ class ScoutNetwork:
                 f'"contact_role": "...", "pain_point": "...", "recommended_service": "{profile["recommended_service"]}"}}]\n\n'
                 f"Only return valid JSON. No explanation."
             )
-            resp, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.RESEARCH,
+            resp, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.RESEARCH,
+                ),
+                timeout=60.0,
             )
             if resp.error:
                 raise ValueError(resp.error)
@@ -162,8 +166,6 @@ class ScoutNetwork:
 
     async def run_all_scouts(self) -> dict:
         """Run all 9 scouts concurrently and return consolidated results."""
-        import asyncio
-
         tasks = [self.run_scout(sid, profile) for sid, profile in SCOUT_PROFILES.items()]
         results = await asyncio.gather(*tasks, return_exceptions=False)
 
