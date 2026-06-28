@@ -435,7 +435,7 @@ async def get_all_divisions(
         q = q.where(ServiceDivision.division_group == group)
     if featured_only:
         q = q.where(ServiceDivision.is_featured == True)
-    q = q.order_by(ServiceDivision.sort_order)
+    q = q.order_by(ServiceDivision.sort_order).limit(200)
     result = await db.execute(q)
     return result.scalars().all()
 

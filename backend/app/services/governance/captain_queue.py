@@ -84,6 +84,7 @@ class CaptainQueue:
                             ApprovalRequest.status == ApprovalStatus.PENDING,
                         )
                         .order_by(ApprovalRequest.priority.desc(), ApprovalRequest.created_at.asc())
+                        .limit(100)
                     )
                 ).scalars().all()
                 return list(rows)

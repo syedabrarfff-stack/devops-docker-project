@@ -169,6 +169,7 @@ class CivilizationLedgerService:
                         select(CivilizationLedger)
                         .where(CivilizationLedger.tenant_id == tenant_uuid)
                         .order_by(CivilizationLedger.event_timestamp.asc(), CivilizationLedger.created_at.asc())
+                        .limit(1000)
                     )
                 ).scalars().all()
         return {
@@ -199,6 +200,7 @@ class CivilizationLedgerService:
                 select(CivilizationLedger)
                 .where(CivilizationLedger.tenant_id == tenant_id)
                 .order_by(CivilizationLedger.event_timestamp.asc(), CivilizationLedger.created_at.asc())
+                .limit(1000)
             )
         ).scalars().all()
         pdf_path = await _build_chronicle_pdf(rows)

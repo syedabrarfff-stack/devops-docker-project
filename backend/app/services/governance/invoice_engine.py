@@ -156,6 +156,7 @@ class InvoiceEngine:
                             Invoice.status != InvoiceStatus.PAID,
                         )
                         .order_by(Invoice.due_date.asc())
+                        .limit(500)
                     )
                 ).scalars().all()
 
@@ -259,6 +260,7 @@ class InvoiceEngine:
                             RevenueSnapshot.snapshot_date >= start_date,
                         )
                         .order_by(RevenueSnapshot.snapshot_date.asc())
+                        .limit(400)
                     )
                 ).scalars().all()
                 return [_serialize_snapshot(row) for row in rows]

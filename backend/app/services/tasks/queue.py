@@ -132,6 +132,7 @@ async def requeue_pending():
             select(AgentTask)
             .where(AgentTask.status.in_(["queued", "running"]))
             .order_by(desc(AgentTask.priority))
+            .limit(500)
         )).scalars().all()
         for t in rows:
             if t.status == "running":
