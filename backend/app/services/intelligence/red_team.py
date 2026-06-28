@@ -196,15 +196,18 @@ class RedTeamEngine:
         )
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                system_prompt=RED_TEAM_SYSTEM,
-                max_tokens=900,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    system_prompt=RED_TEAM_SYSTEM,
+                    max_tokens=900,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
-            parsed = _parse_json_response(response.content)
+            parsed = _parse_json_response(response.content or "")
             return {
                 "tenant_id": str(tenant_id),
                 "competitor": competitor_name,

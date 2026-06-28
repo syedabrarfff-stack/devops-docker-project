@@ -194,7 +194,7 @@ async def extract_patterns(
         select(DecisionPattern).where(
             DecisionPattern.usage_count >= min_usage,
             DecisionPattern.historical_success_rate >= min_success_rate,
-        )
+        ).limit(100)
     )
     return result.scalars().all()
 
@@ -249,14 +249,14 @@ async def get_decision_genealogy(
     decision_ids = [d.id for d in decisions]
 
     options_rows = (await db.execute(
-        select(DecisionOption).where(DecisionOption.decision_id.in_(decision_ids))
+        select(DecisionOption).where(DecisionOption.decision_id.in_(decision_ids)).limit(500)
     )).scalars().all()
     options_by_decision: dict[uuid.UUID, list] = {}
     for o in options_rows:
         options_by_decision.setdefault(o.decision_id, []).append(o)
 
     outcomes_rows = (await db.execute(
-        select(DecisionOutcome).where(DecisionOutcome.decision_id.in_(decision_ids))
+        select(DecisionOutcome).where(DecisionOutcome.decision_id.in_(decision_ids)).limit(500)
     )).scalars().all()
     outcome_by_decision: dict[uuid.UUID, Any] = {o.decision_id: o for o in outcomes_rows}
 

@@ -241,6 +241,7 @@ async def get_live_session_feed(
         select(ConvergenceCouncilMessage)
         .where(ConvergenceCouncilMessage.session_id == session_id)
         .order_by(ConvergenceCouncilMessage.created_at.asc())
+        .limit(500)
     )
     messages = result.scalars().all()
     return [

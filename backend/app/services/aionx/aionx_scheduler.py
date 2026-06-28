@@ -292,7 +292,7 @@ async def _job_counterfactual_sync() -> None:
             # Simulate decisions older than 30 days
             thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30))
             mature_decisions = (await db.execute(
-                select(DecisionObject).where(DecisionObject.created_at <= thirty_days_ago)
+                select(DecisionObject).where(DecisionObject.created_at <= thirty_days_ago).limit(500)
             )).scalars().all()
 
             learning = await extract_learning(db)
