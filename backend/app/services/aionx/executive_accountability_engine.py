@@ -22,15 +22,30 @@ from app.models.aionx_organs import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_tenant(tenant_id=None) -> uuid.UUID | None:
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+    from app.core.config import settings as _cfg
+    raw = getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
+
+
 async def score_decision_quality(
     db: AsyncSession,
     decision_id: uuid.UUID,
     actual_outcome_quality: float,
 ) -> dict[str, Any]:
     """Score the quality of a single decision from 0-100."""
-    decision = (await db.execute(
-        select(DecisionObject).where(DecisionObject.id == decision_id)
-    )).scalars().first()
+    _tid = _resolve_tenant()
+    _q = select(DecisionObject).where(DecisionObject.id == decision_id)
+    if _tid:
+        _q = _q.where(DecisionObject.tenant_id == _tid)
+    decision = (await db.execute(_q)).scalars().first()
 
     if not decision:
         return {"error": "decision not found"}
@@ -53,9 +68,12 @@ async def track_maker_accuracy(
     maker_id: str,
 ) -> dict[str, Any]:
     """Compute decision accuracy for an executor role or human authority label."""
+    _tid = _resolve_tenant()
+    _tf = [DecisionObject.tenant_id == _tid] if _tid else []
     decisions = (await db.execute(
         select(DecisionObject).where(
-            DecisionObject.executor_role == maker_id
+            *_tf,
+            DecisionObject.executor_role == maker_id,
         ).order_by(DecisionObject.created_at.desc()).limit(20)
     )).scalars().all()
 
@@ -93,8 +111,11 @@ async def compute_authority_decay(
     sixty_days_ago = datetime.now(timezone.utc) - timedelta(days=60)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
+    _tid = _resolve_tenant()
+    _tf = [DecisionObject.tenant_id == _tid] if _tid else []
     old_decisions = (await db.execute(
         select(DecisionObject).where(
+            *_tf,
             DecisionObject.executor_role == maker_id,
             DecisionObject.created_at >= sixty_days_ago,
             DecisionObject.created_at < thirty_days_ago,
@@ -131,9 +152,11 @@ async def escalate_for_captain_review(
     decision_id: uuid.UUID,
 ) -> dict[str, Any]:
     """Flag a decision for Captain review when authority or confidence is weak."""
-    decision = (await db.execute(
-        select(DecisionObject).where(DecisionObject.id == decision_id)
-    )).scalars().first()
+    _tid = _resolve_tenant()
+    _q = select(DecisionObject).where(DecisionObject.id == decision_id)
+    if _tid:
+        _q = _q.where(DecisionObject.tenant_id == _tid)
+    decision = (await db.execute(_q)).scalars().first()
 
     if not decision:
         return {"error": "decision not found"}

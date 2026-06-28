@@ -725,11 +725,19 @@ async def create_autopsy(
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    try:
+        mission_id = uuid.UUID(payload["mission_id"])
+        client_id = uuid.UUID(payload["client_id"]) if payload.get("client_id") else None
+        failure_summary = payload["failure_summary"]
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=f"Missing required field: {exc}")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid UUID format: {exc}")
     autopsy = MissionAutopsy(
-        mission_id=uuid.UUID(payload["mission_id"]),
-        client_id=uuid.UUID(payload["client_id"]) if payload.get("client_id") else None,
+        mission_id=mission_id,
+        client_id=client_id,
         failure_type=payload.get("failure_type", "MISSION_FAILURE"),
-        failure_summary=payload["failure_summary"],
+        failure_summary=failure_summary,
         causal_chain=payload.get("causal_chain", []),
         what_failed=payload.get("what_failed"),
         why_it_failed=payload.get("why_it_failed"),
@@ -774,9 +782,16 @@ async def create_ownership_record(
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    try:
+        mission_id = uuid.UUID(payload["mission_id"])
+        client_id = uuid.UUID(payload["client_id"]) if payload.get("client_id") else None
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=f"Missing required field: {exc}")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid UUID format: {exc}")
     record = MissionOwnershipRecord(
-        mission_id=uuid.UUID(payload["mission_id"]),
-        client_id=uuid.UUID(payload["client_id"]) if payload.get("client_id") else None,
+        mission_id=mission_id,
+        client_id=client_id,
         executive_owner=payload.get("executive_owner", "JARVIS"),
         primary_hia=payload.get("primary_hia"),
         council_lead=payload.get("council_lead"),
@@ -818,7 +833,11 @@ async def simulate_decision(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.counterfactual_engine import simulate_decision as sim
-    return await sim(db, uuid.UUID(payload["decision_id"]))
+    try:
+        decision_id = uuid.UUID(payload["decision_id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid or missing decision_id: {exc}")
+    return await sim(db, decision_id)
 
 
 @router.post("/intelligence/counterfactual/actuality")
@@ -827,10 +846,15 @@ async def record_actuality(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.counterfactual_engine import record_actuality as rec
+    try:
+        decision_id = uuid.UUID(payload["decision_id"])
+        actual_outcome = payload["actual_outcome"]
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid or missing field: {exc}")
     return await rec(
         db,
-        uuid.UUID(payload["decision_id"]),
-        payload["actual_outcome"],
+        decision_id,
+        actual_outcome,
         payload.get("revenue_delta", 0.0),
         payload.get("timeline_delta_days", 0),
     )
@@ -849,9 +873,13 @@ async def compute_debt(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.decision_debt_engine import compute_decision_debt
+    try:
+        decision_id = uuid.UUID(payload["decision_id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid or missing decision_id: {exc}")
     return await compute_decision_debt(
         db,
-        uuid.UUID(payload["decision_id"]),
+        decision_id,
         payload.get("lost_revenue_usd", 0.0),
         payload.get("remediation_effort_hours", 0),
         payload.get("opportunity_cost_usd", 0.0),
