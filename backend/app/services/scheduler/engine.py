@@ -858,7 +858,7 @@ async def _job_pre_call_briefing_trigger() -> None:
                         ClientCallIntelligence.status == CallStatus.SCHEDULED.value,
                         ClientCallIntelligence.briefing_pdf_url.is_(None),
                     )
-                )
+                ).limit(50)
             )
             calls = result.scalars().all()
             call_pairs = [(str(c.tenant_id), str(c.id)) for c in calls]
