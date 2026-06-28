@@ -62,10 +62,13 @@ async def _heal_ai_providers(report: dict) -> None:
             if ph.state == "OPEN":
                 # Probe with a minimal test — if it passes, force reset
                 try:
-                    probe, _ = await ai_router.chat(
-                        [Message(role="user", content="ping")],
-                        task_type=TaskType.FAST,
-                        force_provider=name,
+                    probe, _ = await asyncio.wait_for(
+                        ai_router.chat(
+                            [Message(role="user", content="ping")],
+                            task_type=TaskType.FAST,
+                            force_provider=name,
+                        ),
+                        timeout=10.0,
                     )
                     if probe.error:
                         still_open.append(name)
@@ -73,7 +76,8 @@ async def _heal_ai_providers(report: dict) -> None:
                     health_monitor.reset(name)
                     recovered.append(name)
                     report["actions"].append(f"circuit_breaker_reset:{name}")
-                except Exception:
+                except Exception as probe_exc:
+                    logger.warning("Self-healer: probe failed for provider %s: %s", name, probe_exc)
                     still_open.append(name)
 
         if still_open:

@@ -600,7 +600,8 @@ async def _job_overnight_intel_analysis() -> None:
         from app.core.database import AsyncSessionLocal
         from app.services.intelligence.optimizer import analyze_system
         async with AsyncSessionLocal() as db:
-            count = await analyze_system(db)
+            async with db.begin():
+                count = await analyze_system(db)
         logger.info(f"Overnight intel analysis: {count} insights generated")
     except Exception as e:
         logger.warning(f"Overnight intel analysis failed: {e}")

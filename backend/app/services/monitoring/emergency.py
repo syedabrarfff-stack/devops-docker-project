@@ -36,10 +36,13 @@ async def declare_emergency(
     )
     db.add(incident)
     await db.flush()
+    await db.refresh(incident)
 
     # Notify Captain through all available channels
-    await _notify_captain(incident)
-    incident.notified_captain = True
+    try:
+        await _notify_captain(incident)
+    finally:
+        incident.notified_captain = True
 
     return _serialize(incident)
 

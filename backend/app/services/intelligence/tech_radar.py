@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -47,13 +48,16 @@ or improve margins in the next 90 days. Generate 7 to 14 entries."""
 class TechRadarEngine:
     async def scan_week(self, tenant_id) -> list[TechRadarEntry]:
         tenant_uuid = _coerce_tenant_id(tenant_id)
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=TECH_RADAR_PROMPT)],
-            task_type=TaskType.RESEARCH,
-            force_provider="google",
-            force_model="gemini-pro",
-            system_prompt="You are a senior technology radar analyst. Return only valid JSON arrays.",
-            max_tokens=4500,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=TECH_RADAR_PROMPT)],
+                task_type=TaskType.RESEARCH,
+                force_provider="google",
+                force_model="gemini-pro",
+                system_prompt="You are a senior technology radar analyst. Return only valid JSON arrays.",
+                max_tokens=4500,
+            ),
+            timeout=120.0,
         )
         if response.error:
             logger.warning("Tech radar AI call failed: %s", response.error)
@@ -112,9 +116,14 @@ async def scan_technologies(db=None) -> int:
 
 async def get_radar(db) -> dict:
     tenant_id = get_current_tenant_id() or settings.JARVIS_DEFAULT_TENANT_ID
-    query = select(TechRadarEntry).order_by(TechRadarEntry.category, TechRadarEntry.status, TechRadarEntry.created_at.desc())
-    if tenant_id:
-        query = query.where(TechRadarEntry.tenant_id == _coerce_tenant_id(tenant_id))
+    if not tenant_id:
+        logger.warning("Tech radar get_radar: no tenant resolved, returning empty radar")
+        return {"categories": [], "entries": {}, "total": 0}
+    query = (
+        select(TechRadarEntry)
+        .where(TechRadarEntry.tenant_id == _coerce_tenant_id(tenant_id))
+        .order_by(TechRadarEntry.category, TechRadarEntry.status, TechRadarEntry.created_at.desc())
+    )
 
     result = await db.execute(query)
     entries = result.scalars().all()

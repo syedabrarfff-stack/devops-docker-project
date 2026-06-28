@@ -96,6 +96,9 @@ async def analyze_system(db: AsyncSession, tenant_id=None) -> int:
         if response.error:
             raise ValueError(response.error)
 
+        if not response.content:
+            logger.warning("Optimizer: AI returned empty content")
+            return 0
         raw = response.content.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
