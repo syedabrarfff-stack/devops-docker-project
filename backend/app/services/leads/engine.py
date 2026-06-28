@@ -62,16 +62,15 @@ async def score_lead_with_ai(lead: Lead) -> dict:
         f"Opportunity: {lead.opportunity_type or 'unknown'}"
     )
 
-    resp, _ = await asyncio.wait_for(
-        ai_router.chat(
-            [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
-            task_type=TaskType.FAST,
-            force_provider="google",
-        ),
-        timeout=60.0,
-    )
-
     try:
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
+                task_type=TaskType.FAST,
+                force_provider="google",
+            ),
+            timeout=60.0,
+        )
         if resp.error:
             raise ValueError(resp.error)
         text = (resp.content or "").strip()
@@ -79,7 +78,7 @@ async def score_lead_with_ai(lead: Lead) -> dict:
             text = text.split("```")[1].lstrip("json").strip()
         return json.loads(text)
     except Exception:
-        # Fallback scoring
+        # Fallback scoring (covers AI errors, timeouts, and JSON parse failures)
         score = 50
         if lead.country and any(c in lead.country.lower() for c in ALIYAR_ICP["countries"]):
             score += 15

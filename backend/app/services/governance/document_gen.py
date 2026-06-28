@@ -210,13 +210,19 @@ async def get_proposals(db: AsyncSession, status: str | None = None, tenant_id=N
     return [_serialize_proposal(p) for p in result.scalars().all()]
 
 
-async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str) -> bool:
+async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str, tenant_id=None) -> bool:
     import uuid as _uuid
     try:
         _id = _uuid.UUID(str(invoice_id))
     except (ValueError, AttributeError):
         return False
-    result = await db.execute(select(Invoice).where(Invoice.id == _id))
+    q = select(Invoice).where(Invoice.id == _id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Invoice.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     inv = result.scalar_one_or_none()
     if not inv:
         return False
@@ -228,8 +234,15 @@ async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str) -
     return True
 
 
-async def update_proposal_status(db: AsyncSession, proposal_id: int, new_status: str) -> bool:
-    result = await db.execute(select(Proposal).where(Proposal.id == proposal_id))
+async def update_proposal_status(db: AsyncSession, proposal_id: int, new_status: str, tenant_id=None) -> bool:
+    import uuid as _uuid
+    q = select(Proposal).where(Proposal.id == proposal_id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Proposal.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     prop = result.scalar_one_or_none()
     if not prop:
         return False
@@ -398,8 +411,15 @@ async def get_contracts(db: AsyncSession, status: str | None = None, tenant_id=N
     return [_serialize_contract(c) for c in result.scalars().all()]
 
 
-async def update_contract_status(db: AsyncSession, contract_id: int, new_status: str) -> bool:
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+async def update_contract_status(db: AsyncSession, contract_id: int, new_status: str, tenant_id=None) -> bool:
+    import uuid as _uuid
+    q = select(Contract).where(Contract.id == contract_id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Contract.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     contract = result.scalar_one_or_none()
     if not contract:
         return False
