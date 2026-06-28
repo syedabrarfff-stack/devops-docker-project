@@ -113,7 +113,7 @@ class LeadDiscoveryEngine:
                 max_tokens=32,
             )
             if not response.demo and not response.error:
-                parsed = _parse_score(response.content)
+                parsed = _parse_score(response.content or "")
                 if parsed is not None:
                     return parsed
         except Exception as exc:
