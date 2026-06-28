@@ -662,7 +662,7 @@ def _fallback_steps(lead: Lead) -> list[dict]:
 
 
 def _parse_steps(text: str) -> list[dict]:
-    clean = text.strip()
+    clean = (text or "").strip()
     if "```" in clean:
         parts = clean.split("```")
         clean = next((part for part in parts if "[" in part and "]" in part), clean)

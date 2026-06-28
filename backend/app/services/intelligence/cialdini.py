@@ -53,7 +53,7 @@ SEQUENCE_TEMPLATES = {
 def _parse_json_response(content: str) -> dict:
     """Extract JSON from AI response."""
     try:
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -64,7 +64,7 @@ def _parse_json_response(content: str) -> dict:
 def _parse_json_array(content: str) -> list:
     """Extract JSON array from AI response."""
     try:
-        match = re.search(r"\[.*\]", content, re.DOTALL)
+        match = re.search(r"\[.*\]", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):

@@ -59,7 +59,7 @@ Output structured JSON only."""
 def _parse_json_response(content: str) -> dict:
     """Extract JSON from AI response."""
     try:
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):

@@ -82,7 +82,7 @@ def _parse_agent_response(content: str, agent_name: str) -> dict[str, Any]:
     """Parse JSON from AI response, fall back gracefully."""
     try:
         # Try to extract JSON block
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):

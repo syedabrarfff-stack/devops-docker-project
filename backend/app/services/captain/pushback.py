@@ -40,7 +40,7 @@ def _coerce_uuid(val: Any) -> UUID:
 
 def _parse_json_response(text: str) -> dict:
     try:
-        match = re.search(r"\{[\s\S]+\}", text)
+        match = re.search(r"\{[\s\S]+\}", text or "")
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
