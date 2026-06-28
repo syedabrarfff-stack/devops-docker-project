@@ -300,7 +300,7 @@ Return only valid JSON array, no markdown."""
             )
             if response.error:
                 raise ValueError(response.error)
-            discoveries = json.loads(_clean_json(response.content))
+            discoveries = json.loads(_clean_json(response.content or ""))
             return discoveries if isinstance(discoveries, list) else []
         except Exception as exc:
             logger.warning("Technology discovery scan failed: %s", exc)
