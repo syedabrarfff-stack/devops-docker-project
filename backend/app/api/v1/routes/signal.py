@@ -209,15 +209,23 @@ async def signal_status(
 ):
     """Pipeline health metrics for the SIGNAL dashboard header."""
     from sqlalchemy import func
-    total = await db.scalar(select(func.count()).select_from(Lead)) or 0
+    from app.core.config import settings as _cfg
+    _tid = tenant_id
+    if _tid is None and _cfg.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+    _tf = [Lead.tenant_id == _tid] if _tid else []
+    total = await db.scalar(select(func.count()).select_from(Lead).where(*_tf)) or 0
     hot = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.score >= 75)
+        select(func.count()).select_from(Lead).where(*_tf, Lead.score >= 75)
     ) or 0
     warm = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.score.between(45, 74))
+        select(func.count()).select_from(Lead).where(*_tf, Lead.score.between(45, 74))
     ) or 0
     eligible = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.outreach_eligible == True)
+        select(func.count()).select_from(Lead).where(*_tf, Lead.outreach_eligible == True)
     ) or 0
     return {
         "total_leads": total,

@@ -7,6 +7,7 @@ token-by-token via SSE for a live "AI typing" effect in the browser.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -306,9 +307,12 @@ async def ghost_compose_once(
 
     prompt = _build_prompt(lead, persona, tone, email_num, total)
     client = anthropic.AsyncAnthropic(api_key=api_key)
-    msg = await client.messages.create(
-        model="claude-opus-4-8",
-        max_tokens=650,
-        messages=[{"role": "user", "content": prompt}],
+    msg = await asyncio.wait_for(
+        client.messages.create(
+            model="claude-opus-4-8",
+            max_tokens=650,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        timeout=30.0,
     )
     return msg.content[0].text if msg.content else ""

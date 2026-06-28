@@ -16,6 +16,7 @@ All analysis is streamed via SSE so the Captain sees intelligence appear in real
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -120,10 +121,13 @@ async def scan_lead(lead: dict) -> dict:
 
     try:
         client = anthropic.AsyncAnthropic(api_key=api_key)
-        msg = await client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=600,
-            messages=[{"role": "user", "content": prompt}],
+        msg = await asyncio.wait_for(
+            client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=30.0,
         )
         raw = msg.content[0].text.strip() if msg.content else "{}"
         # Strip markdown code fences if present
