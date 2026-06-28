@@ -4,6 +4,7 @@ and personalisation hooks from raw lead data using keyword analysis + AI.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from datetime import datetime, timezone
@@ -211,10 +212,13 @@ class ProspectPsychologyEngine:
         )
         messages = [Message(role="user", content=f"Prospect profile:\n{lead_summary}")]
         try:
-            response, _ = await ai_router.chat(
-                messages,
-                system_prompt=system_prompt,
-                task_type="REASONING",
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages,
+                    system_prompt=system_prompt,
+                    task_type="REASONING",
+                ),
+                timeout=60.0,
             )
             import json as _json
             ai_insights = _json.loads(response.content or "{}")

@@ -2,6 +2,7 @@
 JARVIS Pricing Engine — intelligent scope-aware pricing for Aliyar Solutions.
 Never quotes cheap. Prices based on company size, service scope, and complexity.
 """
+import asyncio
 import logging
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -133,13 +134,16 @@ async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Dep
             f"Services requested: {', '.join(body.services_needed) if body.services_needed else 'digital transformation'}. "
             f"Sound premium, confident, outcome-focused. No fluff. First person as 'Aliyar Solutions'."
         )
-        resp, _ = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            task_type="FAST",
-            max_tokens=100,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                task_type="FAST",
+                max_tokens=100,
+            ),
+            timeout=30.0,
         )
         positioning = resp.content or ""
     except Exception:

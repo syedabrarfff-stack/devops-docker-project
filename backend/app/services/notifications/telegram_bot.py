@@ -13,6 +13,7 @@ Commands:
   /queue      — task queue stats
   /help       — command list
 """
+import asyncio
 import logging
 import httpx
 from typing import Optional
@@ -299,9 +300,12 @@ async def _handle_briefing(chat_id: str, db) -> None:
               f"Today is {now.strftime('%A, %B %d %Y')}. "
               f"Be concise — max 200 words. Focus on priorities.")
     try:
-        resp, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.FAST,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.FAST,
+            ),
+            timeout=30.0,
         )
         briefing = resp.content if not resp.error else f"Briefing AI unavailable — {resp.error}"
         await send_message(chat_id, f"☀️ *Morning Briefing*\n\n{(briefing or 'No content returned.')[:3000]}")
@@ -367,10 +371,13 @@ async def _handle_chat(chat_id: str, text: str, db) -> None:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import Message, TaskType
     try:
-        resp, _ = await ai_router.chat(
-            [Message(role="user", content=text)],
-            task_type=TaskType.FAST,
-            system_prompt="You are JARVIS, AI assistant for Aliyar Solutions. Be concise (max 200 words).",
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=text)],
+                task_type=TaskType.FAST,
+                system_prompt="You are JARVIS, AI assistant for Aliyar Solutions. Be concise (max 200 words).",
+            ),
+            timeout=30.0,
         )
         reply = resp.content if not resp.error else f"JARVIS momentarily unavailable — {resp.error}"
         await send_message(chat_id, (reply or "JARVIS unavailable.")[:4000])

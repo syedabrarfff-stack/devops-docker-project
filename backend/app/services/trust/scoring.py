@@ -23,7 +23,7 @@ MAX_TRUST_SCORE = 100
 async def compute_scores(lead_id: UUID) -> dict:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(LeadEngagementEvent).where(LeadEngagementEvent.lead_id == lead_id)
+            select(LeadEngagementEvent).where(LeadEngagementEvent.lead_id == lead_id).limit(500)
         )
         events = result.scalars().all()
 

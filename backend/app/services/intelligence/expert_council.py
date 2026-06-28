@@ -116,11 +116,14 @@ async def _run_agent(
     )
 
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=agent_config["task_type"],
-            system_prompt=agent_config["system"],
-            max_tokens=800,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=agent_config["task_type"],
+                system_prompt=agent_config["system"],
+                max_tokens=800,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)

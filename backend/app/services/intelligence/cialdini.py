@@ -4,6 +4,7 @@ JARVIS Cialdini Engine — persuasion engineering based on Robert Cialdini's
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -101,11 +102,14 @@ class CialdiniEngine:
         )
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                system_prompt=CIALDINI_SYSTEM,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    system_prompt=CIALDINI_SYSTEM,
+                    max_tokens=1200,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -181,11 +185,14 @@ class CialdiniEngine:
             )
 
             try:
-                response, _ = await ai_router.chat(
-                    [Message(role="user", content=prompt)],
-                    task_type=TaskType.REASONING,
-                    system_prompt=CIALDINI_SYSTEM,
-                    max_tokens=800,
+                response, _ = await asyncio.wait_for(
+                    ai_router.chat(
+                        [Message(role="user", content=prompt)],
+                        task_type=TaskType.REASONING,
+                        system_prompt=CIALDINI_SYSTEM,
+                        max_tokens=800,
+                    ),
+                    timeout=60.0,
                 )
                 if response.error:
                     raise ValueError(response.error)

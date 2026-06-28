@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import uuid
@@ -151,11 +152,14 @@ Rules:
 - Speak as Aliyar Solutions or our specialist team.
 """.strip()
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                force_provider="nvidia",
-                max_tokens=1800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    force_provider="nvidia",
+                    max_tokens=1800,
+                ),
+                timeout=60.0,
             )
             if response.content and not response.error and not response.demo:
                 cleaned = _clean_client_text(response.content)

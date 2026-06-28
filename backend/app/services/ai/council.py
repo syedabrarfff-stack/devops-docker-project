@@ -295,11 +295,13 @@ class IntelligenceCouncil:
                         select(AICouncilSession)
                         .where(AICouncilSession.tenant_id == tenant_uuid, AICouncilSession.created_at >= cutoff)
                         .order_by(AICouncilSession.created_at.desc())
+                        .limit(100)
                     )
                 ).scalars().all()
                 audit_rows = (
                     await session.execute(
                         select(AuditLog).where(AuditLog.tenant_id == tenant_uuid, AuditLog.created_at >= cutoff)
+                        .limit(1000)
                     )
                 ).scalars().all()
                 outcomes = _extract_outcomes(audit_rows)
@@ -402,7 +404,7 @@ class IntelligenceCouncil:
         return list(
             (
                 await session.execute(
-                    select(AICouncilMemberWeight).where(AICouncilMemberWeight.tenant_id == tenant_id)
+                    select(AICouncilMemberWeight).where(AICouncilMemberWeight.tenant_id == tenant_id).limit(100)
                 )
             ).scalars().all()
         )

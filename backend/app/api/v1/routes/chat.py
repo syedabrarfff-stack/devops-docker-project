@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,16 +25,24 @@ async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(ge
     messages.append(Message(role="user", content=req.message))
     requested_task_type = _task_type_from_request(req.task_type)
 
-    response, task_type = await ai_router.chat(
-        messages=messages,
-        task_type=requested_task_type,
-        force_provider=req.force_provider,
-        force_model=req.force_model,
-        system_prompt=JARVIS_SYSTEM_PROMPT,
-        auto_detect=req.auto_route and not req.force_provider and requested_task_type is None,
-    )
-
-    response_text = response.content or (f"JARVIS offline — {response.error}" if response.error else "JARVIS is momentarily unavailable. All systems reconnecting.")
+    try:
+        response, task_type = await asyncio.wait_for(
+            ai_router.chat(
+                messages=messages,
+                task_type=requested_task_type,
+                force_provider=req.force_provider,
+                force_model=req.force_model,
+                system_prompt=JARVIS_SYSTEM_PROMPT,
+                auto_detect=req.auto_route and not req.force_provider and requested_task_type is None,
+            ),
+            timeout=55.0,
+        )
+        response_text = response.content or (f"JARVIS offline — {response.error}" if response.error else "JARVIS is momentarily unavailable. All systems reconnecting.")
+    except Exception as exc:
+        logger.warning("Chat AI call failed: %s", exc)
+        response_text = "JARVIS is momentarily unavailable. All systems reconnecting."
+        response = type("_R", (), {"model": "unavailable", "provider": "unavailable", "task_type": None, "tokens_used": 0})()
+        task_type = str(requested_task_type) if requested_task_type else "GENERAL"
 
     # Persist to DB
     if tenant_id:

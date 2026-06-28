@@ -18,6 +18,7 @@ For each discovery:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -294,9 +295,12 @@ Focus on technologies released or significantly updated in the last 30 days.
 Return only valid JSON array, no markdown."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=discovery_prompt)],
-                task_type=TaskType.RESEARCH,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=discovery_prompt)],
+                    task_type=TaskType.RESEARCH,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -333,9 +337,12 @@ The guide must include:
 Write at senior-architect level. Be specific and actionable."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

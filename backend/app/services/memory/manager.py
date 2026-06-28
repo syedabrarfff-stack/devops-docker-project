@@ -6,6 +6,7 @@ JARVIS Memory Manager — three-tier memory system.
   working     : current session scratchpad
   learning    : self-improvement insights from outcome analysis
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -105,7 +106,7 @@ async def get_instructions(
     db: AsyncSession,
     category: Optional[str] = None,
 ) -> list[Memory]:
-    q = select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance))
+    q = select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance)).limit(200)
     if category:
         q = q.where(Memory.tags.contains([category]))
     r = await db.execute(q)
@@ -224,10 +225,13 @@ async def maybe_summarise(
     )
     try:
         from app.services.ai.router import ai_router
-        resp, _ = await ai_router.chat(
-            messages=[{"role": "user", "content": prompt}],
-            task_type="FAST",
-            max_tokens=600,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[{"role": "user", "content": prompt}],
+                task_type="FAST",
+                max_tokens=600,
+            ),
+            timeout=30.0,
         )
         summary_text = resp.content or f"Conversation of {len(rows)} turns."
     except Exception:

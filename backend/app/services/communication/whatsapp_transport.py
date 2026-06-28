@@ -548,7 +548,7 @@ async def _find_lead_by_number(db: AsyncSession, tenant_id: uuid.UUID, number: s
             select(Lead).where(
                 Lead.tenant_id == tenant_id,
                 or_(Lead.phone.is_not(None), Lead.enrichment_data.is_not(None)),
-            )
+            ).limit(500)
         )
     ).scalars().all()
     for lead in candidates:

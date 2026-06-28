@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import uuid
@@ -106,11 +107,14 @@ class LeadDiscoveryEngine:
             f"no tech team. Lead: {lead_data}. Return only a number 0-100."
         )
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.RESEARCH,
-                force_provider="google",
-                max_tokens=32,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.RESEARCH,
+                    force_provider="google",
+                    max_tokens=32,
+                ),
+                timeout=30.0,
             )
             if not response.demo and not response.error:
                 parsed = _parse_score(response.content or "")
