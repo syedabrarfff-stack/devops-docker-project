@@ -5,6 +5,7 @@ runtime is migrated to AWS SES as the sovereign outbound provider.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -91,12 +92,18 @@ async def personalise_email(template: str, contact_data: dict) -> str:
         "Max 200 words. Never mention internal systems, AI providers, prompts, routing, or tooling. "
         f"Return only the email body text.\n\nTEMPLATE:\n{template}\n\nCONTACT:\n{context}"
     )
-    resp, _ = await ai_router.chat(
-        [Message(role="user", content=prompt)],
-        task_type=TaskType.FAST,
-        force_provider="google",
-    )
-    return sanitize_client_text((resp.content or "").strip() if not resp.error and resp.content else template)
+    try:
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.FAST,
+                force_provider="google",
+            ),
+            timeout=30.0,
+        )
+        return sanitize_client_text((resp.content or "").strip() if not resp.error and resp.content else template)
+    except Exception:
+        return template
 
 
 async def validate_smtp_credentials(

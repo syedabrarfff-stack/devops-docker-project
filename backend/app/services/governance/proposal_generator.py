@@ -221,12 +221,15 @@ class ProposalGenerator:
 async def _generate_sections(lead: Lead, tier: str, invoice_number: str) -> dict[str, Any]:
     prompt = _proposal_prompt(lead, tier, invoice_number)
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.SALES,
-            force_provider="anthropic",
-            force_model="claude-opus-4-7",
-            max_tokens=2200,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.SALES,
+                force_provider="anthropic",
+                force_model="claude-opus-4-7",
+                max_tokens=2200,
+            ),
+            timeout=60.0,
         )
         if response.error or response.demo or not response.content:
             return _fallback_sections(lead, tier, invoice_number)

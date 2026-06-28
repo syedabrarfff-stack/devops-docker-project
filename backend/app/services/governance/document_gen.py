@@ -2,6 +2,7 @@
 JARVIS Governance — AI-powered document generation for invoices, proposals, and contracts.
 All documents require Captain approval before execution.
 """
+import asyncio
 import json
 import logging
 import random
@@ -105,10 +106,13 @@ async def generate_proposal(
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.STRATEGY,
-            max_tokens=2500,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.STRATEGY,
+                max_tokens=2500,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)
@@ -195,7 +199,7 @@ async def get_invoices(db: AsyncSession, status: str | None = None, tenant_id=No
     if tenant_id is not None:
         import uuid as _uuid
         q = q.where(Invoice.tenant_id == _uuid.UUID(str(tenant_id)))
-    result = await db.execute(q)
+    result = await db.execute(q.limit(500))
     return [_serialize_invoice(i) for i in result.scalars().all()]
 
 
@@ -206,7 +210,7 @@ async def get_proposals(db: AsyncSession, status: str | None = None, tenant_id=N
     if tenant_id is not None:
         import uuid as _uuid
         q = q.where(Proposal.tenant_id == _uuid.UUID(str(tenant_id)))
-    result = await db.execute(q)
+    result = await db.execute(q.limit(500))
     return [_serialize_proposal(p) for p in result.scalars().all()]
 
 
@@ -361,10 +365,13 @@ async def generate_contract(
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.STRATEGY,
-            max_tokens=3000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.STRATEGY,
+                max_tokens=3000,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)

@@ -4,6 +4,7 @@ All cold emails follow the concise Phase 2 client-acquisition format.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -182,12 +183,15 @@ async def generate_sequence_with_ai(
         "- Use {name}, {company}, {industry} as placeholders\n\n"
         'Return ONLY valid JSON array: [{"step":1,"delay_days":0,"subject":"...","body":"..."},...]'
     )
-    resp, _ = await ai_router.chat(
-        [Message(role="user", content=prompt)],
-        task_type=TaskType.FAST,
-        force_provider="google",
-    )
     try:
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.FAST,
+                force_provider="google",
+            ),
+            timeout=60.0,
+        )
         if resp.error:
             raise ValueError(resp.error)
         text = (resp.content or "").strip()
