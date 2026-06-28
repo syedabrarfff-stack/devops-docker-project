@@ -354,8 +354,11 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     inv_row = invoices_result.first()
 
     # Proposal.value doesn't exist — pricing is a JSON dict; sum monthly_retainer in Python
+    _prop_filter = [Proposal.status == "sent"]
+    if _tid:
+        _prop_filter.append(Proposal.tenant_id == _tid)
     prop_rows = (await db.execute(
-        select(Proposal.pricing).where(Proposal.status == "sent")
+        select(Proposal.pricing).where(*_prop_filter)
     )).scalars().all()
     prop_count = len(prop_rows)
     prop_value = sum(float((p or {}).get("monthly_retainer", 0) or 0) for p in prop_rows)
@@ -488,18 +491,20 @@ async def revoke_permission(perm_id: int, db: AsyncSession = Depends(get_db)):
 # ── Governance Stats ─────────────────────────────────────────────────────────
 
 @router.get("/stats")
-async def governance_stats(db: AsyncSession = Depends(get_db)):
+async def governance_stats(request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
     from app.models.governance import Invoice, Proposal, AgentPermission, IncidentReport
 
+    _tid = _resolve_tenant_id(request, None)
+
     total_invoiced = (await db.execute(
-        select(func.sum(Invoice.total)).where(Invoice.status != "cancelled")
+        select(func.sum(Invoice.total)).where(Invoice.status != "cancelled", Invoice.tenant_id == _tid)
     )).scalar() or 0
     paid = (await db.execute(
-        select(func.sum(Invoice.total)).where(Invoice.status == "paid")
+        select(func.sum(Invoice.total)).where(Invoice.status == "paid", Invoice.tenant_id == _tid)
     )).scalar() or 0
     draft_proposals = (await db.execute(
-        select(func.count()).select_from(Proposal).where(Proposal.status == "draft")
+        select(func.count()).select_from(Proposal).where(Proposal.status == "draft", Proposal.tenant_id == _tid)
     )).scalar() or 0
     active_perms = (await db.execute(
         select(func.count()).select_from(AgentPermission).where(AgentPermission.is_active == True)
