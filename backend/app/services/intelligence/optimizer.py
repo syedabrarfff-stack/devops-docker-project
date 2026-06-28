@@ -2,6 +2,7 @@
 JARVIS Self-Optimization Engine — analyzes live operational metrics and generates
 prioritized improvement recommendations across architecture, sales, and automation.
 """
+import asyncio
 import json
 import logging
 import uuid
@@ -87,11 +88,14 @@ async def analyze_system(db: AsyncSession, tenant_id=None) -> int:
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.REASONING,
-            system_prompt="You are an expert systems architect. Return only valid JSON arrays.",
-            max_tokens=3000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.REASONING,
+                system_prompt="You are an expert systems architect. Return only valid JSON arrays.",
+                max_tokens=3000,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)

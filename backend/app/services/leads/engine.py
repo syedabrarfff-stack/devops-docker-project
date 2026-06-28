@@ -4,6 +4,7 @@ Gemini scores, qualifies, and generates outreach strategy for leads.
 Aliyar Solutions ICP: SaaS, hotels, restaurants, clinics, recruiters.
 Target: USA, Canada, UK, Europe, Australia, NZ.
 """
+import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -61,10 +62,13 @@ async def score_lead_with_ai(lead: Lead) -> dict:
         f"Opportunity: {lead.opportunity_type or 'unknown'}"
     )
 
-    resp, _ = await ai_router.chat(
-        [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
-        task_type=TaskType.FAST,
-        force_provider="google",
+    resp, _ = await asyncio.wait_for(
+        ai_router.chat(
+            [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
+            task_type=TaskType.FAST,
+            force_provider="google",
+        ),
+        timeout=60.0,
     )
 
     try:

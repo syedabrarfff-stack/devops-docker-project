@@ -2,6 +2,7 @@
 JARVIS Autonomous Research Division — generates structured intelligence reports
 on market opportunities, niches, technologies, and competitive landscape.
 """
+import asyncio
 import json
 import logging
 import uuid as _uuid_mod
@@ -72,11 +73,14 @@ async def generate_report(
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.RESEARCH,
-            system_prompt="You are a strategic business analyst. Return only valid JSON objects.",
-            max_tokens=2500,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.RESEARCH,
+                system_prompt="You are a strategic business analyst. Return only valid JSON objects.",
+                max_tokens=2500,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)

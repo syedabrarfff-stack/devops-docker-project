@@ -1,6 +1,7 @@
 """
 JARVIS Self-Awareness & Daily Intelligence Engine
 """
+import asyncio
 import logging
 from datetime import datetime
 from typing import Optional
@@ -284,13 +285,16 @@ async def generate_morning_briefing(db: AsyncSession) -> dict:
         date_str = datetime.now().strftime("%A, %B %d, %Y — %H:%M UTC")
         prompt = MORNING_BRIEFING_PROMPT.replace("{date}", date_str)
 
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            task_type="RESEARCH",
-            max_tokens=2000
+        response = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                task_type="RESEARCH",
+                max_tokens=2000,
+            ),
+            timeout=60.0,
         )
 
         payload = _ai_response_payload(response)
@@ -315,13 +319,16 @@ async def generate_morning_briefing(db: AsyncSession) -> dict:
 
 async def self_improvement_report(db: AsyncSession) -> dict:
     try:
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": SELF_IMPROVEMENT_PROMPT}
-            ],
-            task_type="RESEARCH",
-            max_tokens=1500
+        response = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": SELF_IMPROVEMENT_PROMPT}
+                ],
+                task_type="RESEARCH",
+                max_tokens=1500,
+            ),
+            timeout=60.0,
         )
         payload = _ai_response_payload(response)
         return {

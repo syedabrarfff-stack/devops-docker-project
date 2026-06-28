@@ -3,6 +3,7 @@ JARVIS Self-Learning & Evolution Engine
 Runs daily. Reviews all conversations, outcomes, and activities from the last 24h.
 Extracts learnings. Stores as semantic memory. JARVIS gets smarter every day.
 """
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -138,13 +139,16 @@ async def _extract_and_store_facts(db: AsyncSession, conversations: list) -> int
             f"{c.role.upper()}: {c.content[:300]}" for c in chunk
         )
         try:
-            resp, _ = await ai_router.chat(
-                messages=[{
-                    "role": "user",
-                    "content": EXTRACT_FACTS_PROMPT.format(conversation=transcript)
-                }],
-                task_type="FAST",
-                max_tokens=400,
+            resp, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[{
+                        "role": "user",
+                        "content": EXTRACT_FACTS_PROMPT.format(conversation=transcript)
+                    }],
+                    task_type="FAST",
+                    max_tokens=400,
+                ),
+                timeout=60.0,
             )
             content = resp.content or ""
             for line in content.split("\n"):
@@ -169,17 +173,20 @@ async def _extract_and_store_facts(db: AsyncSession, conversations: list) -> int
 async def _learn_from_outcome(db: AsyncSession, outcome: OutcomeRecord) -> None:
     """Generate a learning from a completed outcome."""
     try:
-        resp, _ = await ai_router.chat(
-            messages=[{
-                "role": "user",
-                "content": OUTCOME_LEARNING_PROMPT.format(
-                    action=outcome.action_detail or outcome.action_type,
-                    outcome=outcome.outcome,
-                    note=outcome.outcome_note or "No additional notes"
-                )
-            }],
-            task_type="FAST",
-            max_tokens=200,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[{
+                    "role": "user",
+                    "content": OUTCOME_LEARNING_PROMPT.format(
+                        action=outcome.action_detail or outcome.action_type,
+                        outcome=outcome.outcome,
+                        note=outcome.outcome_note or "No additional notes"
+                    )
+                }],
+                task_type="FAST",
+                max_tokens=200,
+            ),
+            timeout=60.0,
         )
         learning_text = resp.content or ""
         if learning_text:
@@ -226,13 +233,16 @@ async def _generate_learning_report(activity_summary: str) -> str:
             activity_summary=activity_summary,
             date=date_str
         )
-        resp, _ = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": "You are JARVIS — self-improving AI operational manager of Aliyar Solutions."},
-                {"role": "user", "content": prompt}
-            ],
-            task_type="RESEARCH",
-            max_tokens=1500,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": "You are JARVIS — self-improving AI operational manager of Aliyar Solutions."},
+                    {"role": "user", "content": prompt}
+                ],
+                task_type="RESEARCH",
+                max_tokens=1500,
+            ),
+            timeout=60.0,
         )
         return resp.content or ""
     except Exception as e:

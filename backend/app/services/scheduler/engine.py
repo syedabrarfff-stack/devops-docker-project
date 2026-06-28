@@ -3,6 +3,7 @@ JARVIS Agent Scheduler — APScheduler with SQLite/PostgreSQL persistence.
 Supports cron, interval, and one-shot (date) triggers.
 Jobs survive restarts via job store.
 """
+import asyncio
 import logging
 import traceback as _tb
 from datetime import datetime, timezone
@@ -627,19 +628,22 @@ async def _job_overnight_proposal_engine() -> None:
             leads = result.scalars().all()
             for lead in leads:
                 try:
-                    response, _ = await ai_router.chat(
-                        messages=[{
-                            "role": "user",
-                            "content": (
-                                f"Write a personalised proposal for {lead.company_name or lead.contact_name}. "
-                                f"Industry: {lead.industry or 'technology'}. "
-                                f"Pain points: {lead.pain_points or 'operational efficiency, scaling'}. "
-                                "Keep it concise, demo-first, no pricing. "
-                                "Sign off as Aliyar Solutions team."
-                            )
-                        }],
-                        task_type="STRATEGY",
-                        max_tokens=800,
+                    response, _ = await asyncio.wait_for(
+                        ai_router.chat(
+                            messages=[{
+                                "role": "user",
+                                "content": (
+                                    f"Write a personalised proposal for {lead.company_name or lead.contact_name}. "
+                                    f"Industry: {lead.industry or 'technology'}. "
+                                    f"Pain points: {lead.pain_points or 'operational efficiency, scaling'}. "
+                                    "Keep it concise, demo-first, no pricing. "
+                                    "Sign off as Aliyar Solutions team."
+                                )
+                            }],
+                            task_type="STRATEGY",
+                            max_tokens=800,
+                        ),
+                        timeout=60.0,
                     )
                     if response.error:
                         logger.warning("Proposal AI failed for lead %s: %s", lead.id, response.error)
