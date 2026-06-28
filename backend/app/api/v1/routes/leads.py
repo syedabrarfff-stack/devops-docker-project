@@ -599,7 +599,7 @@ async def get_lead_profile(
 
     outreach_rows = (await db.scalars(
         select(OutreachLog)
-        .where(OutreachLog.lead_id == lead_id)
+        .where(OutreachLog.tenant_id == resolved, OutreachLog.lead_id == lead_id)
         .order_by(OutreachLog.sent_at.desc())
         .limit(8)
     )).all()

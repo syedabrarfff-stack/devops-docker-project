@@ -4,6 +4,7 @@ Client Project → Lessons Learned → SOP Update → Proposal Improvement → O
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -143,10 +144,13 @@ Return 2-3 specific, actionable lessons in JSON array format:
 
 Return only valid JSON."""
             from app.services.ai.base_provider import Message
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
             import json
             content = response.content or "[]"

@@ -68,6 +68,7 @@ async def _scan(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, Any]:
                 await db.execute(
                     select(OutreachEmail.lead_id)
                     .where(
+                        OutreachEmail.tenant_id == tenant_id,
                         OutreachEmail.lead_id.in_(lead_ids),
                         OutreachEmail.status == "scheduled",
                     )

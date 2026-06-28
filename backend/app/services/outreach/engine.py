@@ -170,7 +170,7 @@ class OutreachEngine:
                         select(ApprovalRequest).where(
                             ApprovalRequest.tenant_id == tenant_uuid,
                             ApprovalRequest.status == ApprovalStatus.PENDING,
-                        )
+                        ).limit(500)
                     )
                 ).scalars().all()
 
@@ -517,7 +517,7 @@ class OutreachEngine:
             if response.error:
                 logger.warning("AI outreach sequence failed: %s", response.error)
                 return []
-            steps = _parse_steps(response.content)
+            steps = _parse_steps(response.content or "")
             return _clean_steps(steps, lead)
         except Exception as exc:
             logger.warning("AI outreach sequence generation failed: %s", exc)

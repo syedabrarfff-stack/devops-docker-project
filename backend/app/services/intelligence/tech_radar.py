@@ -63,7 +63,7 @@ class TechRadarEngine:
             logger.warning("Tech radar AI call failed: %s", response.error)
             return []
 
-        entries_data = _parse_json_array(response.content)
+        entries_data = _parse_json_array(response.content or "")
         if not entries_data:
             logger.warning("Tech radar scan returned no parseable entries")
             return []
