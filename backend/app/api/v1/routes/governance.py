@@ -328,16 +328,28 @@ async def run_test_workflow(
 @router.get("/auto-approval-stats")
 async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
+    import uuid as _uuid
     from app.models.revenue import Invoice, InvoiceStatus
     from app.models.governance import Proposal
     from app.core.config import settings
+
+    _tid = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+
+    _inv_filter = [Invoice.status == InvoiceStatus.SENT]
+    if _tid:
+        _inv_filter.append(Invoice.tenant_id == _tid)
 
     # Count auto-approved invoices — use amount_usd (Invoice has no .total column)
     invoices_result = await db.execute(
         select(
             func.count(Invoice.id).label("total"),
             func.sum(Invoice.amount_usd).label("total_value"),
-        ).where(Invoice.status == InvoiceStatus.SENT)
+        ).where(*_inv_filter)
     )
     inv_row = invoices_result.first()
 

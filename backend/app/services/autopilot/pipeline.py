@@ -58,7 +58,8 @@ async def _redis():
         r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         await r.ping()
         return r
-    except Exception:
+    except Exception as exc:
+        logger.warning("Autopilot: Redis connection failed — falling back to in-memory: %s", exc)
         return None
 
 
@@ -70,8 +71,8 @@ async def _load_drafts(tenant_id: str | None) -> list[dict]:
             raw = await r.get(key)
             await r.aclose()
             return json.loads(raw) if raw else []
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Autopilot: failed to load drafts from Redis key %s: %s", key, exc)
     return _FALLBACK.get(key, [])
 
 
@@ -83,8 +84,8 @@ async def _save_drafts(tenant_id: str | None, drafts: list[dict]) -> None:
             await r.set(key, json.dumps(drafts), ex=172_800)  # 48h TTL
             await r.aclose()
             return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Autopilot: failed to save drafts to Redis key %s: %s", key, exc)
     _FALLBACK[key] = drafts
 
 
@@ -96,8 +97,8 @@ async def _load_stats(tenant_id: str) -> dict:
             raw = await r.get(key)
             await r.aclose()
             return json.loads(raw) if raw else {}
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Autopilot: failed to load stats from Redis key %s: %s", key, exc)
     return _FALLBACK.get(key + ":stats", {})
 
 
@@ -111,8 +112,8 @@ async def _update_stats(tenant_id: str, patch: dict) -> None:
             await r.set(key, json.dumps(stats), ex=172_800)
             await r.aclose()
             return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Autopilot: failed to update stats in Redis key %s: %s", key, exc)
     _FALLBACK[key + ":stats"] = stats
 
 
