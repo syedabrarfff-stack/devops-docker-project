@@ -507,7 +507,7 @@ class OutreachEngine:
                 [Message(role="user", content=prompt)],
                 task_type=TaskType.SALES,
                 force_provider="anthropic",
-                force_model="claude-opus-4-7",
+                force_model="claude-sonnet",
                 max_tokens=1400,
             )
             if response.error:

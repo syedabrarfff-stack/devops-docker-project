@@ -248,8 +248,14 @@ async def enroll_contacts(
         for step in seq_row.steps or []:
             delay = step.get("delay_days", 0)
             subject = (step.get("subject") or "").replace("{name}", contact.name or "")
-            company_name = ""
-            body = (step.get("body") or "").replace("{name}", contact.name or "").replace("{company}", company_name)
+            company_name = getattr(contact, "company_name", None) or getattr(contact, "company", None) or ""
+            industry_name = getattr(contact, "industry", None) or ""
+            body = (
+                (step.get("body") or "")
+                .replace("{name}", contact.name or "")
+                .replace("{company}", company_name)
+                .replace("{industry}", industry_name)
+            )
             email = OutreachEmail(
                 sequence_id=sequence_id,
                 contact_id=contact.id,
@@ -282,7 +288,7 @@ async def get_sequence_stats(db: AsyncSession) -> list[dict]:
             "status": s.status,
             "emails_sent": s.emails_sent,
             "replies_received": s.replies_received,
-            "open_rate": round(s.emails_opened / s.emails_sent * 100, 1) if s.emails_sent else 0,
+            "open_rate": round((s.emails_opened or 0) / s.emails_sent * 100, 1) if s.emails_sent else 0,
         }
         for s in rows
     ]

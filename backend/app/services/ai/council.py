@@ -203,8 +203,8 @@ class IntelligenceCouncil:
             if on_vote:
                 try:
                     await on_vote(vote, counter["n"], total)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Council on_vote callback error: %s", exc)
             return vote
 
         member_votes = list(await asyncio.gather(*[_ask_and_notify(m) for m in COUNCIL_MEMBERS]))
@@ -264,8 +264,8 @@ class IntelligenceCouncil:
                     ))
                     await db.refresh(council_session)
                     session_id = str(council_session.id)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error("Council DB persistence failed for streaming session: %s", exc)
 
         record_council_session(decision)
         return CouncilResult(

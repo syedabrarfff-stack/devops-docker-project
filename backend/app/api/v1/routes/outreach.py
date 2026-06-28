@@ -344,16 +344,19 @@ async def track_email_open(outreach_id: UUID, db: AsyncSession = Depends(get_db)
     from sqlalchemy import select
     from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
 
-    now = datetime.now(UTC)
-    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
-    if outreach:
-        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
-        if not tracking:
-            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
-            db.add(tracking)
-        tracking.opened_at = tracking.opened_at or now
-        if outreach.status not in (OutreachStatus.REPLIED, OutreachStatus.CLICKED):
-            outreach.status = OutreachStatus.OPENED
+    try:
+        now = datetime.now(UTC)
+        outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+        if outreach:
+            tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+            if not tracking:
+                tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+                db.add(tracking)
+            tracking.opened_at = tracking.opened_at or now
+            if outreach.status not in (OutreachStatus.REPLIED, OutreachStatus.CLICKED):
+                outreach.status = OutreachStatus.OPENED
+    except Exception as exc:
+        logger.warning("Email open tracking failed for %s: %s", outreach_id, exc)
     return Response(content=_TRANSPARENT_GIF, media_type="image/gif")
 
 
@@ -387,16 +390,19 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid redirect URL")
 
-    now = datetime.now(UTC)
-    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
-    if outreach:
-        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
-        if not tracking:
-            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
-            db.add(tracking)
-        tracking.clicked_at = tracking.clicked_at or now
-        if outreach.status != OutreachStatus.REPLIED:
-            outreach.status = OutreachStatus.CLICKED
+    try:
+        now = datetime.now(UTC)
+        outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+        if outreach:
+            tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+            if not tracking:
+                tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+                db.add(tracking)
+            tracking.clicked_at = tracking.clicked_at or now
+            if outreach.status != OutreachStatus.REPLIED:
+                outreach.status = OutreachStatus.CLICKED
+    except Exception as exc:
+        logger.warning("Email click tracking failed for %s: %s", outreach_id, exc)
     return RedirectResponse(destination, status_code=302)
 
 
