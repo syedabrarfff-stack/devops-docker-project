@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from datetime import datetime
@@ -8,6 +10,8 @@ from app.core.database import get_db, set_tenant_context
 from app.services.intelligence.morning_briefing import MorningBriefingEngine
 from app.services.ai.router import ai_router
 from app.services.ai.base_provider import Message, TaskType
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/briefing", tags=["briefing"])
 
@@ -100,20 +104,34 @@ OUTREACH:
 ACTIONS PENDING: {metrics.get('pending_approvals', 0)}
 """.strip()
 
-    response, _ = await ai_router.chat(
-        messages=[Message(role="user", content=f"{greeting} JARVIS. Today is {date_str}.\n\n{live_data}\n\nGenerate the morning briefing.")],
-        task_type=TaskType.REASONING,
-        system_prompt=BRIEFING_PROMPT,
-        max_tokens=1500,
-    )
-    briefing_content = response.content if not response.error else f"Good {greeting.split()[-1].lower()}, Captain. JARVIS operational. AI briefing temporarily unavailable — {response.error}"
+    _fallback = f"Good {greeting.split()[-1].lower()}, Captain. JARVIS operational. AI briefing temporarily unavailable."
+    try:
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[Message(role="user", content=f"{greeting} JARVIS. Today is {date_str}.\n\n{live_data}\n\nGenerate the morning briefing.")],
+                task_type=TaskType.REASONING,
+                system_prompt=BRIEFING_PROMPT,
+                max_tokens=1500,
+            ),
+            timeout=55.0,
+        )
+        briefing_content = (response.content or _fallback) if not response.error else f"{_fallback} — {response.error}"
+        ai_model = response.model
+        ai_provider = response.provider
+        ai_demo = response.demo
+    except Exception as exc:
+        logger.warning("Briefing AI call failed: %s", exc)
+        briefing_content = _fallback
+        ai_model = "unavailable"
+        ai_provider = "unavailable"
+        ai_demo = False
 
     return {
         "briefing": briefing_content,
         "metrics": metrics,
-        "model": response.model,
-        "provider": response.provider,
-        "demo": response.demo,
+        "model": ai_model,
+        "provider": ai_provider,
+        "demo": ai_demo,
         "generated_at": now.isoformat(),
         "greeting": greeting,
     }
