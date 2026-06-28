@@ -50,7 +50,7 @@ class ReplyHandler:
             )
             if response.error or response.demo:
                 return _heuristic_classification(reply_text)
-            return _parse_classification(response.content) or _heuristic_classification(reply_text)
+            return _parse_classification(response.content or "") or _heuristic_classification(reply_text)
         except Exception as exc:
             logger.warning("Reply classification failed, using heuristic fallback: %s", exc)
             return _heuristic_classification(reply_text)

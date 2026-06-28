@@ -69,7 +69,7 @@ Priority 1 = most urgent. Sort by priority ascending."""
             )
             if response.error:
                 raise ValueError(response.error)
-            parsed = _parse_json_response(response.content)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, list):
                 return parsed[:5]
         except Exception as exc:
@@ -145,7 +145,7 @@ confidence must be float 0.0–1.0."""
             )
             if response.error:
                 raise ValueError(response.error)
-            parsed = _parse_json_response(response.content)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, dict):
                 return parsed
         except Exception as exc:
@@ -198,7 +198,7 @@ Return ONLY valid JSON:
             )
             if response.error:
                 raise ValueError(response.error)
-            parsed = _parse_json_response(response.content)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, dict):
                 parsed["generated_at"] = datetime.now(UTC).isoformat()
                 parsed["tenant_id"] = str(tenant_uuid)

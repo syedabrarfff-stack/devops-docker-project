@@ -77,7 +77,7 @@ Return ONLY valid JSON with these exact keys:
             )
             if response.error:
                 raise ValueError(response.error)
-            structured = _parse_json_response(response.content)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("AI lead intake failed: %s", exc)
             structured = {}
@@ -142,7 +142,7 @@ Return ONLY valid JSON with these exact keys:
             )
             if response.error:
                 raise ValueError(response.error)
-            structured = _parse_json_response(response.content)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Brain dump parsing failed: %s", exc)
             structured = {}
@@ -193,7 +193,7 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
             )
             if response.error:
                 raise ValueError(response.error)
-            structured = _parse_json_response(response.content)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Email intelligence extraction failed: %s", exc)
             structured = {}

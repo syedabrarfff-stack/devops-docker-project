@@ -148,6 +148,7 @@ class MorningBriefingEngine:
             await db.execute(
                 select(Proposal)
                 .where(
+                    Proposal.tenant_id == tenant_id,
                     Proposal.status == "sent",
                     Proposal.sent_at <= overdue_threshold,
                     Proposal.responded_at.is_(None),
@@ -160,6 +161,7 @@ class MorningBriefingEngine:
         # Proposals accepted awaiting contract
         accepted_proposals = await db.scalar(
             select(func.count()).select_from(Proposal).where(
+                Proposal.tenant_id == tenant_id,
                 Proposal.status == "accepted",
             )
         )
@@ -168,7 +170,10 @@ class MorningBriefingEngine:
         pending_contracts = (
             await db.execute(
                 select(Contract)
-                .where(Contract.status.in_(["draft", "sent"]))
+                .where(
+                    Contract.tenant_id == tenant_id,
+                    Contract.status.in_(["draft", "sent"]),
+                )
                 .order_by(Contract.created_at.desc())
                 .limit(5)
             )
@@ -177,6 +182,7 @@ class MorningBriefingEngine:
         # Executive briefs generated this week
         briefs_this_week = await db.scalar(
             select(func.count()).select_from(ExecutiveOpportunityBrief).where(
+                ExecutiveOpportunityBrief.tenant_id == tenant_id,
                 ExecutiveOpportunityBrief.created_at >= week_start,
             )
         )
