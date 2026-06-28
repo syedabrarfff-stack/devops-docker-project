@@ -190,7 +190,7 @@ async def generate_sequence_with_ai(
     try:
         if resp.error:
             raise ValueError(resp.error)
-        text = resp.content.strip()
+        text = (resp.content or "").strip()
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
         steps = json.loads(text)

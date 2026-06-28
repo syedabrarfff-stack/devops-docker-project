@@ -163,7 +163,7 @@ SCRIPT REQUIREMENTS:
             )
             if response.error:
                 raise ValueError(response.error)
-            script = response.content.strip()
+            script = (response.content or "").strip()
             if len(script) > 100:
                 return script
         except Exception as exc:

@@ -59,7 +59,7 @@ class ReferralEngine:
             )
             if response.error:
                 raise ValueError(response.error)
-            return response.content.strip()
+            return (response.content or "").strip()
         except Exception as e:
             logger.warning("ReferralEngine: AI failed for %s: %s", request_type, e)
             return f"[{request_type.title()} content for {client_name} at {company} — AI generation unavailable]"

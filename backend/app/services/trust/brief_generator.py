@@ -59,7 +59,7 @@ class BriefGenerator:
             )
             if response.error:
                 raise ValueError(f"AI provider error: {response.error}")
-            raw = response.content.strip()
+            raw = (response.content or "").strip()
             try:
                 parsed = json.loads(raw)
             except json.JSONDecodeError as exc:

@@ -81,7 +81,7 @@ async def generate_report(
         if response.error:
             raise ValueError(response.error)
 
-        raw = response.content.strip()
+        raw = (response.content or "").strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
