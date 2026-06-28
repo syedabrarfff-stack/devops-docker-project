@@ -49,13 +49,15 @@ async def update_twin_profile(
     db: AsyncSession,
     client_id: uuid.UUID,
     updates: dict[str, Any],
+    tenant_id: uuid.UUID | None = None,
 ) -> ClientDigitalTwin:
-    result = await db.execute(
-        select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
-    )
+    q = select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
+    if tenant_id is not None:
+        q = q.where(ClientDigitalTwin.tenant_id == tenant_id)
+    result = await db.execute(q)
     twin = result.scalar_one_or_none()
     if not twin:
-        twin = ClientDigitalTwin(client_id=client_id)
+        twin = ClientDigitalTwin(client_id=client_id, tenant_id=tenant_id)
         db.add(twin)
 
     allowed_fields = {
@@ -107,7 +109,17 @@ async def record_interaction(
     twin.updated_at = datetime.utcnow()
 
     if profile_updates:
-        await update_twin_profile(db, client_id, profile_updates)
+        _allowed = {
+            "communication_preferences", "decision_speed", "risk_tolerance",
+            "budget_authority", "internal_politics", "buying_psychology",
+            "technical_maturity", "support_expectation", "preferred_hia_agent",
+            "historical_objections", "successful_strategies", "trust_score",
+            "stakeholder_map", "churn_risk_score", "upsell_opportunity_score",
+            "renewal_probability",
+        }
+        for field, value in profile_updates.items():
+            if field in _allowed:
+                setattr(twin, field, value)
 
     await db.commit()
     return interaction

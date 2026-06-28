@@ -62,6 +62,7 @@ async def delete_contact(db: AsyncSession, contact_id: int) -> bool:
     if not c:
         return False
     await db.delete(c)
+    await db.flush()
     return True
 
 

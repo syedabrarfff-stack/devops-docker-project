@@ -150,26 +150,39 @@ async def add_knowledge(
     return _serialize_kb(entry)
 
 
-async def get_sops(db: AsyncSession, category: str | None = None) -> list[dict]:
-    q = select(SOPDocument).where(SOPDocument.is_active == True).order_by(SOPDocument.created_at.desc())
+async def get_sops(db: AsyncSession, category: str | None = None, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
+    q = (
+        select(SOPDocument)
+        .where(SOPDocument.is_active == True, SOPDocument.tenant_id == tid)
+        .order_by(SOPDocument.created_at.desc())
+    )
     if category:
         q = q.where(SOPDocument.category == category)
     result = await db.execute(q)
     return [_serialize_sop(s) for s in result.scalars().all()]
 
 
-async def get_learnings(db: AsyncSession, category: str | None = None, limit: int = 50) -> list[dict]:
-    q = select(LearningRecord).order_by(LearningRecord.created_at.desc()).limit(limit)
+async def get_learnings(db: AsyncSession, category: str | None = None, limit: int = 50, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
+    q = (
+        select(LearningRecord)
+        .where(LearningRecord.tenant_id == tid)
+        .order_by(LearningRecord.created_at.desc())
+        .limit(limit)
+    )
     if category:
         q = q.where(LearningRecord.category == category)
     result = await db.execute(q)
     return [_serialize_learning(r) for r in result.scalars().all()]
 
 
-async def search_knowledge(db: AsyncSession, query: str, limit: int = 20) -> list[dict]:
+async def search_knowledge(db: AsyncSession, query: str, limit: int = 20, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
     result = await db.execute(
         select(KnowledgeBase)
         .where(
+            KnowledgeBase.tenant_id == tid,
             KnowledgeBase.content.ilike(f"%{query}%") |
             KnowledgeBase.title.ilike(f"%{query}%")
         )
@@ -177,9 +190,9 @@ async def search_knowledge(db: AsyncSession, query: str, limit: int = 20) -> lis
         .limit(limit)
     )
     entries = result.scalars().all()
-    # Increment use count
     for e in entries:
         e.use_count += 1
+    await db.flush()
     return [_serialize_kb(e) for e in entries]
 
 
