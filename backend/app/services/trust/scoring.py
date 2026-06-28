@@ -49,7 +49,7 @@ async def log_event(
     lead_id: UUID,
     event_type: str,
     source: str = "",
-    metadata: dict = {},
+    metadata: dict | None = None,
 ) -> dict:
     weight = float(EVENT_WEIGHTS.get(event_type, 1.0))
 
@@ -59,7 +59,7 @@ async def log_event(
             event_type=event_type,
             weight=weight,
             source=source or None,
-            metadata_json=metadata,
+            metadata_json=metadata or {},
         )
         db.add(event)
         await db.commit()

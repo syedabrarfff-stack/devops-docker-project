@@ -141,7 +141,8 @@ class CallIntelligenceService:
                 call.status = CallStatus.COUNCIL_REVIEW.value
                 await db.commit()
 
-        logger.info("Pre-call briefing generated: %s | %s", call.client_name, call.client_company)
+        if call:
+            logger.info("Pre-call briefing generated: %s | %s", call.client_name, call.client_company)
         return {
             "call_id": call_id,
             "briefing_pdf_url": f"/pdfs/briefings/{call_id}_briefing.pdf",
@@ -407,7 +408,7 @@ Return only valid JSON, no markdown."""
             )
             if response.error:
                 raise ValueError(response.error)
-            data = json.loads(response.content.strip())
+            data = json.loads((response.content or "").strip())
             return data
         except Exception as exc:
             logger.warning("Briefing content generation failed: %s", exc)
@@ -580,8 +581,9 @@ Return only valid JSON."""
             )
             if response.error:
                 raise ValueError(response.error)
-            return json.loads(response.content.strip())
-        except Exception:
+            return json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Post-call debrief generation failed: %s", exc)
             return {
                 "debrief": f"Post-call analysis for {outcome} outcome with {call.client_company}.",
                 "improvements": ["Follow up within 24 hours", "Send proposal if requested"],
@@ -597,9 +599,10 @@ Analysis: {reasoning[:1500]}"""
             )
             if response.error:
                 raise ValueError(response.error)
-            items = json.loads(response.content.strip())
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("Council refinement extraction failed: %s", exc)
             return [reasoning[:200]]
 
     def _build_elevenlabs_system_prompt(self, call: ClientCallIntelligence) -> str:

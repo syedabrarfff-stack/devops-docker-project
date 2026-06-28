@@ -490,8 +490,9 @@ Return only valid JSON, no markdown."""
         try:
             if response.error:
                 raise ValueError(response.error)
-            metrics = json.loads(response.content.strip())
-        except Exception:
+            metrics = json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Department metrics parse failed: %s", exc)
             metrics = {"raw": response.content or response.error or "unavailable"}
 
         return {
@@ -597,9 +598,10 @@ Return only a single number between 0 and 100."""
             )
             if response.error:
                 raise ValueError(response.error)
-            score = float(response.content.strip().split()[0])
+            score = float((response.content or "50").strip().split()[0])
             return max(0.0, min(100.0, score))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impact score calculation failed: %s", exc)
             return 50.0
 
     def _serialize_dio(self, d: DepartmentIntelligenceOfficer) -> dict:

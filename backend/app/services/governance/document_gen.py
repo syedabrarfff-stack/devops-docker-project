@@ -112,7 +112,7 @@ async def generate_proposal(
         )
         if response.error:
             raise ValueError(response.error)
-        content = response.content.strip()
+        content = (response.content or "").strip()
     except Exception as e:
         logger.warning(f"Proposal generation failed: {e}")
         content = (
@@ -355,7 +355,7 @@ async def generate_contract(
         )
         if response.error:
             raise ValueError(response.error)
-        content = response.content.strip()
+        content = (response.content or "").strip()
     except Exception as e:
         logger.warning("Contract generation AI failed: %s", e)
         content = (
@@ -387,10 +387,13 @@ async def generate_contract(
     return _serialize_contract(contract)
 
 
-async def get_contracts(db: AsyncSession, status: str | None = None) -> list[dict]:
+async def get_contracts(db: AsyncSession, status: str | None = None, tenant_id=None) -> list[dict]:
     q = select(Contract).order_by(Contract.created_at.desc()).limit(200)
     if status:
         q = q.where(Contract.status == status)
+    if tenant_id is not None:
+        import uuid as _uuid
+        q = q.where(Contract.tenant_id == _uuid.UUID(str(tenant_id)))
     result = await db.execute(q)
     return [_serialize_contract(c) for c in result.scalars().all()]
 

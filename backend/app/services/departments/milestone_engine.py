@@ -425,9 +425,10 @@ Analysis: {reasoning[:2000]}"""
             )
             if response.error:
                 raise ValueError(response.error)
-            items = json.loads(response.content.strip())
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else [str(reasoning[:200])]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Milestone recommendation extraction failed: %s", exc)
             return [reasoning[:200]]
 
     def _count_by_status(self, milestones: list) -> dict:

@@ -374,7 +374,7 @@ async def import_leads_csv(
     tenant_id: Optional[UUID] = None,
     auto_score: bool = Query(default=True),
     db: AsyncSession = Depends(get_db),
-    bg: BackgroundTasks = None,
+    bg: BackgroundTasks,
 ):
     """
     Import leads from a CSV file. Accepts any column order; maps common header variants.
@@ -508,8 +508,8 @@ async def _score_newly_imported(tenant_id: UUID, limit: int) -> None:
             for lead in unscored.all():
                 try:
                     await leads_engine.score_lead(db, lead)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Background scoring failed for lead %s: %s", lead.id, exc)
             await db.commit()
     except Exception as exc:
         logger.warning("Background CSV scoring failed: %s", exc)
@@ -722,6 +722,7 @@ async def record_lead_loss(
             after_json={"status": lead.status.value, "loss_reason": lead.loss_reason},
         )
     )
+    await db.commit()
     return {"id": str(lead.id), "status": lead.status.value, "loss_reason": lead.loss_reason}
 
 
