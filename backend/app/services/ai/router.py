@@ -24,6 +24,10 @@ from app.middleware import observe_ai_latency, record_ai_cost
 
 logger = logging.getLogger(__name__)
 
+# Per-provider call timeout (seconds). Keeps individual provider hangs from
+# stalling the HTTP request past the ALB 60 s limit or starving APScheduler.
+_PROVIDER_TIMEOUT = 55.0
+
 JARVIS_SYSTEM_PROMPT = """You are JARVIS — the executive operational intelligence infrastructure of Aliyar Solutions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -356,25 +360,37 @@ class AIRouter:
                     model_id = ""
             if provider.is_available() and model_id:
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
-                latency = int((time.monotonic() - t0) * 1000)
-                response.task_type = task_type.value
-                response.latency_ms = latency
-                response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
-                _record_ai_metrics(
-                    force_provider,
-                    model_id,
-                    task_type.value,
-                    latency,
-                    response.cost_estimate_usd,
-                    response.tokens_used,
-                    _estimate_input_tokens(messages, system_prompt),
-                    response.error,
-                )
-                if not response.error and (response.content or "").strip():
-                    health_monitor.record_success(force_provider, latency)
-                    return response, task_type.value
-                health_monitor.record_failure(force_provider, latency)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=_PROVIDER_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    health_monitor.record_failure(force_provider, latency)
+                    logger.warning(
+                        "Force provider %s timed out after %.0fs — falling through to routing table",
+                        force_provider, _PROVIDER_TIMEOUT,
+                    )
+                else:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    response.task_type = task_type.value
+                    response.latency_ms = latency
+                    response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
+                    _record_ai_metrics(
+                        force_provider,
+                        model_id,
+                        task_type.value,
+                        latency,
+                        response.cost_estimate_usd,
+                        response.tokens_used,
+                        _estimate_input_tokens(messages, system_prompt),
+                        response.error,
+                    )
+                    if not response.error and (response.content or "").strip():
+                        health_monitor.record_success(force_provider, latency)
+                        return response, task_type.value
+                    health_monitor.record_failure(force_provider, latency)
 
         # Route through table with health-aware fallback
         route = ROUTING_TABLE.get(task_type, ROUTING_TABLE[TaskType.GENERAL])
@@ -404,7 +420,19 @@ class AIRouter:
                     continue
                 logger.info("Routing %s → %s/%s", task_type.value, provider_key, model_id)
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=_PROVIDER_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    health_monitor.record_failure(provider_key, latency)
+                    logger.warning(
+                        "Provider %s timed out after %.0fs — trying next in route",
+                        provider_key, _PROVIDER_TIMEOUT,
+                    )
+                    continue
                 latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
                 response.latency_ms = latency
