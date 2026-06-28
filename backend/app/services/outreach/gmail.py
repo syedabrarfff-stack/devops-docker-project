@@ -96,7 +96,7 @@ async def personalise_email(template: str, contact_data: dict) -> str:
         task_type=TaskType.FAST,
         force_provider="google",
     )
-    return sanitize_client_text(resp.content if not resp.error else template)
+    return sanitize_client_text((resp.content or "").strip() if not resp.error and resp.content else template)
 
 
 async def validate_smtp_credentials(
