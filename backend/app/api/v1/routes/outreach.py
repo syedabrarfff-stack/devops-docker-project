@@ -277,19 +277,24 @@ async def prepare_campaign(
         )
     ).scalars().all()
 
+    # Batch-check which leads already have a pending queue entry (avoids N+1)
+    lead_ids = [lead.id for lead in rows]
+    already_pending: set = set()
+    if lead_ids:
+        pending_rows = (await db.execute(
+            select(FollowUpQueue.lead_id)
+            .where(
+                FollowUpQueue.tenant_id == resolved_tenant_id,
+                FollowUpQueue.lead_id.in_(lead_ids),
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            )
+        )).scalars().all()
+        already_pending = set(pending_rows)
+
     queued = 0
     skipped: list[dict] = []
     for lead in rows:
-        existing = await db.scalar(
-            select(FollowUpQueue.id)
-            .where(
-                FollowUpQueue.tenant_id == resolved_tenant_id,
-                FollowUpQueue.lead_id == lead.id,
-                FollowUpQueue.status == FollowUpStatus.PENDING,
-            )
-            .limit(1)
-        )
-        if existing:
+        if lead.id in already_pending:
             skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": "already_pending"})
             continue
         try:

@@ -382,7 +382,7 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     if _tid:
         _prop_filter.append(Proposal.tenant_id == _tid)
     prop_rows = (await db.execute(
-        select(Proposal.pricing).where(*_prop_filter)
+        select(Proposal.pricing).where(*_prop_filter).limit(500)
     )).scalars().all()
     prop_count = len(prop_rows)
     prop_value = sum(float((p or {}).get("monthly_retainer", 0) or 0) for p in prop_rows)

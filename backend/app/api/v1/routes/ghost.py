@@ -74,6 +74,7 @@ async def _resolve_lead(
     db: AsyncSession,
     lead_id: Optional[UUID],
     lead_data: Optional[dict],
+    tenant_id: Optional[UUID] = None,
 ) -> dict:
     """Return lead as plain dict from DB or inline payload."""
     if lead_data:
@@ -82,7 +83,10 @@ async def _resolve_lead(
     if lead_id is None:
         raise HTTPException(status_code=400, detail="Provide lead_id or lead_data")
 
-    row = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
+    q = select(Lead).where(Lead.id == lead_id)
+    if tenant_id is not None:
+        q = q.where(Lead.tenant_id == tenant_id)
+    row = (await db.execute(q)).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail=f"Lead {lead_id} not found")
 
@@ -134,7 +138,7 @@ async def compose_stream(
       data: {"type":"complete","full_text":"...","char_count":412,"email_num":1}
       data: {"type":"done"}
     """
-    lead = await _resolve_lead(db, body.lead_id, body.lead_data)
+    lead = await _resolve_lead(db, body.lead_id, body.lead_data, tenant_id=body.tenant_id)
     persona = _resolve_persona(lead, body.persona_name)
 
     async def generate():
@@ -165,7 +169,7 @@ async def generate_sequence(
     Generate a full cold outreach sequence (1–3 emails) non-streaming.
     Returns all emails at once.
     """
-    lead = await _resolve_lead(db, body.lead_id, body.lead_data)
+    lead = await _resolve_lead(db, body.lead_id, body.lead_data, tenant_id=body.tenant_id)
     persona = _resolve_persona(lead, body.persona_name)
 
     async def compose_email(num: int) -> dict:
@@ -214,11 +218,15 @@ async def suggest_persona(
     lead_id: Optional[UUID] = None,
     industry: Optional[str] = Query(default=None, max_length=120),
     pain_points: Optional[str] = Query(default=None, max_length=500),
+    tenant_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Return the auto-selected persona for a lead or inline industry/pain_points."""
     if lead_id:
-        row = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
+        _q = select(Lead).where(Lead.id == lead_id)
+        if tenant_id is not None:
+            _q = _q.where(Lead.tenant_id == tenant_id)
+        row = (await db.execute(_q)).scalar_one_or_none()
         if row is None:
             raise HTTPException(status_code=404, detail="Lead not found")
         industry = row.industry
@@ -274,7 +282,7 @@ async def compose_and_send(
     """
     from app.services.outreach.gmail import send_client_email
 
-    lead = await _resolve_lead(db, body.lead_id, body.lead_data)
+    lead = await _resolve_lead(db, body.lead_id, body.lead_data, tenant_id=body.tenant_id)
     to_email = lead.get("email")
     if not to_email:
         raise HTTPException(status_code=400, detail="Lead has no email address")
@@ -300,7 +308,10 @@ async def compose_and_send(
 
     # Increment outreach count on lead
     if body.lead_id:
-        row = (await db.execute(select(Lead).where(Lead.id == body.lead_id))).scalar_one_or_none()
+        _q = select(Lead).where(Lead.id == body.lead_id)
+        if body.tenant_id is not None:
+            _q = _q.where(Lead.tenant_id == body.tenant_id)
+        row = (await db.execute(_q)).scalar_one_or_none()
         if row:
             row.outreach_count = (row.outreach_count or 0) + 1
             if row.status.value == "NEW":
