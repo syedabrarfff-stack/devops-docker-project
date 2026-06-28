@@ -183,10 +183,16 @@ async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: Async
 
 
 @router.post("/proposals/{proposal_id}/status")
-async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def update_proposal_status(
+    proposal_id: int,
+    req: StatusUpdate,
+    bg: BackgroundTasks,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import update_proposal_status as _update, get_proposals, generate_contract
     async with db.begin():
-        ok = await _update(db, proposal_id, req.status)
+        ok = await _update(db, proposal_id, req.status, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(404, "Proposal not found")
     if req.status in ("accepted", "won"):
@@ -194,7 +200,10 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: Backgr
             from app.services.notifications.telegram import notify_telegram
             from app.models.governance import Proposal as _Proposal
             from sqlalchemy import select as _select
-            _p_row = (await db.execute(_select(_Proposal).where(_Proposal.id == proposal_id))).scalar_one_or_none()
+            _q = _select(_Proposal).where(_Proposal.id == proposal_id)
+            if tenant_id is not None:
+                _q = _q.where(_Proposal.tenant_id == tenant_id)
+            _p_row = (await db.execute(_q)).scalar_one_or_none()
             p = {
                 "id": _p_row.id, "client_name": _p_row.client_name,
                 "client_email": _p_row.client_email, "client_company": _p_row.client_company,
@@ -230,17 +239,27 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: Backgr
 # ── Contracts ─────────────────────────────────────────────────────────────────
 
 @router.get("/contracts")
-async def list_contracts(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_contracts(
+    status: Optional[str] = None,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import get_contracts
-    return {"contracts": await get_contracts(db, status=status)}
+    return {"contracts": await get_contracts(db, status=status, tenant_id=tenant_id)}
 
 
 @router.get("/contracts/{contract_id}")
-async def get_contract(contract_id: int, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import get_contracts
+async def get_contract(
+    contract_id: int,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from sqlalchemy import select
     from app.models.governance import Contract
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    q = select(Contract).where(Contract.id == contract_id)
+    if tenant_id is not None:
+        q = q.where(Contract.tenant_id == tenant_id)
+    result = await db.execute(q)
     contract = result.scalar_one_or_none()
     if not contract:
         raise HTTPException(404, "Contract not found")
@@ -285,10 +304,15 @@ async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSe
 
 
 @router.post("/contracts/{contract_id}/status")
-async def update_contract_status(contract_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+async def update_contract_status(
+    contract_id: int,
+    req: StatusUpdate,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import update_contract_status as _update
     async with db.begin():
-        ok = await _update(db, contract_id, req.status)
+        ok = await _update(db, contract_id, req.status, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(404, "Contract not found")
     if req.status == "signed":
