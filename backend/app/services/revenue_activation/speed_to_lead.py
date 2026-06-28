@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -221,10 +222,13 @@ Rules:
 - Include a direct line that the demo is ready and can be shared if the client is interested.
 """.strip()
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                max_tokens=500,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    max_tokens=500,
+                ),
+                timeout=60.0,
             )
             if not response.error:
                 parsed = _parse_json_object(response.content)
