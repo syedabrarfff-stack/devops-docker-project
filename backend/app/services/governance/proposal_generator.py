@@ -70,7 +70,7 @@ class ProposalGenerator:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
                 proposal = await session.scalar(
-                    select(Proposal).where(Proposal.tenant_id == tenant_uuid, Proposal.id == uuid.UUID(str(proposal_id)))
+                    select(Proposal).where(Proposal.tenant_id == tenant_uuid, Proposal.id == int(proposal_id))
                 )
                 if not proposal:
                     raise ValueError("Proposal not found")
@@ -119,7 +119,7 @@ class ProposalGenerator:
             async with session.begin():
                 await set_tenant_context(session, str(tenant_uuid))
                 proposal = await session.scalar(
-                    select(Proposal).where(Proposal.tenant_id == tenant_uuid, Proposal.id == uuid.UUID(str(proposal_id)))
+                    select(Proposal).where(Proposal.tenant_id == tenant_uuid, Proposal.id == int(proposal_id))
                 )
                 if not proposal:
                     raise ValueError("Proposal not found")
