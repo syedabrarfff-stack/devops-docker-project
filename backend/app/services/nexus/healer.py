@@ -147,7 +147,8 @@ async def heal_subsystem(subsystem: str, db) -> dict:
                 "⚠️ NEXUS HEALER: AUTOPILOT queue has >20 pending drafts. "
                 "Review and bulk-approve via /control-room/autopilot."
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("NEXUS HEALER: Telegram notify failed for autopilot: %s", exc)
             result["detail"] += " (Telegram notification failed — check TG config)"
 
     elif subsystem == "ai_provider":
@@ -186,8 +187,8 @@ async def heal_subsystem(subsystem: str, db) -> dict:
                     f"🔴 NEXUS HEALER: {subsystem.upper()} is degraded — ANTHROPIC_API_KEY missing. "
                     "Add to AWS Secrets Manager and redeploy."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("NEXUS HEALER: Telegram notify failed for %s: %s", subsystem, exc)
 
     elif subsystem in ("database", "pipeline"):
         # Verify DB connectivity; pipeline health mirrors database
@@ -206,8 +207,8 @@ async def heal_subsystem(subsystem: str, db) -> dict:
                     f"🔴 NEXUS HEALER: DATABASE critical failure — {exc}. "
                     "Check AWS RDS and VPC security groups immediately."
                 )
-            except Exception:
-                pass
+            except Exception as tg_exc:
+                logger.warning("NEXUS HEALER: Telegram notify failed for database alert: %s", tg_exc)
 
     else:
         result["detail"] = f"No heal protocol defined for subsystem: {subsystem}"

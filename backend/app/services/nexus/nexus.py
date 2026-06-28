@@ -93,7 +93,8 @@ async def nexus_cycle_stream(db) -> AsyncIterator[str]:
     import anthropic
     import os
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    decision: dict = {}
+    from app.services.nexus.brain import _fallback_decision
+    decision: dict = _fallback_decision(pipeline_state)
 
     if api_key:
         from app.services.nexus.brain import _BRAIN_SYSTEM_PROMPT, _fallback_decision
@@ -156,8 +157,16 @@ async def nexus_cycle_stream(db) -> AsyncIterator[str]:
         yield _emit({"type": "phase", "phase": "ACT", "message": "Triggering AUTOPILOT outreach cycle..."})
         try:
             from app.services.autopilot.pipeline import run_autopilot_cycle
+            from app.core.config import settings as _cfg
+            import uuid as _uuid_mod
+            _nexus_tid = None
+            if _cfg.JARVIS_DEFAULT_TENANT_ID:
+                try:
+                    _nexus_tid = _uuid_mod.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+                except (ValueError, AttributeError):
+                    pass
             cycle_result = await run_autopilot_cycle(
-                tenant_id=None,
+                tenant_id=_nexus_tid,
                 max_leads=10,
                 min_score=70.0,
                 tone=decision.get("primary_decision", {}).get("tone", "professional"),

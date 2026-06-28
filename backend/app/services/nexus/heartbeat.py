@@ -48,6 +48,8 @@ async def store_pulse(pulse: dict) -> None:
         except Exception as exc:
             logger.warning("Redis pulse store failed: %s", exc)
             _FALLBACK_PULSES.append(pulse)
+        finally:
+            await r.aclose()
     else:
         _FALLBACK_PULSES.append(pulse)
         if len(_FALLBACK_PULSES) > 168:
@@ -61,8 +63,10 @@ async def get_latest_pulse() -> dict | None:
             raw = await r.get(_PULSE_KEY)
             if raw:
                 return json.loads(raw)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Redis get_latest_pulse failed: %s", exc)
+        finally:
+            await r.aclose()
     return _FALLBACK_PULSES[-1] if _FALLBACK_PULSES else None
 
 
@@ -72,8 +76,10 @@ async def get_pulse_history(limit: int = 24) -> list[dict]:
         try:
             items = await r.lrange(_PULSE_HISTORY_KEY, 0, limit - 1)
             return [json.loads(i) for i in items]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Redis get_pulse_history failed: %s", exc)
+        finally:
+            await r.aclose()
     return _FALLBACK_PULSES[-limit:]
 
 
@@ -85,8 +91,11 @@ async def log_decision(decision: dict) -> None:
         try:
             await r.lpush(_DECISION_LOG_KEY, payload)
             await r.ltrim(_DECISION_LOG_KEY, 0, 499)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Redis log_decision failed: %s", exc)
             _FALLBACK_DECISIONS.insert(0, record)
+        finally:
+            await r.aclose()
     else:
         _FALLBACK_DECISIONS.insert(0, record)
         if len(_FALLBACK_DECISIONS) > 500:
@@ -99,8 +108,10 @@ async def get_decisions(limit: int = 20) -> list[dict]:
         try:
             items = await r.lrange(_DECISION_LOG_KEY, 0, limit - 1)
             return [json.loads(i) for i in items]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Redis get_decisions failed: %s", exc)
+        finally:
+            await r.aclose()
     return _FALLBACK_DECISIONS[:limit]
 
 
@@ -112,8 +123,11 @@ async def log_heal_event(event: dict) -> None:
         try:
             await r.lpush(_HEAL_LOG_KEY, payload)
             await r.ltrim(_HEAL_LOG_KEY, 0, 99)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Redis log_heal_event failed: %s", exc)
             _FALLBACK_HEAL_LOG.insert(0, record)
+        finally:
+            await r.aclose()
     else:
         _FALLBACK_HEAL_LOG.insert(0, record)
         if len(_FALLBACK_HEAL_LOG) > 100:
@@ -126,8 +140,10 @@ async def get_heal_log(limit: int = 20) -> list[dict]:
         try:
             items = await r.lrange(_HEAL_LOG_KEY, 0, limit - 1)
             return [json.loads(i) for i in items]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Redis get_heal_log failed: %s", exc)
+        finally:
+            await r.aclose()
     return _FALLBACK_HEAL_LOG[:limit]
 
 
