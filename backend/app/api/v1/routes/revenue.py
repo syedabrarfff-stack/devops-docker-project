@@ -98,6 +98,7 @@ async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = No
             rows = (await session.execute(
                 select(Lead.status, Lead.tier, Lead.score, Lead.industry, Lead.country)
                 .where(Lead.tenant_id == tid)
+                .limit(2000)
             )).all()
 
     stages: dict[str, dict] = {}
@@ -272,6 +273,7 @@ async def revenue_segments(
             leads = (await session.execute(
                 select(Lead.industry, Lead.country, Lead.tier, Lead.status)
                 .where(Lead.tenant_id == tid)
+                .limit(2000)
             )).all()
 
     # Build client segment breakdown by package_tier
@@ -563,7 +565,7 @@ async def _gather_war_room(tid: uuid.UUID):
             async with session.begin():
                 await set_tenant_context(session, str(tid))
                 rows = (await session.execute(
-                    select(Lead.status, Lead.tier).where(Lead.tenant_id == tid)
+                    select(Lead.status, Lead.tier).where(Lead.tenant_id == tid).limit(2000)
                 )).all()
         stages: dict = {}
         total_w = 0.0
@@ -621,7 +623,7 @@ async def _gather_war_room(tid: uuid.UUID):
             async with session.begin():
                 await set_tenant_context(session, str(tid))
                 clients = (await session.execute(
-                    select(Client.status).where(Client.tenant_id == tid)
+                    select(Client.status).where(Client.tenant_id == tid).limit(2000)
                 )).all()
         total = len(clients)
         active = sum(1 for c in clients if c.status == ClientStatus.ACTIVE)
