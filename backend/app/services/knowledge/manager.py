@@ -2,6 +2,7 @@
 JARVIS Knowledge System — SOPs, learning records, and centralized operational knowledge base.
 Everything JARVIS learns from execution is archived here for reuse and continuous improvement.
 """
+import asyncio
 import json
 import logging
 import uuid as _uuid_mod
@@ -63,11 +64,14 @@ async def generate_sop(
     prompt = SOP_GEN_PROMPT.format(title=title, category=category, context=context)
     messages = [Message(role="user", content=prompt)]
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.REASONING,
-            system_prompt="You are an operations expert. Return only valid JSON.",
-            max_tokens=2000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.REASONING,
+                system_prompt="You are an operations expert. Return only valid JSON.",
+                max_tokens=2000,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)

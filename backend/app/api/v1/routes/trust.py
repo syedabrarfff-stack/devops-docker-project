@@ -54,6 +54,7 @@ async def list_briefs_for_lead(lead_id: UUID):
             select(ExecutiveOpportunityBrief)
             .where(ExecutiveOpportunityBrief.lead_id == lead_id)
             .order_by(ExecutiveOpportunityBrief.created_at.desc())
+            .limit(50)
         )
         briefs = result.scalars().all()
         return [brief_generator._serialize(b) for b in briefs]
@@ -95,7 +96,7 @@ async def list_referrals(status: Optional[str] = None):
     from app.models.trust_engine import ReferralRequest
 
     async with AsyncSessionLocal() as db:
-        q = select(ReferralRequest).order_by(ReferralRequest.created_at.desc())
+        q = select(ReferralRequest).order_by(ReferralRequest.created_at.desc()).limit(200)
         if status:
             q = q.where(ReferralRequest.status == status)
         result = await db.execute(q)

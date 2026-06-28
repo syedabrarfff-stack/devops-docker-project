@@ -52,10 +52,13 @@ class ReferralEngine:
         messages = [Message(role="user", content=prompt)]
 
         try:
-            response, _ = await ai_router.chat(
-                messages,
-                task_type=TaskType.STRATEGY,
-                max_tokens=400,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages,
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=400,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)
