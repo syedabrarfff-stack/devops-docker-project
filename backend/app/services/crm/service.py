@@ -38,12 +38,20 @@ async def list_contacts(db: AsyncSession, status: Optional[str] = None,
     return list(r.scalars().all())
 
 
-async def update_contact(db: AsyncSession, contact_id: int, data: dict) -> Optional[Contact]:
-    c = await get_contact(db, contact_id)
+async def update_contact(
+    db: AsyncSession,
+    contact_id: int,
+    data: dict,
+    tenant_id=None,
+) -> Optional[Contact]:
+    q = select(Contact).where(Contact.id == contact_id)
+    if tenant_id is not None:
+        q = q.where(Contact.tenant_id == tenant_id)
+    c = (await db.execute(q)).scalar_one_or_none()
     if not c:
         return None
     for k, v in data.items():
-        if hasattr(c, k):
+        if hasattr(c, k) and k not in ("id", "tenant_id"):
             setattr(c, k, v)
     await db.flush()
     return c
@@ -124,13 +132,20 @@ async def list_deals(db: AsyncSession, stage: Optional[str] = None,
     return list(r.scalars().all())
 
 
-async def update_deal(db: AsyncSession, deal_id: int, data: dict) -> Optional[Deal]:
-    r = await db.execute(select(Deal).where(Deal.id == deal_id))
-    d = r.scalar_one_or_none()
+async def update_deal(
+    db: AsyncSession,
+    deal_id: int,
+    data: dict,
+    tenant_id=None,
+) -> Optional[Deal]:
+    q = select(Deal).where(Deal.id == deal_id)
+    if tenant_id is not None:
+        q = q.where(Deal.tenant_id == tenant_id)
+    d = (await db.execute(q)).scalar_one_or_none()
     if not d:
         return None
     for k, v in data.items():
-        if hasattr(d, k):
+        if hasattr(d, k) and k not in ("id", "tenant_id"):
             setattr(d, k, v)
     await db.flush()
     return d
