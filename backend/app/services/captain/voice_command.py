@@ -4,6 +4,7 @@ Processes transcripts, classifies intent, executes actions, returns audio-ready 
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -91,10 +92,13 @@ Classify the intent and extract relevant entities. Return ONLY valid JSON:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
-                max_tokens=600,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                    max_tokens=600,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -156,10 +160,13 @@ SCRIPT REQUIREMENTS:
 9. Pause cues: use commas and full stops for natural pacing"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
-                max_tokens=400,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                    max_tokens=400,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)

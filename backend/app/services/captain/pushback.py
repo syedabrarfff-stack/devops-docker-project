@@ -4,6 +4,7 @@ Stress-tests strategies and surfaces risks before they become expensive mistakes
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -103,10 +104,13 @@ VERDICT CRITERIA:
 confidence must be float 0.0–1.0."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                max_tokens=900,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    max_tokens=900,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -188,10 +192,13 @@ stress_score: 0 = catastrophically fragile, 100 = highly resilient.
 Be ruthlessly honest — Captain needs the truth, not validation."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    max_tokens=1200,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 raise ValueError(response.error)

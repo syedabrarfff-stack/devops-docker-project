@@ -350,13 +350,16 @@ async def enhance_idea(db: AsyncSession, idea: str) -> dict:
         if past_context:
             system = f"{JARVIS_AWARENESS_PROMPT}\n\nPAST CONTEXT (use to inform analysis):\n{past_context}"
 
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt}
-            ],
-            task_type="STRATEGY",
-            max_tokens=2500
+        response = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt}
+                ],
+                task_type="STRATEGY",
+                max_tokens=2500
+            ),
+            timeout=60.0,
         )
         payload = _ai_response_payload(response)
         analysis = payload.get("content", "")
@@ -389,13 +392,16 @@ async def enhance_idea(db: AsyncSession, idea: str) -> dict:
 async def spawn_agent_team(db: AsyncSession, task: str) -> dict:
     try:
         prompt = AGENT_TEAM_PROMPT.replace("{task}", task)
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            task_type="STRATEGY",
-            max_tokens=2000
+        response = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                task_type="STRATEGY",
+                max_tokens=2000
+            ),
+            timeout=60.0,
         )
         return {
             "task": task,
@@ -446,10 +452,13 @@ async def jarvis_chat(
 
         messages.append(Message(role="user", content=message))
 
-        response = await ai_router.chat(
-            messages=messages,
-            task_type=task_type,
-            max_tokens=1500
+        response = await asyncio.wait_for(
+            ai_router.chat(
+                messages=messages,
+                task_type=task_type,
+                max_tokens=1500
+            ),
+            timeout=60.0,
         )
 
         payload = _ai_response_payload(response)

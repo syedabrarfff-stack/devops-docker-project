@@ -4,6 +4,7 @@ Simulates hostile competitor analysis and identifies strategic vulnerabilities.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -78,15 +79,18 @@ async def _analyze_attack_vector(vector: dict) -> dict[str, Any]:
         f"time_to_exploit_months (integer)."
     )
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.REASONING,
-            system_prompt=RED_TEAM_SYSTEM,
-            max_tokens=600,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.REASONING,
+                system_prompt=RED_TEAM_SYSTEM,
+                max_tokens=600,
+            ),
+            timeout=60.0,
         )
         if response.error:
             raise ValueError(response.error)
-        parsed = _parse_json_response(response.content)
+        parsed = _parse_json_response(response.content or "")
         return {
             "vector_id": vector["id"],
             "vector_name": vector["name"],

@@ -2,6 +2,7 @@
 JARVIS Self-Awareness API
 Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolution
 """
+import asyncio
 import logging
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -230,18 +231,21 @@ async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
     try:
         memory_context = await build_context(db, query="recent client activity leads proposals", limit=5)
 
-        response, _ = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": (
-                    f"Captain just opened the JARVIS dashboard. It's {time_of_day}. "
-                    f"Give a natural, warm greeting in 2-3 sentences. Mention what's happening if there's context below. "
-                    f"End by asking if they want the full brief or to jump straight to clients. "
-                    f"Context: {memory_context or 'No recent activity to report.'}"
-                )}
-            ],
-            task_type="FAST",
-            max_tokens=120,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": (
+                        f"Captain just opened the JARVIS dashboard. It's {time_of_day}. "
+                        f"Give a natural, warm greeting in 2-3 sentences. Mention what's happening if there's context below. "
+                        f"End by asking if they want the full brief or to jump straight to clients. "
+                        f"Context: {memory_context or 'No recent activity to report.'}"
+                    )}
+                ],
+                task_type="FAST",
+                max_tokens=120,
+            ),
+            timeout=30.0,
         )
         greeting_text = response.content or f"Good {time_of_day}, Captain. JARVIS operational."
     except Exception:

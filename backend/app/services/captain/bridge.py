@@ -4,6 +4,7 @@ Processes raw input, brain dumps, email threads, and generates situation reports
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -70,10 +71,13 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -135,10 +139,13 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=1200,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)
@@ -186,10 +193,13 @@ Return ONLY valid JSON with these exact keys:
 urgency_score must be integer 1–10. 10 = extremely urgent."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
             if response.error:
                 raise ValueError(response.error)

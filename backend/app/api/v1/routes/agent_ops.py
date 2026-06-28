@@ -2,6 +2,7 @@
 JARVIS Agent Operations Center API
 Captain can see all teams, monitor agents, and talk to any team in real time.
 """
+import asyncio
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -140,13 +141,16 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response, _ = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            task_type=body.task_type,
-            max_tokens=1500
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                task_type=body.task_type,
+                max_tokens=1500
+            ),
+            timeout=60.0,
         )
 
         return {
@@ -194,13 +198,16 @@ async def chat_with_team(team_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response, _ = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            task_type=body.task_type,
-            max_tokens=2000
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                task_type=body.task_type,
+                max_tokens=2000
+            ),
+            timeout=60.0,
         )
 
         return {
