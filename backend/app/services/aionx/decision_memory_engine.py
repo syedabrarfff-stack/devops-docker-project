@@ -163,18 +163,25 @@ async def retrospective_sync(
     _dq = select(DecisionObject).where(
         DecisionObject.created_at <= cutoff,
         DecisionObject.outcome_at.is_(None),
-    )
+    ).limit(200)
     if _tid:
         _dq = _dq.where(DecisionObject.tenant_id == _tid)
     result = await db.execute(_dq)
     pending = result.scalars().all()
+    if not pending:
+        return []
+
+    decision_ids = [d.id for d in pending]
+    outcomes_map = {
+        o.decision_id: o
+        for o in (await db.execute(
+            select(DecisionOutcome).where(DecisionOutcome.decision_id.in_(decision_ids)).limit(200)
+        )).scalars().all()
+    }
 
     outcomes_due = []
     for decision in pending:
-        outcome_result = await db.execute(
-            select(DecisionOutcome).where(DecisionOutcome.decision_id == decision.id)
-        )
-        outcome = outcome_result.scalar_one_or_none()
+        outcome = outcomes_map.get(decision.id)
         if outcome:
             if days == 30 and not outcome.day_30_reviewed_at:
                 outcomes_due.append(outcome)
