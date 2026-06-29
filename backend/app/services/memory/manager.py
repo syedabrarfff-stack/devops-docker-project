@@ -175,13 +175,12 @@ async def build_context(
 
 async def get_memory_stats(db: AsyncSession) -> dict:
     total = await db.scalar(select(sqlfunc.count()).select_from(Memory)) or 0
-    by_type = {}
-    for mtype in ["episodic", "semantic", "instruction", "learning", "working"]:
-        count = await db.scalar(
-            select(sqlfunc.count()).select_from(Memory).where(Memory.memory_type == mtype)
-        ) or 0
-        if count:
-            by_type[mtype] = count
+    rows = (
+        await db.execute(
+            select(Memory.memory_type, sqlfunc.count()).group_by(Memory.memory_type)
+        )
+    ).all()
+    by_type = {mtype: cnt for mtype, cnt in rows if cnt}
     return {"total": total, "by_type": by_type}
 
 

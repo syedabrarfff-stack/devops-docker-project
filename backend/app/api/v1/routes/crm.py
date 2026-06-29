@@ -244,7 +244,8 @@ async def get_relationship_graph(
 
 
 @router.post("/relationship-graph/node")
-async def add_relationship_node(body: RelationshipNodeIn, request: Request):
+@limiter.limit("20/minute")
+async def add_relationship_node(request: Request, body: RelationshipNodeIn):
     """Add or update a node in the relationship graph."""
     from app.services.crm.relationship_graph import relationship_graph
 
@@ -256,7 +257,8 @@ async def add_relationship_node(body: RelationshipNodeIn, request: Request):
 
 
 @router.post("/relationship-graph/edge")
-async def add_relationship_edge(body: RelationshipEdgeIn, request: Request):
+@limiter.limit("20/minute")
+async def add_relationship_edge(request: Request, body: RelationshipEdgeIn):
     """Add a relationship edge between two nodes."""
     from app.services.crm.relationship_graph import relationship_graph
 
@@ -291,7 +293,8 @@ class HubSpotSyncRequest(BaseModel):
 
 
 @router.post("/hubspot-sync")
-async def sync_to_hubspot(body: HubSpotSyncRequest, request: Request):
+@limiter.limit("5/minute")
+async def sync_to_hubspot(request: Request, body: HubSpotSyncRequest):
     """Push qualified JARVIS leads to HubSpot CRM as contacts and deals."""
     from app.services.integrations.hubspot_sync import hubspot_sync
 
@@ -305,7 +308,8 @@ async def sync_to_hubspot(body: HubSpotSyncRequest, request: Request):
 
 
 @router.post("/hubspot-sync/{lead_id}")
-async def sync_single_lead_to_hubspot(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
+@limiter.limit("10/minute")
+async def sync_single_lead_to_hubspot(request: Request, lead_id: UUID, tenant_id: Optional[UUID] = None):
     """Push one specific lead to HubSpot immediately."""
     from app.services.integrations.hubspot_sync import hubspot_sync
 

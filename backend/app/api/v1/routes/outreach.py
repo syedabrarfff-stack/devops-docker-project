@@ -239,6 +239,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
 
 
 @router.post("/regenerate-pending")
+@limiter.limit("5/minute")
 async def regenerate_pending_outreach(
     request: Request,
     body: RegeneratePendingIn = Body(default_factory=RegeneratePendingIn),
@@ -252,6 +253,7 @@ async def regenerate_pending_outreach(
 
 
 @router.post("/prepare-campaign")
+@limiter.limit("5/minute")
 async def prepare_campaign(
     request: Request,
     body: PrepareCampaignIn = Body(default_factory=PrepareCampaignIn),
@@ -334,6 +336,7 @@ async def prepare_campaign(
 
 
 @router.post("/speed-to-lead/trigger")
+@limiter.limit("10/minute")
 async def trigger_speed_to_lead(
     request: Request,
     body: SpeedToLeadTriggerIn = Body(default_factory=SpeedToLeadTriggerIn),
@@ -440,6 +443,7 @@ async def unsubscribe_from_outreach(token: str, request: Request, db: AsyncSessi
 
 
 @router.post("/resume")
+@limiter.limit("5/minute")
 async def resume_outreach(request: Request, body: ResumeOutreachIn = Body(default_factory=ResumeOutreachIn), db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
@@ -472,6 +476,7 @@ async def outreach_compliance_status(request: Request, tenant_id: Optional[UUID]
 
 
 @router.post("/compliance/review")
+@limiter.limit("3/minute")
 async def run_outreach_safety_review(request: Request, tenant_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
@@ -483,6 +488,7 @@ async def run_outreach_safety_review(request: Request, tenant_id: Optional[UUID]
 
 
 @router.post("/qualification/apply")
+@limiter.limit("5/minute")
 async def apply_qualification_thresholds(
     request: Request,
     body: QualificationApplyIn = Body(default_factory=QualificationApplyIn),
@@ -512,6 +518,7 @@ async def apply_qualification_thresholds(
 
 
 @router.post("/linkedin/send")
+@limiter.limit("10/minute")
 async def prepare_linkedin_outreach(request: Request, body: LinkedInSendIn):
     from app.services.outreach.linkedin import linkedin_outreach_service
 
@@ -585,14 +592,16 @@ async def outreach_stats(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/emails/{email_id}/send")
-async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def send_queued_email(request: Request, email_id: int, db: AsyncSession = Depends(get_db)):
     success = await gmail_service.send_outreach_email(db, email_id)
     await db.commit()
     return {"sent": success, "email_id": email_id}
 
 
 @router.post("/emails/send-direct")
-async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def send_direct_email(request: Request, body: SendEmailIn, db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
 
@@ -680,7 +689,9 @@ async def list_pending_emails(
 
 
 @router.post("/emails/process-due")
+@limiter.limit("5/minute")
 async def process_due_emails(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),

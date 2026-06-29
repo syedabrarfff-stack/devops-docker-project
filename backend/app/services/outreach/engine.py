@@ -279,8 +279,27 @@ class OutreachEngine:
                     )
                 ).scalars().all()
 
+                # Batch-load all leads in one query instead of N per-item selects
+                _lead_ids = [item.lead_id for item in due_items if item.lead_id]
+                _leads_map: dict = {}
+                if _lead_ids:
+                    _leads_map = {
+                        lead.id: lead
+                        for lead in (
+                            await session.execute(
+                                select(Lead).where(
+                                    Lead.tenant_id == tenant_uuid,
+                                    Lead.id.in_(_lead_ids),
+                                )
+                            )
+                        ).scalars().all()
+                    }
+
                 for item in due_items:
-                    lead = await self._get_lead(session, tenant_uuid, item.lead_id)
+                    if not item.lead_id or item.lead_id not in _leads_map:
+                        item.status = FollowUpStatus.FAILED
+                        continue
+                    lead = _leads_map[item.lead_id]
                     email = _email_for_step(lead, item.sequence_step)
                     if not email:
                         logs = await self.generate_sequence(lead, tenant_uuid)

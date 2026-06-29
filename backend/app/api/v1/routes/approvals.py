@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.approval import ApprovalRequest, ApprovalStatus
 from app.services.governance.captain_queue import captain_queue
 
@@ -69,6 +70,7 @@ async def pending_approvals(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("")
+@limiter.limit("10/minute")
 async def create_approval(request: Request, data: ApprovalCreate):
     resolved_tenant_id = _resolve_tenant_id(request, data.tenant_id)
     payload = {
@@ -109,9 +111,10 @@ async def create_approval(request: Request, data: ApprovalCreate):
 
 
 @router.post("/{approval_id}/decide")
+@limiter.limit("10/minute")
 async def decide_approval(
-    approval_id: str,
     request: Request,
+    approval_id: str,
     decision: ApprovalDecision = Body(...),
     _: dict = Depends(get_current_captain),
 ):
@@ -129,9 +132,10 @@ async def decide_approval(
 
 
 @router.post("/{approval_id}/approve")
+@limiter.limit("10/minute")
 async def approve_approval(
-    approval_id: str,
     request: Request,
+    approval_id: str,
     action: ApprovalAction = Body(default_factory=ApprovalAction),
     _: dict = Depends(get_current_captain),
 ):
@@ -143,9 +147,10 @@ async def approve_approval(
 
 
 @router.post("/{approval_id}/reject")
+@limiter.limit("10/minute")
 async def reject_approval(
-    approval_id: str,
     request: Request,
+    approval_id: str,
     action: ApprovalAction = Body(default_factory=ApprovalAction),
     _: dict = Depends(get_current_captain),
 ):

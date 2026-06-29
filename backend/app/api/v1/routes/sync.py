@@ -40,7 +40,8 @@ async def run_apollo_sync(request: Request, body: SyncConfig = SyncConfig(), db:
 
 
 @router.post("/enrich/{contact_id}")
-async def enrich(contact_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def enrich(request: Request, contact_id: int, db: AsyncSession = Depends(get_db)):
     """Enrich a single CRM contact with Apollo data."""
     result = await enrich_contact(db, contact_id)
     if result is None:
@@ -50,7 +51,8 @@ async def enrich(contact_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/telegram/webhook")
-async def telegram_webhook(update: dict, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def telegram_webhook(request: Request, update: dict, db: AsyncSession = Depends(get_db)):
     """Receive Telegram bot webhook updates."""
     from app.services.notifications.telegram_bot import handle_update
     tenant_id = _default_tenant_id()
@@ -83,7 +85,9 @@ async def telegram_webhook(update: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/telegram/webhook/register")
+@limiter.limit("3/minute")
 async def register_telegram_webhook(
+    request: Request,
     webhook_url: str = Query(..., description="Public HTTPS URL for Telegram to POST updates"),
 ):
     """Register a webhook URL with Telegram."""

@@ -91,6 +91,9 @@ class EmailTracking(JarvisBase):
 
 class ReplyLog(JarvisBase):
     __tablename__ = "reply_log"
+    __table_args__ = (
+        Index("ix_reply_log_tenant_processed_at", "tenant_id", "processed_at"),
+    )
 
     lead_id: Mapped[uuid.UUID] = mapped_column(
         SUUID(as_uuid=True),
