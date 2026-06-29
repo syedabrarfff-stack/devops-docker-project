@@ -1,7 +1,8 @@
 """
 JARVIS Team Registry API — human identity system for Aliyar Solutions.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,7 +67,8 @@ async def get_member_for_service(service_category: str, db: AsyncSession = Depen
 
 
 @router.patch("/members/{member_id}")
-async def update_member(member_id: int, data: TeamMemberUpdate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def update_member(request: Request, member_id: int, data: TeamMemberUpdate, db: AsyncSession = Depends(get_db)):
     from app.services.team.team_service import get_member_by_id
     member = await get_member_by_id(db, member_id)
     if not member:
@@ -79,7 +81,8 @@ async def update_member(member_id: int, data: TeamMemberUpdate, db: AsyncSession
 
 
 @router.post("/seed")
-async def seed_team(db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def seed_team(request: Request, db: AsyncSession = Depends(get_db)):
     """Seed the team registry with all 9 Aliyar Solutions team members."""
     from app.services.team.team_service import seed_team
     result = await seed_team(db)

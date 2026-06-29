@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/civilization", tags=["civilization"])
 
@@ -25,6 +26,7 @@ async def civilization_milestones(request: Request, tenant_id: Optional[UUID] = 
 
 
 @router.post("/initialize")
+@limiter.limit("3/minute")
 async def initialize_civilization_ledger(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.civilization import civilization_ledger as ledger_service
 

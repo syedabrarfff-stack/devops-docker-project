@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -37,7 +38,8 @@ class DelegateIn(BaseModel):
 # ── Task Queue ────────────────────────────────────────────────────────────
 
 @router.post("/enqueue")
-async def enqueue_task(body: TaskIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def enqueue_task(request: Request, body: TaskIn, db: AsyncSession = Depends(get_db)):
     from app.services.tasks.queue import enqueue
     task = await enqueue(
         db=db, title=body.title, description=body.description or "",
@@ -98,7 +100,8 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
 # ── Agent Messages ────────────────────────────────────────────────────────
 
 @router.post("/messages/send")
-async def send_agent_message(body: MessageIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def send_agent_message(request: Request, body: MessageIn, db: AsyncSession = Depends(get_db)):
     from app.services.agents.communication import send_message
     msg = await send_message(
         db=db, from_agent=body.from_agent, to_agent=body.to_agent,
@@ -126,7 +129,8 @@ async def agent_inbox(
 
 
 @router.post("/messages/{message_id}/read")
-async def mark_message_read(message_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def mark_message_read(request: Request, message_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.agents.communication import mark_read
     msg = await mark_read(db, message_id)
     if not msg:
@@ -136,7 +140,8 @@ async def mark_message_read(message_id: int, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/delegate")
-async def delegate_task(body: DelegateIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def delegate_task(request: Request, body: DelegateIn, db: AsyncSession = Depends(get_db)):
     from app.services.agents.communication import delegate_task as do_delegate
     task, msg = await do_delegate(
         db=db, from_agent=body.from_agent, to_agent=body.to_agent,
@@ -156,7 +161,9 @@ async def agents_status(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/agents/broadcast")
+@limiter.limit("5/minute")
 async def broadcast_to_agents(
+    request: Request,
     from_agent: str,
     content: str,
     db: AsyncSession = Depends(get_db),

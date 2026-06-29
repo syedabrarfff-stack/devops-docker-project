@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.revenue import Client, ClientStatus
@@ -38,6 +39,7 @@ class ClientUpdateRequest(BaseModel):
 
 
 @router.post("")
+@limiter.limit("20/minute")
 async def create_client(request: Request, body: ClientCreateRequest, bg: BackgroundTasks):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     async with AsyncSessionLocal() as session:
@@ -124,6 +126,7 @@ async def get_client(client_id: UUID, request: Request, tenant_id: Optional[UUID
 
 
 @router.patch("/{client_id}")
+@limiter.limit("30/minute")
 async def update_client(client_id: UUID, request: Request, body: ClientUpdateRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     async with AsyncSessionLocal() as session:
@@ -155,6 +158,7 @@ async def update_client(client_id: UUID, request: Request, body: ClientUpdateReq
 
 
 @router.post("/{client_id}/status")
+@limiter.limit("20/minute")
 async def update_client_status(
     client_id: UUID,
     request: Request,

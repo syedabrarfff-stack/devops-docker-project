@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/departments", tags=["6-Layer Intelligence"])
@@ -44,6 +45,7 @@ def _tenant(request: Request, explicit: Optional[UUID] = None) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/dios/initialize")
+@limiter.limit("3/minute")
 async def initialize_dios(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -94,6 +96,7 @@ async def get_dio(
 
 
 @router.post("/dios/collect-metrics")
+@limiter.limit("5/minute")
 async def collect_metrics(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -130,6 +133,7 @@ class ImplementMilestoneRequest(BaseModel):
 
 
 @router.post("/milestones/submit")
+@limiter.limit("10/minute")
 async def submit_milestone(
     request: Request,
     body: MilestoneSubmitRequest,
@@ -162,9 +166,10 @@ async def submit_milestone(
 
 
 @router.post("/milestones/{milestone_id}/council-review")
+@limiter.limit("5/minute")
 async def run_milestone_council_review(
-    milestone_id: str,
     request: Request,
+    milestone_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """
@@ -184,6 +189,7 @@ async def run_milestone_council_review(
 
 
 @router.post("/milestones/bulk-review")
+@limiter.limit("3/minute")
 async def bulk_milestone_review(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -232,9 +238,10 @@ async def milestone_report(
 
 
 @router.post("/milestones/{milestone_id}/implement")
+@limiter.limit("5/minute")
 async def implement_milestone(
-    milestone_id: str,
     request: Request,
+    milestone_id: str,
     body: ImplementMilestoneRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -255,6 +262,7 @@ async def implement_milestone(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/tech/discover")
+@limiter.limit("5/minute")
 async def trigger_tech_discovery(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -303,9 +311,10 @@ async def tech_landscape(
 
 
 @router.post("/tech/{tech_id}/evaluate")
+@limiter.limit("5/minute")
 async def evaluate_technology(
-    tech_id: str,
     request: Request,
+    tech_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """Generate a full adoption guide for a discovered technology."""
@@ -318,9 +327,10 @@ async def evaluate_technology(
 
 
 @router.post("/tech/{tech_id}/council-review")
+@limiter.limit("5/minute")
 async def submit_tech_to_council(
-    tech_id: str,
     request: Request,
+    tech_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """Submit a technology to the AI Council for strategic adoption decision."""
@@ -358,6 +368,7 @@ class CallOutcomeRequest(BaseModel):
 
 
 @router.post("/calls/schedule")
+@limiter.limit("10/minute")
 async def schedule_call(
     request: Request,
     body: ScheduleCallRequest,
@@ -388,9 +399,10 @@ async def schedule_call(
 
 
 @router.post("/calls/{call_id}/generate-briefing")
+@limiter.limit("5/minute")
 async def generate_briefing(
-    call_id: str,
     request: Request,
+    call_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """Generate the pre-call intelligence briefing and submit to Council for review."""
@@ -406,9 +418,10 @@ async def generate_briefing(
 
 
 @router.post("/calls/{call_id}/council-review")
+@limiter.limit("5/minute")
 async def council_review_call(
-    call_id: str,
     request: Request,
+    call_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """Council reviews and refines the call briefing."""
@@ -424,9 +437,10 @@ async def council_review_call(
 
 
 @router.post("/calls/{call_id}/deploy-voice-agent")
+@limiter.limit("3/minute")
 async def deploy_voice_agent(
-    call_id: str,
     request: Request,
+    call_id: str,
     tenant_id: Optional[UUID] = None,
 ):
     """Deploy ElevenLabs voice agent with the Council-approved call script."""
@@ -439,9 +453,10 @@ async def deploy_voice_agent(
 
 
 @router.post("/calls/{call_id}/outcome")
+@limiter.limit("20/minute")
 async def record_outcome(
-    call_id: str,
     request: Request,
+    call_id: str,
     body: CallOutcomeRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -482,6 +497,7 @@ async def list_calls(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/strategy/daily-report")
+@limiter.limit("5/minute")
 async def generate_daily_report(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -501,6 +517,7 @@ async def generate_daily_report(
 
 
 @router.post("/strategy/weekly-report")
+@limiter.limit("2/minute")
 async def generate_weekly_report(
     request: Request,
     tenant_id: Optional[UUID] = None,
@@ -576,7 +593,8 @@ async def axiom_pulse():
 
 
 @router.post("/axiom/diagnose")
-async def axiom_diagnose(payload: dict):
+@limiter.limit("5/minute")
+async def axiom_diagnose(request: Request, payload: dict):
     """Diagnosis-first commercial engine: profile -> gateways -> prescribed departments."""
     from app.services.departments.axiom_operating_model import diagnose_client
     return diagnose_client(payload)
@@ -591,7 +609,8 @@ async def axiom_consultants():
 
 
 @router.post("/axiom/milestone-report")
-async def axiom_milestone_report(payload: dict):
+@limiter.limit("5/minute")
+async def axiom_milestone_report(request: Request, payload: dict):
     """Consultant -> Council direct milestone reporting path."""
     from app.services.departments.axiom_operating_model import milestone_report
     return milestone_report(payload)
