@@ -145,6 +145,7 @@ async def approve(request: Request, draft_id: str, tenant_id: Optional[UUID] = N
 
 
 @router.post("/reject/{draft_id}")
+@limiter.limit("30/minute")
 async def reject(
     request: Request,
     draft_id: str,
@@ -170,6 +171,7 @@ async def bulk_approve(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.patch("/draft/{draft_id}")
+@limiter.limit("30/minute")
 async def edit(
     request: Request,
     draft_id: str,
@@ -186,6 +188,7 @@ async def edit(
 
 
 @router.delete("/clear")
+@limiter.limit("10/minute")
 async def clear_actioned(request: Request, tenant_id: Optional[UUID] = None):
     """Remove sent/rejected/error drafts from the queue. Pending ones are kept."""
     from app.services.autopilot.pipeline import _load_drafts, _save_drafts

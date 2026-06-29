@@ -4,10 +4,11 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.aionx.batch1_client_pipeline import (
     advance_stage,
     create_pipeline,
@@ -31,8 +32,10 @@ async def pipeline_board(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.post("/pipeline")
+@limiter.limit("20/minute")
 async def create_client_pipeline(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     try:
@@ -43,8 +46,10 @@ async def create_client_pipeline(
 
 
 @router.post("/pipeline/stage-transition")
+@limiter.limit("20/minute")
 async def stage_transition(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     try:

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.models.aionx_organs import (
     ConvergenceCouncilSession,
     MissionAutopsy,
@@ -141,8 +142,10 @@ async def cortex_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.post("/cortex/event")
+@limiter.limit("30/minute")
 async def cortex_fire_event(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     event_type = payload.get("event_type")
@@ -233,31 +236,39 @@ async def fallback_matrix() -> dict[str, Any]:
 
 
 @router.post("/operational-integrity/mission-plan")
+@limiter.limit("20/minute")
 async def mission_plan(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await persist_mission_plan(db, payload)
 
 
 @router.post("/operational-integrity/qa-certificate")
+@limiter.limit("20/minute")
 async def qa_certificate(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await persist_qa_certificate(db, payload)
 
 
 @router.post("/operational-integrity/repair-instruction")
+@limiter.limit("20/minute")
 async def repair_instruction(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await persist_repair_instruction(db, payload)
 
 
 @router.post("/operational-integrity/fallback-drill")
+@limiter.limit("20/minute")
 async def fallback_drill(
+    request: Request,
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -265,8 +276,10 @@ async def fallback_drill(
 
 
 @router.post("/operational-integrity/knowledge-synthesis")
+@limiter.limit("20/minute")
 async def knowledge_synthesis(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await persist_knowledge_synthesis(db, payload)
@@ -286,33 +299,40 @@ async def operational_persistence_latest(
 
 
 @router.post("/system-state/snapshot")
-async def create_system_state_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def create_system_state_snapshot(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await capture_system_state_snapshot(db, captured_by="CAPTAIN_API")
 
 
 @router.post("/preventive-monitoring/snapshot")
-async def create_preventive_monitoring_snapshot(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def create_preventive_monitoring_snapshot(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await capture_preventive_monitoring_snapshot(db)
 
 
 @router.post("/autonomy/proposal")
+@limiter.limit("20/minute")
 async def autonomy_proposal(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await create_autonomy_proposal(db, payload)
 
 
 @router.post("/external-scan/record")
+@limiter.limit("30/minute")
 async def external_scan_record(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await record_external_scan(db, payload)
 
 
 @router.post("/governed-integrity-cycle")
-async def governed_integrity_cycle(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def governed_integrity_cycle(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await run_governed_integrity_cycle(db)
 
 
@@ -342,23 +362,28 @@ async def supreme_council_meta_learning(db: AsyncSession = Depends(get_db)) -> d
 
 
 @router.post("/supreme-council/recommendation")
+@limiter.limit("20/minute")
 async def supreme_council_recommendation(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await create_recommendation_object(db, payload)
 
 
 @router.post("/supreme-council/self-modification/evaluate")
+@limiter.limit("5/minute")
 async def supreme_council_self_modification_evaluate(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await evaluate_self_modification(db, payload)
 
 
 @router.post("/supreme-council/meta-learning-cycle")
-async def supreme_council_meta_learning_cycle(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("3/minute")
+async def supreme_council_meta_learning_cycle(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await run_meta_learning_cycle(db)
 
 
@@ -373,22 +398,26 @@ async def system_state() -> dict[str, Any]:
 
 
 @router.post("/cognitive-cortex/debate")
-async def cognitive_cortex_debate(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def cognitive_cortex_debate(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return cognitive_debate(payload)
 
 
 @router.post("/genesis/propose")
-async def genesis_create_proposal(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def genesis_create_proposal(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return genesis_proposal(payload)
 
 
 @router.post("/immune-system/scan")
-async def immune_system_scan(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def immune_system_scan(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return immune_scan(payload)
 
 
 @router.post("/simulation-twin/scenario")
-async def simulation_twin_scenario(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def simulation_twin_scenario(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return simulate_strategy(payload)
 
 
@@ -403,20 +432,24 @@ async def preventive_monitoring() -> dict[str, Any]:
 
 
 @router.post("/hie/briefing")
-async def create_hie_briefing(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def create_hie_briefing(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return hie_briefing(payload)
 
 
 @router.post("/hie/post-call-extraction")
-async def create_post_call_extraction(payload: dict[str, Any]) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def create_post_call_extraction(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     return post_call_extraction(payload)
 
 
 # ─── BATCH 1 CLIENT PIPELINE ORCHESTRATOR ────────────────────────────────────
 
 @router.post("/pipeline/stage-transition")
+@limiter.limit("20/minute")
 async def pipeline_stage_transition(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     try:
@@ -458,7 +491,8 @@ async def get_wisdom_index(db: AsyncSession = Depends(get_db)) -> dict[str, Any]
 
 
 @router.post("/wisdom/compute")
-async def compute_wisdom(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def compute_wisdom(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     snapshot = await compute_weekly_wisdom(db)
     return {
         "wisdom_score": snapshot.wisdom_score,
@@ -482,8 +516,10 @@ async def decision_genealogy(
 
 
 @router.post("/decisions")
+@limiter.limit("30/minute")
 async def create_decision(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     decision = await create_decision_object(
@@ -502,14 +538,15 @@ async def create_decision(
 
 @router.get("/decisions/patterns")
 async def get_patterns(
-    category: str = Query("GENERAL"),
+    category: str = Query("GENERAL", max_length=100),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     return await pattern_injection_for_council(db, category, [])
 
 
 @router.post("/decisions/retrospective")
-async def run_retrospective(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def run_retrospective(request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     retro = await generate_weekly_retrospective(db)
     return {
         "week_of": retro.week_of.isoformat(),
@@ -524,8 +561,10 @@ async def run_retrospective(db: AsyncSession = Depends(get_db)) -> dict[str, Any
 # ─── GRAND CONVERGENCE COUNCIL ───────────────────────────────────────────────
 
 @router.post("/convergence/session")
+@limiter.limit("10/minute")
 async def create_convergence_session(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     session = await open_session(
@@ -537,8 +576,10 @@ async def create_convergence_session(
 
 
 @router.post("/convergence/session/{session_id}/run")
+@limiter.limit("3/minute")
 async def run_session(
     session_id: uuid.UUID,
+    request: Request,
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -565,9 +606,11 @@ async def live_session_feed(
 
 
 @router.post("/convergence/session/{session_id}/override")
+@limiter.limit("20/minute")
 async def captain_session_override(
     session_id: uuid.UUID,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     session = await captain_override(db, session_id, payload["override_decision"])
@@ -577,8 +620,10 @@ async def captain_session_override(
 # ─── PROVIDER SOVEREIGN COUNCIL ──────────────────────────────────────────────
 
 @router.post("/provider-council/convene")
+@limiter.limit("5/minute")
 async def convene_council(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     session = await convene_provider_council(
@@ -598,8 +643,10 @@ async def convene_council(
 
 
 @router.post("/provider-council/shelve")
+@limiter.limit("20/minute")
 async def shelve_a_discovery(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     discovery = await shelve_discovery(
@@ -616,8 +663,10 @@ async def shelve_a_discovery(
 
 
 @router.post("/provider-council/wake-check")
+@limiter.limit("20/minute")
 async def check_wake_triggers(
     metrics: dict[str, float],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     activated = await check_wake_conditions(db, metrics)
@@ -635,9 +684,11 @@ async def get_digital_twin(
 
 
 @router.put("/digital-twin/{client_id}")
+@limiter.limit("30/minute")
 async def update_digital_twin(
     client_id: uuid.UUID,
     updates: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     twin = await update_twin_profile(db, client_id, updates)
@@ -645,9 +696,11 @@ async def update_digital_twin(
 
 
 @router.post("/digital-twin/{client_id}/interaction")
+@limiter.limit("30/minute")
 async def log_interaction(
     client_id: uuid.UUID,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     interaction = await record_interaction(
@@ -666,8 +719,10 @@ async def log_interaction(
 # ─── SENTINEL LAYER ──────────────────────────────────────────────────────────
 
 @router.post("/sentinel/observe")
+@limiter.limit("30/minute")
 async def record_sentinel_observation(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     obs = await record_observation(
@@ -701,7 +756,7 @@ async def pending_escalations(db: AsyncSession = Depends(get_db)) -> list[dict[s
 
 @router.get("/sentinel/threats")
 async def active_threats(
-    severity: str | None = Query(None),
+    severity: str | None = Query(None, max_length=50),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
     threats = await get_active_threats(db, severity=severity)
@@ -721,8 +776,10 @@ async def active_threats(
 # ─── MISSION AUTOPSY ─────────────────────────────────────────────────────────
 
 @router.post("/autopsy")
+@limiter.limit("10/minute")
 async def create_autopsy(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     try:
@@ -778,8 +835,10 @@ async def get_autopsy(
 # ─── EXECUTIVE ACCOUNTABILITY ────────────────────────────────────────────────
 
 @router.post("/accountability/mission")
+@limiter.limit("20/minute")
 async def create_ownership_record(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     try:
@@ -828,8 +887,10 @@ async def get_ownership(
 
 # Counterfactual Engine
 @router.post("/intelligence/counterfactual/simulate")
+@limiter.limit("5/minute")
 async def simulate_decision(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.counterfactual_engine import simulate_decision as sim
@@ -841,8 +902,10 @@ async def simulate_decision(
 
 
 @router.post("/intelligence/counterfactual/actuality")
+@limiter.limit("20/minute")
 async def record_actuality(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.counterfactual_engine import record_actuality as rec
@@ -868,8 +931,10 @@ async def extract_counterfactual_learning(db: AsyncSession = Depends(get_db)) ->
 
 # Decision Debt Engine
 @router.post("/intelligence/debt/compute")
+@limiter.limit("10/minute")
 async def compute_debt(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.decision_debt_engine import compute_decision_debt
@@ -901,8 +966,10 @@ async def debt_reduction_plan(db: AsyncSession = Depends(get_db)) -> dict[str, A
 
 # Mission Autopsy Engine
 @router.post("/intelligence/autopsy/analyze")
+@limiter.limit("5/minute")
 async def analyze_failure(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.mission_autopsy_engine import analyze_mission_failure
@@ -932,8 +999,10 @@ async def improvement_recommendations(
 
 # Executive Accountability Engine
 @router.post("/intelligence/accountability/score-decision")
+@limiter.limit("20/minute")
 async def score_decision(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.executive_accountability_engine import score_decision_quality
@@ -963,8 +1032,10 @@ async def authority_decay_check(
 
 
 @router.post("/intelligence/accountability/escalate")
+@limiter.limit("10/minute")
 async def escalate_decision(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.executive_accountability_engine import escalate_for_captain_review
@@ -973,8 +1044,10 @@ async def escalate_decision(
 
 # Client Trust Index Engine
 @router.post("/intelligence/trust/compute")
+@limiter.limit("10/minute")
 async def compute_trust(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.client_trust_index import compute_trust_score
@@ -984,7 +1057,7 @@ async def compute_trust(
 @router.get("/intelligence/trust/erosion/{client_id}")
 async def trust_erosion_check(
     client_id: uuid.UUID,
-    threshold: float = Query(20.0),
+    threshold: float = Query(20.0, ge=0.0, le=100.0),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.client_trust_index import escalate_trust_erosion
@@ -1024,8 +1097,10 @@ async def check_hia_renewal(
 
 # Voice Integration (Step 27)
 @router.post("/voice/briefing")
+@limiter.limit("10/minute")
 async def generate_briefing_audio(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.voice_integration import generate_briefing_voice
@@ -1036,8 +1111,10 @@ async def generate_briefing_audio(
 
 
 @router.post("/voice/alert")
+@limiter.limit("10/minute")
 async def generate_alert_audio(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.voice_integration import generate_alert_voice
@@ -1048,8 +1125,10 @@ async def generate_alert_audio(
 
 
 @router.post("/voice/council")
+@limiter.limit("10/minute")
 async def generate_council_audio(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.voice_integration import generate_council_voice
@@ -1061,8 +1140,10 @@ async def generate_council_audio(
 
 # Mission File System (Step 28)
 @router.post("/mission-file/archive")
+@limiter.limit("20/minute")
 async def archive_mission_doc(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.mission_file_system import archive_mission_document
@@ -1086,8 +1167,10 @@ async def retrieve_mission_archive(
 
 
 @router.post("/mission-file/{mission_id}/verify")
+@limiter.limit("20/minute")
 async def verify_mission_integrity(
     mission_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.mission_file_system import verify_mission_integrity
@@ -1097,7 +1180,7 @@ async def verify_mission_integrity(
 @router.get("/mission-file/{mission_id}/dossier")
 async def export_dossier(
     mission_id: uuid.UUID,
-    format: str = Query("pdf"),
+    format: str = Query("pdf", max_length=20),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.mission_file_system import export_mission_dossier
@@ -1106,8 +1189,10 @@ async def export_dossier(
 
 # Validation Layer (Step 29)
 @router.post("/validation/decision/{decision_id}")
+@limiter.limit("20/minute")
 async def validate_decision(
     decision_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.validation_layer import validate_decision_before_execution
@@ -1115,8 +1200,10 @@ async def validate_decision(
 
 
 @router.post("/validation/preflight/{decision_id}")
+@limiter.limit("20/minute")
 async def preflight_check(
     decision_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.validation_layer import pre_flight_check
@@ -1187,8 +1274,10 @@ async def aionx_self_heal_diagnose(
 
 
 @router.post("/frontier/founder-mirror/predict")
+@limiter.limit("10/minute")
 async def aionx_frontier_founder_mirror_predict(
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.frontier_intelligence import predict_captain_decision
@@ -1196,7 +1285,9 @@ async def aionx_frontier_founder_mirror_predict(
 
 
 @router.post("/frontier/service-concepts/generate")
+@limiter.limit("5/minute")
 async def aionx_frontier_generate_service_concept(
+    request: Request,
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -1226,7 +1317,7 @@ async def aionx_frontier_cascade(
 
 @router.get("/frontier/brain/recall")
 async def aionx_frontier_brain_recall(
-    q: str = Query("what worked"),
+    q: str = Query("what worked", max_length=500),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     from app.services.aionx.frontier_intelligence import recall_knowledge
@@ -1234,7 +1325,9 @@ async def aionx_frontier_brain_recall(
 
 
 @router.post("/frontier/agents/capacity")
+@limiter.limit("20/minute")
 async def aionx_frontier_agent_capacity(
+    request: Request,
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -1253,36 +1346,44 @@ async def cross_validation_status(db: AsyncSession = Depends(get_db)) -> dict[st
 
 
 @router.post("/cross-validation/delivery-readiness/{mission_id}")
+@limiter.limit("20/minute")
 async def cross_validate_delivery_readiness(
     mission_id: str,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await validate_delivery_readiness(db, mission_id, payload)
 
 
 @router.post("/cross-validation/sales-accuracy/{proposal_id}")
+@limiter.limit("20/minute")
 async def cross_validate_sales_accuracy(
     proposal_id: str,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await validate_sales_accuracy(db, proposal_id, payload)
 
 
 @router.post("/cross-validation/client-fit/{client_id}")
+@limiter.limit("20/minute")
 async def cross_validate_client_fit(
     client_id: str,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await validate_client_fit(db, client_id, payload)
 
 
 @router.post("/cross-validation/stage-transition/{subject_id}")
+@limiter.limit("20/minute")
 async def cross_validate_stage_transition(
     subject_id: str,
     payload: dict[str, Any],
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await validate_stage_transition(db, subject_id, payload)
