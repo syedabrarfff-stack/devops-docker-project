@@ -498,30 +498,39 @@ async def _send_invoice_reminder(invoice: Invoice) -> bool:
 
 async def _upsert_revenue_snapshot(session, tenant_id: uuid.UUID) -> RevenueSnapshot:
     today = date.today()
-    mrr = await session.scalar(
-        select(func.coalesce(func.sum(Client.mrr_usd), 0.0)).where(
-            Client.tenant_id == tenant_id,
-            Client.status == ClientStatus.ACTIVE,
+
+    # 2 GROUP BY queries replace 6 sequential scalar queries
+    client_rows = (await session.execute(
+        select(
+            Client.status,
+            func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
+            func.count(Client.id).label("cnt"),
         )
-    )
-    invoiced = await session.scalar(
-        select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tenant_id)
-    )
-    paid = await session.scalar(
-        select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
-            Invoice.tenant_id == tenant_id,
-            Invoice.status == InvoiceStatus.PAID,
+        .where(Client.tenant_id == tenant_id)
+        .group_by(Client.status)
+    )).all()
+    c: dict = {
+        (r.status.value if hasattr(r.status, "value") else str(r.status)):
+        {"mrr": float(r.mrr or 0), "cnt": int(r.cnt or 0)}
+        for r in client_rows
+    }
+
+    invoice_rows = (await session.execute(
+        select(
+            Invoice.status,
+            func.coalesce(func.sum(Invoice.total), 0.0).label("total_amount"),
+            func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0).label("paid_amount"),
+            func.count(Invoice.id).label("cnt"),
         )
-    )
-    active_clients = await session.scalar(
-        select(func.count(Client.id)).where(Client.tenant_id == tenant_id, Client.status == ClientStatus.ACTIVE)
-    )
-    paid_invoices = await session.scalar(
-        select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id, Invoice.status == InvoiceStatus.PAID)
-    )
-    overdue_invoices = await session.scalar(
-        select(func.count(Invoice.id)).where(Invoice.tenant_id == tenant_id, Invoice.status == InvoiceStatus.OVERDUE)
-    )
+        .where(Invoice.tenant_id == tenant_id)
+        .group_by(Invoice.status)
+    )).all()
+    inv: dict = {
+        (r.status.value if hasattr(r.status, "value") else str(r.status)):
+        {"total": float(r.total_amount or 0), "paid": float(r.paid_amount or 0), "cnt": int(r.cnt or 0)}
+        for r in invoice_rows
+    }
+
     snapshot = await session.scalar(
         select(RevenueSnapshot).where(
             RevenueSnapshot.tenant_id == tenant_id,
@@ -532,13 +541,16 @@ async def _upsert_revenue_snapshot(session, tenant_id: uuid.UUID) -> RevenueSnap
         snapshot = RevenueSnapshot(tenant_id=tenant_id, snapshot_date=today)
         session.add(snapshot)
 
-    snapshot.mrr_usd = round(float(mrr or 0), 2)
-    snapshot.invoiced_revenue_usd = round(float(invoiced or 0), 2)
-    snapshot.paid_revenue_usd = round(float(paid or 0), 2)
-    snapshot.outstanding_revenue_usd = round(max(0.0, snapshot.invoiced_revenue_usd - snapshot.paid_revenue_usd), 2)
-    snapshot.active_clients = int(active_clients or 0)
-    snapshot.paid_invoices = int(paid_invoices or 0)
-    snapshot.overdue_invoices = int(overdue_invoices or 0)
+    invoiced_total = sum(v["total"] for v in inv.values())
+    paid_total = inv.get("PAID", {}).get("paid", 0.0)
+
+    snapshot.mrr_usd = round(c.get("ACTIVE", {}).get("mrr", 0.0), 2)
+    snapshot.invoiced_revenue_usd = round(invoiced_total, 2)
+    snapshot.paid_revenue_usd = round(paid_total, 2)
+    snapshot.outstanding_revenue_usd = round(max(0.0, invoiced_total - paid_total), 2)
+    snapshot.active_clients = c.get("ACTIVE", {}).get("cnt", 0)
+    snapshot.paid_invoices = inv.get("PAID", {}).get("cnt", 0)
+    snapshot.overdue_invoices = inv.get("OVERDUE", {}).get("cnt", 0)
     await session.flush()
     return snapshot
 
