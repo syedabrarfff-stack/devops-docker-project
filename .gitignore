@@ -69,3 +69,6 @@ infra/terraform/tfplan
 .vscode/settings.local.json
 *.swp
 *.swo
+
+# Claude Code agent worktrees (ephemeral)
+.claude/worktrees/
