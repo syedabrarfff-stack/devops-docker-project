@@ -181,6 +181,12 @@ class Settings(BaseSettings):
                     "SECRET_KEY is the insecure default — all JWTs are compromised. "
                     "Set a strong random value in .env or AWS Secrets Manager."
                 )
+            elif len(self.SECRET_KEY) < 32:
+                errors.append(
+                    f"SECRET_KEY is too short ({len(self.SECRET_KEY)} chars) — "
+                    "HS256 requires at least 32 characters (256 bits). "
+                    "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
             if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", "", None):
                 errors.append(
                     "CAPTAIN_PASSWORD is the insecure default — "
