@@ -51,18 +51,18 @@ class ExecuteOutreachIn(BaseModel):
 
 class RegeneratePendingIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 100
+    limit: int = Field(default=100, ge=1, le=500)
 
 
 class PrepareCampaignIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 25
-    min_score: float = 80
+    limit: int = Field(default=25, ge=1, le=200)
+    min_score: float = Field(default=80, ge=0.0, le=100.0)
 
 
 class SpeedToLeadTriggerIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    lookback_minutes: int = 5
+    lookback_minutes: int = Field(default=5, ge=1, le=60)
 
 
 class ResumeOutreachIn(BaseModel):
@@ -72,7 +72,7 @@ class ResumeOutreachIn(BaseModel):
 
 class QualificationApplyIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 500
+    limit: int = Field(default=500, ge=1, le=2000)
 
 
 class LinkedInSendIn(BaseModel):
