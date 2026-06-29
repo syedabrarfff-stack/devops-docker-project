@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 # stalling the HTTP request past the ALB 60 s limit or starving APScheduler.
 _PROVIDER_TIMEOUT = 55.0
 
+# Total chat() orchestration budget (seconds). Caps the entire provider-fallback
+# loop so even with 5 providers each timing out at 55s the call never exceeds
+# the ALB / gunicorn worker keepalive window.
+_CHAT_TOTAL_TIMEOUT = 100.0
+
 JARVIS_SYSTEM_PROMPT = """You are JARVIS — the executive operational intelligence infrastructure of Aliyar Solutions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -394,7 +399,14 @@ class AIRouter:
 
         # Route through table with health-aware fallback
         route = ROUTING_TABLE.get(task_type, ROUTING_TABLE[TaskType.GENERAL])
+        _t_chat_start = time.monotonic()
         for provider_key, model_key in route:
+            if time.monotonic() - _t_chat_start >= _CHAT_TOTAL_TIMEOUT:
+                logger.warning(
+                    "chat() global timeout (%.0fs) reached — aborting provider loop for %s",
+                    _CHAT_TOTAL_TIMEOUT, task_type.value,
+                )
+                break
             # Skip providers with open circuit breakers
             if not health_monitor.is_available(provider_key):
                 logger.debug("Skipping %s: circuit OPEN", provider_key)
@@ -584,8 +596,17 @@ async def route_task(
         kwargs = {"task_type": task_type, "max_tokens": max_tokens}
         if system_prompt:
             kwargs["system_prompt"] = system_prompt
-        response, _used = await ai_router.chat(messages, **kwargs)
+        response, _used = await asyncio.wait_for(
+            ai_router.chat(messages, **kwargs),
+            timeout=_CHAT_TOTAL_TIMEOUT,
+        )
         return response.content if response and response.content else "NO_RESPONSE"
+    except asyncio.TimeoutError:
+        logger.warning(
+            "route_task global timeout (%.0fs) for task_type=%s",
+            _CHAT_TOTAL_TIMEOUT, task_type,
+        )
+        return "ROUTE_TASK_UNAVAILABLE"
     except Exception as exc:  # noqa: BLE001 — organs must never crash on AI failure
         logger.warning("route_task failed for %s: %s", task_type, exc)
         return "ROUTE_TASK_UNAVAILABLE"
