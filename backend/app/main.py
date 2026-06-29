@@ -12,6 +12,7 @@ from app.api.v1 import api_router
 from app.middleware import (
     ObservabilityRefreshMiddleware,
     RequestContextMiddleware,
+    SecurityHeadersMiddleware,
     TenantContextMiddleware,
     http_exception_handler,
     setup_observability,
@@ -247,6 +248,7 @@ if RATE_LIMITING_ENABLED:
     except ImportError:
         pass
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(ObservabilityRefreshMiddleware)

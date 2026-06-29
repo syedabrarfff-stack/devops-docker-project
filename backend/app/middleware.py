@@ -79,6 +79,30 @@ JARVIS_REDIS_MEMORY_BYTES = Gauge(
 _last_metrics_refresh = 0.0
 _tenant_ai_usage: dict[tuple[str, str], int] = {}
 
+# ── Security headers injected on every response ───────────────────────────────
+_SECURITY_HEADERS: dict[str, str] = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    # HSTS: 1 year, include subdomains. Only meaningful over HTTPS (ALB terminates TLS).
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    # CSP is deliberately permissive here — the React dashboard loads fonts/scripts from CDN.
+    # A stricter per-route policy should be set at the ALB response headers rule level.
+    "Content-Security-Policy": "frame-ancestors 'none'",
+}
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Inject OWASP-recommended security headers on every outbound response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        for header, value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        return response
+
 AI_METERED_PATH_PREFIXES = (
     "/api/v1/chat",
     "/api/v1/council",
