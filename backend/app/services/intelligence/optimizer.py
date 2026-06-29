@@ -161,7 +161,7 @@ async def _safe_set_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) -> No
 
 async def get_recommendations(db: AsyncSession, status: str | None = None) -> list[dict]:
     """Return recommendations sorted by priority."""
-    q = select(OptimizationRecommendation)
+    q = select(OptimizationRecommendation).limit(200)
     if status:
         q = q.where(OptimizationRecommendation.status == status)
     result = await db.execute(q)

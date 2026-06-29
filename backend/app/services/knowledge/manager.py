@@ -160,6 +160,7 @@ async def get_sops(db: AsyncSession, category: str | None = None, tenant_id=None
         select(SOPDocument)
         .where(SOPDocument.is_active == True, SOPDocument.tenant_id == tid)
         .order_by(SOPDocument.created_at.desc())
+        .limit(200)
     )
     if category:
         q = q.where(SOPDocument.category == category)
