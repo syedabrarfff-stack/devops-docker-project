@@ -5,11 +5,12 @@ All financial and client-facing actions require Captain approval before executio
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/governance", tags=["governance"])
@@ -78,7 +79,8 @@ async def list_invoices(
 
 
 @router.post("/invoices")
-async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def create_invoice(request: Request, req: CreateInvoiceRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import create_invoice as _create, update_invoice_status
     from app.services.governance.auto_approval import should_auto_approve_invoice
     from app.core.config import settings
@@ -117,7 +119,8 @@ async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: Asy
 
 
 @router.post("/invoices/{invoice_id}/status")
-async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def update_invoice_status(request: Request, invoice_id: UUID, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import update_invoice_status as _update
     async with db.begin():
         ok = await _update(db, invoice_id, req.status)
@@ -145,7 +148,8 @@ async def list_proposals(
 
 
 @router.post("/proposals/generate")
-async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def generate_proposal(request: Request, req: ProposalRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import generate_proposal as _gen, update_proposal_status
     from app.services.governance.auto_approval import should_auto_approve_proposal
     from app.core.config import settings
@@ -268,7 +272,8 @@ async def get_contract(
 
 
 @router.post("/contracts")
-async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def create_contract(request: Request, req: ContractRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import generate_contract
     async with db.begin():
         contract = await generate_contract(
@@ -287,7 +292,8 @@ async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSe
 
 
 @router.post("/contracts/{contract_id}/send-email")
-async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def send_contract_email(request: Request, contract_id: int, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import get_contract as _get, update_contract_status as _update
 
     contract = await _get(db, contract_id)
@@ -304,7 +310,9 @@ async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSe
 
 
 @router.post("/contracts/{contract_id}/status")
+@limiter.limit("20/minute")
 async def update_contract_status(
+    request: Request,
     contract_id: int,
     req: StatusUpdate,
     tenant_id: Optional[UUID] = None,
@@ -408,7 +416,8 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
 # ── Settings & Configuration ────────────────────────────────────────────────
 
 @router.post("/settings")
-async def update_governance_settings(req: dict, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def update_governance_settings(request: Request, req: dict, db: AsyncSession = Depends(get_db)):
     """Update governance settings (auto-approval thresholds, etc.)"""
     from app.core.config import settings
     # Note: in production, these would be stored in DB and loaded at startup
@@ -425,7 +434,8 @@ async def update_governance_settings(req: dict, db: AsyncSession = Depends(get_d
 
 
 @router.post("/outreach-settings")
-async def update_outreach_settings(req: dict, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def update_outreach_settings(request: Request, req: dict, db: AsyncSession = Depends(get_db)):
     """Update outreach settings (daily cap, domain age, etc.)"""
     from app.core.config import settings
     return {
@@ -477,7 +487,8 @@ async def list_permissions(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/permissions")
-async def grant_permission(req: AgentPermissionRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def grant_permission(request: Request, req: AgentPermissionRequest, db: AsyncSession = Depends(get_db)):
     from app.models.governance import AgentPermission
     from datetime import datetime, timezone, timedelta
     expires = None
@@ -498,7 +509,8 @@ async def grant_permission(req: AgentPermissionRequest, db: AsyncSession = Depen
 
 
 @router.post("/permissions/{perm_id}/revoke")
-async def revoke_permission(perm_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def revoke_permission(request: Request, perm_id: int, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
     from app.models.governance import AgentPermission
     from datetime import datetime, timezone
