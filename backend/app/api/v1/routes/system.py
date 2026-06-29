@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from app.core.database import get_db
 from app.services.aionx.omni_mission_control import system_hud
 
@@ -30,7 +31,8 @@ async def get_system_hud(
 
 
 @router.post("/self-heal")
-async def trigger_self_heal(_: dict = Depends(get_current_captain)) -> dict[str, Any]:
+@limiter.limit("3/minute")
+async def trigger_self_heal(request: Request, _: dict = Depends(get_current_captain)) -> dict[str, Any]:
     """Manually trigger JARVIS autonomous self-healing cycle.
     Resets failed AI circuit breakers, refills empty lead pipelines,
     resumes paused scheduler jobs, and reports Redis health."""

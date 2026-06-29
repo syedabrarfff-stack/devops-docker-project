@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from app.core.config import settings
 from app.services.pilot.activation import pilot_activation_service
 
@@ -20,6 +21,7 @@ async def pilot_status(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/activate", dependencies=[Depends(get_current_captain)])
+@limiter.limit("3/minute")
 async def activate_pilot(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await pilot_activation_service.activate(resolved_tenant_id)

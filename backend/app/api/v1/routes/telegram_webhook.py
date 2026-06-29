@@ -9,6 +9,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.notifications.telegram_bot import (
     send_message, handle_command, handle_text_message
 )
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
 @router.post("/register")
-async def register_webhook(webhook_url: Optional[str] = None):
+@limiter.limit("5/minute")
+async def register_webhook(request: Request, webhook_url: Optional[str] = None):
     """Register JARVIS webhook with Telegram API."""
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="TELEGRAM_BOT_TOKEN not configured")
@@ -51,6 +53,7 @@ async def register_webhook(webhook_url: Optional[str] = None):
 
 
 @router.post("/webhook")
+@limiter.limit("60/minute")
 async def webhook(request: Request):
     """
     Receive incoming messages from Telegram.

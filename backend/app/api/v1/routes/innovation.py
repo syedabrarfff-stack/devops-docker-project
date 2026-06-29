@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, HTTPException, Request
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/innovation", tags=["innovation"])
@@ -31,6 +32,7 @@ async def innovation_queue(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/propose")
+@limiter.limit("10/minute")
 async def propose_innovation(request: Request, body: InnovationProposalIn):
     from app.services.innovation import innovation_queue_service
 
@@ -46,6 +48,7 @@ async def propose_innovation(request: Request, body: InnovationProposalIn):
 
 
 @router.post("/seed")
+@limiter.limit("3/minute")
 async def seed_innovation_queue(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.innovation import innovation_queue_service
 
@@ -54,6 +57,7 @@ async def seed_innovation_queue(request: Request, tenant_id: Optional[UUID] = No
 
 
 @router.post("/weekly-review")
+@limiter.limit("2/minute")
 async def weekly_innovation_review(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.innovation import innovation_queue_service
 
@@ -62,6 +66,7 @@ async def weekly_innovation_review(request: Request, tenant_id: Optional[UUID] =
 
 
 @router.post("/{item_id}/deployed")
+@limiter.limit("20/minute")
 async def mark_innovation_deployed(
     item_id: UUID,
     request: Request,

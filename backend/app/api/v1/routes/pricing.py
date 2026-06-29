@@ -4,11 +4,12 @@ Never quotes cheap. Prices based on company size, service scope, and complexity.
 """
 import asyncio
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.ai.router import ai_router
 from app.services.intelligence.jarvis_awareness import JARVIS_AWARENESS_PROMPT
 
@@ -80,7 +81,8 @@ class PricingRequest(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/estimate")
-async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def generate_pricing_estimate(request: Request, body: PricingRequest, db: AsyncSession = Depends(get_db)):
     """
     Generate a pricing estimate for a prospect. JARVIS analyses requirements
     and returns a Captain-ready proposal package with pricing.

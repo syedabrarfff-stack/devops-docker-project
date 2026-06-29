@@ -1,8 +1,9 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/trust", tags=["trust"])
 
@@ -32,7 +33,8 @@ class ReferralGenerateRequest(BaseModel):
 
 
 @router.post("/briefs/generate")
-async def generate_brief(req: BriefRequest):
+@limiter.limit("10/minute")
+async def generate_brief(request: Request, req: BriefRequest):
     from app.services.trust.brief_generator import brief_generator
     return await brief_generator.generate(
         company_name=req.company_name,
@@ -61,7 +63,8 @@ async def list_briefs_for_lead(lead_id: UUID):
 
 
 @router.post("/engagement")
-async def log_engagement_event(req: EngagementEventRequest):
+@limiter.limit("30/minute")
+async def log_engagement_event(request: Request, req: EngagementEventRequest):
     from app.services.trust.scoring import log_event
     return await log_event(
         lead_id=req.lead_id,
@@ -78,7 +81,8 @@ async def get_trust_score(lead_id: UUID):
 
 
 @router.post("/referrals/generate")
-async def generate_referrals(req: ReferralGenerateRequest):
+@limiter.limit("5/minute")
+async def generate_referrals(request: Request, req: ReferralGenerateRequest):
     from app.services.trust.referral_engine import referral_engine
     return await referral_engine.generate(
         client_id=req.client_id,

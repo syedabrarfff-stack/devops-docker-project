@@ -10,6 +10,7 @@ from app.core.database import get_db, set_tenant_context
 from app.services.intelligence.morning_briefing import MorningBriefingEngine
 from app.services.ai.router import ai_router
 from app.services.ai.base_provider import Message, TaskType
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ def _resolve_tenant_id_from_str(tenant_str: str) -> UUID:
 
 
 @router.post("/generate")
+@limiter.limit("5/minute")
 async def generate_briefing(request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     return await morning_briefing(request, db)
 
@@ -167,7 +169,9 @@ async def system_status():
 
 
 @router.post("/opportunity-radar")
+@limiter.limit("5/minute")
 async def trigger_opportunity_radar(
+    request: Request,
     bg: BackgroundTasks = None,
     _: dict = Depends(get_current_captain),
 ) -> dict:
