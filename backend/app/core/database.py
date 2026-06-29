@@ -26,7 +26,17 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=not _is_sqlite,
-    **({} if _is_sqlite else {"pool_size": 20, "max_overflow": 30}),
+    **({} if _is_sqlite else {
+        # pool_size=5 + max_overflow=10 = 15 connections max per worker.
+        # With 3 gunicorn workers: 45 total — well under PostgreSQL's default 100 limit.
+        "pool_size": 5,
+        "max_overflow": 10,
+        # Recycle connections every hour to avoid "server closed the connection" from
+        # RDS / ALB idle-connection resets.
+        "pool_recycle": 3600,
+        # Don't hold a checkout indefinitely if the pool is exhausted — fail fast.
+        "pool_timeout": 30,
+    }),
 )
 
 AsyncSessionLocal = async_sessionmaker(
