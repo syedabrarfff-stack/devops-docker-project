@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.payments.stripe_service import (
     create_payment_link,
     process_webhook_event,
@@ -29,8 +30,10 @@ class PaymentLinkRequest(BaseModel):
 
 
 @router.post("/invoices/{invoice_id}/payment-link")
+@limiter.limit("5/minute")
 async def generate_payment_link(
     invoice_id: str,
+    request: Request,
     req: PaymentLinkRequest = PaymentLinkRequest(),
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
@@ -81,8 +84,10 @@ async def generate_payment_link(
 
 
 @router.post("/invoices/{invoice_id}/bank-transfer")
+@limiter.limit("5/minute")
 async def bank_transfer_details(
     invoice_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
@@ -113,8 +118,10 @@ async def bank_transfer_details(
 
 
 @router.post("/invoices/{invoice_id}/wise-transfer")
+@limiter.limit("5/minute")
 async def wise_transfer_details(
     invoice_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:

@@ -5,6 +5,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -62,6 +63,7 @@ async def list_jobs():
 
 
 @router.post("/jobs/cron")
+@limiter.limit("3/minute")
 async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_cron_job(
@@ -87,6 +89,7 @@ async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = 
 
 
 @router.post("/jobs/interval")
+@limiter.limit("3/minute")
 async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_interval_job(
@@ -126,7 +129,8 @@ async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(g
 
 
 @router.post("/jobs/{job_id}/pause")
-async def pause(job_id: str, _: dict = Depends(get_current_captain)):
+@limiter.limit("10/minute")
+async def pause(job_id: str, request: Request, _: dict = Depends(get_current_captain)):
     ok = pause_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")
@@ -134,7 +138,8 @@ async def pause(job_id: str, _: dict = Depends(get_current_captain)):
 
 
 @router.post("/jobs/{job_id}/resume")
-async def resume(job_id: str, _: dict = Depends(get_current_captain)):
+@limiter.limit("10/minute")
+async def resume(job_id: str, request: Request, _: dict = Depends(get_current_captain)):
     ok = resume_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")
@@ -217,7 +222,8 @@ async def resolve_job_failure(failure_id: str, db: AsyncSession = Depends(get_db
 
 
 @router.post("/jobs/{job_id}/trigger", dependencies=[Depends(get_current_captain)])
-async def trigger_job_now(job_id: str):
+@limiter.limit("5/minute")
+async def trigger_job_now(job_id: str, request: Request):
     """Trigger a scheduled job to run immediately (within 2 seconds)."""
     from datetime import timezone, timedelta
     from app.services.scheduler.engine import get_scheduler
