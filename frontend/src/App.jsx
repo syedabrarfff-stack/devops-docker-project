@@ -95,6 +95,7 @@ import GhostWriter from './components/ghost/GhostWriter'
 import AutopilotDashboard from './components/autopilot/AutopilotDashboard'
 import SignalDashboard from './components/signal/SignalDashboard'
 import NexusCore from './components/nexus/NexusCore'
+import SupremeDashboard from './components/supreme/SupremeDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -168,6 +169,8 @@ export const VIEWS = {
   signal:            { path: controlPath('/signal'),              title: 'Pipeline Intelligence',   Component: SignalDashboard },
   // NEXUS — Supreme Autonomous Intelligence Core
   nexus:             { path: controlPath('/nexus'),               title: 'JARVIS NEXUS',            Component: NexusCore },
+  // Layer 19 — Supreme Intelligence (Constitution, CEO, Revenue, Platform, Sales)
+  supreme:           { path: controlPath('/supreme'),             title: 'Supreme Intelligence',    Component: SupremeDashboard },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

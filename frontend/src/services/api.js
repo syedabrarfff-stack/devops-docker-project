@@ -16,6 +16,7 @@ const API_RESOURCES = new Set([
   'ghost',
   'nexus',
   'signal',
+  'supreme',
   'ai-ops',
   'aionx',
   'approvals',
@@ -546,5 +547,34 @@ export const getRevenueClients      = (tenantId)    => api.get('/api/v1/revenue/
 export const getRevenueSegments     = (tenantId)    => api.get('/api/v1/revenue/segments', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const getRevenueSnapshot     = (tenantId)    => api.get('/api/v1/revenue/snapshot', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const getMRRChart            = (tenantId)    => api.get('/api/v1/revenue/mrr-chart', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+
+// SUPREME — Layer 19: Constitution, CEO, Revenue Consciousness, Platform, Sales Autonomy
+export const supremeSnapshot          = (mrr = 0)  => api.get('/api/v1/supreme/snapshot', { params: { mrr } }).then(r => r.data)
+export const supremeConstitutionSummary = ()       => api.get('/api/v1/supreme/constitution/summary').then(r => r.data)
+export const supremeConstitutionLaws  = ()         => api.get('/api/v1/supreme/constitution/laws').then(r => r.data)
+export const supremeAuthorityMatrix   = ()         => api.get('/api/v1/supreme/constitution/authority-matrix').then(r => r.data)
+export const supremeEscalationTriggers= ()         => api.get('/api/v1/supreme/constitution/escalation-triggers').then(r => r.data)
+export const supremeEvaluateAction    = (payload)  => api.post('/api/v1/supreme/constitution/evaluate', payload).then(r => r.data)
+export const supremeScoreDecision     = (payload)  => api.post('/api/v1/supreme/constitution/score-decision', payload).then(r => r.data)
+export const supremeCEODashboard      = (mrr = 0)  => api.get('/api/v1/supreme/ceo/dashboard', { params: { mrr } }).then(r => r.data)
+export const supremeCEOExpansion      = (mrr = 0)  => api.get('/api/v1/supreme/ceo/expansion-roadmap', { params: { mrr } }).then(r => r.data)
+export const supremeCEOPriorities     = (payload)  => api.post('/api/v1/supreme/ceo/strategic-priorities', payload).then(r => r.data)
+export const supremeCEOCompetitive    = ()         => api.get('/api/v1/supreme/ceo/competitive-intelligence').then(r => r.data)
+export const supremeScoreOpportunity  = (payload)  => api.post('/api/v1/supreme/ceo/score-opportunity', payload).then(r => r.data)
+export const supremeRevenueDashboard  = ()         => api.get('/api/v1/supreme/revenue/dashboard').then(r => r.data)
+export const supremeComputeLTV        = (payload)  => api.post('/api/v1/supreme/revenue/compute-ltv', payload).then(r => r.data)
+export const supremeChurnRisk         = (payload)  => api.post('/api/v1/supreme/revenue/churn-risk', payload).then(r => r.data)
+export const supremePipelineHealth    = (payload)  => api.post('/api/v1/supreme/revenue/pipeline-health', payload).then(r => r.data)
+export const supremePricingRec        = (payload)  => api.post('/api/v1/supreme/revenue/pricing-recommendation', payload).then(r => r.data)
+export const supremePlatformDashboard = ()         => api.get('/api/v1/supreme/platform/dashboard').then(r => r.data)
+export const supremeTechDebt          = ()         => api.get('/api/v1/supreme/platform/tech-debt').then(r => r.data)
+export const supremeCostPosture       = (payload)  => api.post('/api/v1/supreme/platform/cost-posture', payload).then(r => r.data)
+export const supremeScalingReadiness  = (payload)  => api.post('/api/v1/supreme/platform/scaling-readiness', payload).then(r => r.data)
+export const supremeDeploymentRisk    = (payload)  => api.post('/api/v1/supreme/platform/deployment-risk', payload).then(r => r.data)
+export const supremeSalesDashboard    = ()         => api.get('/api/v1/supreme/sales/dashboard').then(r => r.data)
+export const supremeScoreLead         = (payload)  => api.post('/api/v1/supreme/sales/score-lead', payload).then(r => r.data)
+export const supremeObjectionPlaybook = (type)     => api.get(`/api/v1/supreme/sales/objection/${encodeURIComponent(type)}`).then(r => r.data)
+export const supremeOutreachSequence  = (tier)     => api.get(`/api/v1/supreme/sales/sequence/${encodeURIComponent(tier)}`).then(r => r.data)
+export const supremeAnalyzeWinLoss    = (payload)  => api.post('/api/v1/supreme/sales/analyze-win-loss', payload).then(r => r.data)
 
 export default api
