@@ -94,7 +94,8 @@ async def trigger_analysis(
 
 
 @router.post("/recommendations/{rec_id}/approve")
-async def approve_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def approve_recommendation(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "approved")
@@ -104,7 +105,8 @@ async def approve_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/recommendations/{rec_id}/dismiss")
-async def dismiss_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def dismiss_recommendation(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "dismissed")
@@ -114,7 +116,8 @@ async def dismiss_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/recommendations/{rec_id}/implement")
-async def mark_implemented(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def mark_implemented(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "implemented")
@@ -198,6 +201,7 @@ async def get_competitors(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/competitors/seed")
+@limiter.limit("5/minute")
 async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.competitor_intel import (
         list_competitor_profiles,
@@ -228,6 +232,7 @@ async def get_outreach_learnings(
 
 
 @router.post("/teach")
+@limiter.limit("10/minute")
 async def teach_jarvis(request: Request, body: TeachRequest):
     from app.services.revenue_activation.teaching_engine import teaching_engine
 
@@ -314,7 +319,8 @@ async def prospect_psychology(
 
 
 @router.post("/revenue-forecast")
-async def revenue_forecast(req: RevenueForecastRequest, request: Request):
+@limiter.limit("5/minute")
+async def revenue_forecast(request: Request, req: RevenueForecastRequest):
     from app.services.intelligence.revenue_forecaster import revenue_forecaster
 
     tenant_id = _resolve_tenant_id(request, req.tenant_id)
@@ -336,9 +342,10 @@ async def self_assessment(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/dynamic-pricing")
+@limiter.limit("5/minute")
 async def dynamic_pricing(
-    req: DynamicPricingRequest,
     request: Request,
+    req: DynamicPricingRequest,
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.intelligence.dynamic_pricing import dynamic_pricing_engine
@@ -377,7 +384,8 @@ async def dynamic_pricing(
 
 
 @router.post("/governance/evaluate")
-async def governance_evaluate(req: GovernanceEvaluateRequest, request: Request):
+@limiter.limit("5/minute")
+async def governance_evaluate(request: Request, req: GovernanceEvaluateRequest):
     from app.services.governance.autonomous_governance import autonomous_governance
 
     tenant_id = _resolve_tenant_id(request, req.tenant_id)
@@ -596,6 +604,7 @@ async def conscience_audit(request: Request, tenant_id: Optional[UUID] = None, d
 
 
 @router.post("/conscience/evaluate")
+@limiter.limit("10/minute")
 async def conscience_evaluate(
     request: Request,
     action_type: str,

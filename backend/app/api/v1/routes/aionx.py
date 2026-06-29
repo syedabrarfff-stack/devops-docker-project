@@ -1264,7 +1264,9 @@ async def aionx_stability(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.post("/self-heal/diagnose")
+@limiter.limit("5/minute")
 async def aionx_self_heal_diagnose(
+    request: Request,
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
@@ -1296,7 +1298,9 @@ async def aionx_frontier_generate_service_concept(
 
 
 @router.post("/frontier/threats/scan")
+@limiter.limit("10/minute")
 async def aionx_frontier_scan_threats(
+    request: Request,
     payload: dict[str, Any] | None = None,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
@@ -1306,7 +1310,9 @@ async def aionx_frontier_scan_threats(
 
 
 @router.post("/frontier/cascade/trigger")
+@limiter.limit("5/minute")
 async def aionx_frontier_cascade(
+    request: Request,
     payload: dict[str, Any],
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),

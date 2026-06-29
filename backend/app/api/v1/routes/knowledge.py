@@ -66,7 +66,8 @@ async def list_learnings(
 
 
 @router.post("/learnings")
-async def log_learning(req: LearningRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def log_learning(request: Request, req: LearningRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import log_learning
     async with db.begin():
         record = await log_learning(
@@ -95,7 +96,8 @@ async def search_knowledge(
 
 
 @router.post("/entries")
-async def add_knowledge_entry(req: KnowledgeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def add_knowledge_entry(request: Request, req: KnowledgeRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import add_knowledge
     async with db.begin():
         entry = await add_knowledge(db, req.title, req.category, req.content, req.tags, req.source)

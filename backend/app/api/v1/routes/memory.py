@@ -94,6 +94,7 @@ async def summarize_session(request: Request, session_id: str, db: AsyncSession 
 
 
 @router.post("/seed")
+@limiter.limit("3/minute")
 async def seed_enterprise_memory(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await seed_memory_graph(resolved_tenant_id)

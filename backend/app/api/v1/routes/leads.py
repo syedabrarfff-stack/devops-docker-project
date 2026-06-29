@@ -264,6 +264,7 @@ async def bulk_discover_leads(
 
 
 @router.post("/batch-import")
+@limiter.limit("3/minute")
 async def batch_import_leads(
     request: Request,
     leads_data: list[dict],
@@ -381,6 +382,7 @@ async def csv_template():
 
 
 @router.post("/import-csv")
+@limiter.limit("3/minute")
 async def import_leads_csv(
     request: Request,
     file: UploadFile = File(...),
@@ -705,10 +707,11 @@ async def get_lead_profile(
 
 
 @router.post("/{lead_id}/loss")
+@limiter.limit("10/minute")
 async def record_lead_loss(
+    request: Request,
     lead_id: UUID,
     body: LeadLossIn,
-    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
@@ -740,10 +743,11 @@ async def record_lead_loss(
 
 
 @router.patch("/{lead_id}/status")
+@limiter.limit("20/minute")
 async def update_lead_status(
+    request: Request,
     lead_id: UUID,
     status: str,
-    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):

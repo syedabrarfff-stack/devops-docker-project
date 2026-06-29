@@ -90,6 +90,7 @@ async def list_liaison_agents():
 
 
 @router.post("/liaison/seed")
+@limiter.limit("3/minute")
 async def seed_liaison_agents(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await client_liaison_service.seed_agents(resolved_tenant_id)

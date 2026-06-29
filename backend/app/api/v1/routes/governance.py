@@ -187,7 +187,9 @@ async def generate_proposal(request: Request, req: ProposalRequest, bg: Backgrou
 
 
 @router.post("/proposals/{proposal_id}/status")
+@limiter.limit("10/minute")
 async def update_proposal_status(
+    request: Request,
     proposal_id: int,
     req: StatusUpdate,
     bg: BackgroundTasks,
@@ -337,7 +339,9 @@ async def update_contract_status(
 # ── Autonomous Approval Stats ────────────────────────────────────────────────
 
 @router.post("/test-workflow")
+@limiter.limit("3/minute")
 async def run_test_workflow(
+    request: Request,
     prospect_name: str = "Test Prospect Inc",
     prospect_email: str = "test@prospect.com",
     deal_value: float = 3500,
