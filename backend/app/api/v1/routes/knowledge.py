@@ -1,7 +1,7 @@
 """
 JARVIS Knowledge System API — SOPs, learning records, and operational knowledge base.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,8 +57,8 @@ async def generate_sop(request: Request, req: SOPRequest, db: AsyncSession = Dep
 
 @router.get("/learnings")
 async def list_learnings(
-    category: Optional[str] = None,
-    limit: int = 50,
+    category: Optional[str] = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.knowledge.manager import get_learnings
@@ -85,7 +85,11 @@ async def log_learning(req: LearningRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/search")
-async def search_knowledge(q: str, limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def search_knowledge(
+    q: str = Query(..., min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.knowledge.manager import search_knowledge
     return {"results": await search_knowledge(db, query=q, limit=limit)}
 

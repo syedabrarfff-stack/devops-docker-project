@@ -2,7 +2,7 @@
 JARVIS Intelligence API — Tech Radar, Self-Optimization, Research Division.
 Phase 5: Autonomous learning and continuous self-improvement.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -126,7 +126,7 @@ async def mark_implemented(rec_id: int, db: AsyncSession = Depends(get_db)):
 # ── Research Reports ──────────────────────────────────────────────────────────
 
 @router.get("/reports")
-async def get_reports(limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def get_reports(limit: int = Query(default=20, ge=1, le=100), db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.research import get_reports
     return {"reports": await get_reports(db, limit=limit)}
 
@@ -214,8 +214,8 @@ async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
 async def get_outreach_learnings(
     request: Request,
     tenant_id: Optional[UUID] = None,
-    category: Optional[str] = None,
-    limit: int = 50,
+    category: Optional[str] = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
 ):
     from app.services.revenue_activation.teaching_engine import teaching_engine
 
@@ -457,7 +457,7 @@ async def expert_council(req: ExpertCouncilRequest, request: Request):
 
 
 @router.get("/expert-council/sessions")
-async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = None, limit: int = 10):
+async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(default=10, ge=1, le=50)):
     """Get recent expert council sessions."""
     from app.services.intelligence.expert_council import expert_council_engine
 
@@ -615,9 +615,9 @@ async def conscience_evaluate(
 @limiter.limit("30/minute")
 async def semantic_search_leads(
     request: Request,
-    q: str,
-    limit: int = 10,
-    min_similarity: float = 0.3,
+    q: str = Query(..., min_length=1, max_length=1_000),
+    limit: int = Query(default=10, ge=1, le=50),
+    min_similarity: float = Query(default=0.3, ge=0.0, le=1.0),
     db: AsyncSession = Depends(get_db),
 ):
     """
