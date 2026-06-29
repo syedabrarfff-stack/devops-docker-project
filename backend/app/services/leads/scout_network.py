@@ -167,7 +167,11 @@ class ScoutNetwork:
     async def run_all_scouts(self) -> dict:
         """Run all 9 scouts concurrently and return consolidated results."""
         tasks = [self.run_scout(sid, profile) for sid, profile in SCOUT_PROFILES.items()]
-        results = await asyncio.gather(*tasks, return_exceptions=False)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Scout task raised: %s", _v)
+        results = [v for v in raw if isinstance(v, dict)]
 
         successful = [r for r in results if r.get("status") == "success"]
         failed = [r for r in results if r.get("status") == "error"]

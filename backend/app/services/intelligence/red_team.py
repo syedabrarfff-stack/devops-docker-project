@@ -121,8 +121,11 @@ class RedTeamEngine:
         import asyncio
 
         tasks = [_analyze_attack_vector(v) for v in ATTACK_VECTORS]
-        attack_results = await asyncio.gather(*tasks)
-        attack_results = list(attack_results)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Red team vector task raised: %s", _v)
+        attack_results = [v for v in raw if isinstance(v, dict)]
 
         # Calculate overall risk score
         severities = [r["severity"] for r in attack_results]

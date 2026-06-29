@@ -79,7 +79,11 @@ class IntelligenceCouncil:
             )
             for member in COUNCIL_MEMBERS
         ]
-        member_votes = await asyncio.gather(*tasks)
+        raw_votes = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw_votes:
+            if isinstance(_v, BaseException):
+                logger.warning("Council member task raised unexpectedly: %s", _v)
+        member_votes = [v for v in raw_votes if isinstance(v, dict)]
 
         responses = [vote for vote in member_votes if vote.get("responded")]
         responses_count = len(responses)
@@ -207,7 +211,11 @@ class IntelligenceCouncil:
                     logger.warning("Council on_vote callback error: %s", exc)
             return vote
 
-        member_votes = list(await asyncio.gather(*[_ask_and_notify(m) for m in COUNCIL_MEMBERS]))
+        raw_votes = await asyncio.gather(*[_ask_and_notify(m) for m in COUNCIL_MEMBERS], return_exceptions=True)
+        for _v in raw_votes:
+            if isinstance(_v, BaseException):
+                logger.warning("Council streaming member task raised unexpectedly: %s", _v)
+        member_votes = [v for v in raw_votes if isinstance(v, dict)]
 
         responses = [vote for vote in member_votes if vote.get("responded")]
         responses_count = len(responses)

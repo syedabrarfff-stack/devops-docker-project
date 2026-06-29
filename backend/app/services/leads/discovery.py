@@ -141,7 +141,11 @@ class LeadDiscoveryEngine:
                 return []
 
         fetch_tasks = [_fetch_one(nt, ot) for nt, ot in normalized_targets]
-        results_by_target = await _asyncio.gather(*fetch_tasks, return_exceptions=False)
+        raw_target_results = await _asyncio.gather(*fetch_tasks, return_exceptions=True)
+        for _v in raw_target_results:
+            if isinstance(_v, BaseException):
+                logger.warning("Discovery fetch task raised: %s", _v)
+        results_by_target = [v if isinstance(v, list) else [] for v in raw_target_results]
 
         # Phase 2: flatten and dedupe before DB writes
         all_records: list[tuple[dict, dict]] = []

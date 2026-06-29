@@ -77,9 +77,14 @@ class ReferralEngine:
         tenant_id=None,
     ) -> dict:
         types = ["testimonial", "referral", "case_study"]
-        contents = await asyncio.gather(
-            *[self._generate_one(t, client_name, company, service_type, mrr) for t in types]
+        raw_contents = await asyncio.gather(
+            *[self._generate_one(t, client_name, company, service_type, mrr) for t in types],
+            return_exceptions=True,
         )
+        contents = [
+            v if isinstance(v, str) else f"[{t} content for {client_name} at {company} — AI generation unavailable]"
+            for t, v in zip(types, raw_contents)
+        ]
 
         result = {}
         async with AsyncSessionLocal() as db:

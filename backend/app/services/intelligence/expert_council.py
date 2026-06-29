@@ -222,7 +222,11 @@ class ExpertCouncilEngine:
             _run_agent(name, AGENTS[name], question, context)
             for name in agent_names
         ]
-        agent_responses = await asyncio.gather(*tasks, return_exceptions=False)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Expert council agent raised: %s", _v)
+        agent_responses = [v for v in raw if isinstance(v, dict)]
 
         consensus = _synthesize_council(list(agent_responses))
 
@@ -250,7 +254,11 @@ class ExpertCouncilEngine:
             _run_agent(name, AGENTS[name], question, None)
             for name in quick_agents
         ]
-        agent_responses = await asyncio.gather(*tasks, return_exceptions=False)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Expert council quick agent raised: %s", _v)
+        agent_responses = [v for v in raw if isinstance(v, dict)]
 
         consensus = _synthesize_council(list(agent_responses))
 

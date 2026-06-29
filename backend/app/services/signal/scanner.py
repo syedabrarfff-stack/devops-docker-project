@@ -222,7 +222,10 @@ async def scan_pipeline_stream(
         await queue.put({"type": "scan_result", "signal": result, "done": counter["n"], "total": total})
 
     async def run_all() -> None:
-        await asyncio.gather(*[scan_one(l) for l in leads])
+        raw = await asyncio.gather(*[scan_one(l) for l in leads], return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Pipeline scan task raised: %s", _v)
         await queue.put(None)
 
     task = asyncio.create_task(run_all())
