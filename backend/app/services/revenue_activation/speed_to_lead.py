@@ -37,10 +37,66 @@ class SpeedToLeadEngine:
                 await set_tenant_context(session, str(tenant_uuid))
                 candidates = await self._engagement_candidates(session, tenant_uuid, cutoff)
 
+                # Batch-prefetch already-processed events (replaces N per-candidate scalar queries)
+                processed_set: set[tuple[str, str]] = set()
+                if candidates:
+                    all_source_ids = [c["source_id"] for c in candidates]
+                    processed_rows = (await session.execute(
+                        select(SpeedToLeadEvent.source_type, SpeedToLeadEvent.source_id)
+                        .where(
+                            SpeedToLeadEvent.tenant_id == tenant_uuid,
+                            SpeedToLeadEvent.source_id.in_(all_source_ids),
+                        )
+                    )).all()
+                    processed_set = {(r.source_type, r.source_id) for r in processed_rows}
+
+                # Batch-prefetch leads for unprocessed candidates (replaces N per-candidate scalar queries)
+                unprocessed = [
+                    c for c in candidates
+                    if (c["source_type"], c["source_id"]) not in processed_set
+                ]
+                lead_ids: list[uuid.UUID] = []
+                for c in unprocessed:
+                    if c.get("lead_id"):
+                        try:
+                            lead_ids.append(uuid.UUID(str(c["lead_id"])))
+                        except (ValueError, AttributeError):
+                            pass
+                emails = [
+                    c["to_email"].strip().lower()
+                    for c in unprocessed
+                    if not c.get("lead_id") and c.get("to_email")
+                ]
+                leads_by_id: dict[uuid.UUID, Lead] = {}
+                leads_by_email: dict[str, Lead] = {}
+                if lead_ids:
+                    for _lead in (await session.execute(
+                        select(Lead).where(Lead.tenant_id == tenant_uuid, Lead.id.in_(lead_ids))
+                    )).scalars().all():
+                        leads_by_id[_lead.id] = _lead
+                if emails:
+                    for _lead in (await session.execute(
+                        select(Lead).where(
+                            Lead.tenant_id == tenant_uuid,
+                            or_(Lead.email.in_(emails), Lead.contact_email.in_(emails)),
+                        )
+                    )).scalars().all():
+                        if _lead.email and _lead.email.lower() in emails:
+                            leads_by_email[_lead.email.lower()] = _lead
+                        if _lead.contact_email and _lead.contact_email.lower() in emails:
+                            leads_by_email.setdefault(_lead.contact_email.lower(), _lead)
+
                 for candidate in candidates:
-                    if await self._already_processed(session, tenant_uuid, candidate):
+                    if (candidate["source_type"], candidate["source_id"]) in processed_set:
                         continue
-                    lead = await self._lead_for_candidate(session, tenant_uuid, candidate)
+                    if candidate.get("lead_id"):
+                        try:
+                            lead = leads_by_id.get(uuid.UUID(str(candidate["lead_id"])))
+                        except (ValueError, AttributeError):
+                            lead = None
+                    else:
+                        _email = (candidate.get("to_email") or "").strip().lower()
+                        lead = leads_by_email.get(_email) if _email else None
                     if not lead:
                         await self._audit(
                             session,

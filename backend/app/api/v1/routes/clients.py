@@ -4,10 +4,11 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.core.database import AsyncSessionLocal, set_tenant_context
@@ -15,7 +16,7 @@ from app.models.approval import AuditLog
 from app.models.revenue import Client, ClientStatus
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/clients", tags=["clients"])
+router = APIRouter(prefix="/clients", tags=["clients"], dependencies=[Depends(get_current_captain)])
 
 
 class ClientCreateRequest(BaseModel):

@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -16,7 +17,7 @@ from app.models.lead import Lead
 from app.services.governance.proposal_generator import proposal_generator
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/proposals", tags=["Proposals"])
+router = APIRouter(prefix="/proposals", tags=["Proposals"], dependencies=[Depends(get_current_captain)])
 
 
 class GenerateProposalRequest(BaseModel):

@@ -4,16 +4,17 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import case, func, select
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.core.rate_limit import limiter
 from app.models.lead import Lead, LeadStatus
 from app.models.revenue import Client, ClientStatus, Invoice, InvoiceStatus, RevenueSnapshot
 from app.services.governance.invoice_engine import invoice_engine
 
-router = APIRouter(prefix="/revenue", tags=["revenue"])
+router = APIRouter(prefix="/revenue", tags=["revenue"], dependencies=[Depends(get_current_captain)])
 
 # ── Tier / pipeline value estimates ───────────────────────────────────────────
 _TIER_ACV = {"A": 8000.0, "B": 4000.0, "C": 2000.0}

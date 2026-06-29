@@ -9,11 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, R
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/governance", tags=["governance"])
+router = APIRouter(prefix="/governance", tags=["governance"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────

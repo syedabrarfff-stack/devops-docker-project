@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/economics", tags=["economics"])
+router = APIRouter(prefix="/economics", tags=["economics"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/dashboard")
