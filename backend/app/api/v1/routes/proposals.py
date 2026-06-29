@@ -91,6 +91,7 @@ async def preview_proposal(proposal_id: int, request: Request, tenant_id: Option
 
 
 @router.post("/{proposal_id}/approve")
+@limiter.limit("10/minute")
 async def approve_proposal(proposal_id: int, request: Request, body: ProposalActionRequest = Body(default_factory=ProposalActionRequest)):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:
@@ -104,6 +105,7 @@ async def approve_proposal(proposal_id: int, request: Request, body: ProposalAct
 
 
 @router.post("/{proposal_id}/send")
+@limiter.limit("5/minute")
 async def send_proposal(proposal_id: int, request: Request, body: ProposalActionRequest = Body(default_factory=ProposalActionRequest)):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:

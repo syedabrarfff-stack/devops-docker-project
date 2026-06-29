@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.agents.liaison import client_liaison_service
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -72,7 +73,8 @@ async def get_hierarchy():
 
 
 @router.post("/dispatch")
-async def dispatch_task(task: TaskDispatch):
+@limiter.limit("30/minute")
+async def dispatch_task(request: Request, task: TaskDispatch):
     return {
         "success": True,
         "task_id": f"task_{task.agent_id}_{int(__import__('time').time())}",
@@ -94,6 +96,7 @@ async def seed_liaison_agents(request: Request, tenant_id: Optional[UUID] = None
 
 
 @router.post("/liaison/{agent_name}/prepare-call")
+@limiter.limit("10/minute")
 async def prepare_liaison_call(
     agent_name: str,
     request: Request,
