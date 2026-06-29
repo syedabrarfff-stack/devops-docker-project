@@ -389,13 +389,20 @@ class DepartmentAgentService:
             definitions = _canonical_dio_definitions()
             canonical_codes = {d["department_code"] for d in definitions}
 
+            # Batch-fetch all existing DIOs for this tenant in one query (avoids N+1)
+            canonical_code_values = [_department_code_value(d["department_code"]) for d in definitions]
+            existing_rows = (await db.execute(
+                select(DepartmentIntelligenceOfficer).where(
+                    DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
+                    DepartmentIntelligenceOfficer.department_code.in_(canonical_code_values),
+                ).limit(100)
+            )).scalars().all()
+            existing_by_code: dict[str, DepartmentIntelligenceOfficer] = {
+                _department_code_value(e.department_code): e for e in existing_rows
+            }
+
             for defn in definitions:
-                existing = await db.scalar(
-                    select(DepartmentIntelligenceOfficer).where(
-                        DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
-                        DepartmentIntelligenceOfficer.department_code == _department_code_value(defn["department_code"]),
-                    )
-                )
+                existing = existing_by_code.get(_department_code_value(defn["department_code"]))
                 if existing:
                     existing.department_name = defn["department_name"]
                     existing.division = defn["division"]
@@ -442,6 +449,7 @@ class DepartmentAgentService:
             .where(DepartmentIntelligenceOfficer.tenant_id == tenant_uuid)
             .where(DepartmentIntelligenceOfficer.is_active.is_(True))
             .order_by(DepartmentIntelligenceOfficer.department_code)
+            .limit(100)
         )
         dios = result.scalars().all()
         return [self._serialize_dio(d) for d in dios]

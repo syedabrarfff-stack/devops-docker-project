@@ -66,7 +66,7 @@ async def persist_mission_plan(db: AsyncSession, payload: dict[str, Any]) -> dic
     )
     mission_file_id = str(mission_row.scalar_one())
 
-    for milestone in plan["milestones"]:
+    if plan["milestones"]:
         await db.execute(
             text(
                 """
@@ -80,15 +80,18 @@ async def persist_mission_plan(db: AsyncSession, payload: dict[str, Any]) -> dic
                 )
                 """
             ),
-            {
-                "mission_file_id": mission_file_id,
-                "mission_id": plan["mission_id"],
-                "milestone_number": milestone["number"],
-                "title": milestone["title"],
-                "owner": milestone["owner"],
-                "success_criteria": _json(milestone["success_criteria"]),
-                "evidence": _json({}),
-            },
+            [
+                {
+                    "mission_file_id": mission_file_id,
+                    "mission_id": plan["mission_id"],
+                    "milestone_number": milestone["number"],
+                    "title": milestone["title"],
+                    "owner": milestone["owner"],
+                    "success_criteria": _json(milestone["success_criteria"]),
+                    "evidence": _json({}),
+                }
+                for milestone in plan["milestones"]
+            ],
         )
 
     await record_event(

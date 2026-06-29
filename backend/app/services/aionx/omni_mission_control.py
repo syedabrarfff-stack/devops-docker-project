@@ -180,7 +180,7 @@ async def seed_omni_registry(db: AsyncSession) -> dict[str, Any]:
         created_or_updated += 1
         number += 1
 
-    for runbook in STABILITY_RUNBOOKS:
+    if STABILITY_RUNBOOKS:
         await db.execute(
             text(
                 """
@@ -196,7 +196,7 @@ async def seed_omni_registry(db: AsyncSession) -> dict[str, Any]:
                     updated_at = now()
                 """
             ),
-            runbook,
+            list(STABILITY_RUNBOOKS),
         )
     await db.commit()
     return {"seeded": True, "systems": OMNI_TOTAL_SYSTEMS, "runbooks": len(STABILITY_RUNBOOKS)}
