@@ -70,7 +70,7 @@ async def compute_weekly_wisdom(
     _dq = select(DecisionObject).where(
         DecisionObject.created_at.between(week_start, week_end),
         DecisionObject.outcome_summary.is_not(None),
-    )
+    ).limit(200)
     if _tid:
         _dq = _dq.where(DecisionObject.tenant_id == _tid)
     decisions_result = await db.execute(_dq)
@@ -134,7 +134,7 @@ async def compute_weekly_wisdom(
             select(ConvergenceCouncilSession).where(
                 ConvergenceCouncilSession.created_at.between(week_start, week_end),
                 ConvergenceCouncilSession.completed_at.is_not(None),
-            )
+            ).limit(200)
         )
         councils = council_result.scalars().all()
         if councils:

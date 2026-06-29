@@ -123,6 +123,7 @@ async def get_radar(db) -> dict:
         select(TechRadarEntry)
         .where(TechRadarEntry.tenant_id == _coerce_tenant_id(tenant_id))
         .order_by(TechRadarEntry.category, TechRadarEntry.status, TechRadarEntry.created_at.desc())
+        .limit(500)
     )
 
     result = await db.execute(query)

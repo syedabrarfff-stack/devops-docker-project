@@ -46,7 +46,7 @@ async def compute_trust_score(
     missions = (await db.execute(
         select(MissionOwnershipRecord).where(
             MissionOwnershipRecord.client_id == client_id
-        )
+        ).limit(100)
     )).scalars().all()
 
     # Compute score factors

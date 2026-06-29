@@ -306,7 +306,7 @@ async def generate_weekly_retrospective(
     _dq = select(DecisionObject).where(
         DecisionObject.created_at >= week_start,
         DecisionObject.created_at <= week_of,
-    )
+    ).limit(200)
     if _tid:
         _dq = _dq.where(DecisionObject.tenant_id == _tid)
     result = await db.execute(_dq)

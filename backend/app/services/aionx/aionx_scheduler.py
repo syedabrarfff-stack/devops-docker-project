@@ -356,7 +356,7 @@ async def _job_authority_recalibration() -> None:
         async with AsyncSessionLocal() as db:
             # Get all unique decision makers
             makers = (await db.execute(
-                select(distinct(DecisionObject.executor_role))
+                select(distinct(DecisionObject.executor_role)).limit(200)
             )).scalars().all()
 
             decayed = 0

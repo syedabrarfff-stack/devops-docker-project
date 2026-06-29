@@ -184,7 +184,7 @@ class ClientHealthScorer:
                 select(Lead).where(
                     Lead.tenant_id == tenant_id,
                     Lead.status == LeadStatus.WON,
-                )
+                ).limit(500)
             )
             clients = result.scalars().all()
 

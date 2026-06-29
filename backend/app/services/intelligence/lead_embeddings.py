@@ -170,7 +170,7 @@ async def semantic_search_leads(
         return []
 
     _tid = _resolve_tenant(tenant_id)
-    _q = select(Lead).where(Lead.embedding_vec.isnot(None))
+    _q = select(Lead).where(Lead.embedding_vec.isnot(None)).order_by(Lead.created_at.desc()).limit(2000)
     if _tid:
         _q = _q.where(Lead.tenant_id == _tid)
     rows = (await db.execute(_q)).scalars().all()

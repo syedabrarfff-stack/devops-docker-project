@@ -191,7 +191,7 @@ Return only valid JSON."""
                 select(DeliveryLesson).where(
                     DeliveryLesson.tenant_id == tid,
                     DeliveryLesson.id.in_(lesson_ids),
-                )
+                ).limit(200)
             )
             lessons = result.scalars().all()
             if not lessons:

@@ -119,7 +119,7 @@ async def compute_authority_decay(
             DecisionObject.executor_role == maker_id,
             DecisionObject.created_at >= sixty_days_ago,
             DecisionObject.created_at < thirty_days_ago,
-        )
+        ).limit(200)
     )).scalars().all()
 
     old_scores = []
@@ -181,7 +181,7 @@ async def escalate_for_captain_review(
 
 async def _actuality_scores_for_decision(db: AsyncSession, decision_id: uuid.UUID) -> list[float]:
     simulations = (await db.execute(
-        select(CounterfactualSimulation.id).where(CounterfactualSimulation.decision_id == decision_id)
+        select(CounterfactualSimulation.id).where(CounterfactualSimulation.decision_id == decision_id).limit(100)
     )).scalars().all()
     if not simulations:
         return []
@@ -189,7 +189,7 @@ async def _actuality_scores_for_decision(db: AsyncSession, decision_id: uuid.UUI
     actualities = (await db.execute(
         select(CounterfactualActualization).where(
             CounterfactualActualization.simulation_id.in_(simulations)
-        )
+        ).limit(100)
     )).scalars().all()
 
     scores = []

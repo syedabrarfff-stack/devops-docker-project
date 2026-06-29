@@ -252,6 +252,7 @@ async def list_competitor_profiles(tenant_id: uuid.UUID | str) -> list[dict[str,
                     select(CompetitorProfile)
                     .where(CompetitorProfile.tenant_id == tenant_uuid, CompetitorProfile.is_active == True)
                     .order_by(CompetitorProfile.name.asc())
+                    .limit(100)
                 )
             ).scalars().all()
     return [_serialize_profile(row) for row in rows]

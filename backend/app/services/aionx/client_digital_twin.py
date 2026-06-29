@@ -187,7 +187,7 @@ async def get_twin_for_hia(
     await update_predictions(db, client_id)
 
     result = await db.execute(
-        select(ClientTwinPrediction).where(ClientTwinPrediction.twin_id == twin.id)
+        select(ClientTwinPrediction).where(ClientTwinPrediction.twin_id == twin.id).limit(100)
     )
     predictions = result.scalars().all()
 

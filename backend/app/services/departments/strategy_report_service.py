@@ -213,6 +213,7 @@ class StrategyReportService:
             dios = (await db.execute(
                 select(DepartmentIntelligenceOfficer)
                 .where(DepartmentIntelligenceOfficer.tenant_id == tenant_uuid)
+                .limit(100)
             )).scalars().all()
 
             # Recent milestones

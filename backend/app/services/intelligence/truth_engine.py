@@ -130,7 +130,7 @@ class TruthEngine:
                 TruthEvent.prediction_type == prediction_type,
                 TruthEvent.outcome_recorded == True,
                 TruthEvent.created_at >= cutoff,
-            )
+            ).limit(500)
         )
         events = result.scalars().all()
 
@@ -224,7 +224,7 @@ class TruthEngine:
                     TruthEvent.prediction_type == check_type,
                     TruthEvent.outcome_recorded == True,
                     TruthEvent.created_at >= period_start,
-                )
+                ).limit(500)
             )
             events = result.scalars().all()
 
@@ -349,7 +349,7 @@ class TruthEngine:
         async with AsyncSessionLocal() as db:
             await set_tenant_context(db, tid)
             result = await db.execute(
-                select(PredictionAccuracy).where(PredictionAccuracy.tenant_id == tid).order_by(PredictionAccuracy.accuracy_score.asc().nulls_last())
+                select(PredictionAccuracy).where(PredictionAccuracy.tenant_id == tid).order_by(PredictionAccuracy.accuracy_score.asc().nulls_last()).limit(200)
             )
             rows = result.scalars().all()
             return [

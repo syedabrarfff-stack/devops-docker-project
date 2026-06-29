@@ -215,7 +215,7 @@ async def shelve_discovery(
 
 async def check_wake_conditions(db: AsyncSession, metrics: dict[str, float]) -> list[ShelvedDiscovery]:
     result = await db.execute(
-        select(ShelvedDiscovery).where(ShelvedDiscovery.is_activated == False)
+        select(ShelvedDiscovery).where(ShelvedDiscovery.is_activated == False).limit(200)
     )
     shelved = result.scalars().all()
 

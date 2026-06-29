@@ -91,7 +91,7 @@ class FinancialIntelligenceEngine:
                     select(Client).where(
                         Client.tenant_id == tid,
                         Client.status == ClientStatus.ACTIVE,
-                    )
+                    ).limit(500)
                 )
                 clients = result.scalars().all()
                 active_clients = len(clients)

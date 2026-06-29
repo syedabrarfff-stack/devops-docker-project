@@ -118,6 +118,7 @@ class MarketIntelligenceEngine:
                     CompetitorProfile.is_active.is_(True),
                 )
                 .order_by(CompetitorProfile.name)
+                .limit(100)
             )
             competitors = list(result.scalars().all())
 

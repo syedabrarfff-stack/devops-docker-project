@@ -162,7 +162,7 @@ async def extract_learning(db: AsyncSession) -> dict[str, Any]:
     actualities = (await db.execute(
         select(CounterfactualActualization).where(
             CounterfactualActualization.updated_at >= thirty_days_ago
-        )
+        ).limit(500)
     )).scalars().all()
 
     if not actualities:
