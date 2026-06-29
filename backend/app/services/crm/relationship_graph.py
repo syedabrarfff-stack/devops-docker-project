@@ -340,18 +340,24 @@ class RelationshipGraph:
         """List all nodes in the graph."""
         async with AsyncSessionLocal() as session:
             await set_tenant_context(session, tenant_id)
-            where = "WHERE tenant_id = :t"
             params: dict = {"t": str(tenant_id), "limit": limit}
             if entity_type:
-                where += " AND entity_type = :et"
+                sql = text(
+                    "SELECT id, entity_type, entity_id, attributes, created_at"
+                    " FROM relationship_nodes"
+                    " WHERE tenant_id = :t AND entity_type = :et"
+                    " ORDER BY created_at DESC LIMIT :limit"
+                )
                 params["et"] = entity_type
+            else:
+                sql = text(
+                    "SELECT id, entity_type, entity_id, attributes, created_at"
+                    " FROM relationship_nodes"
+                    " WHERE tenant_id = :t"
+                    " ORDER BY created_at DESC LIMIT :limit"
+                )
 
-            rows = await session.execute(
-                text(
-                    f"SELECT id, entity_type, entity_id, attributes, created_at FROM relationship_nodes {where} ORDER BY created_at DESC LIMIT :limit"
-                ),
-                params,
-            )
+            rows = await session.execute(sql, params)
             return [
                 {
                     "id": str(r.id),

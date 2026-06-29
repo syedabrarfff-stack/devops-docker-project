@@ -6,9 +6,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, BackgroundTa
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.leads import engine as leads
 from app.services.leads.discovery import lead_discovery_engine
 
@@ -73,14 +75,20 @@ class LeadLossIn(BaseModel):
 
 
 @router.post("/")
+@limiter.limit("30/minute")
 async def create_lead(
+    request: Request,
     body: LeadIn,
     background_tasks: BackgroundTasks,
     auto_score: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    lead = await leads.create_lead(db, body.model_dump(exclude_none=True))
-    await db.commit()
+    try:
+        lead = await leads.create_lead(db, body.model_dump(exclude_none=True))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Lead with this email already exists")
     if auto_score:
         background_tasks.add_task(_score_in_background, lead.id)
     background_tasks.add_task(_notify_captain_new_lead, _lead_company(lead), lead.email, body.source, lead.contact_name)
@@ -175,7 +183,8 @@ async def list_leads(
 
 
 @router.post("/{lead_id}/score")
-async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def score_lead(request: Request, lead_id: UUID, db: AsyncSession = Depends(get_db)):
     lead = await leads.qualify_and_score(db, lead_id)
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -185,21 +194,24 @@ async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/bulk-score")
-async def bulk_score(limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def bulk_score(request: Request, limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
     count = await leads.bulk_score(db, limit=limit)
     await db.commit()
     return {"scored": count}
 
 
 @router.post("/score-all")
-async def score_all(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def score_all(request: Request, limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
     count = await leads.bulk_score(db, limit=limit)
     await db.commit()
     return {"scored": count, "limit": limit, "status": "complete"}
 
 
 @router.post("/discover")
-async def discover_leads(body: DiscoverLeadsRequest, request: Request):
+@limiter.limit("3/minute")
+async def discover_leads(request: Request, body: DiscoverLeadsRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     limit = max(1, min(body.limit, 100))
     targets = body.targets or _default_discovery_targets(limit)
@@ -223,9 +235,10 @@ async def discover_leads(body: DiscoverLeadsRequest, request: Request):
 
 
 @router.post("/bulk-discover")
+@limiter.limit("2/minute")
 async def bulk_discover_leads(
-    background_tasks: BackgroundTasks,
     request: Request,
+    background_tasks: BackgroundTasks,
     limit: int = Query(200, ge=10, le=500),
     tenant_id: Optional[UUID] = None,
 ):

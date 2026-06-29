@@ -239,8 +239,10 @@ app.state.limiter = limiter
 
 if RATE_LIMITING_ENABLED:
     try:
+        from slowapi import SlowAPIMiddleware
         from slowapi.errors import RateLimitExceeded
         from slowapi import _rate_limit_exceeded_handler
+        app.add_middleware(SlowAPIMiddleware)
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     except ImportError:
         pass

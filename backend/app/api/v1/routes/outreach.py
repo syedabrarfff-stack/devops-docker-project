@@ -82,7 +82,9 @@ class LinkedInSendIn(BaseModel):
 
 
 @router.post("/sequences")
+@limiter.limit("10/minute")
 async def create_sequence(
+    request: Request,
     body: SequenceIn,
     background_tasks: BackgroundTasks,
     ai_generate: bool = False,
@@ -130,6 +132,7 @@ async def sequence_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/queue/{lead_id}")
+@limiter.limit("30/minute")
 async def queue_lead_outreach(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     await outreach_engine.queue_sequence(lead_id, resolved_tenant_id)
