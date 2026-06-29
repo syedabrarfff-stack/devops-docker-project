@@ -206,12 +206,19 @@ async def lifespan(app: FastAPI):
         worker_task = None
 
     # ── APScheduler ───────────────────────────────────────────────────────────
-    try:
-        from app.services.scheduler.scheduler import start_scheduler
-        await start_scheduler()
-        logger.info("✅ Scheduler started")
-    except Exception as e:
-        logger.warning(f"Scheduler skipped: {e}")
+    # Only start in the primary worker (age==0) to prevent each gunicorn worker
+    # running every job independently. gunicorn.conf.py sets JARVIS_SCHEDULER_DISABLED
+    # on worker.age > 0 via post_fork.
+    import os as _os
+    if not _os.environ.get("JARVIS_SCHEDULER_DISABLED"):
+        try:
+            from app.services.scheduler.scheduler import start_scheduler
+            await start_scheduler()
+            logger.info("✅ Scheduler started")
+        except Exception as e:
+            logger.warning(f"Scheduler skipped: {e}")
+    else:
+        logger.info("Scheduler disabled in this worker (non-primary)")
 
     logger.info("🚀 JARVIS operational — Aliyar Solutions v9.0.0")
     yield

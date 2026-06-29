@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -26,7 +27,7 @@ class SyncConfig(BaseModel):
     limit: int = Field(default=50, ge=1, le=200)
 
 
-@router.post("/apollo")
+@router.post("/apollo", dependencies=[Depends(get_current_captain)])
 @limiter.limit("5/minute")
 async def run_apollo_sync(request: Request, body: SyncConfig = SyncConfig(), db: AsyncSession = Depends(get_db)):
     """Fetch contacts from Apollo.io and upsert into CRM."""
@@ -39,7 +40,7 @@ async def run_apollo_sync(request: Request, body: SyncConfig = SyncConfig(), db:
     return {"synced": count, "source": "apollo"}
 
 
-@router.post("/enrich/{contact_id}")
+@router.post("/enrich/{contact_id}", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def enrich(request: Request, contact_id: int, db: AsyncSession = Depends(get_db)):
     """Enrich a single CRM contact with Apollo data."""
@@ -91,7 +92,7 @@ async def telegram_webhook(request: Request, update: dict, db: AsyncSession = De
     return {"ok": True, "duplicate": False, "event_id": event_id}
 
 
-@router.post("/telegram/webhook/register")
+@router.post("/telegram/webhook/register", dependencies=[Depends(get_current_captain)])
 @limiter.limit("3/minute")
 async def register_telegram_webhook(
     request: Request,
@@ -103,7 +104,7 @@ async def register_telegram_webhook(
     return result
 
 
-@router.get("/telegram/webhook/info")
+@router.get("/telegram/webhook/info", dependencies=[Depends(get_current_captain)])
 async def telegram_webhook_info():
     from app.services.notifications.telegram_bot import get_webhook_info
     return await get_webhook_info()

@@ -2,13 +2,14 @@
 JARVIS Knowledge System API — SOPs, learning records, and operational knowledge base.
 """
 from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(get_current_captain)])
 
 
 class SOPRequest(BaseModel):

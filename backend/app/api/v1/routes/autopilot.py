@@ -17,7 +17,8 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 
 from app.core.rate_limit import limiter
@@ -33,7 +34,7 @@ from app.services.autopilot.pipeline import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/autopilot", tags=["JARVIS AUTOPILOT"])
+router = APIRouter(prefix="/autopilot", tags=["JARVIS AUTOPILOT"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic ───────────────────────────────────────────────────────────────────

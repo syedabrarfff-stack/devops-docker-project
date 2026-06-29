@@ -5,14 +5,15 @@ import json
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from fastapi.responses import StreamingResponse
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 from app.services.ai.council import intelligence_council
 
-router = APIRouter(prefix="/council", tags=["AI Council"])
+router = APIRouter(prefix="/council", tags=["AI Council"], dependencies=[Depends(get_current_captain)])
 
 
 class CouncilConveneRequest(BaseModel):

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from uuid import UUID
@@ -8,7 +9,7 @@ from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.services.crm import service as crm
 
-router = APIRouter(prefix="/crm", tags=["CRM"])
+router = APIRouter(prefix="/crm", tags=["CRM"], dependencies=[Depends(get_current_captain)])
 
 
 class ContactIn(BaseModel):

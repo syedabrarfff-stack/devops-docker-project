@@ -15,6 +15,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +23,7 @@ from app.core.database import get_db
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/departments", tags=["6-Layer Intelligence"])
+router = APIRouter(prefix="/departments", tags=["6-Layer Intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

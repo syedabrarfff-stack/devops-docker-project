@@ -5,6 +5,7 @@ Never quotes cheap. Prices based on company size, service scope, and complexity.
 import asyncio
 import logging
 from fastapi import APIRouter, Depends, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,7 @@ from app.services.ai.router import ai_router
 from app.services.intelligence.jarvis_awareness import JARVIS_AWARENESS_PROMPT
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/pricing", tags=["pricing"])
+router = APIRouter(prefix="/pricing", tags=["pricing"], dependencies=[Depends(get_current_captain)])
 
 # ── Pricing brackets ──────────────────────────────────────────────────────────
 

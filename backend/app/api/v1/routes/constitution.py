@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.rate_limit import limiter
 from app.services.intelligence.jarvis_constitution import jarvis_constitution
@@ -26,7 +27,7 @@ from app.services.intelligence.revenue_consciousness import revenue_consciousnes
 from app.services.intelligence.platform_intelligence import platform_intelligence
 from app.services.intelligence.sales_autonomy import sales_autonomy
 
-router = APIRouter(prefix="/supreme", tags=["JARVIS Supreme Intelligence"])
+router = APIRouter(prefix="/supreme", tags=["JARVIS Supreme Intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 # ══════════════════════════════════════════════════════════════════════════════

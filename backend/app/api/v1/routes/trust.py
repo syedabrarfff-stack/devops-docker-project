@@ -1,11 +1,12 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/trust", tags=["trust"])
+router = APIRouter(prefix="/trust", tags=["trust"], dependencies=[Depends(get_current_captain)])
 
 
 class BriefRequest(BaseModel):

@@ -3,7 +3,8 @@ JARVIS Agent Operations Center API
 Captain can see all teams, monitor agents, and talk to any team in real time.
 """
 import asyncio
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -21,7 +22,7 @@ from app.services.ai.router import ai_router
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
+router = APIRouter(prefix="/agent-ops", tags=["agent-ops"], dependencies=[Depends(get_current_captain)])
 
 
 class AgentChatRequest(BaseModel):

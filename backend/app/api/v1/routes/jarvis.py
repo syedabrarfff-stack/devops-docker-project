@@ -5,6 +5,7 @@ Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolutio
 import asyncio
 import logging
 from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -29,7 +30,7 @@ from app.services.intelligence.jarvis_self_learning import (
     get_evolution_history,
 )
 
-router = APIRouter(prefix="/jarvis", tags=["jarvis"])
+router = APIRouter(prefix="/jarvis", tags=["jarvis"], dependencies=[Depends(get_current_captain)])
 
 
 class IdeaRequest(BaseModel):

@@ -6,6 +6,7 @@ import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +25,7 @@ from app.services.communication.whatsapp_transport import (
 )
 from app.services.outreach import gmail as email_service
 
-router = APIRouter(tags=["Communication"])
+router = APIRouter(tags=["Communication"], dependencies=[Depends(get_current_captain)])
 communication_router = APIRouter(prefix="/communication", tags=["Communication"])
 webhook_router = APIRouter(prefix="/webhooks", tags=["Communication Webhooks"])
 logger = logging.getLogger(__name__)

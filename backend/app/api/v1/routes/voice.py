@@ -6,14 +6,15 @@ Frontend calls this instead of direct browser synthesis for better quality.
 import logging
 import base64
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/voice", tags=["voice"])
+router = APIRouter(prefix="/voice", tags=["voice"], dependencies=[Depends(get_current_captain)])
 
 JARVIS_VOICE_INSTRUCTIONS = (
     "You are JARVIS, a calm, highly capable executive AI assistant. "

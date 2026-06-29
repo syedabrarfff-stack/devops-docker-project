@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from urllib.parse import unquote
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, Response
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
@@ -20,7 +21,7 @@ from app.services.outreach import sequences as seq_service
 from app.services.outreach.engine import outreach_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/outreach", tags=["Outreach"])
+router = APIRouter(prefix="/outreach", tags=["Outreach"], dependencies=[Depends(get_current_captain)])
 EMAIL_STATUS_TIMEOUT_SECONDS = 4.0
 
 

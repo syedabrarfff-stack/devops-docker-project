@@ -5,14 +5,15 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/learning", tags=["Learning Engine"])
+router = APIRouter(prefix="/learning", tags=["Learning Engine"], dependencies=[Depends(get_current_captain)])
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:

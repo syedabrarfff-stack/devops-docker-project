@@ -16,6 +16,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.api.v1.routes.auth import get_current_captain
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,7 @@ from app.services.nexus.healer import diagnose_all, heal_subsystem
 from app.services.nexus.nexus import nexus_status, nexus_cycle_stream
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/nexus", tags=["JARVIS NEXUS"])
+router = APIRouter(prefix="/nexus", tags=["JARVIS NEXUS"], dependencies=[Depends(get_current_captain)])
 
 
 class HealRequest(BaseModel):

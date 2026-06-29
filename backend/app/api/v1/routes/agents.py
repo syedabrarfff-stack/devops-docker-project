@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -7,7 +8,7 @@ from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.services.agents.liaison import client_liaison_service
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/agents", tags=["agents"], dependencies=[Depends(get_current_captain)])
 
 AGENT_HIERARCHY = {
     "core": {

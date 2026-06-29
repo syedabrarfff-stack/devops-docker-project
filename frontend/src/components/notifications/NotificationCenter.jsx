@@ -124,7 +124,9 @@ export default function NotificationCenter() {
     load();
     // Live WS updates
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${window.location.host}/api/v1/ws/captain`);
+    let _tok = '';
+    try { const _r = localStorage.getItem('jarvis_auth'); if (_r) _tok = JSON.parse(_r).token || ''; } catch (_) {}
+    const ws = new WebSocket(`${proto}//${window.location.host}/api/v1/ws/captain${_tok ? `?token=${encodeURIComponent(_tok)}` : ''}`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);

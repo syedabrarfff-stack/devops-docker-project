@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -10,7 +11,7 @@ from app.services.memory import manager as mem
 from app.services.memory.graph import graph_status, search_memory_graph, seed_memory_graph
 from app.services.memory.human_intelligence import HUMAN_INTELLIGENCE_KB, seed_human_intelligence
 
-router = APIRouter(prefix="/memory", tags=["Memory"])
+router = APIRouter(prefix="/memory", tags=["Memory"], dependencies=[Depends(get_current_captain)])
 
 
 class MemoryIn(BaseModel):

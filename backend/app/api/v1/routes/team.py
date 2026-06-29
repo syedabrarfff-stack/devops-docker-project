@@ -2,13 +2,14 @@
 JARVIS Team Registry API — human identity system for Aliyar Solutions.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 
-router = APIRouter(prefix="/team", tags=["team"])
+router = APIRouter(prefix="/team", tags=["team"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────

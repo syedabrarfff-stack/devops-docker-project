@@ -5,7 +5,8 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -14,7 +15,7 @@ from app.services.intelligence.truth_engine import truth_engine
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/truth", tags=["Truth Engine"])
+router = APIRouter(prefix="/truth", tags=["Truth Engine"], dependencies=[Depends(get_current_captain)])
 
 
 # ---------------------------------------------------------------------------

@@ -125,7 +125,12 @@ const useJarvisStore = create((set, get) => ({
     const host = import.meta.env.DEV
       ? `${window.location.hostname}:8000`
       : window.location.host
-    const url = `${protocol}//${host}/api/v1/ws/captain`
+    let token = ''
+    try {
+      const raw = localStorage.getItem('jarvis_auth')
+      if (raw) token = JSON.parse(raw).token || ''
+    } catch (_) {}
+    const url = `${protocol}//${host}/api/v1/ws/captain${token ? `?token=${encodeURIComponent(token)}` : ''}`
 
     const ws = new WebSocket(url)
 

@@ -18,6 +18,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +37,7 @@ from app.services.ghost.writer import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/ghost", tags=["JARVIS GHOST"])
+router = APIRouter(prefix="/ghost", tags=["JARVIS GHOST"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ────────────────────────────────────────────────────────────

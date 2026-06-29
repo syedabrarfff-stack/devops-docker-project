@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/innovation", tags=["innovation"])
+router = APIRouter(prefix="/innovation", tags=["innovation"], dependencies=[Depends(get_current_captain)])
 
 
 class InnovationProposalIn(BaseModel):

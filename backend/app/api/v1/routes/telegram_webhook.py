@@ -7,7 +7,8 @@ import logging
 import secrets
 from typing import Optional
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.services.notifications.telegram_bot import (
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(get_current_captain)])
 @limiter.limit("5/minute")
 async def register_webhook(request: Request, webhook_url: Optional[str] = None):
     """Register JARVIS webhook with Telegram API."""

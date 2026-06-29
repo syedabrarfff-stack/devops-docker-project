@@ -2,6 +2,7 @@
 Google Calendar routes.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -13,7 +14,7 @@ from app.services.calendar.google_cal import (
     list_calendars, schedule_meeting,
 )
 
-router = APIRouter(prefix="/calendar", tags=["Calendar"])
+router = APIRouter(prefix="/calendar", tags=["Calendar"], dependencies=[Depends(get_current_captain)])
 
 
 class EventIn(BaseModel):

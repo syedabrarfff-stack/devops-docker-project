@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/tasks", tags=["Tasks"])
+router = APIRouter(prefix="/tasks", tags=["Tasks"], dependencies=[Depends(get_current_captain)])
 
 
 class TaskIn(BaseModel):

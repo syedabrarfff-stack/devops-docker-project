@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.services.revenue_activation.market_awareness import market_awareness_engine
 
-router = APIRouter(prefix="/intel", tags=["Market Intelligence"])
+router = APIRouter(prefix="/intel", tags=["Market Intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/market-pulse")

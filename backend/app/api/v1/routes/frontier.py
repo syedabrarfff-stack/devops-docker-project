@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -36,7 +37,7 @@ from app.services.aionx.frontier_intelligence import (
     what_worked,
 )
 
-router = APIRouter(tags=["Frontier Intelligence"])
+router = APIRouter(tags=["Frontier Intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/frontier/status")

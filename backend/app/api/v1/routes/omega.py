@@ -7,14 +7,15 @@ GET  /omega/pulse           — quick system capability overview
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 
 from app.core.rate_limit import limiter
 from app.services.omega.swarm import omega_sse_stream, SWARM_MEMBERS, SYNTHESIZER, OMEGA_SWARM
 
-router = APIRouter(prefix="/omega", tags=["OMEGA Global Swarm"])
+router = APIRouter(prefix="/omega", tags=["OMEGA Global Swarm"], dependencies=[Depends(get_current_captain)])
 
 
 class IgniteRequest(BaseModel):

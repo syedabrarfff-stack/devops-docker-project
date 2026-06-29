@@ -3,6 +3,7 @@ JARVIS Intelligence API — Tech Radar, Self-Optimization, Research Division.
 Phase 5: Autonomous learning and continuous self-improvement.
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/intelligence", tags=["intelligence"])
+router = APIRouter(prefix="/intelligence", tags=["intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────

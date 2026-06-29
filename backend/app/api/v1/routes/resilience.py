@@ -5,8 +5,9 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -15,7 +16,7 @@ from app.services.intelligence.incident_playbooks import get_playbook, get_all_p
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/resilience", tags=["Resilience Engine"])
+router = APIRouter(prefix="/resilience", tags=["Resilience Engine"], dependencies=[Depends(get_current_captain)])
 
 
 # ---------------------------------------------------------------------------

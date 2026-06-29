@@ -15,13 +15,14 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"])
+router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"], dependencies=[Depends(get_current_captain)])
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 

@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.database import get_db, set_tenant_context
 from app.core.rate_limit import limiter
@@ -11,7 +12,7 @@ from app.services.ai.base_provider import Message, TaskType
 from app.models.conversation import Conversation
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(get_current_captain)])
 
 
 @router.post("", response_model=ChatResponse)

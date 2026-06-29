@@ -11,8 +11,9 @@ from __future__ import annotations
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.rate_limit import limiter
 
@@ -26,7 +27,7 @@ from app.services.intelligence.offer_engine import offer_engine
 from app.services.intelligence.upgrade_engine import upgrade_engine
 from app.services.intelligence.captain_profile_engine import captain_profile
 
-router = APIRouter(prefix="/consciousness", tags=["JARVIS Consciousness"])
+router = APIRouter(prefix="/consciousness", tags=["JARVIS Consciousness"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/snapshot")

@@ -84,7 +84,16 @@ def get_captain_client_count() -> int:
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
+    from app.core.config import settings
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("role") != "captain":
+            await ws.close(code=4003)
+            return
+    except JWTError:
+        await ws.close(code=4001)
+        return
     await ws.accept()
     _clients.add(ws)
     try:

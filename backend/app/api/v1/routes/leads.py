@@ -3,6 +3,7 @@ import io
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, BackgroundTasks, Request, UploadFile
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
@@ -15,7 +16,7 @@ from app.services.leads import engine as leads
 from app.services.leads.discovery import lead_discovery_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/leads", tags=["Leads"])
+router = APIRouter(prefix="/leads", tags=["Leads"], dependencies=[Depends(get_current_captain)])
 
 _BATCH_IMPORT_MAX = 500
 

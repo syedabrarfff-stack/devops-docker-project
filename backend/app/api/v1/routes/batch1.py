@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -18,7 +19,7 @@ from app.services.aionx.batch1_client_pipeline import (
     get_stage_history,
 )
 
-router = APIRouter(prefix="/batch1", tags=["AIONX Batch 1"])
+router = APIRouter(prefix="/batch1", tags=["AIONX Batch 1"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/workflow")

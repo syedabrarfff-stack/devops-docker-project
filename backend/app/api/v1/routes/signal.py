@@ -16,6 +16,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +32,7 @@ from app.services.signal.scanner import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/signal", tags=["JARVIS SIGNAL"])
+router = APIRouter(prefix="/signal", tags=["JARVIS SIGNAL"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic ───────────────────────────────────────────────────────────────────
