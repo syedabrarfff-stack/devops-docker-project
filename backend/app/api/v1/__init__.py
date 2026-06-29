@@ -46,6 +46,7 @@ from app.api.v1.routes import ghost
 from app.api.v1.routes import autopilot
 from app.api.v1.routes import signal
 from app.api.v1.routes import nexus
+from app.api.v1.routes import constitution
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -141,3 +142,5 @@ api_router.include_router(autopilot.router, dependencies=[Depends(get_current_ca
 api_router.include_router(signal.router, dependencies=[Depends(get_current_captain)])
 # NEXUS — Supreme Autonomous Intelligence Core (Captain auth required — autonomous execution)
 api_router.include_router(nexus.router, dependencies=[Depends(get_current_captain)])
+# Layer 19 — Supreme Intelligence: Constitution, CEO, Revenue, Platform, Sales Autonomy
+api_router.include_router(constitution.router, dependencies=[Depends(get_current_captain)])
