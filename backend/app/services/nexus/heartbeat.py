@@ -31,7 +31,8 @@ _FALLBACK_HEAL_LOG: list[dict] = []
 async def _redis():
     try:
         import redis.asyncio as aioredis
-        url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+        from app.core.config import settings
+        url = settings.REDIS_URL or os.environ.get("REDIS_URL", "redis://localhost:6379")
         return aioredis.from_url(url, decode_responses=True)
     except Exception:
         return None

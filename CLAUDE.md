@@ -3,7 +3,7 @@
 
 *This is the master reference for every JARVIS session. All decisions, outputs, and communications must align with this directive. Captain has final authority. JARVIS has full operational autonomy within these boundaries.*
 
-**MANDATORY ON EVERY SESSION START:** Read `JARVIS_SELF_KNOWLEDGE.md` in the root directory. That file contains complete system architecture, all 35 database tables, all 25 scheduler jobs, authority matrix, team registry, AI routing map, council setup, and current completion status. Read it before doing anything else.
+**MANDATORY ON EVERY SESSION START:** Read `JARVIS_SELF_KNOWLEDGE.md` in the root directory. That file contains complete system architecture, all 35 database tables, all 64 scheduler jobs, authority matrix, team registry, AI routing map, council setup, and current completion status. Read it before doing anything else.
 
 ---
 
@@ -255,15 +255,81 @@ Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 
 ## 12. Operational Intelligence (Scheduled Jobs)
 
+**64 total jobs** — 38 core engine jobs + 26 AIONX organ jobs. Full list in `backend/app/services/scheduler/engine.py` and `backend/app/services/aionx/aionx_scheduler.py`.
+
+**Core Engine Jobs (38):**
+
 | Job | Schedule | Purpose |
 |---|---|---|
-| daily_morning_briefing | 07:00 daily | Captain briefing — pipeline, alerts, priorities |
-| daily_lead_score | 02:00 daily | Score and rank all new leads |
-| weekly_outreach_stats | Monday 08:00 | Outreach performance review |
-| weekly_pipeline_health | Sunday 20:00 | CRM pipeline and revenue forecast |
-| weekly_tech_radar_scan | Monday 06:00 | Emerging technology classification |
-| daily_optimization_review | 23:00 daily | System performance recommendations |
-| biweekly_research_report | Sunday 07:00 | Market intelligence generation |
+| daily_briefing | 08:00 UTC daily | Captain Telegram briefing — pipeline + alerts |
+| morning_briefing | 07:00 UTC daily | Intelligence morning briefing |
+| captain_dashboard_briefing | 06:55 UTC daily | Dashboard snapshot for Captain |
+| lead_scoring_sweep | every 6h | Score and rank all active leads |
+| daily_icp_lead_scoring | 05:00 UTC daily | ICP score yesterday's new leads, promote top 20 |
+| outreach_processor | every 1h | Process and send queued outreach |
+| reply_handler_scan | every 2h | Classify prospect replies, advance lead state |
+| contact_sync | every 12h | Sync contacts with Apollo/HubSpot |
+| tech_radar_scan | Mon 06:00 UTC | Emerging technology classification |
+| competitor_monitoring | Mon 09:00 UTC | Competitive landscape monitoring |
+| market_intelligence_report | Sun 07:00 UTC | Market intelligence generation |
+| daily_optimization_review | 23:00 UTC daily | System performance recommendations |
+| biweekly_research_report | Sun 07:00 UTC | Deep research report generation |
+| daily_self_learning | 00:05 UTC daily | JARVIS self-evolution cycle |
+| memory_consolidation | 00:30 UTC daily | Promote working → operational memory |
+| weekly_memory_promotion | Sun 00:45 UTC | Promote operational → strategic memory |
+| overnight_lead_discovery | 18:00 UTC daily | US/EU market lead discovery (11:30 PM IST) |
+| overnight_intel_analysis | 18:30 UTC daily | Market intelligence analysis (12:00 AM IST) |
+| overnight_proposal_engine | 19:30 UTC daily | Proposal writing for top-scored leads (1:00 AM IST) |
+| overnight_cold_outreach | 20:30 UTC daily | Cold outreach — US afternoon prime time (2:00 AM IST) |
+| overnight_freelance_bids | 21:30 UTC daily | Upwork/PPH bid sweep (3:00 AM IST) |
+| overnight_followup_sequences | 23:30 UTC daily | Follow-up sequences — US evening (5:00 AM IST) |
+| overnight_pipeline_health | 01:00 UTC daily | Pipeline health + CRM sync (6:30 AM IST) |
+| overnight_ops_report | 02:30 UTC daily | Morning operations report (8:00 AM IST) |
+| daily_strategy_report | 23:00 UTC daily | 6-Layer strategy cascade to all departments |
+| milestone_bulk_review | 10:00 UTC daily | Council review of all pending milestones |
+| tech_evolution_scan | every 6h | 24/7 technology discovery cycle |
+| pre_call_briefing_trigger | every 30min | Generate briefings 1h before scheduled calls |
+| weekly_strategy_review | Sun 07:00 UTC | Full strategic review cycle |
+| dio_health_check | 06:30 UTC daily | DIO initialization and health verification |
+| daily_scout_network | 01:30 UTC daily | 9-agent scout network → jarvis-data/ on GitHub |
+| daily_connector_hub_ingestion | 14:30 UTC daily | Pull jarvis-data/, score 20 leads from connectors |
+| daily_market_intelligence | 04:00 UTC daily | Feed next-day intelligence pipeline |
+| self_healer | every 15min | Autonomous system self-repair |
+| nexus_heartbeat | every 1h | NEXUS core coordination ping |
+| lead_embedding_sweep | 03:15 UTC daily | Semantic embeddings for all unembedded leads |
+| weekly_performance_briefing | Sat 19:00 UTC | Weekly performance metrics briefing |
+| nightly_signal_scan | 02:00 UTC daily | Signal pipeline scan |
+
+**AIONX Organ Jobs (26) — registered via `register_aionx_jobs()`:**
+
+| Job | Schedule | Purpose |
+|---|---|---|
+| aionx_sentinel_sweep | every 2h | Sentinel threat + anomaly monitoring |
+| aionx_escalation_processor | every 30min | Process all pending escalations |
+| aionx_operational_iq | every 1h | Operational IQ score update |
+| aionx_system_state_snapshot | every 5min | Rapid system state capture |
+| aionx_preventive_monitoring_snapshot | every 15min | Preventive health monitoring |
+| aionx_mission_control_snapshot | every 10min | Mission control telemetry |
+| aionx_execute_due_outreach | every 30min | Execute scheduled outreach actions |
+| aionx_speed_to_lead_check | every 5min | Speed-to-lead response compliance |
+| aionx_governed_integrity_cycle | every 1h | Constitutional compliance sweep |
+| aionx_predictive_threat_scan | every 2h | Predictive threat intelligence |
+| aionx_agent_capacity_check | every 4h | AI agent capacity planning |
+| aionx_idle_intelligence_cycle | every 6h | Background intelligence generation when idle |
+| aionx_retro_30d | 22:00 UTC daily | 30-day retrospective analysis |
+| aionx_retro_90d | 22:15 UTC daily | 90-day retrospective analysis |
+| aionx_twin_predictions | 03:00 UTC daily | Digital twin prediction refresh |
+| aionx_counterfactual_sync | 01:00 UTC daily | Counterfactual scenario sync |
+| aionx_debt_assessment | 02:00 UTC daily | Technical + operational debt assessment |
+| aionx_trust_erosion_check | 03:30 UTC daily | Client trust score erosion detection |
+| aionx_external_scan_record | 04:15 UTC daily | External market scan record |
+| aionx_founder_mirror_analysis | 01:00 UTC daily | Founder mirror alignment analysis |
+| aionx_wisdom_weekly | Sun 19:00 UTC | Weekly wisdom synthesis |
+| aionx_decision_retrospective | Sun 19:30 UTC | Weekly decision quality retrospective |
+| aionx_authority_recalibration | Sun 20:00 UTC | Authority matrix recalibration |
+| aionx_supreme_meta_learning | Sun 21:00 UTC | Supreme meta-learning synthesis |
+| aionx_parallel_universe_analysis | Mon 08:00 UTC | Parallel scenario universe analysis |
+| aionx_service_innovation_scan | Sun 10:00 UTC | Service innovation opportunity scan |
 
 ---
 

@@ -55,7 +55,8 @@ async def diagnose_all(db) -> dict[str, dict]:
     # Redis
     try:
         import redis.asyncio as aioredis
-        url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+        from app.core.config import settings
+        url = settings.REDIS_URL or os.environ.get("REDIS_URL", "redis://localhost:6379")
         r = aioredis.from_url(url, decode_responses=True)
         await r.ping()
         await r.aclose()
