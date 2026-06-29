@@ -8,6 +8,7 @@ from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"])
 
@@ -44,7 +45,9 @@ async def get_tech_radar(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/radar/scan")
+@limiter.limit("3/minute")
 async def trigger_tech_scan(
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
@@ -72,7 +75,9 @@ async def get_recommendations(
 
 
 @router.post("/recommendations/analyze")
+@limiter.limit("3/minute")
 async def trigger_analysis(
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
@@ -127,7 +132,9 @@ async def get_reports(limit: int = 20, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/reports/generate")
+@limiter.limit("5/minute")
 async def generate_report(
+    request: Request,
     req: ReportRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -267,6 +274,7 @@ class GovernanceEvaluateRequest(BaseModel):
 
 
 @router.post("/prospect-psychology")
+@limiter.limit("20/minute")
 async def prospect_psychology(
     req: ProspectPsychologyRequest,
     request: Request,
@@ -435,6 +443,7 @@ class CialdiniSequenceRequest(BaseModel):
 
 
 @router.post("/expert-council")
+@limiter.limit("3/minute")
 async def expert_council(req: ExpertCouncilRequest, request: Request):
     """Convene 5-agent (or quick 3-agent) expert council on a strategic question."""
     from app.services.intelligence.expert_council import expert_council_engine
@@ -458,6 +467,7 @@ async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = 
 
 
 @router.post("/red-team/run")
+@limiter.limit("2/minute")
 async def red_team_run(req: RedTeamRequest, request: Request, background_tasks=None):
     """Run full adversarial red team analysis against current business strategy."""
     from app.services.intelligence.red_team import red_team_engine
@@ -468,6 +478,7 @@ async def red_team_run(req: RedTeamRequest, request: Request, background_tasks=N
 
 
 @router.post("/red-team/competitor")
+@limiter.limit("5/minute")
 async def red_team_competitor(
     request: Request,
     competitor_name: str = "generic AI agency",
@@ -510,6 +521,7 @@ async def get_flywheel_projection(
 
 
 @router.post("/cialdini/enhance")
+@limiter.limit("10/minute")
 async def cialdini_enhance(req: CialdiniEnhanceRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Enhance an email draft using Cialdini's 6 persuasion principles."""
     from app.services.intelligence.cialdini import cialdini_engine
@@ -539,6 +551,7 @@ async def cialdini_enhance(req: CialdiniEnhanceRequest, request: Request, db: As
 
 
 @router.post("/cialdini/sequence")
+@limiter.limit("10/minute")
 async def cialdini_sequence(req: CialdiniSequenceRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Generate a 3-email Cialdini-engineered outreach sequence for a lead."""
     from app.services.intelligence.cialdini import cialdini_engine
@@ -599,7 +612,9 @@ async def conscience_evaluate(
 # ── Semantic Lead Search ──────────────────────────────────────────────────────
 
 @router.get("/semantic-search")
+@limiter.limit("30/minute")
 async def semantic_search_leads(
+    request: Request,
     q: str,
     limit: int = 10,
     min_similarity: float = 0.3,
@@ -624,7 +639,8 @@ async def semantic_search_leads(
 
 
 @router.post("/semantic-search/embed/{lead_id}")
-async def embed_single_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def embed_single_lead(request: Request, lead_id: UUID, db: AsyncSession = Depends(get_db)):
     """Immediately generate and store an embedding for a specific lead."""
     from app.services.intelligence.lead_embeddings import embed_lead
     success = await embed_lead(str(lead_id), db)
@@ -634,7 +650,8 @@ async def embed_single_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/semantic-search/embed-batch")
-async def embed_batch_leads(limit: int = 50, db: AsyncSession = Depends(get_db)):
+@limiter.limit("2/minute")
+async def embed_batch_leads(request: Request, limit: int = 50, db: AsyncSession = Depends(get_db)):
     """Manually trigger embedding sweep for leads without vectors."""
     from app.services.intelligence.lead_embeddings import embed_pending_leads
     result = await embed_pending_leads(db, limit=min(limit, 200))

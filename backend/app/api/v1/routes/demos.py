@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.demo import DemoPackage
 from app.services.demos.builder import demo_builder
 
@@ -29,6 +30,7 @@ class DemoGenerateRequest(BaseModel):
 
 
 @router.post("/generate", dependencies=[Depends(get_current_captain)])
+@limiter.limit("5/minute")
 async def generate_demo(body: DemoGenerateRequest, request: Request, bg: BackgroundTasks):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     demo = await demo_builder.generate(

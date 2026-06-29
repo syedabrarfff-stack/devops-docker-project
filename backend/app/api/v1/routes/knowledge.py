@@ -1,11 +1,12 @@
 """
 JARVIS Knowledge System API — SOPs, learning records, and operational knowledge base.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -43,7 +44,8 @@ async def list_sops(category: Optional[str] = None, db: AsyncSession = Depends(g
 
 
 @router.post("/sops/generate")
-async def generate_sop(req: SOPRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def generate_sop(request: Request, req: SOPRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import generate_sop
     async with db.begin():
         sop = await generate_sop(db, req.title, req.category, req.context)
