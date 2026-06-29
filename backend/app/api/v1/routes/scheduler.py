@@ -115,6 +115,7 @@ async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSe
 
 
 @router.delete("/jobs/{job_id}")
+@limiter.limit("5/minute")
 async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     removed = remove_job(job_id)
     from sqlalchemy import delete
@@ -202,7 +203,8 @@ async def list_job_failures(
 
 
 @router.patch("/failures/{failure_id}/resolve", dependencies=[Depends(get_current_captain)])
-async def resolve_job_failure(failure_id: str, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def resolve_job_failure(request: Request, failure_id: str, db: AsyncSession = Depends(get_db)):
     """Mark an open job failure as resolved."""
     from sqlalchemy import select
     from app.models.scheduling import JobFailure

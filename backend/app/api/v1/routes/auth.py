@@ -106,7 +106,8 @@ async def gmail_callback():
 
 
 @router.post("/gmail/revoke")
-async def gmail_revoke():
+@limiter.limit("5/minute")
+async def gmail_revoke(request: Request):
     return {"revoked": False, "message": "Legacy mailbox OAuth is retired. No tokens are stored."}
 
 

@@ -59,24 +59,28 @@ async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
     async with AsyncSessionLocal() as session:
         async with session.begin():
             await set_tenant_context(session, str(tid))
-            mrr = float(await session.scalar(
-                select(func.coalesce(func.sum(Client.mrr_usd), 0.0)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
+            # Single GROUP BY replaces 3 sequential scalar queries
+            client_rows = (await session.execute(
+                select(
+                    Client.status,
+                    func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
+                    func.count(Client.id).label("cnt"),
                 )
-            ) or 0)
-            active = int(await session.scalar(
-                select(func.count(Client.id)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
-                )
-            ) or 0)
-            churned = int(await session.scalar(
-                select(func.count(Client.id)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.CHURNED
-                )
-            ) or 0)
-            total_clients = active + churned
-            churn_rate = (churned / total_clients * 100) if total_clients else 0.0
-            avg_mrr_per_client = (mrr / active) if active else 0.0
+                .where(Client.tenant_id == tid)
+                .group_by(Client.status)
+            )).all()
+
+    c_agg: dict = {}
+    for row in client_rows:
+        key = row.status.value if hasattr(row.status, "value") else str(row.status)
+        c_agg[key] = {"mrr": float(row.mrr or 0), "cnt": int(row.cnt or 0)}
+
+    mrr = c_agg.get("ACTIVE", {}).get("mrr", 0.0)
+    active = c_agg.get("ACTIVE", {}).get("cnt", 0)
+    churned = c_agg.get("CHURNED", {}).get("cnt", 0)
+    total_clients = active + churned
+    churn_rate = (churned / total_clients * 100) if total_clients else 0.0
+    avg_mrr_per_client = (mrr / active) if active else 0.0
 
     arr = mrr * 12
     return {
@@ -351,41 +355,32 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
         async with session.begin():
             await set_tenant_context(session, str(tid))
 
-            total_invoiced = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tid)
-            ) or 0)
-            total_paid = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.PAID
+            # Single GROUP BY replaces 7 sequential scalar queries
+            status_rows = (await session.execute(
+                select(
+                    Invoice.status,
+                    func.coalesce(func.sum(Invoice.total), 0.0).label("total_amount"),
+                    func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0).label("paid_amount"),
+                    func.count(Invoice.id).label("cnt"),
                 )
-            ) or 0)
-            overdue_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                )
-            ) or 0)
-            overdue_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                )
-            ) or 0)
-            sent_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.SENT
-                )
-            ) or 0)
-            sent_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.SENT
-                )
-            ) or 0)
-            draft_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.DRAFT
-                )
-            ) or 0)
+                .where(Invoice.tenant_id == tid)
+                .group_by(Invoice.status)
+            )).all()
 
-            # 30-day collection
+            agg: dict = {}
+            for row in status_rows:
+                key = row.status.value if hasattr(row.status, "value") else str(row.status)
+                agg[key] = {"total": float(row.total_amount or 0), "paid": float(row.paid_amount or 0), "cnt": int(row.cnt or 0)}
+
+            total_invoiced = sum(v["total"] for v in agg.values())
+            total_paid = agg.get("PAID", {}).get("paid", 0.0)
+            overdue_amount = agg.get("OVERDUE", {}).get("total", 0.0)
+            overdue_count = agg.get("OVERDUE", {}).get("cnt", 0)
+            sent_count = agg.get("SENT", {}).get("cnt", 0)
+            sent_amount = agg.get("SENT", {}).get("total", 0.0)
+            draft_count = agg.get("DRAFT", {}).get("cnt", 0)
+
+            # 30-day collection (time-filtered — separate query required)
             cutoff_30d = datetime.now(UTC) - timedelta(days=30)
             collected_30d = float(await session.scalar(
                 select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(

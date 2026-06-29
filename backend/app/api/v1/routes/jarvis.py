@@ -129,7 +129,8 @@ async def get_memory(
 
 
 @router.post("/memory/store")
-async def store_captain_memory(body: MemoryStoreRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def store_captain_memory(request: Request, body: MemoryStoreRequest, db: AsyncSession = Depends(get_db)):
     """Captain teaches JARVIS something — stored as permanent instruction."""
     memory = await mem.store_memory(
         db,
@@ -169,7 +170,8 @@ async def evolution_log(limit: int = Query(10, ge=1, le=30), db: AsyncSession = 
 # ── Outcome Tracking ──────────────────────────────────────────────────────────
 
 @router.post("/outcomes")
-async def create_outcome(body: OutcomeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def create_outcome(request: Request, body: OutcomeRequest, db: AsyncSession = Depends(get_db)):
     """Log a JARVIS action for outcome tracking."""
     record = await record_outcome(
         db,
@@ -183,7 +185,9 @@ async def create_outcome(body: OutcomeRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/outcomes/{outcome_id}/resolve")
+@limiter.limit("20/minute")
 async def resolve_outcome_endpoint(
+    request: Request,
     outcome_id: int,
     body: ResolveOutcomeRequest,
     db: AsyncSession = Depends(get_db)
