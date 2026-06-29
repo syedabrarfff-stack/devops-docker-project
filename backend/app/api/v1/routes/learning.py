@@ -5,10 +5,11 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/learning", tags=["Learning Engine"])
@@ -30,23 +31,24 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
 
 
 class LessonExtractionIn(BaseModel):
-    project_type: str
-    client_industry: Optional[str] = None
+    project_type: str = Field(..., max_length=100)
+    client_industry: Optional[str] = Field(default=None, max_length=100)
     delivery_data: dict = {}
     tenant_id: Optional[UUID] = None
 
 
 class ApplyIn(BaseModel):
-    applied_by: str = "JARVIS"
+    applied_by: str = Field(default="JARVIS", max_length=100)
     tenant_id: Optional[UUID] = None
 
 
 class SOPIn(BaseModel):
-    lesson_ids: list[int] = []
+    lesson_ids: list[int] = Field(default_factory=list, max_length=50)
     tenant_id: Optional[UUID] = None
 
 
 @router.post("/extract-lessons")
+@limiter.limit("10/minute")
 async def extract_lessons(req: LessonExtractionIn, request: Request):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, req.tenant_id)
@@ -63,6 +65,7 @@ async def extract_lessons(req: LessonExtractionIn, request: Request):
 
 
 @router.get("/dashboard")
+@limiter.limit("10/minute")
 async def get_dashboard(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, tenant_id)
@@ -74,11 +77,12 @@ async def get_dashboard(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/recommendations")
+@limiter.limit("20/minute")
 async def get_recommendations(
     request: Request,
     tenant_id: Optional[UUID] = None,
-    recommendation_type: Optional[str] = None,
-    limit: int = 50,
+    recommendation_type: Optional[str] = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
 ):
     from app.core.database import AsyncSessionLocal, set_tenant_context
     from sqlalchemy import select
@@ -116,6 +120,7 @@ async def get_recommendations(
 
 
 @router.post("/recommendations/{recommendation_id}/apply")
+@limiter.limit("20/minute")
 async def apply_recommendation(recommendation_id: int, req: ApplyIn, request: Request):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, req.tenant_id)
@@ -132,6 +137,7 @@ async def apply_recommendation(recommendation_id: int, req: ApplyIn, request: Re
 
 
 @router.post("/generate-sop")
+@limiter.limit("5/minute")
 async def generate_sop(req: SOPIn, request: Request):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, req.tenant_id)
@@ -143,6 +149,7 @@ async def generate_sop(req: SOPIn, request: Request):
 
 
 @router.post("/optimize-proposal")
+@limiter.limit("5/minute")
 async def optimize_proposal(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, tenant_id)
@@ -154,6 +161,7 @@ async def optimize_proposal(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/optimize-outreach")
+@limiter.limit("5/minute")
 async def optimize_outreach(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.learning_engine import learning_engine
     tid = _resolve_tenant_id(request, tenant_id)

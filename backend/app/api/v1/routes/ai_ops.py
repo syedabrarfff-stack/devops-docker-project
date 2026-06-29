@@ -3,9 +3,10 @@ AI Operations API — provider health, circuit breakers, cost tracking, credenti
 """
 import time
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.ai.base_provider import Message
 from app.services.ai.router import ai_router as jarvis_router
 from app.services.ai.health_monitor import health_monitor
@@ -93,7 +94,8 @@ async def test_bedrock():
 
 
 @router.post("/health/{provider}/reset")
-async def reset_circuit(provider: str):
+@limiter.limit("10/minute")
+async def reset_circuit(request: Request, provider: str):
     """Captain override — manually reset a provider's circuit breaker."""
     health_monitor.reset(provider)
     return {"message": f"Circuit breaker for '{provider}' reset by Captain", "provider": provider}

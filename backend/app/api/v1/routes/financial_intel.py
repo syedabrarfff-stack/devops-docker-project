@@ -5,9 +5,10 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/financial", tags=["Financial Intelligence"])
@@ -29,6 +30,7 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
 
 
 @router.post("/snapshot")
+@limiter.limit("5/minute")
 async def compute_snapshot(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.financial_intelligence import financial_intelligence
     tid = _resolve_tenant_id(request, tenant_id)
@@ -40,6 +42,7 @@ async def compute_snapshot(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/cfo-briefing")
+@limiter.limit("10/minute")
 async def get_cfo_briefing(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.financial_intelligence import financial_intelligence
     tid = _resolve_tenant_id(request, tenant_id)
@@ -51,10 +54,11 @@ async def get_cfo_briefing(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/cashflow-forecast")
+@limiter.limit("5/minute")
 async def generate_cashflow_forecast(
     request: Request,
     tenant_id: Optional[UUID] = None,
-    horizon_days: int = 90,
+    horizon_days: int = Query(default=90, ge=7, le=365),
 ):
     from app.services.intelligence.financial_intelligence import financial_intelligence
     tid = _resolve_tenant_id(request, tenant_id)
@@ -66,6 +70,7 @@ async def generate_cashflow_forecast(
 
 
 @router.get("/health-score")
+@limiter.limit("10/minute")
 async def get_health_score(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.financial_intelligence import financial_intelligence, _grade
     tid = _resolve_tenant_id(request, tenant_id)

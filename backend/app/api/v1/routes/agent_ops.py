@@ -3,12 +3,13 @@ JARVIS Agent Operations Center API
 Captain can see all teams, monitor agents, and talk to any team in real time.
 """
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 import logging
 
+from app.core.rate_limit import limiter
 from app.services.agents.agent_registry import (
     get_all_teams,
     get_team,
@@ -120,7 +121,8 @@ async def get_agent_detail(agent_id: str):
 
 
 @router.post("/agents/{agent_id}/chat")
-async def chat_with_agent(agent_id: str, body: AgentChatRequest):
+@limiter.limit("30/minute")
+async def chat_with_agent(request: Request, agent_id: str, body: AgentChatRequest):
     """
     Captain talks directly to a specific agent.
     The agent responds in character with their expertise.
@@ -176,7 +178,8 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
 
 
 @router.post("/teams/{team_id}/chat")
-async def chat_with_team(team_id: str, body: AgentChatRequest):
+@limiter.limit("20/minute")
+async def chat_with_team(request: Request, team_id: str, body: AgentChatRequest):
     """
     Captain talks to an entire team.
     The team responds collectively with a briefing or answer.

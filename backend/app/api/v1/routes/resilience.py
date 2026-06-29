@@ -6,9 +6,10 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.intelligence.resilience_engine import resilience_engine
 from app.services.intelligence.incident_playbooks import get_playbook, get_all_playbooks
 
@@ -23,12 +24,12 @@ router = APIRouter(prefix="/resilience", tags=["Resilience Engine"])
 
 
 class IncidentIn(BaseModel):
-    incident_type: str
+    incident_type: str = Field(..., max_length=100)
     details: dict = {}
 
 
 class ResolveIn(BaseModel):
-    resolution_notes: str
+    resolution_notes: str = Field(..., max_length=4000)
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +58,7 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
 
 
 @router.post("/incident")
+@limiter.limit("10/minute")
 async def detect_and_respond(body: IncidentIn, request: Request, tenant_id: Optional[UUID] = None):
     """Detect an incident and trigger the appropriate response playbook."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -75,6 +77,7 @@ async def detect_and_respond(body: IncidentIn, request: Request, tenant_id: Opti
 
 
 @router.post("/incident/{event_id}/resolve")
+@limiter.limit("20/minute")
 async def resolve_incident(event_id: UUID, body: ResolveIn, request: Request, tenant_id: Optional[UUID] = None):
     """Mark an active incident as resolved with resolution notes."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -93,6 +96,7 @@ async def resolve_incident(event_id: UUID, body: ResolveIn, request: Request, te
 
 
 @router.get("/active")
+@limiter.limit("20/minute")
 async def get_active_incidents(request: Request, tenant_id: Optional[UUID] = None):
     """Return all currently active (unresolved) incidents."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -106,6 +110,7 @@ async def get_active_incidents(request: Request, tenant_id: Optional[UUID] = Non
 
 
 @router.get("/status")
+@limiter.limit("20/minute")
 async def get_resilience_status(request: Request, tenant_id: Optional[UUID] = None):
     """Get overall system resilience status and health summary."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)

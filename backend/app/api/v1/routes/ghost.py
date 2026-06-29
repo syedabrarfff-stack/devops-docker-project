@@ -194,7 +194,11 @@ async def generate_sequence(
             logger.error("Sequence email %d failed: %s", num, exc)
             return {"email_num": num, "status": "error", "error": str(exc)}
 
-    results = await asyncio.gather(*[compose_email(n) for n in range(1, body.email_count + 1)])
+    raw = await asyncio.gather(*[compose_email(n) for n in range(1, body.email_count + 1)], return_exceptions=True)
+    results = [
+        v if isinstance(v, dict) else {"email_num": i + 1, "status": "error", "error": str(v)}
+        for i, v in enumerate(raw)
+    ]
 
     return {
         "persona": {

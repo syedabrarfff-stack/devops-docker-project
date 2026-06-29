@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.intelligence.founder_dependency import (
     founder_dependency_engine,
     TARGET_DEPENDENCY_SCORE,
@@ -45,6 +46,7 @@ def _status(score: float) -> str:
 
 
 @router.post("/assess")
+@limiter.limit("5/minute")
 async def run_assessment(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -55,6 +57,7 @@ async def run_assessment(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/report")
+@limiter.limit("10/minute")
 async def get_report(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -65,6 +68,7 @@ async def get_report(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/score")
+@limiter.limit("20/minute")
 async def get_score(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -89,6 +93,7 @@ async def get_score(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/opportunities")
+@limiter.limit("10/minute")
 async def get_opportunities(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:

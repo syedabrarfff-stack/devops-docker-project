@@ -7,10 +7,11 @@ GET  /omega/pulse           — quick system capability overview
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.rate_limit import limiter
 from app.services.omega.swarm import omega_sse_stream, SWARM_MEMBERS, SYNTHESIZER, OMEGA_SWARM
 
 router = APIRouter(prefix="/omega", tags=["OMEGA Global Swarm"])
@@ -21,7 +22,8 @@ class IgniteRequest(BaseModel):
 
 
 @router.post("/ignite")
-async def ignite_swarm(body: IgniteRequest):
+@limiter.limit("3/minute")
+async def ignite_swarm(request: Request, body: IgniteRequest):
     """
     Fire the OMEGA global swarm and stream SSE events.
 

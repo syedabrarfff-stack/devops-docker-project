@@ -5,10 +5,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.core.rate_limit import limiter
+
 router = APIRouter(prefix="/economics", tags=["economics"])
 
 
 @router.get("/dashboard")
+@limiter.limit("10/minute")
 async def economics_dashboard(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.economics import economics_service
 
