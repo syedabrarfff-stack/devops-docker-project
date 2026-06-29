@@ -55,6 +55,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             tenant_id = get_current_tenant_id()
             if tenant_id:
                 await set_tenant_context(session, tenant_id)
+            if not _is_sqlite:
+                await session.execute(text("SET LOCAL statement_timeout = '30s'"))
             yield session
             await session.commit()
         except Exception:

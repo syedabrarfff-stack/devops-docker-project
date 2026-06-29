@@ -54,6 +54,13 @@ async def enrich(request: Request, contact_id: int, db: AsyncSession = Depends(g
 @limiter.limit("60/minute")
 async def telegram_webhook(request: Request, update: dict, db: AsyncSession = Depends(get_db)):
     """Receive Telegram bot webhook updates."""
+    from app.core.config import settings as _s
+    from fastapi import HTTPException
+    secret = _s.TELEGRAM_WEBHOOK_SECRET
+    if secret:
+        provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if not provided or provided != secret:
+            raise HTTPException(status_code=403, detail="Invalid webhook secret")
     from app.services.notifications.telegram_bot import handle_update
     tenant_id = _default_tenant_id()
     payload_json = _stable_json(update)

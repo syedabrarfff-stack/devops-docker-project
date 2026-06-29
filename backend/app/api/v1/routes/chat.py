@@ -69,12 +69,14 @@ async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(ge
 
 
 @router.get("/providers")
-async def get_providers():
+@limiter.limit("30/minute")
+async def get_providers(request: Request):
     return ai_router.get_provider_status()
 
 
 @router.get("/history/{session_id}")
-async def get_history(session_id: str, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def get_history(request: Request, session_id: str, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
     tenant_id = settings.JARVIS_DEFAULT_TENANT_ID
     if tenant_id:

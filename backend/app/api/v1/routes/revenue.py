@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import case, func, select
 
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.lead import Lead, LeadStatus
 from app.models.revenue import Client, ClientStatus, Invoice, InvoiceStatus, RevenueSnapshot
 from app.services.governance.invoice_engine import invoice_engine
@@ -31,12 +32,14 @@ _STATUS_PROBABILITY = {
 # ── Existing endpoints (preserved) ────────────────────────────────────────────
 
 @router.get("/snapshot")
+@limiter.limit("30/minute")
 async def revenue_snapshot(request: Request, tenant_id: Optional[uuid.UUID] = None):
     tid = _resolve_tenant(request, tenant_id)
     return await invoice_engine.revenue_snapshot(tid)
 
 
 @router.get("/mrr-chart")
+@limiter.limit("20/minute")
 async def revenue_mrr_chart(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -49,6 +52,7 @@ async def revenue_mrr_chart(
 # ── ARR ───────────────────────────────────────────────────────────────────────
 
 @router.get("/arr")
+@limiter.limit("30/minute")
 async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Annual Recurring Revenue = MRR × 12, plus derived projections."""
     tid = _resolve_tenant(request, tenant_id)
@@ -89,6 +93,7 @@ async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 @router.get("/pipeline")
+@limiter.limit("20/minute")
 async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Lead pipeline value weighted by conversion probability and tier ACV."""
     tid = _resolve_tenant(request, tenant_id)
@@ -131,6 +136,7 @@ async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = No
 # ── Forecast ──────────────────────────────────────────────────────────────────
 
 @router.get("/forecast")
+@limiter.limit("10/minute")
 async def revenue_forecast(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -205,6 +211,7 @@ async def revenue_forecast(
 # ── Cohorts ───────────────────────────────────────────────────────────────────
 
 @router.get("/cohorts")
+@limiter.limit("10/minute")
 async def revenue_cohorts(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Client retention cohort analysis grouped by start month."""
     tid = _resolve_tenant(request, tenant_id)
@@ -252,6 +259,7 @@ async def revenue_cohorts(request: Request, tenant_id: Optional[uuid.UUID] = Non
 # ── Segments ──────────────────────────────────────────────────────────────────
 
 @router.get("/segments")
+@limiter.limit("20/minute")
 async def revenue_segments(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -335,6 +343,7 @@ async def revenue_segments(
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @router.get("/health")
+@limiter.limit("20/minute")
 async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Cash health: collected vs invoiced, outstanding, overdue amounts and counts."""
     tid = _resolve_tenant(request, tenant_id)
@@ -406,6 +415,7 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
 # ── Clients ───────────────────────────────────────────────────────────────────
 
 @router.get("/clients")
+@limiter.limit("20/minute")
 async def revenue_clients(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -477,6 +487,7 @@ async def revenue_clients(
 # ── War Room (all-in-one) ─────────────────────────────────────────────────────
 
 @router.get("/war-room")
+@limiter.limit("10/minute")
 async def revenue_war_room(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """All 5 Revenue Command Center metrics in a single call."""
     tid = _resolve_tenant(request, tenant_id)
