@@ -109,8 +109,8 @@ def verify_webhook_signature(payload: bytes, sig_header: str) -> bool:
     """Verify Stripe webhook signature using STRIPE_WEBHOOK_SECRET."""
     secret = settings.STRIPE_WEBHOOK_SECRET
     if not secret:
-        logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature not verified")
-        return True  # permissive fallback; lock down once secret is set
+        logger.warning("STRIPE_WEBHOOK_SECRET not configured — rejecting Stripe webhook")
+        return False
 
     try:
         parts = {k: v for k, v in (item.split("=", 1) for item in sig_header.split(","))}

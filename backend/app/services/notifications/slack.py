@@ -109,16 +109,16 @@ async def notify_system_event(title: str, body: str, level: str = "info") -> boo
 
 async def notify_business_event(event_type: str, title: str, summary: str) -> bool:
     icons = {
-        “proposal_accepted”: “🎯”,
-        “meeting_booked”: “📅”,
-        “payment_received”: “✅”,
-        “system_critical_error”: “🔴”,
+        "proposal_accepted": "🎯",
+        "meeting_booked": "📅",
+        "payment_received": "✅",
+        "system_critical_error": "🔴",
     }
     return await _post([
-        _header(f”{icons.get(event_type, '📢')} {title}”),
+        _header(f"{icons.get(event_type, '📢')} {title}"),
         _section(summary[:500]),
-        _fields((“Event”, event_type), (“Source”, “JARVIS”)),
-        _context(f”Aliyar Solutions Operations · {_ts()}”),
+        _fields(("Event", event_type), ("Source", "JARVIS")),
+        _context(f"Aliyar Solutions Operations · {_ts()}"),
     ], text=title)
 
 

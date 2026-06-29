@@ -386,11 +386,11 @@ async def csv_template():
 @limiter.limit("3/minute")
 async def import_leads_csv(
     request: Request,
+    bg: BackgroundTasks,
     file: UploadFile = File(...),
     tenant_id: Optional[UUID] = None,
     auto_score: bool = Query(default=True),
     db: AsyncSession = Depends(get_db),
-    bg: BackgroundTasks,
 ):
     """
     Import leads from a CSV file. Accepts any column order; maps common header variants.
@@ -405,7 +405,10 @@ async def import_leads_csv(
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
 
-    raw_bytes = await file.read()
+    _MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB — sufficient for 500 rows
+    raw_bytes = await file.read(_MAX_CSV_BYTES + 1)
+    if len(raw_bytes) > _MAX_CSV_BYTES:
+        raise HTTPException(status_code=413, detail="CSV file exceeds 5 MB limit. Split into smaller files.")
     try:
         text = raw_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:

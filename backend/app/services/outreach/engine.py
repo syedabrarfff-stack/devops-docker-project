@@ -100,19 +100,24 @@ class OutreachEngine:
                     "email_format_version": EMAIL_FORMAT_VERSION,
                 }
 
-                created = 0
-                for log in logs:
-                    existing = await session.scalar(
-                        select(FollowUpQueue.id)
+                # Batch-check existing queue entries for all steps in one query
+                steps_to_check = [log.sequence_step for log in logs]
+                existing_steps: set[int] = set()
+                if steps_to_check:
+                    _existing_rows = (await session.execute(
+                        select(FollowUpQueue.sequence_step)
                         .where(
                             FollowUpQueue.tenant_id == tenant_uuid,
                             FollowUpQueue.lead_id == lead.id,
-                            FollowUpQueue.sequence_step == log.sequence_step,
+                            FollowUpQueue.sequence_step.in_(steps_to_check),
                             FollowUpQueue.status == FollowUpStatus.PENDING,
                         )
-                        .limit(1)
-                    )
-                    if existing:
+                    )).scalars().all()
+                    existing_steps = set(_existing_rows)
+
+                created = 0
+                for log in logs:
+                    if log.sequence_step in existing_steps:
                         continue
                     session.add(
                         FollowUpQueue(
@@ -174,8 +179,22 @@ class OutreachEngine:
                     )
                 ).scalars().all()
 
+                # Batch-load all leads for pending items in one query
+                _all_lead_ids = list(pending_by_lead.keys())
+                _leads_by_id: dict[uuid.UUID, Lead] = {}
+                if _all_lead_ids:
+                    for _l in (await session.execute(
+                        select(Lead).where(
+                            Lead.tenant_id == tenant_uuid,
+                            Lead.id.in_(_all_lead_ids),
+                        )
+                    )).scalars().all():
+                        _leads_by_id[_l.id] = _l
+
                 for lead_id, lead_items in pending_by_lead.items():
-                    lead = await self._get_lead(session, tenant_uuid, lead_id)
+                    lead = _leads_by_id.get(lead_id)
+                    if not lead:
+                        continue
                     logs = await self.generate_sequence(lead, tenant_uuid)
                     serialized_steps = [_log_to_sequence_step(log) for log in logs]
                     lead.assigned_persona = PERSONAS["darren_mitchell"]["name"]

@@ -279,7 +279,7 @@ async def _call_nvidia(model: str, prompt: str, max_tokens: int = 1024) -> str:
     last_err = None
     for key in keys:
         try:
-            async with httpx.AsyncClient(timeout=90, verify=False) as client:
+            async with httpx.AsyncClient(timeout=90) as client:
                 r = await client.post(
                     "https://integrate.api.nvidia.com/v1/chat/completions",
                     headers={"Authorization": f"Bearer {key}"},

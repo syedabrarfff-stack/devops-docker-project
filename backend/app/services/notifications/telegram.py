@@ -22,12 +22,12 @@ async def notify_telegram(message: str) -> bool:
 
 async def notify_business_event(event_type: str, title: str, summary: str) -> bool:
     icons = {
-        “proposal_accepted”: “🎯”,
-        “meeting_booked”: “📅”,
-        “payment_received”: “✅”,
-        “system_critical_error”: “🔴”,
+        "proposal_accepted": "🎯",
+        "meeting_booked": "📅",
+        "payment_received": "✅",
+        "system_critical_error": "🔴",
     }
-    icon = icons.get(event_type, “📢”)
+    icon = icons.get(event_type, "📢")
     return await notify_telegram(
         f"{icon} *{title}*\n\n"
         f"*Event:* {event_type}\n"

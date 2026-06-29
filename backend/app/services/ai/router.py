@@ -525,7 +525,7 @@ def _record_ai_metrics(
         from app.services.economics.tracker import economics_service
 
         tokens_out = max(0, int(tokens_total or 0) - int(tokens_in or 0))
-        asyncio.create_task(
+        _task = asyncio.create_task(
             economics_service.log_ai_call(
                 provider=provider,
                 model=model,
@@ -539,6 +539,9 @@ def _record_ai_metrics(
                 success=not bool(error_message),
                 error_message=error_message,
             )
+        )
+        _task.add_done_callback(
+            lambda t: logger.debug("AI cost persistence failed: %s", t.exception()) if not t.cancelled() and t.exception() else None
         )
     except RuntimeError:
         logger.debug("AI cost persistence skipped: no running event loop")
