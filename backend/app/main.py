@@ -201,6 +201,9 @@ async def lifespan(app: FastAPI):
         await requeue_pending()
         logger.info("✅ Task queue initialized — starting worker")
         worker_task = asyncio.create_task(worker())
+        worker_task.add_done_callback(
+            lambda t: logger.error("Task worker exited unexpectedly: %s", t.exception()) if not t.cancelled() and t.exception() else logger.warning("Task worker stopped")
+        )
     except Exception as e:
         logger.warning(f"Task worker skipped: {e}")
         worker_task = None

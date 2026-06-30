@@ -60,7 +60,7 @@ class BrandingRequest(BaseModel):
     company_website: str = Field(default="", max_length=2_000)
     founder_name: str = Field(default="", max_length=200)
 
-@router.post("/onboarding/{tenant_id}/step1-branding")
+@router.post("/onboarding/{tenant_id}/step1-branding", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def onboarding_step1(request: Request, tenant_id: UUID, body: BrandingRequest):
     return await onboarding.step1_branding(
@@ -80,7 +80,7 @@ class PersonasRequest(BaseModel):
     personas: list[PersonaItem] = Field(min_length=1, max_length=9)
     email_domain: str = Field(min_length=3, max_length=200)
 
-@router.post("/onboarding/{tenant_id}/step2-personas")
+@router.post("/onboarding/{tenant_id}/step2-personas", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def onboarding_step2(request: Request, tenant_id: UUID, body: PersonasRequest):
     return await onboarding.step2_personas(
@@ -95,7 +95,7 @@ class EmailConfigRequest(BaseModel):
     executive_name: str = Field(default="Joseph David", min_length=2, max_length=120)
     reply_to_name: str = Field(default="", max_length=200)
 
-@router.post("/onboarding/{tenant_id}/step3-email")
+@router.post("/onboarding/{tenant_id}/step3-email", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def onboarding_step3(request: Request, tenant_id: UUID, body: EmailConfigRequest):
     return await onboarding.step3_email(
@@ -109,7 +109,7 @@ class IntegrationsRequest(BaseModel):
     notion_api_key: str = Field(default="", max_length=500)
     slack_webhook_url: str = Field(default="", max_length=2_000)
 
-@router.post("/onboarding/{tenant_id}/step4-integrations")
+@router.post("/onboarding/{tenant_id}/step4-integrations", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def onboarding_step4(request: Request, tenant_id: UUID, body: IntegrationsRequest):
     return await onboarding.step4_integrations(
@@ -124,7 +124,7 @@ class MarketFocusRequest(BaseModel):
     service_offerings: list[str] = Field(default_factory=list)
     icp_description: str = Field(default="", max_length=5_000)
 
-@router.post("/onboarding/{tenant_id}/step5-market")
+@router.post("/onboarding/{tenant_id}/step5-market", dependencies=[Depends(get_current_captain)])
 @limiter.limit("10/minute")
 async def onboarding_step5(request: Request, tenant_id: UUID, body: MarketFocusRequest):
     return await onboarding.step5_market_focus(
@@ -133,7 +133,7 @@ async def onboarding_step5(request: Request, tenant_id: UUID, body: MarketFocusR
     )
 
 
-@router.get("/onboarding/{tenant_id}/step6-review")
+@router.get("/onboarding/{tenant_id}/step6-review", dependencies=[Depends(get_current_captain)])
 async def onboarding_step6(tenant_id: UUID):
     return await onboarding.step6_review(tenant_id)
 

@@ -117,7 +117,10 @@ async def worker():
     while True:
         try:
             priority, task_id = await asyncio.wait_for(_queue.get(), timeout=5.0)
-            asyncio.create_task(_process_task(task_id))
+            _pt = asyncio.create_task(_process_task(task_id))
+            _pt.add_done_callback(
+                lambda t: logger.error("Task processing failed: %s", t.exception()) if not t.cancelled() and t.exception() else None
+            )
             _queue.task_done()
         except asyncio.TimeoutError:
             continue

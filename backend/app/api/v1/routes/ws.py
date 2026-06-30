@@ -28,7 +28,10 @@ async def broadcast(event_type: str, data: dict, persist: bool = False) -> None:
     _clients.difference_update(dead)
 
     if persist:
-        asyncio.create_task(_persist_notification(event_type, data))
+        _pn = asyncio.create_task(_persist_notification(event_type, data))
+        _pn.add_done_callback(
+            lambda t: logger.debug("Notification persistence failed: %s", t.exception()) if not t.cancelled() and t.exception() else None
+        )
 
 
 async def captain_broadcast(event_type: str, data: dict) -> None:

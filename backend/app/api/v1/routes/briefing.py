@@ -14,7 +14,7 @@ from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/briefing", tags=["briefing"])
+router = APIRouter(prefix="/briefing", tags=["briefing"], dependencies=[Depends(get_current_captain)])
 
 BRIEFING_PROMPT = """You are JARVIS, the operational intelligence core of Aliyar Solutions.
 Generate a sharp, strategic morning briefing for Captain Syed Abrar.

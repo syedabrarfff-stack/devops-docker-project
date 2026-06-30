@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +19,7 @@ from app.services.outreach.gmail_inbox import fetch_new_emails, get_inbox, get_i
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/gmail", tags=["gmail"])
+router = APIRouter(prefix="/gmail", tags=["gmail"], dependencies=[Depends(get_current_captain)])
 
 
 class SendEmailRequest(BaseModel):
