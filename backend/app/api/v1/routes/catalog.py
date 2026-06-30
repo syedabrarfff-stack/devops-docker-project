@@ -18,7 +18,7 @@ from app.services.catalog.catalog_service import (
     sync_canonical_catalog,
 )
 
-router = APIRouter(prefix="/catalog", tags=["Service Catalog"])
+router = APIRouter(prefix="/catalog", tags=["Service Catalog"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/divisions")

@@ -34,6 +34,7 @@ Use the live JARVIS data provided in the user message as ground truth."""
 
 
 @router.get("/morning")
+@limiter.limit("10/minute")
 async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db)):
     tenant_id = _resolve_tenant_id(request)
     await set_tenant_context(db, str(tenant_id))
@@ -55,6 +56,7 @@ async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/morning-ai")
+@limiter.limit("5/minute")
 async def morning_briefing_ai(
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),

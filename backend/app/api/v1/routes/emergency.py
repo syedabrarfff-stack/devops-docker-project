@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/emergency", tags=["emergency"])
+router = APIRouter(prefix="/emergency", tags=["emergency"], dependencies=[Depends(get_current_captain)])
 
 
 class IncidentRequest(BaseModel):

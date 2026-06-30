@@ -5,6 +5,7 @@ import time
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.services.ai.base_provider import Message
@@ -16,7 +17,7 @@ from app.services.ai.cost_tracker import (
 )
 from app.services.security.credential_validator import run_credential_audit
 
-router = APIRouter(prefix="/ai-ops", tags=["AI Operations"])
+router = APIRouter(prefix="/ai-ops", tags=["AI Operations"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/health")

@@ -56,7 +56,7 @@ class OneshotJobIn(BaseModel):
     payload: Optional[dict] = None
 
 
-@router.get("/jobs")
+@router.get("/jobs", dependencies=[Depends(get_current_captain)])
 async def list_jobs():
     """List all scheduled jobs from APScheduler."""
     return get_jobs()
@@ -147,7 +147,7 @@ async def resume(job_id: str, request: Request, _: dict = Depends(get_current_ca
     return {"resumed": True, "job_id": job_id}
 
 
-@router.get("/jobs/db")
+@router.get("/jobs/db", dependencies=[Depends(get_current_captain)])
 async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     """Jobs persisted in JARVIS DB (includes metadata)."""
     from sqlalchemy import select, desc
@@ -167,7 +167,7 @@ async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     } for j in rows]
 
 
-@router.get("/failures")
+@router.get("/failures", dependencies=[Depends(get_current_captain)])
 async def list_job_failures(
     request: Request,
     status: Optional[str] = None,

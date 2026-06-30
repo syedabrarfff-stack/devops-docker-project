@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.services.pilot.activation import pilot_activation_service
 
 
-router = APIRouter(prefix="/pilot", tags=["Pilot"])
+router = APIRouter(prefix="/pilot", tags=["Pilot"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/status")

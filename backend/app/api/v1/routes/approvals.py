@@ -13,7 +13,7 @@ from app.core.rate_limit import limiter
 from app.models.approval import ApprovalRequest, ApprovalStatus
 from app.services.governance.captain_queue import captain_queue
 
-router = APIRouter(prefix="/approvals", tags=["approvals"])
+router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(get_current_captain)])
 
 
 class ApprovalCreate(BaseModel):

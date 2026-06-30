@@ -47,6 +47,7 @@ async def generate_demo(body: DemoGenerateRequest, request: Request, bg: Backgro
 
 
 @router.get("/{lead_id}")
+@limiter.limit("30/minute")
 async def get_demo_for_lead(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     demo = await _find_demo(resolved_tenant_id, lead_id)
@@ -56,6 +57,7 @@ async def get_demo_for_lead(lead_id: UUID, request: Request, tenant_id: Optional
 
 
 @router.get("/{lead_id}/pdf")
+@limiter.limit("30/minute")
 async def get_demo_pdf(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     demo = await _find_demo(resolved_tenant_id, lead_id)

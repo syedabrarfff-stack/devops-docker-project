@@ -126,7 +126,7 @@ from app.services.aionx.ultimate_client_journey import (
     ultimate_journey_status,
 )
 
-router = APIRouter(prefix="/aionx", tags=["AIONX"])
+router = APIRouter(prefix="/aionx", tags=["AIONX"], dependencies=[Depends(get_current_captain)])
 
 
 # ─── ORCHESTRATION CORTEX ────────────────────────────────────────────────────
