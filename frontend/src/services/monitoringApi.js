@@ -7,6 +7,64 @@ import axios from 'axios';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+export const getMonitoringMetrics = {
+  // Dashboard Overview
+  getDashboardOverview: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/dashboard/overview`);
+    return response.data;
+  },
+
+  // System Health
+  getSystemHealth: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/health`);
+    return response.data;
+  },
+
+  // AI Costs
+  getAICostToday: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/ai-cost/today`);
+    return response.data;
+  },
+
+  getAICostHistory: async (days = 7) => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/ai-cost/history`, {
+      params: { days },
+    });
+    return response.data;
+  },
+
+  getAICostAudit: async (limit = 100, provider = null) => {
+    const params = { limit };
+    if (provider) params.provider = provider;
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/ai-cost/audit`, { params });
+    return response.data;
+  },
+
+  // Prometheus Metrics
+  getPrometheusMetrics: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/prometheus`);
+    return response.data;
+  },
+
+  // AI Providers
+  getAIProviders: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/ai-providers`);
+    return response.data;
+  },
+
+  // Approvals
+  getApprovals: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/approvals`);
+    return response.data;
+  },
+
+  // Scheduler Jobs
+  getSchedulerJobs: async () => {
+    const response = await axios.get(`${API_BASE}/api/v1/monitoring/metrics/jobs`);
+    return response.data;
+  },
+};
+
 export const monitoringApi = {
   // System Health
   getSystemHealth: async () => {
