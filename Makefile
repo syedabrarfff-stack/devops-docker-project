@@ -1,90 +1,38 @@
-.PHONY: up down build restart logs status \
-        seed health readyz \
-        psql redis-cli \
-        backend frontend dev-install \
-        clean prune \
-        deploy-check lint
+.PHONY: help dev test lint deploy deploy-ec2 logs restart
 
-# ── Stack control ─────────────────────────────────────────────────────────────
+help:
+	@echo "JARVIS Development Commands"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "Local Development:"
+	@echo "  make dev              - Start backend + frontend locally"
+	@echo "  make backend          - Start just backend API"
+	@echo "  make frontend         - Start just frontend"
+	@echo "  make test             - Run all tests"
+	@echo "  make lint             - Check code quality"
+	@echo ""
+	@echo "Deployment:"
+	@echo "  make deploy ENV=production  - Deploy to EC2"
+	@echo "  make logs-ec2 INSTANCE=...  - Stream EC2 logs"
+	@echo "  make restart-ec2 INSTANCE=... - Restart EC2"
+	@echo ""
+	@echo "Database:"
+	@echo "  make migrate          - Run migrations"
 
-up:
-	cd infrastructure && docker compose up -d
-	@echo "✅  JARVIS stack up — http://localhost"
-
-down:
-	cd infrastructure && docker compose down
-
-build:
-	cd infrastructure && docker compose build --no-cache
-
-restart:
-	cd infrastructure && docker compose restart
-
-logs:
-	cd infrastructure && docker compose logs -f
-
-logs-backend:
-	cd infrastructure && docker compose logs -f backend
-
-logs-db:
-	cd infrastructure && docker compose logs -f postgres
-
-status:
-	cd infrastructure && docker compose ps
-
-# ── Health checks ─────────────────────────────────────────────────────────────
-
-health:
-	@curl -s http://localhost:8000/health | python3 -m json.tool || echo "Backend not reachable"
-
-readyz:
-	@curl -s http://localhost:8000/readyz | python3 -m json.tool || echo "Backend not reachable"
-
-# ── Data operations ───────────────────────────────────────────────────────────
-
-seed:
-	@echo "Seeding service catalog…"
-	@curl -s -X POST http://localhost:8000/api/v1/catalog/seed | python3 -m json.tool
-	@echo "Seeding team registry…"
-	@curl -s -X POST http://localhost:8000/api/v1/team/seed | python3 -m json.tool
-
-# ── Database shell ────────────────────────────────────────────────────────────
-
-psql:
-	cd infrastructure && docker compose exec postgres psql -U jarvis -d jarvis
-
-redis-cli:
-	cd infrastructure && docker compose exec redis redis-cli
-
-# ── Local development (no Docker) ─────────────────────────────────────────────
+dev:
+	@echo "🚀 Open 3 terminals:"
+	@echo "  Terminal 1: make backend"
+	@echo "  Terminal 2: make frontend"
 
 backend:
-	cd backend && uvicorn app.main:app --reload --port 8000
+	cd backend && python -m uvicorn app.main:app --reload --port 8000
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && npm install && npm run dev
 
-dev-install:
-	cd frontend && npm install
-	cd backend && pip install -r requirements.txt
-
-# ── Pre-deploy validation ─────────────────────────────────────────────────────
-
-deploy-check:
-	@bash scripts/pre-deploy-check.sh
-
-# ── Cleanup ───────────────────────────────────────────────────────────────────
+deploy:
+	chmod +x scripts/deploy-to-ec2.sh
+	./scripts/deploy-to-ec2.sh
 
 clean:
-	cd infrastructure && docker compose down -v
-	@echo "⚠️  Volumes removed — data cleared"
-
-prune:
-	docker system prune -f
-	docker volume prune -f
-
-# ── Code quality ──────────────────────────────────────────────────────────────
-
-lint:
-	cd backend && python3 -m py_compile app/main.py && echo "✅ main.py OK"
-	cd frontend && npm run lint --if-present || true
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -rf backend/venv frontend/node_modules .coverage
