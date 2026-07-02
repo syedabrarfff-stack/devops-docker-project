@@ -47,6 +47,7 @@ from app.api.v1.routes import autopilot
 from app.api.v1.routes import signal
 from app.api.v1.routes import nexus
 from app.api.v1.routes import constitution
+from app.api.v1.routes import service_registry
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -144,3 +145,5 @@ api_router.include_router(signal.router, dependencies=[Depends(get_current_capta
 api_router.include_router(nexus.router, dependencies=[Depends(get_current_captain)])
 # Layer 19 — Supreme Intelligence: Constitution, CEO, Revenue, Platform, Sales Autonomy
 api_router.include_router(constitution.router, dependencies=[Depends(get_current_captain)])
+# Phase 3 — Service Registry API (dynamic service management)
+api_router.include_router(service_registry.router, dependencies=[Depends(get_current_captain)])
