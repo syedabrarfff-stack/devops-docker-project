@@ -23,17 +23,8 @@ class AnthropicProvider(BaseAIProvider):
             model_id = "claude-sonnet-4-6"
         try:
             import anthropic
-            import httpx
-            import os
-
-            # Use CA bundle from environment if available (for proxy SSL verification)
-            ca_cert = os.getenv("SSL_CERT_FILE") or os.getenv("REQUESTS_CA_BUNDLE") or True
-            http_client = httpx.AsyncClient(verify=ca_cert) if ca_cert != True else None
-
-            client = anthropic.AsyncAnthropic(
-                api_key=settings.ANTHROPIC_API_KEY,
-                http_client=http_client
-            )
+            # Python's ssl module respects SSL_CERT_FILE env var set at container start
+            client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             result = await client.messages.create(
                 model=model_id,
                 max_tokens=max_tokens,
