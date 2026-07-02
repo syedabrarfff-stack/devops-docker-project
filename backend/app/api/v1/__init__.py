@@ -50,6 +50,7 @@ from app.api.v1.routes import constitution
 from app.api.v1.routes import service_registry
 from app.api.v1.routes import catalog_v2
 from app.api.v1.routes import monitoring
+from app.api.v1.routes import cost_allocation
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -152,3 +153,5 @@ api_router.include_router(constitution.router, dependencies=[Depends(get_current
 api_router.include_router(service_registry.router, dependencies=[Depends(get_current_captain)])
 # Monitoring & Cost Analytics (customer-facing real-time metrics)
 api_router.include_router(monitoring.router)
+# Multi-Tenant Cost Allocation & Billing (revenue operations)
+api_router.include_router(cost_allocation.router)
