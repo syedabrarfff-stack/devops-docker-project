@@ -51,6 +51,7 @@ from app.api.v1.routes import service_registry
 from app.api.v1.routes import catalog_v2
 from app.api.v1.routes import monitoring
 from app.api.v1.routes import cost_allocation
+from app.api.v1.routes import optimization
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -155,3 +156,5 @@ api_router.include_router(service_registry.router, dependencies=[Depends(get_cur
 api_router.include_router(monitoring.router)
 # Multi-Tenant Cost Allocation & Billing (revenue operations)
 api_router.include_router(cost_allocation.router)
+# AI-Powered Optimization Recommendations (ROI improvement engine)
+api_router.include_router(optimization.router)
