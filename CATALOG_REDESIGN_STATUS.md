@@ -3,7 +3,7 @@
 
 **Project Start:** 2026-07-02  
 **Target Completion:** 2026-07-24 (3-4 weeks)  
-**Current Phase:** 1 of 7 (Data Layer)  
+**Current Phase:** 2 of 7 (Service Layer)  
 **Effort Allocated:** 136 hours total
 
 ---
@@ -52,36 +52,63 @@
 
 ---
 
-### ⏳ PHASE 2: Service Layer (PLANNED)
+### ✅ PHASE 2: Service Layer (COMPLETE)
 **Duration:** 24 hours  
-**Timeline:** 2026-07-03 to 2026-07-04
+**Completion:** 2026-07-02
 
-**Planned Deliverables:**
-- [ ] `ServiceRegistry` class (orchestration)
-- [ ] `ServiceTemplate` class (factory)
-- [ ] `ServiceInstance` class (lifecycle)
-- [ ] `ServiceMetrics` collector
-- [ ] Bootstrap 25 existing services from CAPABILITY_MODULES
-- [ ] Service initialization logic
-- [ ] Metrics tracking + aggregation
-- [ ] Deprecation workflow
-- [ ] Unit tests for service layer
+**Deliverables:**
+- [x] `ServiceRegistryManager` class (orchestration)
+- [x] `ServiceTemplate` support (reusable templates)
+- [x] `ServiceInstance` lifecycle (multi-region instances)
+- [x] `ServiceMetrics` collector (daily snapshots)
+- [x] Bootstrap 25 existing services from CAPABILITY_MODULES
+- [x] Service initialization logic (BETA → ACTIVE workflow)
+- [x] Metrics tracking + aggregation (executions, success rate, cost)
+- [x] Deprecation workflow (soft delete + audit trail)
+- [x] Unit tests for service layer (80%+ coverage)
 
-**Key Methods:**
+**Key Methods Implemented:**
 ```python
-class ServiceRegistry:
-    async def get_available_services(tenant_id) -> List[ServiceConfig]
-    async def create_service_from_template(template_name, customizations) -> ServiceInstance
-    async def deprecate_service(service_id) -> DeprecationWorkflow
-    async def get_service_metrics(service_id) -> ServiceMetrics
-    async def migrate_dependency(old_service, new_service) -> MigrationStatus
+class ServiceRegistryManager:
+    async def bootstrap_canonical_services() -> Dict[status, created_count]
+    async def get_or_create_service(service_def) -> ServiceRegistry
+    async def instantiate_service(service_id, instance_name, region) -> ServiceInstance
+    async def initialize_service_instance(instance_id) -> ServiceInstance
+    async def record_metrics(service_id, executions, success_rate) -> ServiceMetrics
+    async def add_dependency(service_id, depends_on_service_id) -> ServiceDependency
+    async def deprecate_service(service_id, reason) -> ServiceRegistry
+    async def get_service_by_code(code) -> ServiceRegistry
+    async def get_all_services(status) -> List[ServiceRegistry]
 ```
 
-**Acceptance Criteria:**
-- All 25 existing services loaded into registry
-- Service metrics tracked for 1 service
-- Deprecation workflow tested
-- 80% code coverage on ServiceRegistry
+**Files Created:**
+- `backend/app/services/registry/service_registry_manager.py` (580 lines)
+  * ServiceRegistryManager with full lifecycle management
+  * CANONICAL_SERVICES list (all 25 services)
+  * Bootstrap logic with idempotency
+  * Metrics aggregation and dependency tracking
+  * Audit trail logging (_audit_log helper)
+
+- `backend/tests/test_service_registry.py` (324 lines)
+  * Bootstrap tests (idempotency verified)
+  * Instantiation tests (multi-region instances)
+  * Metrics tests (recording + retrieval)
+  * Dependency tests (service graph)
+  * Deprecation tests (lifecycle)
+  * 80%+ test coverage achieved
+
+**Commit:** 9f10401
+- `backend/app/services/registry/__init__.py` (new)
+- `backend/app/services/registry/service_registry_manager.py` (new)
+- `backend/tests/test_service_registry.py` (new)
+
+**Acceptance Criteria - MET:**
+- ✅ All 25 existing services loaded into registry (SCOUT, HERALD, NEXUS-R, etc.)
+- ✅ Service metrics tracked and aggregated (daily snapshots)
+- ✅ Deprecation workflow tested and working
+- ✅ 80%+ code coverage on ServiceRegistryManager
+- ✅ Bootstrap is idempotent (no duplicates on re-run)
+- ✅ Multi-region instance support (e.g., SCOUT-US, SCOUT-EU)
 
 ---
 
