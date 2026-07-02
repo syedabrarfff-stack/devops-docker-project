@@ -58,6 +58,7 @@ async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db))
 @router.get("/morning-ai")
 @limiter.limit("5/minute")
 async def morning_briefing_ai(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ):

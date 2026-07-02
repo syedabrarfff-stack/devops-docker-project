@@ -30,12 +30,15 @@ class GoogleProvider(BaseAIProvider):
         return bool(key) and key != "AIza..."
 
     async def _call(self, model_id: str, contents: list, max_tokens: int) -> tuple[str, int]:
+        import os
         url = f"{GEMINI_API_BASE}/{model_id}:generateContent?key={settings.GOOGLE_API_KEY}"
         payload = {
             "contents": contents,
             "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.7},
         }
-        async with httpx.AsyncClient(timeout=60) as client:
+        # Use CA bundle from environment if available (for proxy SSL verification)
+        ca_cert = os.getenv("SSL_CERT_FILE") or os.getenv("REQUESTS_CA_BUNDLE") or True
+        async with httpx.AsyncClient(timeout=60, verify=ca_cert) as client:
             r = await client.post(url, json=payload)
             r.raise_for_status()
             data = r.json()

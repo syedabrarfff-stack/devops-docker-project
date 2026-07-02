@@ -14,8 +14,13 @@ RUN pip install --no-cache-dir \
     -r requirements.txt
 
 RUN useradd -m -u 1000 jarvis \
-    && mkdir -p /data/proposals /data/invoices /var/backups/jarvis \
+    && mkdir -p /data/proposals /data/invoices /var/backups/jarvis /etc/ssl/certs \
     && chown -R jarvis:jarvis /data /var/backups/jarvis
+
+# Set CA bundle paths for agent proxy SSL verification
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
+
 USER jarvis
 
 COPY --chown=jarvis:jarvis . .
@@ -24,7 +29,7 @@ COPY --chown=jarvis:jarvis . .
 # Catches missing modules, bad imports, and model errors at BUILD time, not at runtime.
 # NOTE: Must be a single-line -c string — Docker parser treats bare newlines as instructions.
 RUN DATABASE_URL="postgresql+asyncpg://t:t@localhost/t" \
-    SECRET_KEY="build-time-preflight-only" \
+    SECRET_KEY="6a4bf4ea1769d45abf21752fb25673d869b521d146fb93434a2648a66c4ee5d9" \
     CAPTAIN_PASSWORD="build-time-preflight-only" \
     CAPTAIN_USERNAME="captain" \
     DEBUG="false" \

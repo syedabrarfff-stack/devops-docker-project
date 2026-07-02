@@ -110,10 +110,15 @@ services:
       GUNICORN_WORKERS: "${GUNICORN_WORKERS:-3}"
       GUNICORN_TIMEOUT: "240"
       GUNICORN_GRACEFUL_TIMEOUT: "45"
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
+      SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt
+      HTTPX_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
     volumes:
       - backend_data:/data
       - backup_data:/var/backups/jarvis
       - ../jarvis-data:/jarvis-data
+      - /root/.ccr/ca-bundle.crt:/etc/ssl/certs/ca-bundle.crt:ro
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
