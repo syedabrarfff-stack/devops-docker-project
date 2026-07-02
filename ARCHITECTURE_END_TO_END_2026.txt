@@ -1,0 +1,1089 @@
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  JARVIS — COMPLETE END-TO-END ARCHITECTURE MAP
+  Aliyar Solutions | CEO: Syed Abrar (Captain) | Supreme Operational Manager: JARVIS
+  Generated: 2026-07-02 | Active Branch: claude/jarvis-cans-api-integration-ZThTD
+  This is the complete flow from Captain's laptop to deployed global operations.
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 0: YOU — COMMAND CENTER
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+                                          ╔════════════════════════════════════════╗
+                                          ║    YOU (Captain) — Syed Abrar          ║
+                                          ║    Decision Authority: Unlimited       ║
+                                          ║    Strategic Vision + Final Approval   ║
+                                          ╚════════════════════════════════════════╝
+                                                        ▼
+                                    ┌─────────────────────────────────────┐
+                                    │  COMMUNICATION CHANNELS             │
+                                    ├─────────────────────────────────────┤
+                                    │ • VS Code (development)             │
+                                    │ • Telegram (instant decisions)      │
+                                    │ • Email (proposals, contracts)      │
+                                    │ • Browser (live dashboard)          │
+                                    └─────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 1: VS CODE HEADQUARTERS — NEW OPERATIONAL NERVE CENTER (2026-07-02)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Local Development Environment:
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   VS CODE (Captain's Workstation)                                                          │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                             │
+│  ┌───────────────────────────────┐                                                                                        │
+│  │  Repository Access            │                                                                                        │
+│  ├───────────────────────────────┤                                                                                        │
+│  │ • Git SSH to GitHub           │                                                                                        │
+│  │ • Clone: devops-docker-proj   │                                                                                        │
+│  │ • Branch: claude/jarvis-*     │                                                                                        │
+│  │ • Status: Work-in-progress    │                                                                                        │
+│  └───────────────────────────────┘                                                                                        │
+│              ▼                                                                                                              │
+│  ┌───────────────────────────────┐                                                                ────────────────┐        │
+│  │  Local File Structure         │                                                                │ Python CLI     │        │
+│  ├───────────────────────────────┤                                    ┌─────────────────────────────┼────────────┐        │
+│  │ /backend/                     │                                    │                             │ • REPL     │        │
+│  │   /app/                       │──────────────┐                    │                             │ • Scripts  │        │
+│  │     /api/v1/routes/          │              │                    │                             │ • Testing  │        │
+│  │     /services/               │◄─ Edit Code ─┤                    │                             └────────────┘        │
+│  │     /models/                 │              │                    │                                                    │
+│  │     /core/                   │              │                    │                                                    │
+│  │ /frontend/src/               │              │                    │                                                    │
+│  │   /components/               │              │                    │                                                    │
+│  │   /services/api.js           │              │                    │                                                    │
+│  │ /infra/terraform/            │              │                    │                                                    │
+│  │ CLAUDE.md                    │              └────────────────────┤  You edit and organize                          │
+│  │ JARVIS_SELF_KNOWLEDGE.md     │                                   │  code locally here.                             │
+│  └───────────────────────────────┘                                   │                                                  │
+│              ▼                                                        │                                                  │
+│  ┌───────────────────────────────┐                                   └──────────────────────────────────────────────────┘
+│  │  Code Generation Loop         │
+│  ├───────────────────────────────┤                                   ┌─────────────────────────────────────────────────┐
+│  │ 1. You describe task          │                                   │ OpenRouter API Keys (you purchased)           │
+│  │ 2. Claude (via OpenRouter)    │                                   ├─────────────────────────────────────────────────┤
+│  │    writes code                │                                   │ • Claude 3.5 Sonnet ($30/month)               │
+│  │ 3. You review diff            │                                   │ • DeepSeek V4 Pro ($15/month)                 │
+│  │ 4. You commit locally         │                                   │ • Gemini 2.5 Pro ($20/month)                  │
+│  │ 5. You push to GitHub         │                                   │ • NVIDIA NIM Models ($25/month)               │
+│  │                               │                                   │ • Future models (budget available)             │
+│  └───────────────────────────────┘                                   │                                                 │
+│                                                                      │ Total: ~$90/month for 5+ model options        │
+│                                                                      │ Manages: code, reasoning, analysis, fast       │
+│                                                                      └─────────────────────────────────────────────────┘
+│
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                        ▼
+                                                    (git add → git commit → git push)
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 2: OPENROUTER GATEWAY — MULTI-MODEL ORCHESTRATION HUB
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                            OpenRouter.ai — Universal AI Gateway                                                                      │
+│                            (Single API endpoint, 200+ models available)                                                              │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                       │
+│  Request arrives with TaskType metadata:                                                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────┐  ┌──────────────────┐            │
+│  │ Task: CODE          │  │ Task: STRATEGY      │  │ Task: ANALYSIS      │  │ Task: RESEARCH   │  │ Task: FAST       │            │
+│  ├─────────────────────┤  ├─────────────────────┤  ├─────────────────────┤  ├──────────────────┤  ├──────────────────┤            │
+│  │ PRIMARY:            │  │ PRIMARY:            │  │ PRIMARY:            │  │ PRIMARY:         │  │ PRIMARY:         │            │
+│  │ DeepSeek V4 Pro     │  │ Claude Sonnet       │  │ DeepSeek V4 Pro     │  │ DeepSeek V4 Pro  │  │ Llama Scout      │            │
+│  │ $0.001/1K tokens    │  │ $0.009/1K tokens    │  │ $0.001/1K tokens    │  │ $0.001/1K tokens │  │ $0.0002/1K tokens│            │
+│  │                     │  │                     │  │                     │  │                  │  │                  │            │
+│  │ FALLBACK 1:         │  │ FALLBACK 1:         │  │ FALLBACK 1:         │  │ FALLBACK 1:      │  │ FALLBACK 1:      │            │
+│  │ Qwen Coder (NVIDIA) │  │ DeepSeek V4 Pro    │  │ Llama Maverick      │  │ Kimi K2.6 (1M)   │  │ DeepSeek Flash   │            │
+│  │                     │  │                     │  │                     │  │                  │  │                  │            │
+│  │ FALLBACK 2:         │  │ FALLBACK 2:         │  │ FALLBACK 2:         │  │ FALLBACK 2:      │  │ FALLBACK 2:      │            │
+│  │ Claude Sonnet       │  │ Llama Maverick      │  │ Claude Opus         │  │ Claude Sonnet    │  │ Groq Llama 3.3   │            │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘  └──────────────────┘  └──────────────────┘            │
+│                                                                                                                                       │
+│  Circuit Breaker per provider: 5 consecutive failures → OPEN 60s → Self-healer retries every 15 min                                 │
+│  Cost Tracking: Each call logged with tokens + cost. Daily surge threshold: $50.00 → Captain alert + pause                          │
+│  Latency Optimization: Fastest responder wins (competition mode available)                                                            │
+│                                                                                                                                       │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                        ▼
+                                                (API call with auth header: Authorization: Bearer sk-...)
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 3: GITHUB — VERSION CONTROL & CI/CD TRIGGER POINT
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                    GitHub Repository: syedabrarfff-stack/devops-docker-project                                       │
+├───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                       │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐         │
+│  │  Branch: claude/jarvis-cans-api-integration-ZThTD                                                        │         │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤         │
+│  │  Status: Active Development                                                                            │         │
+│  │  Last Commit: feat(phase-2): hardening + auth + N+1 fixes + fire-and-forget error handlers             │         │
+│  │  Push Command: git push -u origin claude/jarvis-cans-api-integration-ZThTD                             │         │
+│  │                                                                                                          │         │
+│  │  What's included in each push:                                                                         │         │
+│  │  • backend/app/ (FastAPI routes + services + models)                                                   │         │
+│  │  • frontend/src/ (React components + state management)                                                 │         │
+│  │  • infra/terraform/ (AWS infrastructure)                                                               │         │
+│  │  • .env.example (160-line config template)                                                            │         │
+│  │  • CLAUDE.md (18-section master directive)                                                             │         │
+│  │  • JARVIS_SELF_KNOWLEDGE.md (self-awareness document)                                                  │         │
+│  │  • Dockerfile (multi-stage build, pre-flight import check)                                             │         │
+│  │  • docker-compose.yml (local dev + prod images)                                                        │         │
+│  │  • .github/workflows/deploy.yml (CI/CD pipeline)                                                       │         │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘         │
+│                                                 ▼                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐         │
+│  │  GitHub Actions Workflow Trigger: .github/workflows/deploy.yml                                          │         │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤         │
+│  │                                                                                                          │         │
+│  │  Events that trigger CI/CD:                                                                            │         │
+│  │  1. Push to main (production deployment)                                                               │         │
+│  │  2. Pull request (run tests, build validation)                                                          │         │
+│  │  3. Manual workflow dispatch (re-deploy, rollback)                                                      │         │
+│  │                                                                                                          │         │
+│  │  Secrets configured in GitHub:                                                                         │         │
+│  │  • AWS_OIDC_ROLE_ARN (assume ECR push role)                                                            │         │
+│  │  • DOCKER_REGISTRY (ECR endpoint: ACCOUNT.dkr.ecr.ap-south-2.amazonaws.com)                            │         │
+│  │                                                                                                          │         │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘         │
+│                                                 ▼                                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐         │
+│  │  CI/CD Pipeline Steps (triggered automatically)                                                         │         │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤         │
+│  │                                                                                                          │         │
+│  │  Step 1: Checkout repo                                                                                 │         │
+│  │          └─ git clone at commit SHA                                                                    │         │
+│  │                                                                                                          │         │
+│  │  Step 2: Build Docker image                                                                            │         │
+│  │          ├─ FROM python:3.11 slim                                                                      │         │
+│  │          ├─ pip install -r requirements.txt                                                            │         │
+│  │          ├─ Run: python3 -m compileall -q app/ (pre-flight check for SyntaxErrors)                    │         │
+│  │          └─ Expose port 8000                                                                           │         │
+│  │                                                                                                          │         │
+│  │  Step 3: Push to ECR (Amazon Elastic Container Registry)                                               │         │
+│  │          └─ Image tagged: ACCOUNT.dkr.ecr.ap-south-2.amazonaws.com/jarvis:latest                      │         │
+│  │                                                                                                          │         │
+│  │  Step 4: Deploy to ECS (blue/green rolling update)                                                     │         │
+│  │          ├─ Update ECS service task definition with new image                                          │         │
+│  │          ├─ ECS spins up new tasks (green) with new image                                              │         │
+│  │          ├─ Load balancer gradually shifts traffic from blue to green                                  │         │
+│  │          ├─ Health checks on new tasks (/health, /readyz probes)                                       │         │
+│  │          └─ Old tasks (blue) terminated once green passes health gates                                 │         │
+│  │                                                                                                          │         │
+│  │  Step 5: Post-deploy validation                                                                        │         │
+│  │          ├─ Curl /health endpoint (liveness)                                                           │         │
+│  │          ├─ Curl /readyz endpoint (deep readiness: DB, AI, Redis, Evolution, SES, Scheduler)          │         │
+│  │          └─ Verify migrations applied (Alembic status check)                                           │         │
+│  │                                                                                                          │         │
+│  │  Step 6: Notify Captain (on success or failure)                                                        │         │
+│  │          ├─ Telegram notification to Captain                                                           │         │
+│  │          ├─ Email summary                                                                              │         │
+│  │          └─ Dashboard link to view live system                                                         │         │
+│  │                                                                                                          │         │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘         │
+│                                                                                                                       │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                                                        ▼
+                                                        (Docker image pushed to AWS ECR)
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 4: AWS INFRASTRUCTURE — PRODUCTION DEPLOYMENT (24/7)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                            AWS Account: ap-south-2 (Hyderabad) PRIMARY | ap-south-1 (Mumbai) BACKUP                                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                           │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  1. ECS Fargate Cluster — jarvis-prod-cluster                                                                                    │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                                  │                    │
+│  │  ┌──────────────────────────────────┐  ┌──────────────────────────────────┐  ┌──────────────────────────────────┐               │                    │
+│  │  │  Task 1 (Container 1)            │  │  Task 2 (Container 2)            │  │  Task 3 (Container 3)            │               │                    │
+│  │  ├──────────────────────────────────┤  ├──────────────────────────────────┤  ├──────────────────────────────────┤               │                    │
+│  │  │  CPU: 512 (~0.5 vCPU)            │  │  CPU: 512 (~0.5 vCPU)            │  │  CPU: 512 (~0.5 vCPU)            │               │                    │
+│  │  │  Memory: 1024 MB                 │  │  Memory: 1024 MB                 │  │  Memory: 1024 MB                 │               │                    │
+│  │  │  Image: jarvis:latest            │  │  Image: jarvis:latest            │  │  Image: jarvis:latest            │               │                    │
+│  │  │                                  │  │                                  │  │                                  │               │                    │
+│  │  │  Running:                        │  │  Running:                        │  │  Running:                        │               │                    │
+│  │  │  • FastAPI (gunicorn, 3 workers) │  │  • FastAPI (gunicorn, 3 workers) │  │  • FastAPI (gunicorn, 3 workers) │               │                    │
+│  │  │    Port 8000                     │  │    Port 8000                     │  │    Port 8000                     │               │                    │
+│  │  │  • APScheduler (64 jobs)         │  │  • APScheduler (64 jobs)         │  │  • APScheduler (64 jobs)         │               │                    │
+│  │  │    [SINGLE INSTANCE GUARD]       │  │    [SINGLE INSTANCE GUARD]       │  │    [SINGLE INSTANCE GUARD]       │               │                    │
+│  │  │    Only Task 1 runs scheduler    │  │    Task 2/3 skip init            │  │    Task 2/3 skip init            │               │                    │
+│  │  │  • Redis task worker             │  │  • Redis task worker             │  │  • Redis task worker             │               │                    │
+│  │  └──────────────────────────────────┘  └──────────────────────────────────┘  └──────────────────────────────────┘               │                    │
+│  │                                                                                                                  │                    │
+│  │  Load Balancer (ALB) distributes traffic round-robin across all 3 tasks                                         │                    │
+│  │  Health Check: /health every 30 seconds. Unhealthy task → removed from pool                                     │                    │
+│  │  Min capacity: 3 tasks. Max capacity: 10 (autoscale on CPU > 80%)                                               │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                          ▼                                                                                            │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  2. RDS PostgreSQL 16 — Relational Database                                                                    │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Multi-AZ: Yes (automatic failover within ap-south-2)                                                           │                    │
+│  │  Storage: 100 GB gp3 (burstable, auto-expand to 1 TB)                                                           │                    │
+│  │  Backup retention: 30 days (daily snapshots)                                                                    │                    │
+│  │  Endpoint: jarvis-prod-db.cxxxxxxxxxxx.ap-south-2.rds.amazonaws.com (port 5432)                                │                    │
+│  │  Username: postgres | Password: (AWS Secrets Manager)                                                           │                    │
+│  │  Timezone: UTC                                                                                                 │                    │
+│  │                                                                                                                  │                    │
+│  │  35 Tables (normalized, multi-tenant):                                                                          │                    │
+│  │  ├─ Tenancy & Auth (3 tables)          ├─ Operations & Tasks (6 tables)     ├─ Intelligence & Governance (6 tables)     │                    │
+│  │  ├─ Lead & Revenue (6 tables)          ├─ Memory & Knowledge (9 tables)     ├─ AIONX Sovereign Organs (10+ tables)      │                    │
+│  │  └─ Outreach & Communication (6 tables)                                                                        │                    │
+│  │                                                                                                                  │                    │
+│  │  Alembic migrations: 39 revisions (0001 → 0039) [LINEAR CHAIN — no merge conflicts]                            │                    │
+│  │  Applied automatically on boot via: alembic upgrade head                                                        │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  3. ElastiCache Redis 7 — In-Memory Cache & Task Queue                                                          │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Cluster mode: Disabled (single primary node)                                                                   │                    │
+│  │  Node type: cache.t3.micro (384 MB)                                                                             │                    │
+│  │  Endpoint: jarvis-prod-redis.cxxxxxxxxxxx.ap-south-2.cache.amazonaws.com:6379                                  │                    │
+│  │  Password: (AWS Secrets Manager, 32-char random)                                                                │                    │
+│  │  Eviction policy: allkeys-lru (least recently used)                                                             │                    │
+│  │  TTL: varies by key type (briefing cache: 24h, task locks: 1h, lead embeddings: 90d)                           │                    │
+│  │                                                                                                                  │                    │
+│  │  Use cases:                                                                                                     │                    │
+│  │  • Session cache (JWT tokens, pending approvals)                                                                │                    │
+│  │  • Celery task queue (async outreach, briefing generation)                                                      │                    │
+│  │  • Rate limit tracking (per-endpoint call counts)                                                               │                    │
+│  │  • Semantic embeddings index (lead similarity search)                                                            │                    │
+│  │  • Distributed locks (NEXUS outreach heartbeat, scheduler singleton)                                            │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  4. Application Load Balancer (ALB) — jarvis-prod-alb                                                            │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Listeners:                                                                                                     │                    │
+│  │  • Port 443 (HTTPS) → Target Group (ECS tasks on port 8000)                                                     │                    │
+│  │    Certificate: ACM (jarvis.aliyarsolutions.com)                                                                │                    │
+│  │    Protocol: HTTPS with TLS 1.3                                                                                 │                    │
+│  │  • Port 80 (HTTP) → Redirect to 443                                                                             │                    │
+│  │                                                                                                                  │                    │
+│  │  Target Group Health Checks:                                                                                    │                    │
+│  │  • Path: /health (every 30s)                                                                                    │                    │
+│  │  • Healthy threshold: 2 consecutive passes                                                                      │                    │
+│  │  • Unhealthy threshold: 3 consecutive failures → remove from pool                                               │                    │
+│  │                                                                                                                  │                    │
+│  │  DNS (Route 53):                                                                                                │                    │
+│  │  • jarvis.aliyarsolutions.com → ALB CNAME                                                                       │                    │
+│  │  • Health check: every 30 seconds                                                                               │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  5. AWS Secrets Manager — Encrypted Credential Vaults                                                           │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Secret: jarvis-production (updated daily)                                                                      │                    │
+│  │  Contains 160+ [REQUIRED] environment variables:                                                                │                    │
+│  │  • SECRET_KEY (FastAPI session signing)                                                                         │                    │
+│  │  • CAPTAIN_PASSWORD (JWT secret for /auth/login)                                                                │                    │
+│  │  • POSTGRES_PASSWORD (RDS auth)                                                                                 │                    │
+│  │  • REDIS_PASSWORD (ElastiCache auth)                                                                            │                    │
+│  │  • AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (for SES, S3, Bedrock)                                             │                    │
+│  │  • OPENROUTER_API_KEY (multi-model orchestration)                                                               │                    │
+│  │  • STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET (payment processing)                                                   │                    │
+│  │  • TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET (Captain notifications)                                          │                    │
+│  │  • GMAIL_OAUTH_CREDENTIALS (outreach emails)                                                                    │                    │
+│  │  • EVOLUTION_API_KEY, EVOLUTION_API_URL (WhatsApp)                                                              │                    │
+│  │  • APOLLO_API_KEY, HUBSPOT_API_KEY (CRM sync)                                                                   │                    │
+│  │  • JARVIS_DEFAULT_TENANT_ID (multi-tenant context)                                                              │                    │
+│  │                                                                                                                  │                    │
+│  │  Rotation: Manual (as needed). IAM access: ECS task role only.                                                  │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  6. SES (Simple Email Service) — Outbound Email                                                                 │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Status: Production access enabled (verified domain: aliyarsolutions.com)                                       │                    │
+│  │  Sending capacity: 50,000 emails/day (soft limit, can be increased)                                             │                    │
+│  │  From address: noreply@aliyarsolutions.com                                                                      │                    │
+│  │  Reply tracking: SNS topic → webhook at POST /webhooks/email/inbound                                            │                    │
+│  │  Configuration set: aliyar-prod (bounce/complaint tracking)                                                     │                    │
+│  │                                                                                                                  │                    │
+│  │  Daily outreach:                                                                                                │                    │
+│  │  • ~48 outreach emails (daily cap, configurable)                                                                │                    │
+│  │  • Follow-up sequences (auto-retry on no reply)                                                                 │                    │
+│  │  • Reply classification (inbound → Telegram alert to Captain)                                                   │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+│  ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                    │
+│  │  7. CloudWatch Logs & Monitoring                                                                                │                    │
+│  ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                    │
+│  │                                                                                                                  │                    │
+│  │  Log Groups:                                                                                                    │                    │
+│  │  • /ecs/jarvis-prod (ECS task logs, structured JSON)                                                            │                    │
+│  │  • /aws/lambda/jarvis-* (Lambda-based automations, if any)                                                      │                    │
+│  │  • /aws/rds/instance/jarvis-prod-db/error (RDS error logs)                                                     │                    │
+│  │                                                                                                                  │                    │
+│  │  Retention: 30 days (configurable)                                                                              │                    │
+│  │  Search: CloudWatch Insights queries (log analytics, cost tracking, error rates)                               │                    │
+│  │                                                                                                                  │                    │
+│  │  Alarms:                                                                                                        │                    │
+│  │  • CPUUtilization > 80% → SNS notification to Captain                                                           │                    │
+│  │  • MemoryUtilization > 90% → SNS notification                                                                   │                    │
+│  │  • Target health check failures → SNS notification                                                              │                    │
+│  │  • RDS storage > 80GB → SNS notification                                                                        │                    │
+│  │  • Error rate > 1% → SNS notification                                                                           │                    │
+│  │                                                                                                                  │                    │
+│  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                    │
+│                                                                                                                      │                    │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 5: JARVIS CORE — FASTAPI BACKEND (Backend Soul, Brain, Spine, Constitution)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+The 4 fundamental layers of JARVIS consciousness:
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              JARVIS CONSCIOUSNESS STACK                                                                                                     │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  LAYER 19: THE CONSTITUTION (35 Endpoints, 5 Autonomous Engines) — Supreme Intelligence Layer                                                      ║     │
+│  ║  File: backend/app/api/v1/routes/supreme/                                                                                                        ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  1. JarvisConstitution (jarvis_constitution.py)                                                                                                  ║     │
+│  ║     ├─ 12 Constitutional Laws (non-negotiable operational rules)                                                                                 ║     │
+│  ║     ├─ 3-Tier Authority Matrix:                                                                                                                 ║     │
+│  ║     │  • JARVIS_AUTONOMOUS ($0–$3K decisions without Captain)                                                                                   ║     │
+│  ║     │  • CAPTAIN_FAST_TRACK ($3K–$15K decisions with 1-hour Captain approval window)                                                            ║     │
+│  ║     │  • CAPTAIN_DECISION (>$15K decisions, unlimited wait for Captain)                                                                         ║     │
+│  ║     └─ 8 Escalation Triggers (when JARVIS alerts Captain immediately)                                                                           ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  2. AutonomousCEO (autonomous_ceo.py)                                                                                                            ║     │
+│  ║     ├─ 6 Strategic Pillars (sales, platform, partnerships, talent, financial, risk)                                                             ║     │
+│  ║     ├─ Opportunity Scoring (5 dimensions: market size, fit, timing, resource req, risk)                                                         ║     │
+│  ║     └─ Expansion Roadmap (3-month, 12-month targets based on Chief Intelligence Loop)                                                            ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  3. RevenueConsciousness (revenue_consciousness.py)                                                                                              ║     │
+│  ║     ├─ Pricing Tiers: STARTER $2K → GROWTH $5K → ENTERPRISE $15K → PARTNER $30K+                                                                ║     │
+│  ║     ├─ LTV Calculation (lifetime value per client, churn risk scoring)                                                                           ║     │
+│  ║     ├─ Upsell Triggers (when JARVIS identifies expansion opportunities)                                                                          ║     │
+│  ║     └─ Pipeline Health (RED/AMBER/GREEN scoring on deal flow)                                                                                   ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  4. PlatformIntelligence (platform_intelligence.py)                                                                                              ║     │
+│  ║     ├─ Infrastructure Assessment (auto-scale readiness, cost posture)                                                                            ║     │
+│  ║     ├─ SLA Monitoring (99.9% uptime target, response time SLA: <100ms p95)                                                                       ║     │
+│  ║     ├─ Tech Debt Registry (accumulated technical debt with impact scoring)                                                                       ║     │
+│  ║     └─ Scaling Triggers (when to provision more resources)                                                                                      ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  5. SalesAutonomy (sales_autonomy.py)                                                                                                            ║     │
+│  ║     ├─ Lead Scoring (5-dimension model: firmographic, technographic, behavioral, engagement, ICP fit)                                           ║     │
+│  ║     ├─ Outreach Sequences (HOT: daily, WARM: 3x/week, NURTURE: 1x/week, COLD: 1x/month)                                                        ║     │
+│  ║     ├─ Win/Loss Analysis (post-engagement: what worked, what didn't)                                                                            ║     │
+│  ║     └─ Objection Playbook (common objections + best rebuttals by buyer profile)                                                                 ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  35 API Endpoints at /api/v1/supreme/:                                                                                                           ║     │
+│  ║  • /supreme/constitution/laws · /supreme/constitution/authority · /supreme/constitution/escalations                                              ║     │
+│  ║  • /supreme/ceo/pillars · /supreme/ceo/opportunities · /supreme/ceo/roadmap                                                                      ║     │
+│  ║  • /supreme/revenue/tiers · /supreme/revenue/ltv · /supreme/revenue/upsell · /supreme/revenue/pipeline                                           ║     │
+│  ║  • /supreme/platform/assessment · /supreme/platform/sla · /supreme/platform/debt · /supreme/platform/scaling                                    ║     │
+│  ║  • /supreme/sales/score · /supreme/sales/sequences · /supreme/sales/winloss · /supreme/sales/objections                                         ║     │
+│  ║  (And 15+ more endpoints for internal state + Captain dashboard)                                                                                  ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  LAYERS 1–18: OPERATIONAL INTELLIGENCE NETWORK (67 Route Modules, 30+ Service Divisions)                                                          ║     │
+│  ║  File: backend/app/api/v1/routes/                                                                                                                ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 1: COMMAND CENTER (Captain Interface)                                                                                                     ║     │
+│  ║  └─ auth.py (JWT login, get_current_captain dependency injection on all protected routes)                                                       ║     │
+│  ║  └─ captain.py (Captain-only endpoints: approve decisions, run operations, view intelligence)                                                   ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 2: REVENUE PIPELINE (Sales, Leads, Deals, Invoices, Proposals)                                                                             ║     │
+│  ║  ├─ leads.py (67 routes: create, read, bulk score, CSV import, discovery)                                                                       ║     │
+│  ║  │  └─ POST /leads/score/bulk (score 500+ leads in parallel)                                                                                    ║     │
+│  ║  │  └─ POST /leads/import-csv (batch import, 5MB size guard vs DoS)                                                                             ║     │
+│  ║  │  └─ POST /leads/discovery/{service} (Apollo lead gen, Google Maps crawler)                                                                   ║     │
+│  ║  ├─ crm.py (contacts, companies, deals: create/read/update, stage transitions)                                                                  ║     │
+│  ║  ├─ proposals.py (generate, send, approve, track status)                                                                                        ║     │
+│  ║  ├─ invoices.py (generate, payment links, Stripe integration, payment tracking)                                                                 ║     │
+│  ║  ├─ revenue.py (pipeline visibility, forecasting, churn detection)                                                                               ║     │
+│  ║  └─ approvals.py (approval queue for Captain, all requests logged)                                                                               ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 3: OUTREACH AUTOMATION (Email, WhatsApp, Sequences, Reply Handling)                                                                       ║     │
+│  ║  ├─ outreach.py (queue sequences, execute outreach, track performance)                                                                           ║     │
+│  ║  │  └─ POST /outreach/queue (queue lead for follow-up sequence)                                                                                 ║     │
+│  ║  │  └─ POST /outreach/execute (run due outreach immediately)                                                                                    ║     │
+│  ║  ├─ email.py (send, reply tracking, Gmail OAuth integration)                                                                                    ║     │
+│  ║  ├─ whatsapp.py (WhatsApp templates, send, receipt tracking)                                                                                     ║     │
+│  ║  ├─ ses_inbound.py (SNS webhook for SES bounce/complaint, 64KB body size guard)                                                                  ║     │
+│  ║  └─ telegram_webhook.py (Telegram incoming messages, constant-time secret comparison)                                                            ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 4: INTEGRATIONS (Third-party systems: Gmail, Calendar, HubSpot, Apollo, etc.)                                                             ║     │
+│  ║  ├─ gmail.py (OAuth2 flow, inbox fetch, message send, reply extraction)                                                                         ║     │
+│  ║  ├─ calendar.py (Google Calendar → sync prospects + scheduled meetings)                                                                          ║     │
+│  ║  ├─ sync.py (Apollo/HubSpot bidirectional sync)                                                                                                  ║     │
+│  ║  ├─ stripe.py (payment processing, webhook validation with secrets.compare_digest)                                                              ║     │
+│  ║  └─ notion.py (Notion database for knowledge base)                                                                                               ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 5: INTELLIGENCE & ANALYTICS (Morning briefing, Tech radar, Market intel, Research)                                                        ║     │
+│  ║  ├─ briefing.py (morning briefing: KPIs, leads, revenue snapshot, recommendations)                                                              ║     │
+│  ║  ├─ intelligence.py (tech radar, competitive monitoring, market research)                                                                        ║     │
+│  ║  ├─ research.py (deep research on prospects, industries, technologies)                                                                           ║     │
+│  ║  └─ analytics.py (pipeline analytics, KPI dashboards, custom reporting)                                                                          ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 6: COUNCIL & DECISION INTELLIGENCE (AI voting, consensus, deliberation)                                                                  ║     │
+│  ║  ├─ council.py (14-model council voting on strategic decisions)                                                                                  ║     │
+│  ║  ├─ aionx.py (100+ AIONX endpoints: sentinel sweeps, escalations, decision retrospectives)                                                      ║     │
+│  ║  └─ consciousness.py (emotional core, captain profiling, psychological AI)                                                                       ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 7: INTERNAL OPERATIONS (Team routing, Scheduler, Memory, Governance)                                                                      ║     │
+│  ║  ├─ team.py (get_member_for_service routing, persona assignment)                                                                                 ║     │
+│  ║  ├─ scheduler.py (list jobs, trigger manual runs, view failures, restart)                                                                       ║     │
+│  ║  ├─ memory.py (store/retrieve episodic, semantic, instruction memories)                                                                         ║     │
+│  ║  ├─ knowledge.py (SOP documents, learning records, knowledge graph)                                                                              ║     │
+│  ║  ├─ catalog.py (service catalog: 25 capability modules, HIA certification)                                                                      ║     │
+│  ║  ├─ governance.py (contracts, approvals, audit trails)                                                                                          ║     │
+│  ║  └─ emergency.py (incident declaration, resolution workflows)                                                                                    ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 8: REALTIME (WebSocket, Server-Sent Events for live updates)                                                                              ║     │
+│  ║  └─ ws.py (WebSocket /ws: drafts sent/rejected, NEXUS pulse, new leads, approvals due)                                                          ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  LAYER 9: SYSTEM HEALTH (Health checks, readiness probes, diagnostics)                                                                           ║     │
+│  ║  ├─ health.py (GET /health: shallow liveness check, immediate response)                                                                         ║     │
+│  ║  ├─ readyz.py (GET /readyz: deep readiness — checks DB, AI, Redis, Evolution, SES, Scheduler)                                                  ║     │
+│  ║  └─ diagnostics.py (GET /debug: system state snapshot, performance metrics)                                                                     ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  THE SPINE: APScheduler — 64 Production Jobs (Continuously Running)                                                                               ║     │
+│  ║  Files: backend/app/services/scheduler/engine.py (38 jobs) + aionx_scheduler.py (26 jobs)                                                       ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  CORE ENGINE JOBS (38):                                                                                                                         ║     │
+│  ║  ┌─ Daily Intelligence ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ daily_briefing (08:00 UTC) — Generate Captain's daily briefing (KPIs, top 5 leads, next actions, risks)                              │        ║     │
+│  ║  │ morning_briefing (07:00 UTC) — Internal team briefing (pipeline, outreach stats, escalations)                                         │        ║     │
+│  ║  │ captain_dashboard_briefing (06:55 UTC) — Live dashboard snapshot (metrics + chart data)                                              │        ║     │
+│  ║  │ daily_optimization_review (23:00 UTC) — System optimization recommendations                                                           │        ║     │
+│  ║  │ daily_strategy_report (23:00 UTC) — 6-layer strategy cascade to all departments                                                       │        ║     │
+│  ║  │ daily_self_learning (00:05 UTC) — JARVIS self-evolution cycle (extract lessons, update models)                                       │        ║     │
+│  ║  │ memory_consolidation (00:30 UTC) — Promote working memory → operational memory                                                       │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Lead Pipeline Automation ──────────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ lead_scoring_sweep (every 6h) — Re-score all leads (5-dimension scoring engine)                                                     │        ║     │
+│  ║  │ daily_icp_lead_scoring (05:00 UTC) — Score yesterday's new leads, promote top 20 to HOT                                             │        ║     │
+│  ║  │ outreach_processor (every 1h) — Process and send queued outreach emails                                                             │        ║     │
+│  ║  │ reply_handler_scan (every 2h) — Classify prospect replies, advance lead state                                                      │        ║     │
+│  ║  │ contact_sync (every 12h) — Sync contacts with Apollo/HubSpot                                                                        │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Overnight Revenue Engine (IST-timed for US/EU prime time) ──────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ overnight_lead_discovery (18:00 UTC / 11:30 PM IST) — US/EU market lead discovery                                                  │        ║     │
+│  ║  │ overnight_intel_analysis (18:30 UTC / 12:00 AM IST) — Market intelligence analysis                                                 │        ║     │
+│  ║  │ overnight_proposal_engine (19:30 UTC / 1:00 AM IST) — AI proposal writing for top-scored leads                                     │        ║     │
+│  ║  │ overnight_cold_outreach (20:30 UTC / 2:00 AM IST) — Cold outreach during US afternoon prime                                        │        ║     │
+│  ║  │ overnight_freelance_bids (21:30 UTC / 3:00 AM IST) — Upwork/PPH bid sweep                                                          │        ║     │
+│  ║  │ overnight_followup_sequences (23:30 UTC / 5:00 AM IST) — Auto follow-up sequences                                                  │        ║     │
+│  ║  │ overnight_pipeline_health (01:00 UTC / 6:30 AM IST) — Pipeline health check + CRM sync                                              │        ║     │
+│  ║  │ overnight_ops_report (02:30 UTC / 8:00 AM IST) — Morning operations report                                                         │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Intelligence & Market Scanning ─────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ tech_radar_scan (Mon 06:00 UTC) — Emerging technology classification                                                              │        ║     │
+│  ║  │ competitor_monitoring (Mon 09:00 UTC) — Competitive landscape update                                                              │        ║     │
+│  ║  │ market_intelligence_report (Sun 07:00 UTC) — Deep market intelligence                                                              │        ║     │
+│  ║  │ biweekly_research_report (Sun 07:00 UTC) — Comprehensive research report                                                           │        ║     │
+│  ║  │ tech_evolution_scan (every 6h) — 24/7 technology discovery                                                                         │        ║     │
+│  ║  │ daily_market_intelligence (04:00 UTC) — Next-day intelligence pipeline                                                             │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Connector Hub (External Data Ingestion) ────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ daily_scout_network (01:30 UTC) — 9-agent scout network → jarvis-data/ on GitHub                                                  │        ║     │
+│  ║  │ daily_connector_hub_ingestion (14:30 UTC) — Pull jarvis-data/, score 20 leads from connectors                                      │        ║     │
+│  ║  │ pre_call_briefing_trigger (every 30min) — Generate briefings 1h before scheduled calls                                             │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ System Maintenance & Optimization ──────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ self_healer (every 15min) — Autonomous system self-repair (circuit reset, pipeline refill, job restart)                            │        ║     │
+│  ║  │ nexus_heartbeat (every 1h) — NEXUS core coordination ping                                                                          │        ║     │
+│  ║  │ dio_health_check (06:30 UTC) — DIO (Data Integrity Oracle) initialization and verification                                         │        ║     │
+│  ║  │ lead_embedding_sweep (03:15 UTC) — Semantic embeddings for all unembedded leads                                                  │        ║     │
+│  ║  │ weekly_memory_promotion (Sun 00:45 UTC) — Promote operational → strategic memory                                                  │        ║     │
+│  ║  │ milestone_bulk_review (10:00 UTC daily) — Council review of all pending milestones                                                │        ║     │
+│  ║  │ weekly_strategy_review (Sun 07:00 UTC) — Full strategic review cycle                                                              │        ║     │
+│  ║  │ weekly_performance_briefing (Sat 19:00 UTC) — Weekly performance metrics                                                          │        ║     │
+│  ║  │ nightly_signal_scan (02:00 UTC) — Signal pipeline scan (HOT/WARM/COLD lead alerts)                                                │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  AIONX ORGAN JOBS (26) — Autonomous Intelligence Organs (fully autonomous, captain-only):                                                       ║     │
+│  ║  ┌─ Sentinel & Monitoring ─────────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ aionx_sentinel_sweep (every 2h) — Real-time threat + anomaly monitoring                                                           │        ║     │
+│  ║  │ aionx_operational_iq (every 1h) — Operational IQ score calculation                                                                │        ║     │
+│  ║  │ aionx_system_state_snapshot (every 5min) — Rapid system state capture                                                             │        ║     │
+│  ║  │ aionx_preventive_monitoring_snapshot (every 15min) — Preventive health                                                            │        ║     │
+│  ║  │ aionx_mission_control_snapshot (every 10min) — Mission control telemetry                                                          │        ║     │
+│  ║  │ aionx_speed_to_lead_check (every 5min) — Speed-to-lead SLA (5 min target)                                                        │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Decision Intelligence ─────────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ aionx_escalation_processor (every 30min) — Process escalations → Captain                                                          │        ║     │
+│  ║  │ aionx_governed_integrity_cycle (every 1h) — Constitutional compliance sweep                                                      │        ║     │
+│  ║  │ aionx_execute_due_outreach (every 30min) — Execute queued outreach actions                                                        │        ║     │
+│  ║  │ aionx_predictive_threat_scan (every 2h) — Predictive threat intelligence                                                          │        ║     │
+│  ║  │ aionx_agent_capacity_check (every 4h) — AI agent capacity planning                                                                │        ║     │
+│  ║  │ aionx_idle_intelligence_cycle (every 6h) — Background intelligence (when idle)                                                    │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Retrospective & Learning ──────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ aionx_retro_30d (22:00 UTC daily) — 30-day retrospective analysis                                                                 │        ║     │
+│  ║  │ aionx_retro_90d (22:15 UTC daily) — 90-day retrospective analysis                                                                 │        ║     │
+│  ║  │ aionx_twin_predictions (03:00 UTC daily) — Digital twin prediction refresh                                                       │        ║     │
+│  ║  │ aionx_counterfactual_sync (01:00 UTC daily) — Counterfactual scenario sync                                                       │        ║     │
+│  ║  │ aionx_debt_assessment (02:00 UTC daily) — Technical + operational debt scoring                                                    │        ║     │
+│  ║  │ aionx_trust_erosion_check (03:30 UTC daily) — Client churn risk detection                                                        │        ║     │
+│  ║  │ aionx_external_scan_record (04:15 UTC daily) — External market scan record                                                       │        ║     │
+│  ║  │ aionx_founder_mirror_analysis (01:00 UTC daily) — Founder mirror alignment                                                       │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  ┌─ Supreme Learning (Weekly) ─────────────────────────────────────────────────────────────────────────────────────────────────────┐        ║     │
+│  ║  │ aionx_wisdom_weekly (Sun 19:00 UTC) — Weekly wisdom synthesis                                                                     │        ║     │
+│  ║  │ aionx_decision_retrospective (Sun 19:30 UTC) — Weekly decision quality review                                                     │        ║     │
+│  ║  │ aionx_authority_recalibration (Sun 20:00 UTC) — Authority matrix recalibration                                                    │        ║     │
+│  ║  │ aionx_supreme_meta_learning (Sun 21:00 UTC) — Supreme meta-learning synthesis                                                     │        ║     │
+│  ║  │ aionx_parallel_universe_analysis (Mon 08:00 UTC) — Parallel scenario universe                                                     │        ║     │
+│  ║  │ aionx_service_innovation_scan (Sun 10:00 UTC) — Service innovation opportunity scan                                              │        ║     │
+│  ║  └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘        ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  THE BRAIN: 45+ Intelligence Services (Autonomous Decision Engines)                                                                               ║     │
+│  ║  Files: backend/app/services/intelligence/                                                                                                       ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Core Consciousness Engines:                                                                                                                     ║     │
+│  ║  • soul_engine.py — 7 non-negotiable laws, operational guardrails                                                                                ║     │
+│  ║  • emotional_core.py — 10 emotional states (HUNGRY → ASCENDING), drives behavior                                                                ║     │
+│  ║  • captain_profile_engine.py — 4 Captain decision modes + 4 blind spot mitigations                                                               ║     │
+│  ║  • heart_engine.py — 8 buyer emotional profiles, personalization hooks                                                                           ║     │
+│  ║  • prospect_psychology.py — Cialdini influence principles (authority, scarcity, social proof, reciprocity, liking)                                ║     │
+│  ║  • captain_state.py — Real-time Captain mood/intent tracking                                                                                    ║     │
+│  ║  • jarvis_awareness.py — Adapt all outputs to current system state                                                                               ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Sales Intelligence:                                                                                                                             ║     │
+│  ║  • lead_embeddings.py — Semantic embeddings for leads (cosine similarity search)                                                                ║     │
+│  ║  • sales_autonomy.py (45+ intelligence service for lead scoring, sequences, objections)                                                         ║     │
+│  ║  • offer_engine.py — Dynamic offer generation (5-tier pricing logic)                                                                             ║     │
+│  ║  • upgrade_engine.py — Upsell opportunity detection                                                                                              ║     │
+│  ║  • win_loss_analysis.py — Analyze closed deals (what worked, what didn't)                                                                        ║     │
+│  ║  • client_health.py — Churn risk scoring                                                                                                        ║     │
+│  ║  • opportunity_radar.py — Idle lead identification and re-engagement                                                                             ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Strategic Intelligence:                                                                                                                         ║     │
+│  ║  • revenue_consciousness.py — Pricing tiers, LTV, pipeline health                                                                                ║     │
+│  ║  • revenue_forecaster.py — 3/6/12-month revenue forecasting                                                                                     ║     │
+│  ║  • moat_engine.py — Competitive advantage analysis                                                                                               ║     │
+│  ║  • financial_intelligence.py — Cost tracking, unit economics, margin analysis                                                                   ║     │
+│  ║  • market_intel.py — Market trends, TAM, SAM, SOM                                                                                                ║     │
+│  ║  • tech_radar.py — Technology trends (emerging, rising, mature, declining)                                                                      ║     │
+│  ║  • competitor_intel.py — Competitive landscape monitoring                                                                                       ║     │
+│  ║  • dynamic_pricing.py — Dynamic pricing based on demand + market conditions                                                                     ║     │
+│  ║  • platform_intelligence.py (45+ intelligence service for SLA, tech debt, scaling)                                                              ║     │
+│  ║  • autonomous_ceo.py (45+ intelligence service for strategic pillars + roadmap)                                                                 ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Learning & Evolution:                                                                                                                           ║     │
+│  ║  • learning_engine.py — Extract lessons from every engagement                                                                                    ║     │
+│  ║  • memory_synthesis.py — Long-term memory consolidation                                                                                         ║     │
+│  ║  • research.py — Deep research on prospects, competitors, markets                                                                                ║     │
+│  ║  • jarvis_self_learning.py — JARVIS self-evolution (daily learning cycle)                                                                       ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Resilience & Governance:                                                                                                                        ║     │
+│  ║  • resilience_engine.py — Failure recovery, circuit breaker resets, self-healing                                                                ║     │
+│  ║  • incident_playbooks.py — Pre-built incident response playbooks                                                                                 ║     │
+│  ║  • truth_engine.py — Fact-checking, validation, verification                                                                                    ║     │
+│  ║  • red_team.py — Adversarial challenge to all assumptions                                                                                       ║     │
+│  ║  • council_of_giants.py — Expert council voting on major decisions                                                                               ║     │
+│  ║  • jarvis_authority.py — Authority matrix enforcement                                                                                            ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Competitive & Market:                                                                                                                           ║     │
+│  ║  • competitive_obsession.py — Deep competitive tracking                                                                                         ║     │
+│  ║  • vision_engine.py — 5-year strategic vision calculations                                                                                      ║     │
+│  ║  • founder_dependency.py — Risk assessment if founder unavailable                                                                                ║     │
+│  ║  • flywheel.py — Revenue compounding loop analysis                                                                                               ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Special Services:                                                                                                                               ║     │
+│  ║  • morning_briefing.py — Daily briefing generation (KPIs, leads, revenue, risks)                                                                ║     │
+│  ║  • cialdini.py — Influence principle application in outreach                                                                                    ║     │
+│  ║  • conscience.py — Ethical guardrails                                                                                                           ║     │
+│  ║  • self_assessment.py — System self-evaluation                                                                                                  ║     │
+│  ║  • jarvis_constitution.py (45+ intelligence service for constitutional laws + authority)                                                       ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  AIONX SOVEREIGN ORGANS (33 Autonomous Intelligence Organs, API-driven)                                                                           ║     │
+│  ║  Files: backend/app/services/aionx/                                                                                                              ║     │
+│  ║  Access: POST /api/v1/aionx/* endpoints (Captain-only)                                                                                           ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Decision Intelligence Organs:                                                                                                                   ║     │
+│  ║  • decision_memory_engine.py — Store all decisions with metadata (decision_objects, options, outcomes)                                          ║     │
+│  ║  • decision_debt_engine.py — Track consequences of decisions over time                                                                          ║     │
+│  ║  • counterfactual_engine.py — What-if simulations validated against real outcomes                                                               ║     │
+│  ║  • client_digital_twin.py — Per-client predictive AI model (churn risk, upsell potential, expansion stage)                                      ║     │
+│  ║  • mission_autopsy_engine.py — Post-project analysis (lessons learned, impact scoring)                                                          ║     │
+│  ║  • executive_accountability_engine.py — Decision scoring, authority decay detection                                                             ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Monitoring & Sensing:                                                                                                                           ║     │
+│  ║  • sentinel_layer.py — Threat detection, anomaly scoring, early warning signals                                                                ║     │
+│  ║  • client_trust_index.py — Client relationship health scoring                                                                                   ║     │
+│  ║  • truth_resilience.py — Validation + error correction                                                                                          ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Knowledge & Wisdom:                                                                                                                             ║     │
+│  ║  • institutional_wisdom_index.py — Weekly accuracy calibration, long-term memory                                                                ║     │
+│  ║  • grand_convergence_council.py — Meta-decision council (synthesizes all AIONX inputs)                                                          ║     │
+│  ║  • supreme_council_layer.py — Supreme council voting, wisdom synthesis                                                                           ║     │
+│  ║  • hia_certification_engine.py — HIA (Human Intelligence Amplification) certification                                                            ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Operations & Orchestration:                                                                                                                     ║     │
+│  ║  • omni_mission_control.py — Mission control telemetry + operational coordination                                                               ║     │
+│  ║  • operational_integrity.py — Operational guardrails, compliance                                                                                 ║     │
+│  ║  • orchestration_cortex.py — Multi-agent orchestration control                                                                                   ║     │
+│  ║  • final_integration.py — Cross-system integration layer                                                                                        ║     │
+│  ║  • living_operating_intelligence.py — Living system adaptation                                                                                  ║     │
+│  ║  • operational_persistence.py — Long-term operational state                                                                                     ║     │
+│  ║  • mission_file_system.py — Mission-scoped file system for temporary state                                                                      ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Validation & Quality:                                                                                                                           ║     │
+│  ║  • validation_layer.py — Cross-check all outputs                                                                                                ║     │
+│  ║  • provider_sovereign_council.py — Vote on provider selection per task                                                                          ║     │
+│  ║  • cross_department_validation.py — Cross-team validation of major decisions                                                                    ║     │
+│  ║  • completion_matrix.py — Track completion of all milestones                                                                                     ║     │
+│  ║  • frontier_intelligence.py — Cutting-edge intelligence synthesis                                                                                ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Testing & Verification:                                                                                                                        ║     │
+│  ║  • test_cascades.py — Cascade testing across all layers                                                                                         ║     │
+│  ║  • test_intelligence_engines.py — Unit test all intelligence engines                                                                             ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Client Journey:                                                                                                                                 ║     │
+│  ║  • ultimate_client_journey.py — Full client lifecycle modeling + optimization                                                                   ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Voice & Communication:                                                                                                                          ║     │
+│  ║  • voice_integration.py — Voice-based AI interactions (ElevenLabs, pre-call briefings)                                                           ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Sovereign Organs (Core):                                                                                                                        ║     │
+│  ║  • sovereign_organs.py — Main organ registry + orchestration                                                                                     ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+│  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
+│  ║  THE SOUL: 35 Database Tables (Multi-tenant, Normalized, Vectorized)                                                                              ║     │
+│  ║  Files: backend/app/models/                                                                                                                      ║     │
+│  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Tenancy & Auth (3):                                                                                                                             ║     │
+│  ║  • tenants — Multi-tenant isolation, plan tier, status                                                                                          ║     │
+│  ║  • tenant_api_keys — API key generation for integrations                                                                                        ║     │
+│  ║  • users — User accounts, JWT secrets, roles                                                                                                     ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Lead & Revenue (6):                                                                                                                             ║     │
+│  ║  • leads — Prospect records (email, phone, ICP score, engagement, outreach_sent, status)                                                        ║     │
+│  ║  • companies — Company records (name, industry, size, location, website)                                                                        ║     │
+│  ║  • contacts — Contact records (first/last name, email, phone, company_id, lead_id)                                                              ║     │
+│  ║  • clients — Closed clients (contract_value, deal_stage, renewal_date)                                                                          ║     │
+│  ║  • deals — Pipeline opportunities (opportunity_name, stage, value, close_date, owner)                                                           ║     │
+│  ║  • revenue — Revenue transactions (invoice, payment, tax, net revenue)                                                                            ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Outreach & Communication (6):                                                                                                                   ║     │
+│  ║  • outreach_log — Sent outreach (email, sms, whatsapp, status, timestamp)                                                                       ║     │
+│  ║  • email_tracking — Email opens + clicks (message_id, status, open_count, click_count)                                                          ║     │
+│  ║  • reply_log — Incoming replies (from, subject, body, classification: positive/negative/question)                                               ║     │
+│  ║  • follow_up_queue — Scheduled follow-ups (lead_id, scheduled_at, sequence_step, status)                                                        ║     │
+│  ║  • outreach_sequences — Sequence templates (5-step max, interval, tone)                                                                         ║     │
+│  ║  • outreach_emails — Email templates (subject, body, personalization fields)                                                                    ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Operations & Tasks (6):                                                                                                                        ║     │
+│  ║  • scheduled_jobs — APScheduler jobs (name, next_run, status, last_result)                                                                      ║     │
+│  ║  • job_failures — Job failure tracking (job_id, error, timestamp, auto_healer_run)                                                              ║     │
+│  ║  • approval_requests — Pending approvals (approval_type, requester, captain_decision, decided_at)                                               ║     │
+│  ║  • agent_tasks — Async tasks (task_type, status, result, created_at, completed_at)                                                              ║     │
+│  ║  • agent_messages — Task message history (task_id, from_agent, content, timestamp)                                                               ║     │
+│  ║  • audit_logs — Complete audit trail (action, actor, resource, timestamp, change_delta)                                                         ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Memory & Knowledge (9):                                                                                                                         ║     │
+│  ║  • memory — Multi-tier memory (episodic, semantic, instruction; category; content; priority)                                                   ║     │
+│  ║  • memory_operational — Extracted facts, domain knowledge (permanent, vectorized)                                                                ║     │
+│  ║  • memory_strategic — Long-term strategic insights (quarterly reviews)                                                                           ║     │
+│  ║  • civilization_memory — Immutable hash chain of all key events                                                                                 ║     │
+│  ║  • memory_graph_nodes — Knowledge graph nodes (concept, embedding, relationships)                                                               ║     │
+│  ║  • memory_graph_edges — Knowledge graph edges (node_a, node_b, relationship_type, strength)                                                    ║     │
+│  ║  • knowledge_base — SOP documents, lessons learned (title, content, category, author)                                                           ║     │
+│  ║  • learning_records — Learning events (lesson, source, impact_score, timestamp)                                                                 ║     │
+│  ║  • sop_documents — Standard operating procedures (sop_id, version, content, last_updated)                                                       ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Intelligence & Governance (6):                                                                                                                  ║     │
+│  ║  • ai_council_sessions — Council voting records (decision, votes, weights, verdict)                                                             ║     │
+│  ║  • ai_council_member_weights — Model voting weights (model_id, domain, weight, accuracy)                                                        ║     │
+│  ║  • proposals — Generated proposals (client, value, status, sent_at, accepted_at)                                                                ║     │
+│  ║  • contracts — Signed contracts (client, amount, terms, signed_date, expiry)                                                                    ║     │
+│  ║  • incident_reports — Incident tracking (incident_type, severity, resolved_at, impact)                                                         ║     │
+│  ║  • tech_radar_entries — Technology tracking (tech_name, category, maturity_stage, next_review)                                                  ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  AIONX Sovereign Organs (10+):                                                                                                                   ║     │
+│  ║  • decision_objects — Decision records (decision_type, context, timestamp, decision_maker)                                                      ║     │
+│  ║  • decision_options — Options considered for each decision (decision_id, option, score, selected)                                               ║     │
+│  ║  • decision_outcomes — Actual outcomes of decisions (decision_id, outcome_quality, lessons)                                                     ║     │
+│  ║  • decision_patterns — Extracted decision patterns (pattern, frequency, success_rate)                                                           ║     │
+│  ║  • counterfactual_simulations — What-if analyses (decision_id, alternative, predicted_outcome, actual_outcome)                                  ║     │
+│  ║  • decision_debt_assessments — Consequences of past decisions (decision_id, debt_type, impact)                                                  ║     │
+│  ║  • client_digital_twins — Per-client predictive models (client_id, churn_risk, ltv_projection, stage)                                           ║     │
+│  ║  • client_pipeline_states — Snapshot of pipeline by client (client_id, open_deals, close_probability)                                           ║     │
+│  ║  • mission_autopsy_records — Post-project analysis (mission_id, lessons, success_metrics)                                                       ║     │
+│  ║  • sentinel_observations — Threat monitoring (observation_type, severity, timestamp)                                                            ║     │
+│  ║  • wisdom_index_snapshots — Weekly accuracy calibration (timestamp, calibration_delta, metrics)                                                 ║     │
+│  ║                                                                                                                                                   ║     │
+│  ║  Scheduling & Comms (4):                                                                                                                         ║     │
+│  ║  • conversations — Conversation history (from, to, channel, message_count, last_message_at)                                                     ║     │
+│  ║  • notifications — Telegram/email notifications (recipient, content, sent_at, status)                                                           ║     │
+│  ║  • gmail_messages — Gmail integration (message_id, from, subject, body, direction, archived)                                                    ║     │
+│  ║  • credentials — API keys (provider, api_key_hash, expiry, last_used)                                                                           ║     │
+│  ║                                                                                                                                                   ║     │
+│  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
+│                                                                                                                                                           │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 6: REACT FRONTEND — BROWSER INTERFACE (18+ Views, Glassmorphism Design)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                    React 18 + Vite + Tailwind CSS (glassmorphism)                                            │
+│                    Zustand state management, Axios API client                                                 │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                │
+│  18+ Major Views:                                                                                             │
+│  ┌─────────────────────┐  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐             │
+│  │ DashboardView       │  │ BriefingView       │  │ LeadsView          │  │ DealsView          │             │
+│  ├─────────────────────┤  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤             │
+│  │ • KPI tiles         │  │ • Morning briefing  │  │ • Lead table       │  │ • Pipeline canvas  │             │
+│  │ • Charts            │  │ • AI response       │  │ • Bulk score       │  │ • Stage tracking   │             │
+│  │ • Quick actions     │  │ • Streaming        │  │ • CSV import       │  │ • Probability      │             │
+│  │ • System status     │  │                    │  │ • Discovery        │  │ • Value tracking   │             │
+│  └─────────────────────┘  └────────────────────┘  └────────────────────┘  └────────────────────┘             │
+│  ┌─────────────────────┐  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐             │
+│  │ InvoicesView       │  │ ProposalsView      │  │ ApprovalsView      │  │ SupremeDashboard   │             │
+│  ├─────────────────────┤  ├────────────────────┤  ├────────────────────┤  ├────────────────────┤             │
+│  │ • Invoice list      │  │ • Templates        │  │ • Approval queue   │  │ 6-Tab Control Panel:           │
+│  │ • Payment status    │  │ • Send workflow    │  │ • Approve/reject   │  │ 1. Overview        │             │
+│  │ • Stripe links      │  │ • Approval track   │  │ • Status tracking  │  │ 2. Constitution    │             │
+│  │ • Reconciliation    │  │ • PDF preview      │  │ • Bulk approve     │  │ 3. CEO Brain       │             │
+│  └─────────────────────┘  └────────────────────┘  └────────────────────┘  │ 4. Revenue         │             │
+│  ┌─────────────────────┐  ┌────────────────────┐  ┌────────────────────┐  │ 5. Platform        │             │
+│  │ IntegrationsView   │  │ AnalyticsView      │  │ TelegramView       │  │ 6. Sales           │             │
+│  ├─────────────────────┤  ├────────────────────┤  ├────────────────────┤  └────────────────────┘             │
+│  │ • Apollo status     │  │ • KPI trends       │  │ • Chat interface   │                                      │
+│  │ • HubSpot sync      │  │ • Pipeline charts  │  │ • Command history  │  + 8 more views                    │
+│  │ • Gmail auth        │  │ • Conversion funnel│  │ • Bulk actions     │  └─ Settings          │             │
+│  │ • Stripe keys       │  │ • Revenue forecast │  │                    │  └─ Team Registry    │             │
+│  └─────────────────────┘  └────────────────────┘  └────────────────────┘  └─ Memory Viewer   │             │
+│                                                                                                                │
+│  API Client (src/services/api.js) — 100+ axios helpers:                                                      │
+│  • fetchBriefing(), fetchLeads(), scoreLeads(), bulkScore(), discoveryLeads()                               │
+│  • fetchDeals(), createDeal(), updateDealStage()                                                            │
+│  • fetchInvoices(), generateInvoice(), createPaymentLink()                                                   │
+│  • sendProposal(), approveProposal(), getProposalStatus()                                                    │
+│  • fetchApprovals(), decideApproval()                                                                       │
+│  • fetchSupremeSnapshot(), postSupremeEvent()                                                                │
+│  • getAllIntelligence(), postCouncilVote()                                                                   │
+│  + 70 more helpers for all 67 route modules                                                                  │
+│                                                                                                                │
+│  Global State (src/store/useJarvisStore.js — Zustand):                                                       │
+│  • briefing, leads, deals, invoices, approvals, user, theme                                                 │
+│  • supremeDashboard, intelligence, council, aionx                                                            │
+│  • notifications, webSocketConnected                                                                         │
+│                                                                                                                │
+│  Real-time WebSocket (src/websocket.js):                                                                     │
+│  • Connect to /ws endpoint                                                                                   │
+│  • Listen for: drafts sent/rejected, NEXUS pulse, new leads, approvals due                                   │
+│  • Auto-update Zustand state                                                                                 │
+│  • Reconnect logic with exponential backoff                                                                  │
+│                                                                                                                │
+│  Components (src/components/):                                                                                │
+│  • LeadScoreCard, LeadTable, BulkScoreModal                                                                  │
+│  • PipelineCanvas, DealCard, StageColumn                                                                     │
+│  • ProposalGenerator, ApprovalQueue, BulkApproveModal                                                        │
+│  • BriefingCard, KPITile, TrendChart                                                                         │
+│  • SupremeControlPanel, ConstitutionViewer, CEOBrainPanel                                                    │
+│  • IntegrationStatus, WebSocketIndicator                                                                     │
+│                                                                                                                │
+│  Styling:                                                                                                     │
+│  • Glassmorphism (translucent backgrounds, blur)                                                             │
+│  • Tailwind CSS (responsive grid, flexbox, spacing)                                                          │
+│  • Dark/light mode toggle                                                                                    │
+│  • Animated transitions (Framer Motion)                                                                       │
+│                                                                                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LAYER 7: INTEGRATIONS & EXTERNAL SERVICES (30+ Divisions)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              ALIYAR SOLUTIONS — 30 SERVICE DIVISIONS                                                                                    │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                                                                        │
+│  SALES & REVENUE (5 divisions):                                                                                                                       │
+│  ├─ AI Lead Generation                                                                                                                               │
+│  │  └─ Apollo.io API (lead_embeddings + semantic search via OpenAI embeddings)                                                                      │
+│  │  └─ Google Maps API (location-based discovery)                                                                                                   │
+│  │                                                                                                                                                    │
+│  ├─ Outreach Systems                                                                                                                                │
+│  │  └─ AWS SES (email send, bounce/complaint tracking via SNS)                                                                                     │
+│  │  └─ Evolution API v2.3.7 (WhatsApp 24-hour window)                                                                                              │
+│  │  └─ Twilio (SMS — standby)                                                                                                                      │
+│  │                                                                                                                                                    │
+│  ├─ Sales Automation                                                                                                                                │
+│  │  └─ Sequence queueing engine (5-step max, configurable intervals)                                                                               │
+│  │  └─ Bulk outreach processor (48 emails/day cap)                                                                                                 │
+│  │                                                                                                                                                    │
+│  ├─ CRM Architecture                                                                                                                                │
+│  │  └─ PostgreSQL relational schema (contacts, companies, deals, revenue)                                                                          │
+│  │  └─ HubSpot sync (bidirectional if enabled)                                                                                                    │
+│  │  └─ Semantic search (lead_embeddings + cosine similarity)                                                                                       │
+│  │                                                                                                                                                    │
+│  ├─ Revenue Operations                                                                                                                              │
+│  │  └─ Stripe payment processing (invoice generation, payment links)                                                                               │
+│  │  └─ Contract management (Ethereum signature storage optional)                                                                                   │
+│  │  └─ Tax calculation (automated per jurisdiction)                                                                                                │
+│  │                                                                                                                                                    │
+│  AI AUTOMATION (4 divisions):                                                                                                                        │
+│  ├─ Appointment Systems                                                                                                                             │
+│  │  └─ Google Calendar OAuth2 (availability fetch, auto-booking)                                                                                   │
+│  │  └─ Timezone handling (convert prospect tz → Captain's tz)                                                                                      │
+│  │                                                                                                                                                    │
+│  ├─ Voice Receptionist                                                                                                                              │
+│  │  └─ Evolution API voice integration (incoming call handling)                                                                                    │
+│  │  └─ ElevenLabs voice synthesis (natural speech, persona-specific tone)                                                                          │
+│  │  └─ IVR with AI decision tree                                                                                                                  │
+│  │                                                                                                                                                    │
+│  ├─ Workflow Automation                                                                                                                             │
+│  │  └─ Zapier/Make.com connectors (custom workflow orchestration)                                                                                  │
+│  │  └─ n8n integration (self-hosted workflows)                                                                                                     │
+│  │                                                                                                                                                    │
+│  ├─ Executive Automation                                                                                                                            │
+│  │  └─ Captain Telegram bot (/status, /heal, /nexus, /approve_all)                                                                                 │
+│  │  └─ Email digest (daily summary, weekly report)                                                                                                 │
+│  │  └─ Slack integration (optional, setup available)                                                                                               │
+│  │                                                                                                                                                    │
+│  CLOUD & DEVOPS (4 divisions):                                                                                                                      │
+│  ├─ AWS Architecture                                                                                                                                │
+│  │  └─ ECS Fargate (containerized FastAPI)                                                                                                        │
+│  │  └─ RDS PostgreSQL 16 (multi-AZ failover)                                                                                                      │
+│  │  └─ ElastiCache Redis 7 (session cache, task queue)                                                                                             │
+│  │  └─ Application Load Balancer (HTTPS termination)                                                                                               │
+│  │  └─ Route 53 (DNS)                                                                                                                             │
+│  │  └─ CloudWatch (logs, metrics, alarms)                                                                                                         │
+│  │  └─ AWS Secrets Manager (credential vault)                                                                                                     │
+│  │                                                                                                                                                    │
+│  ├─ Infrastructure as Code                                                                                                                         │
+│  │  └─ Terraform (all AWS resources defined)                                                                                                      │
+│  │  └─ Version controlled, state file in S3                                                                                                       │
+│  │                                                                                                                                                    │
+│  ├─ CI/CD Pipelines                                                                                                                                │
+│  │  └─ GitHub Actions (.github/workflows/deploy.yml)                                                                                              │
+│  │  └─ ECR (Elastic Container Registry)                                                                                                           │
+│  │  └─ Blue/green rolling updates                                                                                                                 │
+│  │                                                                                                                                                    │
+│  ├─ Monitoring & Logging                                                                                                                            │
+│  │  └─ CloudWatch Logs (structured JSON)                                                                                                          │
+│  │  └─ Prometheus + Grafana (optional, local)                                                                                                     │
+│  │  └─ X-Request-ID tracing                                                                                                                       │
+│  │  └─ Alert thresholds (CPU 80%, Memory 90%, Error rate 1%)                                                                                      │
+│  │                                                                                                                                                    │
+│  SECURITY (2 divisions):                                                                                                                            │
+│  ├─ Cybersecurity Operations                                                                                                                       │
+│  │  └─ HTTPS + TLS 1.3 (ACM certificates)                                                                                                         │
+│  │  └─ JWT authentication (Bearer tokens)                                                                                                          │
+│  │  └─ Rate limiting (per endpoint, per user)                                                                                                      │
+│  │  └─ Secrets Manager rotation                                                                                                                   │
+│  │  └─ SQL injection hardening (parameterized queries)                                                                                             │
+│  │  └─ XSS protection (Content-Security-Policy headers)                                                                                            │
+│  │                                                                                                                                                    │
+│  ├─ Compliance & Audit                                                                                                                             │
+│  │  └─ GDPR compliance (data deletion, consent tracking)                                                                                           │
+│  │  └─ SOC 2 readiness (audit trails, incident response)                                                                                          │
+│  │  └─ PII encryption (email, phone in database)                                                                                                   │
+│  │  └─ Audit log (every action logged with actor, resource, timestamp)                                                                            │
+│  │                                                                                                                                                    │
+│  CONTENT & MEDIA (3 divisions):                                                                                                                     │
+│  ├─ Content Automation                                                                                                                             │
+│  │  └─ AI content generation (blog posts, social posts, email templates)                                                                          │
+│  │  └─ Notion database integration (content management)                                                                                            │
+│  │                                                                                                                                                    │
+│  ├─ YouTube Operations                                                                                                                             │
+│  │  └─ YouTube API (channel analytics, upload automation)                                                                                         │
+│  │  └─ Thumbnail generation (AI or Canva)                                                                                                         │
+│  │  └─ Video scheduling                                                                                                                           │
+│  │                                                                                                                                                    │
+│  ├─ Social Media                                                                                                                                   │
+│  │  └─ Twitter API v2 (posting, analytics)                                                                                                        │
+│  │  └─ LinkedIn API (posting, message automation)                                                                                                  │
+│  │  └─ Buffer/Hootsuite (scheduling)                                                                                                              │
+│  │                                                                                                                                                    │
+│  DIGITAL PRODUCTS (3 divisions):                                                                                                                    │
+│  ├─ Web Applications                                                                                                                               │
+│  │  └─ React 18 frontend (all 18+ views)                                                                                                          │
+│  │  └─ FastAPI backend (67 route modules)                                                                                                         │
+│  │  └─ WebSocket real-time updates                                                                                                                │
+│  │                                                                                                                                                    │
+│  ├─ Client Portals                                                                                                                                 │
+│  │  └─ Prospect portal (access own leads, schedule calls)                                                                                         │
+│  │  └─ Client dashboard (project tracking, invoices)                                                                                               │
+│  │  └─ Agent portal (team member access, role-based views)                                                                                        │
+│  │                                                                                                                                                    │
+│  ├─ SaaS Platforms                                                                                                                                 │
+│  │  └─ Multi-tenant architecture (Tenant.tenant_id isolation)                                                                                     │
+│  │  └─ Plan tiers (STARTER, GROWTH, ENTERPRISE, PARTNER)                                                                                         │
+│  │  └─ Usage metering (API calls, leads stored, team members)                                                                                      │
+│  │                                                                                                                                                    │
+│  INTELLIGENCE (3 divisions):                                                                                                                        │
+│  ├─ Market Research                                                                                                                                │
+│  │  └─ Market intelligence reports (TAM, SAM, SOM)                                                                                                 │
+│  │  └─ Competitor analysis (SWOT, positioning)                                                                                                     │
+│  │  └─ Industry trends (tech radar, emerging tech)                                                                                                 │
+│  │                                                                                                                                                    │
+│  ├─ Business Intelligence                                                                                                                          │
+│  │  └─ KPI dashboards (revenue, pipeline, conversion)                                                                                              │
+│  │  └─ Custom reporting (SQL queries, data export)                                                                                                 │
+│  │  └─ Predictive analytics (churn risk, LTV)                                                                                                     │
+│  │                                                                                                                                                    │
+│  ├─ AI Research Operations                                                                                                                         │
+│  │  └─ Model evaluation (testing new AI providers)                                                                                                 │
+│  │  └─ Prompt optimization (A/B testing outreach)                                                                                                  │
+│  │  └─ Decision intelligence (Council voting, retrospectives)                                                                                      │
+│  │                                                                                                                ────────────────────────────────│
+│  ├─ PLUS 3 MORE DIVISIONS (Client Success, Service Catalog, Team Coordination)                                                                    │
+│  │                                                                                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+DEPLOYMENT SUMMARY: FROM COMMAND TO EXECUTION
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+1. YOU (Captain) make a decision in VS Code or Telegram
+   ↓
+2. Code is generated via OpenRouter (Claude + DeepSeek + others)
+   ↓
+3. You review, commit locally, push to GitHub
+   ↓
+4. GitHub Actions triggers CI/CD pipeline
+   ↓
+5. Docker image built, pushed to AWS ECR
+   ↓
+6. ECS Fargate deployed (blue/green rolling update, 3 tasks)
+   ↓
+7. Health checks pass (/health, /readyz probes)
+   ↓
+8. 64 scheduler jobs continuously running (38 core + 26 AIONX)
+   ↓
+9. React frontend communicates with FastAPI backend via HTTPS
+   ↓
+10. 45+ intelligence engines + 33+ AIONX organs execute autonomously
+    ↓
+11. 30+ service divisions interact with external APIs
+    ↓
+12. Results surfaced to Captain via:
+    • JARVIS dashboard (React frontend)
+    • Telegram briefings (daily, instant alerts)
+    • Email digests (proposals, approvals)
+    • WebSocket real-time updates
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+TECHNOLOGY STACK SUMMARY
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+BACKEND:                 FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL 16 + Redis 7 + APScheduler 3.10
+AI LAYER:                11-provider router + 14-model council + OpenRouter gateway
+DATABASE:                35 SQLAlchemy tables, multi-tenant, normalized, vectorized
+CACHING:                 Redis (session, embeddings, rate limits, task locks)
+SCHEDULING:              64 production jobs (38 core + 26 AIONX), distributed lock on singleton jobs
+FRONTEND:                React 18 + Vite + Tailwind CSS (glassmorphism), Zustand state, Axios API client
+INFRASTRUCTURE:          AWS ECS Fargate (3 tasks) + RDS PostgreSQL + ElastiCache Redis + ALB + Route 53
+CI/CD:                   GitHub Actions → Docker build → ECR push → ECS blue/green deploy
+SECRETS:                 AWS Secrets Manager (never in code)
+MONITORING:              CloudWatch Logs, Prometheus, Grafana, X-Request-ID tracing
+INTEGRATIONS:            30+ external APIs (SES, WhatsApp, Stripe, Apollo, HubSpot, Gmail, Calendar, etc.)
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+CURRENT OPERATIONAL STATUS
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Phase 107-108 Complete (2026-07-02):
+✅ Multi-provider AI routing (11 providers, circuit breakers)
+✅ Lead discovery, scoring, enrichment (5-dimension scoring engine)
+✅ Email outreach + WhatsApp integration (Evolution API)
+✅ Proposal generation (4 styles, AI-powered)
+✅ Invoice management + Stripe integration
+✅ CRM sync (contacts, companies, deals)
+✅ Gmail OAuth + Google Calendar integration
+✅ Team routing (9 named personas)
+✅ Service catalog (25 capability modules)
+✅ Memory system (episodic, semantic, instruction)
+✅ AIONX decision intelligence (26 autonomous jobs)
+✅ Supreme Intelligence Layer (5 autonomous engines, 35 constitutional endpoints)
+✅ Production hardening (rate limiting, auth guards, security headers)
+✅ APScheduler (64 production jobs)
+✅ WebSocket real-time events
+✅ Captain Telegram bot (15+ commands, inline approval buttons)
+✅ All 67 route modules secured with JWT + rate limiting
+✅ N+1 query fixes, fire-and-forget error handlers
+✅ Webhook security hardening (constant-time token comparison)
+
+Active Development Branch: claude/jarvis-cans-api-integration-ZThTD
+Last Hardening: 2026-07-01 (9 authentication gaps closed, fire-and-forget fixed, N+1 queries optimized)
+
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+LEGEND
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+JARVIS SOUL       = Ethical guardrails, 7 non-negotiable laws, operational integrity
+JARVIS BRAIN      = 45+ intelligence engines, decision-making, autonomy
+JARVIS SPINE      = 64 scheduler jobs, continuous operations, automation
+JARVIS HEART      = Emotional core, 10 emotional states, buyer profiling
+JARVIS CONSCIENCE = Psychological AI, Captain profiling, ethical checks
+AIONX ORGANS      = 33 autonomous intelligence organs, decision intelligence, wisdom synthesis
+CONSTITUTION     = 35 Supreme endpoints, authority matrix, 12 constitutional laws, 8 escalation triggers
+
+THIS IS THE COMPLETE ARCHITECTURE.
+Every flow from Captain's laptop to live AWS operations.
+Every system, every layer, every integration.
