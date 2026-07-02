@@ -79,6 +79,16 @@ from app.models.notifications import NotificationLog
 from app.models.governance import AgentPermission, Contract, ContractTemplate, IncidentReport, Proposal
 from app.models.knowledge import KnowledgeBase, LearningRecord, SOPDocument
 from app.models.service_catalog import ServiceDivision
+from app.models.service_registry import (
+    ServiceRegistry,
+    ServiceTemplate,
+    ServiceInstance,
+    ServiceMetrics,
+    ServiceDependency,
+    ServiceAudit,
+    ServiceStatus,
+    ServiceType,
+)
 from app.models.ai_audit import AIRequestLog
 from app.models.team_member import TeamMember
 from app.models.gmail import GmailMessage
@@ -114,6 +124,7 @@ MODEL_MODULES = (
     "governance",
     "knowledge",
     "service_catalog",
+    "service_registry",
     "ai_audit",
     "team_member",
     "gmail",
@@ -220,6 +231,14 @@ __all__ = [
     "LearningRecord",
     "SOPDocument",
     "ServiceDivision",
+    "ServiceRegistry",
+    "ServiceTemplate",
+    "ServiceInstance",
+    "ServiceMetrics",
+    "ServiceDependency",
+    "ServiceAudit",
+    "ServiceStatus",
+    "ServiceType",
     "AIRequestLog",
     "TeamMember",
     "GmailMessage",
