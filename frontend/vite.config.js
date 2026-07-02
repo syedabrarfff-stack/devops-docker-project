@@ -9,5 +9,17 @@ export default defineConfig({
       '/api': { target: 'http://localhost:8000', changeOrigin: true, ws: true },
     },
   },
-  build: { outDir: 'dist', sourcemap: false },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          ui: ['framer-motion', 'lucide-react'],
+        },
+      },
+    },
+  },
 })
