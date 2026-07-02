@@ -11,6 +11,7 @@ from app.services.ai.base_provider import BaseAIProvider, AIResponse, Message, T
 from app.services.ai.providers.anthropic_provider import AnthropicProvider
 from app.services.ai.providers.bedrock_provider import BedrockProvider
 from app.services.ai.providers.openai_provider import OpenAIProvider
+from app.services.ai.providers.openrouter_provider import OpenRouterProvider
 from app.services.ai.providers.deepseek_provider import DeepSeekProvider
 from app.services.ai.providers.google_provider import GoogleProvider
 from app.services.ai.providers.groq_provider import GroqProvider, MistralProvider
@@ -140,7 +141,7 @@ OPERATIONAL CAPABILITIES
 #   FAST       → Llama 4 Scout (NIM) → DeepSeek V4 Flash (NIM)
 #   LONG_CTX   → Kimi K2.6 (NIM) → Llama 4 Maverick (NIM)
 #   GENERAL    → Llama 4 Maverick (NIM) → Llama 4 Scout (NIM)
-#   ANALYSIS   → DeepSeek V4 Pro (NIM) → Llama 4 Maverick (NIM)
+#   ANALYSIS   → DeepSeek V4 Pro (OpenRouter) → DeepSeek V4 Pro (NIM) → Llama models
 #   STRATEGY   → Anthropic Sonnet → DeepSeek V4 Pro (NIM) → Llama 4 Maverick
 #   SALES      → Anthropic Sonnet → Llama 4 Maverick (NIM) → DeepSeek V4 Pro
 #   REALTIME   → Llama 4 Scout (NIM) → DeepSeek V4 Flash (NIM)
@@ -202,11 +203,13 @@ ROUTING_TABLE: dict = {
         ("nvidia", "deepseek-v4-flash"),
     ],
     TaskType.ANALYSIS: [
-        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — analytical depth
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick
+        ("openrouter", "deepseek-v4-pro"),  # DeepSeek V4 Pro via OpenRouter — primary (stable)
+        ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro via NIM — analytical depth
+        ("openrouter", "llama-90b"),        # Llama 3.1 405B via OpenRouter — long context
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick via NIM
         ("nvidia", "kimi-k2"),              # Kimi — document analysis
-        ("anthropic", "claude-sonnet"),
-        ("openai", "gpt-4o"),
+        ("anthropic", "claude-sonnet"),     # Claude Sonnet — executive analysis
+        ("openai", "gpt-4o"),               # GPT-4o — final fallback
     ],
     TaskType.STRATEGY: [
         ("anthropic", "claude-sonnet"),     # Claude Sonnet — executive strategy
@@ -272,6 +275,7 @@ class AIRouter:
             "anthropic": AnthropicProvider(),
             "bedrock": BedrockProvider(),
             "openai": OpenAIProvider(),
+            "openrouter": OpenRouterProvider(),
             "deepseek": DeepSeekProvider(),
             "google": GoogleProvider(),
             "groq": GroqProvider(),
