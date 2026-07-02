@@ -22,6 +22,7 @@ import base64
 import email as email_lib
 import json
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from email.header import decode_header
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
-_SNS_CERT_HOST_SUFFIX = ".amazonaws.com"
+_SNS_CERT_HOST_PATTERN = re.compile(r"^sns\.[a-z0-9-]+\.amazonaws\.com$")
 
 # SNS fields included in the canonical string for each message type (order matters)
 _SNS_SIGN_FIELDS: dict[str, list[str]] = {
@@ -85,7 +86,7 @@ def _verify_sns_signature(body: dict) -> bool:
     # Validate cert URL origin before fetching (prevent SSRF to forged certs)
     try:
         parsed = _urlparse(cert_url)
-        if parsed.scheme != "https" or not (parsed.hostname or "").endswith(_SNS_CERT_HOST_SUFFIX):
+        if parsed.scheme != "https" or not _SNS_CERT_HOST_PATTERN.match(parsed.hostname or ""):
             logger.warning("SNS signature rejected: cert URL origin invalid: %s", cert_url)
             return False
     except Exception:
@@ -192,7 +193,7 @@ def _extract_reply_text(plain: str, html: str) -> str:
 async def _confirm_sns_subscription(subscribe_url: str) -> None:
     from urllib.parse import urlparse as _urlparse
     parsed = _urlparse(subscribe_url)
-    if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".amazonaws.com"):
+    if parsed.scheme != "https" or not _SNS_CERT_HOST_PATTERN.match(parsed.hostname or ""):
         logger.warning("Rejected SNS SubscribeURL with unexpected origin: %s", parsed.hostname)
         return
     try:

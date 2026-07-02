@@ -112,9 +112,14 @@ async def trigger_intelligence(http_request: Request, request: IntelligenceReque
     from app.services.integrations.github_bridge import github_bridge
     import os
 
-    output_dir = request.output_dir or os.path.join(
-        github_bridge.REPO_DATA_PATH, "intelligence"
-    )
+    base_data_path = os.path.realpath(github_bridge.REPO_DATA_PATH)
+    if request.output_dir:
+        resolved = os.path.realpath(request.output_dir)
+        if not resolved.startswith(base_data_path + os.sep) and resolved != base_data_path:
+            raise HTTPException(status_code=400, detail="output_dir must be within the data directory")
+        output_dir = resolved
+    else:
+        output_dir = os.path.join(base_data_path, "intelligence")
 
     logger.info("[ConnectorHub API] Intelligence generation triggered — tenant=%s", request.tenant_id)
 
