@@ -49,6 +49,7 @@ from app.api.v1.routes import nexus
 from app.api.v1.routes import constitution
 from app.api.v1.routes import service_registry
 from app.api.v1.routes import catalog_v2
+from app.api.v1.routes import monitoring
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -149,3 +150,5 @@ api_router.include_router(nexus.router, dependencies=[Depends(get_current_captai
 api_router.include_router(constitution.router, dependencies=[Depends(get_current_captain)])
 # Phase 3 — Service Registry API (dynamic service management)
 api_router.include_router(service_registry.router, dependencies=[Depends(get_current_captain)])
+# Monitoring & Cost Analytics (customer-facing real-time metrics)
+api_router.include_router(monitoring.router)
