@@ -11,7 +11,7 @@ import uuid
 import logging
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,9 @@ def _default_tenant() -> uuid.UUID:
     return SYSTEM_TENANT_ID
 
 
+_MAX_SNS_BODY_BYTES = 64 * 1024  # 64 KB — SNS payloads are never larger
+
+
 @webhook_router.post("/email/inbound")
 async def ses_inbound_webhook(
     request: Request,
@@ -48,7 +51,12 @@ async def ses_inbound_webhook(
     Must be subscribed in AWS SNS as the HTTP/HTTPS endpoint for the SES
     receipt rule topic. Handles SubscriptionConfirmation + Notification types.
     """
+    cl = request.headers.get("content-length")
+    if cl and int(cl) > _MAX_SNS_BODY_BYTES:
+        raise HTTPException(status_code=413, detail="Request too large")
     raw_body = await request.body()
+    if len(raw_body) > _MAX_SNS_BODY_BYTES:
+        raise HTTPException(status_code=413, detail="Request too large")
     background_tasks.add_task(_process_inbound_background, raw_body)
     return {"accepted": True, "queued": True}
 

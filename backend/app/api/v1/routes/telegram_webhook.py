@@ -63,11 +63,12 @@ async def webhook(request: Request):
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="Bot not configured")
 
-    if settings.TELEGRAM_WEBHOOK_SECRET:
-        token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
-        if not secrets.compare_digest(token_header, settings.TELEGRAM_WEBHOOK_SECRET):
-            logger.warning("Telegram webhook: invalid or missing secret token")
-            raise HTTPException(status_code=403, detail="Forbidden")
+    if not settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Telegram webhook not configured")
+    token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
+    if not secrets.compare_digest(token_header, settings.TELEGRAM_WEBHOOK_SECRET):
+        logger.warning("Telegram webhook: invalid or missing secret token")
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         body = await request.json()
