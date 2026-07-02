@@ -210,12 +210,14 @@ ROUTING_TABLE: dict = {
     ],
     TaskType.STRATEGY: [
         ("anthropic", "claude-sonnet"),     # Claude Sonnet — executive strategy
+        ("bedrock", "claude-sonnet-4-6"),   # Bedrock Sonnet — AWS-native strategy
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — strategic depth
         ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — strategic intel
         ("nvidia", "kimi-k2"),
     ],
     TaskType.SALES: [
         ("anthropic", "claude-sonnet"),     # Claude Sonnet — client communications
+        ("bedrock", "claude-sonnet-4-6"),   # Bedrock Sonnet — AWS-native sales
         ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — outreach copy
         ("nvidia", "llama-4-scout"),        # Llama 4 Scout — bulk outreach
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — proposal quality
