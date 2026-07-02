@@ -21,6 +21,7 @@ const NAV = [
   { id: 'warRoom',        path: '/control-room/war-room',    label: 'War Room',      icon: Shield },
   { id: 'warRoomHQ',     path: '/control-room/war-room-hq', label: 'War Room HQ',   icon: Crosshair },
   { id: 'systemHud',      path: '/control-room/system-hud', label: 'System HUD',    icon: Activity },
+  { id: 'monitoring',     path: '/control-room/monitoring', label: 'Monitoring',     icon: MonitorDot },
   { id: 'leads',          path: '/control-room/leads', label: 'Leads',         icon: Target },
   { id: 'outreach',       path: '/control-room/outreach', label: 'Outreach',      icon: Mail },
   { id: 'communications', path: '/control-room/communications', label: 'Comms', icon: MessageCircle },
