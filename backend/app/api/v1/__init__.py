@@ -48,6 +48,7 @@ from app.api.v1.routes import signal
 from app.api.v1.routes import nexus
 from app.api.v1.routes import constitution
 from app.api.v1.routes import service_registry
+from app.api.v1.routes import catalog_v2
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -89,6 +90,7 @@ api_router.include_router(governance.router, dependencies=[Depends(get_current_c
 api_router.include_router(emergency.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(knowledge.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(catalog.router)
+api_router.include_router(catalog_v2.router)  # New ServiceRegistry-based catalog routes
 api_router.include_router(ai_ops.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(team.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(jarvis.router, dependencies=[Depends(get_current_captain)])
