@@ -79,6 +79,39 @@ fi
 
 mkdir -p "$DEPLOY_DIR/jarvis-data/daily" "$DEPLOY_DIR/jarvis-data/outputs"
 
+# ── P0-1: Enforce DEBUG=false — never runs in debug mode on EC2 ──────────────
+sed -i 's/^DEBUG=.*/DEBUG=false/' "$DEPLOY_DIR/.env"
+echo "=== DEBUG=false enforced in .env ==="
+
+# ── P0-3: SSL certificate via certbot ────────────────────────────────────────
+if [ "$ACTION" = "full-restart" ]; then
+  DOMAIN="${SSL_DOMAIN:-aliyarsolutions.com}"
+  CERT_PATH="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+  if ! command -v certbot &>/dev/null; then
+    echo "=== Installing certbot ==="
+    apt-get install -y certbot 2>/dev/null || snap install --classic certbot 2>/dev/null || true
+  fi
+  if command -v certbot &>/dev/null; then
+    if [ ! -f "$CERT_PATH" ]; then
+      echo "=== Requesting SSL cert for $DOMAIN ==="
+      certbot certonly --standalone --non-interactive --agree-tos \
+        -m "${ADMIN_EMAIL:-admin@aliyarsolutions.com}" \
+        -d "$DOMAIN" -d "www.$DOMAIN" \
+        --pre-hook  "docker stop jarvis_nginx 2>/dev/null || true" \
+        --post-hook "cd /opt/jarvis/infrastructure && docker-compose -p jarvis start nginx 2>/dev/null || true" \
+        2>&1 | tail -20
+      echo "=== SSL cert requested for $DOMAIN ==="
+    else
+      certbot renew --quiet \
+        --deploy-hook "docker exec jarvis_nginx nginx -s reload 2>/dev/null || true" \
+        2>&1 | tail -5
+      echo "=== SSL cert renewal checked for $DOMAIN ==="
+    fi
+  else
+    echo "=== WARNING: certbot not available — SSL not configured ==="
+  fi
+fi
+
 # ── Execute the requested action ─────────────────────────────────────────────
 case "$ACTION" in
 
