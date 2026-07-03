@@ -170,52 +170,68 @@
     "commit": "feat(v4-phase-1): K1-1 through K1-10 kernel foundation"
   },
   "K2-1": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "K1-1",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/kernel/config_service.py — DB-backed KV, 60s hot-reload, 14 built-in defaults",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-2": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "K1-4",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/kernel/sync_protocol.py — read-after-write epochs, asyncio.Event unblocking",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-3": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "K1-2",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/kernel/service_discovery.py — TTL heartbeat registry, 90s timeout, reaper",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-4": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "K2-3",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/kernel/plugin_loader.py — manifest-driven dynamic importlib loading",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-5": {
-    "builder": "DeepSeek",
+    "builder": "Claude",
     "deps": "K1-7",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/kernel/failover_controller.py — 60s CRITICAL threshold, Captain alert, auto_switch config",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-6": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "K1-2,K1-5,K1-7",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/api/v1/routes/kernel_dashboard.py — 13 endpoints, Captain JWT auth",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-7": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "K2-6",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "frontend/src/components/KernelDashboard/index.jsx — 30s auto-refresh, 8 panel grid",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-8": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "each",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/tests/kernel/test_{config_service,sync_protocol,service_discovery,plugin_loader,failover_controller}.py — 53/53 passed",
+    "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "O5-1": {
     "builder": "DeepSeek",

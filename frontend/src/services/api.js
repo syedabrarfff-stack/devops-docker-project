@@ -577,4 +577,19 @@ export const supremeObjectionPlaybook = (type)     => api.get(`/api/v1/supreme/s
 export const supremeOutreachSequence  = (tier)     => api.get(`/api/v1/supreme/sales/sequence/${encodeURIComponent(tier)}`).then(r => r.data)
 export const supremeAnalyzeWinLoss    = (payload)  => api.post('/api/v1/supreme/sales/analyze-win-loss', payload).then(r => r.data)
 
+// KERNEL DASHBOARD — L3 Runtime Kernel Ops (v4)
+export const kernelDashboard  = ()            => api.get('/api/v1/kernel/dashboard').then(r => r.data)
+export const kernelState      = ()            => api.get('/api/v1/kernel/state').then(r => r.data)
+export const kernelHealth     = ()            => api.get('/api/v1/kernel/health').then(r => r.data)
+export const kernelTaskDepth  = ()            => api.get('/api/v1/kernel/tasks/depth').then(r => r.data)
+export const kernelDeadTasks  = ()            => api.get('/api/v1/kernel/tasks/dead').then(r => r.data)
+export const kernelConfig     = ()            => api.get('/api/v1/kernel/config').then(r => r.data)
+export const kernelConfigSet  = (key, value)  => api.put(`/api/v1/kernel/config/${encodeURIComponent(key)}`, { value }).then(r => r.data)
+export const kernelConfigDel  = (key)         => api.delete(`/api/v1/kernel/config/${encodeURIComponent(key)}`).then(r => r.data)
+export const kernelDiscovery  = ()            => api.get('/api/v1/kernel/discovery').then(r => r.data)
+export const kernelPlugins    = ()            => api.get('/api/v1/kernel/plugins').then(r => r.data)
+export const kernelFailover   = ()            => api.get('/api/v1/kernel/failover').then(r => r.data)
+export const kernelAudit      = (limit = 50)  => api.get('/api/v1/kernel/audit', { params: { limit } }).then(r => r.data)
+export const kernelSync       = ()            => api.get('/api/v1/kernel/sync').then(r => r.data)
+
 export default api

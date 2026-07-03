@@ -144,3 +144,6 @@ api_router.include_router(signal.router, dependencies=[Depends(get_current_capta
 api_router.include_router(nexus.router, dependencies=[Depends(get_current_captain)])
 # Layer 19 — Supreme Intelligence: Constitution, CEO, Revenue, Platform, Sales Autonomy
 api_router.include_router(constitution.router, dependencies=[Depends(get_current_captain)])
+# L3 Kernel Ops Dashboard (v4)
+from app.api.v1.routes import kernel_dashboard
+api_router.include_router(kernel_dashboard.router)  # auth already wired on the router
