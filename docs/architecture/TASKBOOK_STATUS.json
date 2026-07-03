@@ -1,45 +1,59 @@
 {
   "C4-1": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "F3-3",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/assembly.py — CouncilAssembler, 7-member catalogue, 12 task categories, availability filtering, weight normalisation, ai_council_assemblies persistence",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-2": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "C4-1,F3-5",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/reasoning.py — ParallelReasoner, asyncio.gather parallel reasoning, ContextSync snapshot, 45s per-member timeout, JSON vote parsing with regex fallback",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-3": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "C4-2",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/conflict_resolution.py — ConflictResolver, pair-wise detection (category_conflict + score_delta≥30), polar_opposition tag, score std-dev, dominant share",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-4": {
-    "builder": "DeepSeek",
+    "builder": "Claude",
     "deps": "C4-3",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/recommendation.py — RecommendationEngine, weighted vote score, conflict penalty (0.04/pair, max 0.25), quorum gate (MIN_QUORUM=2), APPROVE/CAPTAIN_REVIEW/REJECT mapping",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-5": {
     "builder": "Claude",
     "deps": "C4-4",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/__init__.py — ResponseVerifier integration in CouncilSession._verify_recommendation(); non-fatal on verifier error",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-6": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "C4-5",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/__init__.py — CouncilSession._record_to_memory() writes outcome to operational memory via ContextSync.merge() OCC; non-fatal on any error; marks ai_council_assemblies.outcome_verified",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-7": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "each",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/tests/council/ — 73 tests: test_assembly (11), test_conflict_resolution (14), test_reasoning (17), test_recommendation (19), test_session (12); 73/73 passed in 0.84s",
+    "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "F3-1": {
     "builder": "Claude",
