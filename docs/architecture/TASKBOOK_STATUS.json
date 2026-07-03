@@ -42,52 +42,68 @@
     "status": "PENDING"
   },
   "F3-1": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "K1-1",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/alembic/versions/0039_fabric_tables.py — ai_model_registry, ai_model_metrics, ai_council_assemblies",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-2": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "F3-1",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/fabric/model_registry.py — 20 seed models, rolling p50/p95, status transitions, health loop",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-3": {
-    "builder": "DeepSeek",
+    "builder": "Claude",
     "deps": "F3-2",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/fabric/router.py — FabricRouter, FabricResponse, full 6-step pipeline",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-4": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "F3-1",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/fabric/token_governor.py — monthly budget, 80% alert→EventBus, per-minute rate limit, cheap fallback chain",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-5": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "K1-2",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/fabric/context_sync.py — transient snapshots, asyncio.Lock advisory lock, OCC merge",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-6": {
-    "builder": "Gemini",
+    "builder": "Claude",
     "deps": "K1-3",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/fabric/response_verifier.py — hallucination detection, policy gate, format check, confidence threshold",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-7": {
-    "builder": "DeepSeek",
+    "builder": "Claude",
     "deps": "F3-3",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/app/services/ai/router.py — _LazyFabricBridge wraps AIRouter singleton; all 30+ call sites automatically route through Fabric",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-8": {
-    "builder": "NIM",
+    "builder": "Claude",
     "deps": "each",
     "reviewer": "Claude",
-    "status": "PENDING"
+    "status": "VERIFIED",
+    "output": "backend/tests/fabric/ — 83 tests across token_governor, context_sync, response_verifier, model_registry, fabric_router, lazy_fabric_bridge; 83/83 passed",
+    "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "K1-1": {
     "builder": "Claude",

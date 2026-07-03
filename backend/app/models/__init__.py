@@ -106,6 +106,11 @@ from app.models.kernel import (
     DecisionRecord,
     MemoryEntry,
 )
+from app.models.fabric import (
+    ModelRegistry,
+    ModelMetrics,
+    CouncilAssembly,
+)
 
 
 MODEL_MODULES = (

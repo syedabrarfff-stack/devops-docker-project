@@ -577,8 +577,93 @@ def _department_for_task(task_type: str) -> str:
     return mapping.get(task_type, "Command Center")
 
 
-# Singleton instance
-ai_router = AIRouter()
+# ── F3-7: Lazy Fabric Bridge ───────────────────────────────────────────────────
+#
+# Transparent shim that sits in front of the existing AIRouter singleton.
+# All call sites that use `ai_router.chat(...)` automatically flow through
+# the FabricRouter (budget/rate gate → verifier → metrics) without any
+# change at the call site.
+#
+# Fallback: if FabricRouter is unavailable (circular-import guard, startup
+# timing) the shim delegates directly to the real AIRouter.
+
+class _LazyFabricBridge:
+    """AIRouter-compatible shim that delegates to FabricRouter when available."""
+
+    def __init__(self, fallback: "AIRouter") -> None:
+        self._fallback = fallback
+        self._fabric = None
+
+    def _get_fabric(self):
+        if self._fabric is None:
+            try:
+                from app.services.fabric.router import get_fabric_router
+                self._fabric = get_fabric_router()
+            except Exception:
+                pass   # FabricRouter not yet available — use fallback
+        return self._fabric
+
+    async def chat(
+        self,
+        messages,
+        task_type=None,
+        force_provider=None,
+        force_model=None,
+        system_prompt=None,
+        max_tokens: int = 2048,
+        auto_detect: bool = True,
+    ) -> Tuple["AIResponse", str]:
+        fabric = self._get_fabric()
+        if fabric is not None:
+            try:
+                result = await fabric.chat(
+                    messages=messages,
+                    task_type=task_type,
+                    system_prompt=system_prompt or "",
+                    max_tokens=max_tokens,
+                    force_provider=force_provider,
+                    force_model=force_model,
+                )
+                return (
+                    AIResponse(
+                        content=result.content,
+                        model=result.model,
+                        provider=result.provider,
+                        task_type=result.task_type,
+                        tokens_used=result.tokens_used,
+                        latency_ms=result.latency_ms,
+                        cost_estimate_usd=result.cost_estimate_usd,
+                        error=result.error,
+                    ),
+                    result.task_type,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "_LazyFabricBridge: fabric error, falling back — %s", exc
+                )
+        return await self._fallback.chat(
+            messages=messages,
+            task_type=task_type,
+            force_provider=force_provider,
+            force_model=force_model,
+            system_prompt=system_prompt or JARVIS_SYSTEM_PROMPT,
+            max_tokens=max_tokens,
+            auto_detect=auto_detect,
+        )
+
+    def available_providers(self):
+        return self._fallback.available_providers()
+
+    def operational_providers(self):
+        return self._fallback.operational_providers()
+
+    def get_provider_status(self):
+        return self._fallback.get_provider_status()
+
+
+# Singleton instance — wrapped with the Fabric bridge so all call sites
+# transparently flow through the AI Fabric (§4.1: no direct LLM calls).
+ai_router = _LazyFabricBridge(AIRouter())
 
 
 async def route_task(
