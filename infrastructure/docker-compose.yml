@@ -142,7 +142,7 @@ services:
         reservations:
           memory: 256M
 
-  # ─── JARVIS Frontend ──────────────────────────────────────────
+  # ─── Evolution API (WhatsApp) ─────────────────────────────────
   # AIONX WhatsApp transport layer - Evolution API only, no duplicate CRM/memory logic.
   evolution:
     <<: *logging
@@ -154,7 +154,7 @@ services:
     environment:
       SERVER_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
       DEL_INSTANCE: "false"
-      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?EVOLUTION_API_KEY must be set in .env}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-changeme}
       LOG_LEVEL: ${EVOLUTION_LOG_LEVEL:-ERROR}
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
