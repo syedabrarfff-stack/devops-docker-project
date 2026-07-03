@@ -108,3 +108,25 @@ Legend: `deps` = task IDs that must be VERIFIED first. `est` = focused hours.
 Task status lives in `docs/architecture/TASKBOOK_STATUS.json`:
 `{"K1-2": {"status": "VERIFIED|DRAFT|IN_REVIEW|REJECTED|PENDING", "builder": "...", "reviewer": "...", "commit": "..."}}`
 Updated on every transition. This file is the coordination point for all parallel agents.
+
+## PHASE 6A — REVENUE ACTIVATION
+
+| ID | Task | Output | builder | reviewer | deps | est |
+|----|------|--------|---------|----------|------|-----|
+| R6-1 | Slack bot (two-way: slash commands + events) | `notifications/slack_bot.py` + `routes/slack_bot.py` | Claude | Claude | — | 3 |
+| R6-2 | Zapier / Make.com webhook gateway | `integrations/zapier_gateway.py` + `routes/zapier.py` | Claude | Claude | — | 3 |
+| R6-3 | White-label licensing manager + Captain routes | `whitelabel/license_manager.py` + `routes/captain_whitelabel.py` | Claude | Claude | K1-8 | 4 |
+| R6-4 | LinkedIn outreach activation (Proxycurl enrichment + scheduler) | `outreach/linkedin_outreach.py` + scheduler job | Claude | Claude | — | 4 |
+| R6-5 | Revenue activation dashboard (frontend) | `components/RevenueActivation/index.jsx` | Claude | Claude | R6-1..R6-4 | 3 |
+| R6-6 | Phase 6A tests | `backend/tests/revenue/` | Claude | Claude | each | 3 |
+
+## PHASE 6B — VOICE & MEDIA
+
+| ID | Task | Output | builder | reviewer | deps | est |
+|----|------|--------|---------|----------|------|-----|
+| V6-1 | WhatsApp voice transcription pipeline (Whisper) | `voice/transcription.py` + `routes/voice_webhook.py` | Claude | Claude | — | 4 |
+| V6-2 | Voice briefing activation (ElevenLabs → Telegram voice note) | `voice/briefing_voice.py` | Claude | Claude | V6-1 | 3 |
+| V6-3 | Call summariser (record → transcribe → AI summary → memory) | `voice/call_summariser.py` + `routes/call_recording.py` | Claude | Claude | V6-1 | 4 |
+| V6-4 | WhatsApp voice automation (TTS → Evolution send) | `voice/whatsapp_voice.py` | Claude | Claude | V6-2 | 3 |
+| V6-5 | Voice analytics + scheduler job | `voice/analytics.py` + scheduler registration | Claude | Claude | V6-4 | 2 |
+| V6-6 | Phase 6B tests | `backend/tests/voice/` | Claude | Claude | each | 3 |

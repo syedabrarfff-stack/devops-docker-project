@@ -98,6 +98,7 @@ import NexusCore from './components/nexus/NexusCore'
 import SupremeDashboard from './components/supreme/SupremeDashboard'
 import MonitoringDashboard from './components/monitoring/MonitoringDashboard'
 import KernelDashboard from './components/KernelDashboard'
+import RevenueActivation from './components/RevenueActivation'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -176,6 +177,8 @@ export const VIEWS = {
   // Real-time Monitoring & Metrics
   monitoring:        { path: controlPath('/monitoring'),          title: 'System Monitoring',       Component: MonitoringDashboard },
   kernel:            { path: controlPath('/kernel'),              title: 'Kernel Ops Dashboard',    Component: KernelDashboard },
+  // Phase 6A — Revenue Activation
+  revenueActivation: { path: controlPath('/revenue-activation'),  title: 'Revenue Activation',      Component: RevenueActivation },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

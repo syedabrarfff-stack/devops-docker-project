@@ -135,6 +135,20 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
 
+    # Slack Bot (two-way: Phase 6A)
+    SLACK_BOT_TOKEN: Optional[str] = None
+    SLACK_SIGNING_SECRET: Optional[str] = None
+
+    # Zapier / Make.com webhook gateway (Phase 6A)
+    ZAPIER_WEBHOOK_SECRET: Optional[str] = None
+    MAKE_WEBHOOK_SECRET: Optional[str] = None
+    ZAPIER_LEAD_QUALIFIED_HOOK: Optional[str] = None
+    ZAPIER_PROPOSAL_SENT_HOOK: Optional[str] = None
+    MAKE_APPROVAL_HOOK: Optional[str] = None
+
+    # LinkedIn outreach (Phase 6A — Proxycurl enrichment)
+    PROXYCURL_API_KEY: Optional[str] = None
+
     # n8n Automation Platform
     N8N_BASE_URL: str = "https://automation.aliyarsolutions.com"
     N8N_WEBHOOK_URL: str = "https://automation.aliyarsolutions.com/webhook"

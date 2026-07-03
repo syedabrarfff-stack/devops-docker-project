@@ -64,6 +64,7 @@ const NAV = [
   { id: 'nexus',            path: '/control-room/nexus',             label: 'NEXUS Core',        icon: Infinity },
   { id: 'supreme',         path: '/control-room/supreme',           label: 'Supreme Intel',     icon: Scale },
   { id: 'kernel',          path: '/control-room/kernel',            label: 'Kernel Ops',        icon: HardDrive },
+  { id: 'revenueActivation', path: '/control-room/revenue-activation', label: 'Rev Activation', icon: TrendingUp },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

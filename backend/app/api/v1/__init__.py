@@ -47,6 +47,10 @@ from app.api.v1.routes import autopilot
 from app.api.v1.routes import signal
 from app.api.v1.routes import nexus
 from app.api.v1.routes import constitution
+# Phase 6A — Revenue Activation
+from app.api.v1.routes import slack_bot, zapier, captain_whitelabel
+# Phase 6B — Voice & Media
+from app.api.v1.routes import voice_webhook
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -147,3 +151,9 @@ api_router.include_router(constitution.router, dependencies=[Depends(get_current
 # L3 Kernel Ops Dashboard (v4)
 from app.api.v1.routes import kernel_dashboard
 api_router.include_router(kernel_dashboard.router)  # auth already wired on the router
+# Phase 6A — Revenue Activation
+api_router.include_router(slack_bot.router)          # public — Slack HMAC-verified
+api_router.include_router(zapier.router)             # public — Zapier/Make HMAC-verified
+api_router.include_router(captain_whitelabel.router, dependencies=[Depends(get_current_captain)])
+# Phase 6B — Voice & Media
+api_router.include_router(voice_webhook.router)      # mixed auth — see route decorators

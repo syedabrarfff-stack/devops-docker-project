@@ -335,6 +335,20 @@ async def _register_default_jobs() -> None:
     except Exception as _exc:
         logger.warning("routing_optimizer job registration skipped: %s", _exc)
 
+    # ── LinkedIn Outreach Sweep — every 2h (R6-4) ─────────────────────────────
+    try:
+        from app.services.outreach.linkedin_outreach import register_linkedin_job
+        register_linkedin_job()
+    except Exception as _exc:
+        logger.warning("linkedin_outreach job registration skipped: %s", _exc)
+
+    # ── Voice Analytics — daily 04:30 UTC (V6-5) ──────────────────────────────
+    try:
+        from app.services.voice.analytics import register_voice_analytics_job
+        register_voice_analytics_job()
+    except Exception as _exc:
+        logger.warning("voice_analytics job registration skipped: %s", _exc)
+
     logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Daily Briefing + Weekly Performance + Nightly Signal Scan)")
 
 
