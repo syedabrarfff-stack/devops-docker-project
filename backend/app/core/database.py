@@ -69,20 +69,27 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(JarvisBase.metadata.create_all)
-        if not _is_sqlite:
-            await conn.execute(
-                text(
-                    """
-                    CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid uuid)
-                    RETURNS void AS $$
-                    BEGIN
-                        PERFORM set_config('app.current_tenant_id', tenant_uuid::text, true);
-                    END;
-                    $$ LANGUAGE plpgsql;
-                    """
+
+    if not _is_sqlite:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        """
+                        CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid uuid)
+                        RETURNS void AS $$
+                        BEGIN
+                            PERFORM set_config('app.current_tenant_id', tenant_uuid::text, true);
+                        END;
+                        $$ LANGUAGE plpgsql;
+                        """
+                    )
                 )
-            )
-            try:
+        except Exception as exc:
+            logger.warning("set_tenant_context function creation skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 for table_name in (
                     "memories",
@@ -97,9 +104,11 @@ async def create_tables() -> None:
                             "ADD COLUMN IF NOT EXISTS embedding_vector vector(1536)"
                         )
                     )
-            except Exception as exc:
-                logger.warning("pgvector startup schema step skipped: %s", exc)
-            try:
+        except Exception as exc:
+            logger.warning("pgvector startup schema step skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS timezone VARCHAR(80)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS qualification_status VARCHAR(40)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS loss_reason VARCHAR(80)"))
@@ -112,14 +121,16 @@ async def create_tables() -> None:
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_loss_reason ON leads (loss_reason)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_outreach_eligible ON leads (outreach_eligible)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_review_queue ON leads (review_queue)"))
-            except Exception as exc:
-                logger.warning("lead safety column startup schema step skipped: %s", exc)
-            try:
+        except Exception as exc:
+            logger.warning("lead safety column startup schema step skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("ALTER TYPE outreach_status ADD VALUE IF NOT EXISTS 'SKIPPED'"))
                 await conn.execute(text("ALTER TABLE outreach_log ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(160)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_outreach_log_skip_reason ON outreach_log (skip_reason)"))
-            except Exception as exc:
-                logger.warning("outreach status startup schema step skipped: %s", exc)
+        except Exception as exc:
+            logger.warning("outreach status startup schema step skipped: %s", exc)
 
 
 async def init_db() -> None:
