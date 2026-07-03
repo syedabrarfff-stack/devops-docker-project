@@ -1,0 +1,284 @@
+{
+  "C4-1": {
+    "builder": "Gemini",
+    "deps": "F3-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-2": {
+    "builder": "NIM",
+    "deps": "C4-1,F3-5",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-3": {
+    "builder": "Gemini",
+    "deps": "C4-2",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-4": {
+    "builder": "DeepSeek",
+    "deps": "C4-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-5": {
+    "builder": "Claude",
+    "deps": "C4-4",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-6": {
+    "builder": "NIM",
+    "deps": "C4-5",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "C4-7": {
+    "builder": "NIM",
+    "deps": "each",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-1": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-2": {
+    "builder": "Gemini",
+    "deps": "F3-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-3": {
+    "builder": "DeepSeek",
+    "deps": "F3-2",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-4": {
+    "builder": "NIM",
+    "deps": "F3-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-5": {
+    "builder": "Gemini",
+    "deps": "K1-2",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-6": {
+    "builder": "Gemini",
+    "deps": "K1-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-7": {
+    "builder": "DeepSeek",
+    "deps": "F3-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "F3-8": {
+    "builder": "NIM",
+    "deps": "each",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-1": {
+    "builder": "NIM",
+    "deps": "\u2014",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-10": {
+    "builder": "NIM",
+    "deps": "each",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-2": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-3": {
+    "builder": "Gemini",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-4": {
+    "builder": "NIM",
+    "deps": "\u2014",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-5": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-6": {
+    "builder": "DeepSeek",
+    "deps": "K1-4",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-7": {
+    "builder": "Gemini",
+    "deps": "K1-4",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-8": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K1-9": {
+    "builder": "Gemini",
+    "deps": "K1-2,K1-5",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-1": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-2": {
+    "builder": "Gemini",
+    "deps": "K1-4",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-3": {
+    "builder": "NIM",
+    "deps": "K1-2",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-4": {
+    "builder": "Gemini",
+    "deps": "K2-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-5": {
+    "builder": "DeepSeek",
+    "deps": "K1-7",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-6": {
+    "builder": "NIM",
+    "deps": "K1-2,K1-5,K1-7",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-7": {
+    "builder": "NIM",
+    "deps": "K2-6",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "K2-8": {
+    "builder": "NIM",
+    "deps": "each",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-1": {
+    "builder": "DeepSeek",
+    "deps": "F3-3, 30d data",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-2": {
+    "builder": "NIM",
+    "deps": "F3-7",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-3": {
+    "builder": "Claude",
+    "deps": "F3-3",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-4": {
+    "builder": "Claude",
+    "deps": "K2-5",
+    "reviewer": "Captain",
+    "status": "PENDING"
+  },
+  "O5-5": {
+    "builder": "NIM",
+    "deps": "\u2014",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-6": {
+    "builder": "NIM",
+    "deps": "K1-8",
+    "reviewer": "Claude",
+    "status": "PENDING"
+  },
+  "O5-7": {
+    "builder": "Claude",
+    "deps": "ALL",
+    "reviewer": "Captain",
+    "status": "PENDING"
+  },
+  "P0-1": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "0.5",
+    "status": "PENDING"
+  },
+  "P0-2": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "1",
+    "status": "PENDING"
+  },
+  "P0-3": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "1",
+    "status": "PENDING"
+  },
+  "P0-4": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "0.5",
+    "status": "PENDING"
+  },
+  "P0-5": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "1",
+    "status": "PENDING"
+  },
+  "P0-6": {
+    "builder": "\u2014",
+    "deps": "",
+    "reviewer": "1",
+    "status": "PENDING"
+  },
+  "P0-7": {
+    "builder": "P0-5",
+    "deps": "",
+    "reviewer": "1",
+    "status": "PENDING"
+  }
+}

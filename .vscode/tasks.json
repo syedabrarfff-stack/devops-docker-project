@@ -295,6 +295,42 @@
         "reveal": "always",
         "panel": "new"
       }
+    },
+    {
+      "label": "🏗️ V4: Task Book Status",
+      "type": "shell",
+      "command": "python3 scripts/agent_bridge.py status",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🏗️ V4: Draft One Task",
+      "type": "shell",
+      "command": "read -p 'Task ID (e.g. K1-2): ' tid && python3 scripts/agent_bridge.py draft \"$tid\"",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "📖 V4: Open Architecture Doc",
+      "type": "shell",
+      "command": "${env:EDITOR:-code} docs/architecture/JARVIS_V4_ARCHITECTURE.md",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "📖 V4: Open Task Book",
+      "type": "shell",
+      "command": "${env:EDITOR:-code} docs/architecture/JARVIS_V4_TASKBOOK.md",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
     }
   ]
 }
