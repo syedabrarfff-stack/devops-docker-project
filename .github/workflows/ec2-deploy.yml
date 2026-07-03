@@ -44,6 +44,9 @@ jobs:
 
     steps:
 
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials (OIDC — no secrets needed)
         id: aws_creds
         continue-on-error: true
@@ -53,7 +56,7 @@ jobs:
           role-session-name: JarvisGitHubDeploy
           aws-region: ap-south-2
 
-      # ── SSM path (uses AWS credentials) ───────────────────────────────────
+      # ── SSM path (uses AWS credentials) ─────────────────────────────────────
       - name: Deploy via SSM
         id: ssm
         if: steps.aws_creds.outcome == 'success'
@@ -73,216 +76,13 @@ jobs:
           echo "EC2 Instance: $INSTANCE_ID"
           [ -z "$INSTANCE_ID" ] && { echo "No running instance"; exit 1; }
 
-          # ── Write the deploy script with single-quote heredoc (no expansion) ──
-          # __GHTOKEN__ is replaced by sed below before base64 encoding.
-          cat > /tmp/jarvis-deploy.sh << 'DEPLOY_SCRIPT_EOF'
-#!/bin/bash
-set -e
-ACTION="${1:-full-restart}"
-GH_TOKEN="__GHTOKEN__"
+          # Inject GitHub token into the deploy script then base64-encode it.
+          # The script file lives in the repo — no YAML heredoc issues.
+          # base64 alphabet is [A-Za-z0-9+/=] — JSON-safe, no single-quote chars.
+          sed "s|__GHTOKEN__|${GH_TOKEN}|g" scripts/ec2-deploy-script.sh > /tmp/inject.sh
+          SCRIPT_B64=$(base64 -w0 /tmp/inject.sh)
 
-# ── Locate deploy directory ───────────────────────────────────────────────
-DEPLOY_DIR=/opt/jarvis
-if [ ! -f /opt/jarvis/infrastructure/docker-compose.yml ]; then
-  DEPLOY_DIR=/home/ubuntu/devops-docker-project
-fi
-
-# ── First-install: clone repo if docker-compose.yml is missing ───────────
-if [ ! -f "$DEPLOY_DIR/infrastructure/docker-compose.yml" ]; then
-  apt-get install -y git curl 2>/dev/null || true
-  git clone "https://x-access-token:${GH_TOKEN}@github.com/syedabrarfff-stack/devops-docker-project.git" /opt/jarvis 2>&1 | tail -5
-  DEPLOY_DIR=/opt/jarvis
-fi
-
-echo "=== DEPLOY DIR: $DEPLOY_DIR ==="
-cd "$DEPLOY_DIR"
-
-# ── Install docker-compose if missing ────────────────────────────────────
-which docker-compose 2>/dev/null || {
-  curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
-    -o /usr/local/bin/docker-compose
-  chmod +x /usr/local/bin/docker-compose
-}
-
-# ── Configure git credentials (ephemeral — cleaned up at end) ────────────
-git config --global credential.helper store
-printf 'https://x-access-token:%s@github.com\n' "${GH_TOKEN}" > /root/.git-credentials
-chmod 600 /root/.git-credentials
-echo "Git credentials configured"
-
-# ── Fetch + pull latest code ─────────────────────────────────────────────
-GIT_FETCH_OK=false
-for i in 1 2 3 4 5; do
-  git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && { GIT_FETCH_OK=true; break; } || { echo "git fetch attempt $i/5 failed"; sleep 20; }
-done
-if [ "$GIT_FETCH_OK" != "true" ]; then
-  echo "ERROR: All git fetch attempts failed — aborting"
-  exit 1
-fi
-
-git checkout claude/jarvis-cans-api-integration-ZThTD 2>/dev/null || true
-git clean -f -- public-site/ 2>/dev/null || true
-
-for i in 1 2 3 4 5; do
-  git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || { echo "git pull attempt $i/5 failed"; sleep 20; }
-done
-echo "=== LATEST: $(git log --oneline -1) ==="
-
-# ── Ensure .env exists ───────────────────────────────────────────────────
-if [ ! -f "$DEPLOY_DIR/.env" ]; then
-  cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env"
-  echo "Created .env from .env.example"
-fi
-
-# ── Fix placeholder passwords so docker-compose can start ────────────────
-# The :? operator in docker-compose.yml causes a hard failure if these are unset.
-if grep -qE "REPLACE_WITH_STRONG_DB_PASSWORD|REPLACE_WITH_STRONG_REDIS_PASSWORD|change-this-to-a-long-random-secret-key" "$DEPLOY_DIR/.env" 2>/dev/null; then
-  echo "=== Generating random passwords to replace placeholders ==="
-  DB_PASS=$(openssl rand -hex 32)
-  REDIS_PASS=$(openssl rand -hex 24)
-  SECRET_KEY=$(openssl rand -hex 64)
-  sed -i "s|REPLACE_WITH_STRONG_DB_PASSWORD|${DB_PASS}|g"         "$DEPLOY_DIR/.env"
-  sed -i "s|REPLACE_WITH_STRONG_REDIS_PASSWORD|${REDIS_PASS}|g"   "$DEPLOY_DIR/.env"
-  sed -i "s|change-this-to-a-long-random-secret-key|${SECRET_KEY}|g" "$DEPLOY_DIR/.env"
-  sed -i "s|change-this-to-a-strong-password|JarvisAdmin2025!|g"  "$DEPLOY_DIR/.env"
-  echo "=== Passwords generated and saved to .env ==="
-fi
-
-mkdir -p "$DEPLOY_DIR/jarvis-data/daily" "$DEPLOY_DIR/jarvis-data/outputs"
-
-# ── Execute the requested action ─────────────────────────────────────────
-case "$ACTION" in
-
-  nginx-reload)
-    cd "$DEPLOY_DIR/infrastructure"
-    docker-compose -p jarvis exec -T nginx nginx -s reload 2>/dev/null || docker-compose -p jarvis restart nginx
-    curl -sf http://localhost/health && echo HEALTH_OK || echo HEALTH_FAIL
-    ;;
-
-  git-pull-only)
-    echo "=== GIT PULL COMPLETE ==="
-    git log --oneline -3
-    ;;
-
-  frontend-only)
-    cd "$DEPLOY_DIR/infrastructure"
-    docker-compose -p jarvis build --no-cache frontend > /tmp/frontend_build.log 2>&1 && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_FAILED
-    tail -15 /tmp/frontend_build.log
-    docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3
-    sleep 5
-    curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
-    docker-compose -p jarvis ps frontend
-    ;;
-
-  backend-only)
-    cd "$DEPLOY_DIR/infrastructure"
-    docker stop jarvis_backend 2>/dev/null || true
-    docker rm jarvis_backend 2>/dev/null || true
-    fuser -k 8000/tcp 2>/dev/null || true
-    lsof -ti:8000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    sleep 2
-    docker-compose -p jarvis up -d --no-deps --build backend 2>&1 | tail -5
-    sleep 20
-    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -10 || echo MIGRATION_ATTEMPTED
-    sleep 5
-    curl -sf http://localhost:8000/health && echo BACKEND_HEALTHY || echo BACKEND_FAIL
-    docker-compose -p jarvis ps
-    ;;
-
-  verify-status)
-    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-    curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
-    curl -sf http://localhost:8000/health && echo BACKEND_OK || echo BACKEND_DOWN
-    docker exec jarvis_backend alembic current 2>/dev/null || true
-    ;;
-
-  *)
-    # full-restart
-    cd "$DEPLOY_DIR/infrastructure"
-
-    echo "=== CLEARING STALE CONTAINERS ==="
-    docker stop jarvis_backend jarvis_nginx 2>/dev/null || true
-    docker rm jarvis_backend jarvis_nginx 2>/dev/null || true
-    docker ps -q --filter publish=8000 | xargs -r docker stop 2>/dev/null || true
-    docker ps -aq --filter publish=8000 | xargs -r docker rm 2>/dev/null || true
-
-    echo "=== STARTING DEPS (postgres + redis) ==="
-    docker-compose -p jarvis up -d postgres redis 2>&1 | tail -3
-    sleep 15
-
-    echo "=== CLEARING PYCACHE ==="
-    find "$DEPLOY_DIR/backend" -type d -name __pycache__ | xargs -r rm -rf 2>/dev/null || true
-    find "$DEPLOY_DIR/backend" -name '*.pyc' | xargs -r rm -f 2>/dev/null || true
-
-    echo "=== REBUILDING BACKEND ==="
-    if docker-compose -p jarvis build --no-cache backend > /tmp/build.log 2>&1; then
-      echo BUILD_OK
-      tail -30 /tmp/build.log
-    else
-      echo BUILD_FAILED
-      tail -30 /tmp/build.log
-      exit 1
-    fi
-
-    echo "=== RELEASING PORT 8000 ==="
-    fuser -k 8000/tcp 2>/dev/null || true
-    lsof -ti:8000 2>/dev/null | xargs -r kill -9 2>/dev/null || true
-    sleep 3
-
-    docker-compose -p jarvis up -d --no-deps backend 2>&1 | tail -3
-
-    echo "=== REBUILDING NGINX ==="
-    docker-compose -p jarvis up -d --no-deps --build nginx 2>&1 | tail -3
-
-    echo "=== REBUILDING FRONTEND ==="
-    docker-compose -p jarvis build --no-cache frontend > /tmp/frontend_build.log 2>&1 && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_WARN
-    tail -10 /tmp/frontend_build.log
-    docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3
-
-    echo "=== WAITING FOR BACKEND STARTUP (45s) ==="
-    sleep 45
-
-    echo "=== BACKEND CONTAINER STATUS ==="
-    docker inspect jarvis_backend --format='{{.State.Status}}' 2>/dev/null || echo no_container
-
-    echo "=== RUNNING ALEMBIC MIGRATIONS ==="
-    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -10 \
-      || docker exec jarvis_backend alembic upgrade head 2>&1 | tail -10 \
-      || echo MIGRATION_ATTEMPTED
-
-    sleep 5
-
-    echo "=== HEALTH CHECKS ==="
-    curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL
-    curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || echo BACKEND_HEALTH_FAIL
-
-    echo "=== BACKEND LOGS TAIL ==="
-    docker logs jarvis_backend --tail=30 2>&1 | tail -30
-
-    echo "=== TRIGGERING PIPELINE ==="
-    curl -sf -X POST "http://localhost:8000/api/v1/leads/bulk-discover?limit=200" && echo BULK_DISCOVER_TRIGGERED || echo BULK_DISCOVER_FAIL
-    curl -sf -X POST "http://localhost:8000/api/v1/crm/hubspot-sync" && echo HUBSPOT_SYNC_TRIGGERED || echo HUBSPOT_SYNC_FAIL
-
-    WA=$(curl -sf http://localhost:8080/instance/connectionState/jarvis-main -H apikey:jarvis-master-key 2>/dev/null || echo "{}")
-    echo "WhatsApp state: $WA"
-
-    echo "=== DOCKER STATUS ==="
-    docker-compose -p jarvis ps
-
-    echo "=== DEPLOY_COMPLETE ==="
-    ;;
-esac
-
-# Clean up ephemeral git credentials
-rm -f /root/.git-credentials
-DEPLOY_SCRIPT_EOF
-
-          # Inject GitHub token (alphanumeric+_ only — safe for sed with | delimiter)
-          sed -i "s|__GHTOKEN__|${GH_TOKEN}|g" /tmp/jarvis-deploy.sh
-
-          # Base64-encode the script (output is [A-Za-z0-9+/=] — JSON-safe, no single quotes)
-          SCRIPT_B64=$(base64 -w0 /tmp/jarvis-deploy.sh)
-
+          # Single SSM command: decode and run the script with ACTION as $1
           CMD_ID=$(aws ssm send-command \
             --region ap-south-2 \
             --instance-ids "$INSTANCE_ID" \
@@ -327,14 +127,14 @@ DEPLOY_SCRIPT_EOF
               exit 1
             elif [ "$STATUS" = "Success" ]; then
               echo "=== SSM succeeded but backend health unknown ==="
-              echo "$OUTPUT" | grep -E "HEALTH_OK|HEALTH_FAIL|READYZ|BUILD_|DEPLOY_COMPLETE" || true
+              echo "$OUTPUT" | grep -E "HEALTH_OK|HEALTH_FAIL|BUILD_|DEPLOY_COMPLETE" || true
               exit 1
             else
               echo "=== SSM FAILED — check output above ==="
               exit 1
             fi
           elif [ "$STATUS" = "InProgress" ]; then
-            echo "=== SSM STILL RUNNING — Docker build >13 min (normal). Checking status... ==="
+            echo "=== SSM STILL RUNNING — Docker build >13 min on EC2 (normal). Checking status... ==="
             sleep 90
             STATUS_CMDS='["curl -sf http://localhost:8000/health && echo BACKEND_OK || echo BACKEND_FAIL","curl -sf http://localhost/health && echo NGINX_OK || echo NGINX_FAIL","docker logs jarvis_backend --tail=20 2>&1 || true"]'
             STATUS_CMD=$(aws ssm send-command \
@@ -364,7 +164,7 @@ DEPLOY_SCRIPT_EOF
             exit 1
           fi
 
-      # ── SSH path (fallback when AWS creds missing) ─────────────────────────
+      # ── SSH path (fallback when AWS creds missing) ───────────────────────────
       - name: Deploy via SSH (fallback)
         id: ssh_deploy
         if: steps.aws_creds.outcome != 'success' || steps.ssm.outcome == 'failure'
@@ -381,17 +181,18 @@ DEPLOY_SCRIPT_EOF
             set -e
             DEPLOY_DIR=/opt/jarvis
             [ -f /opt/jarvis/infrastructure/docker-compose.yml ] || DEPLOY_DIR=/home/ubuntu/devops-docker-project
-
             echo "=== DEPLOY DIR: $DEPLOY_DIR ==="
             cd $DEPLOY_DIR
 
             for i in 1 2 3 4 5; do
-              git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || { echo "git fetch attempt $i/5 failed"; sleep 15; }
+              git fetch origin claude/jarvis-cans-api-integration-ZThTD 2>&1 \
+                && break || { echo "git fetch attempt $i/5 failed"; sleep 15; }
             done
             git checkout claude/jarvis-cans-api-integration-ZThTD 2>/dev/null || true
             git clean -f -- public-site/ 2>/dev/null || true
             for i in 1 2 3 4 5; do
-              git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 && break || { echo "git pull attempt $i/5 failed"; sleep 15; }
+              git pull origin claude/jarvis-cans-api-integration-ZThTD 2>&1 \
+                && break || { echo "git pull attempt $i/5 failed"; sleep 15; }
             done
             echo "=== LATEST: $(git log --oneline -1) ==="
 
@@ -403,37 +204,24 @@ DEPLOY_SCRIPT_EOF
             if [ "$ACTION" = "nginx-reload" ]; then
               docker-compose exec -T nginx nginx -s reload || docker-compose restart nginx
               curl -sf http://localhost/health && echo "NGINX OK" || echo "NGINX FAIL"
-
             elif [ "$ACTION" = "verify-status" ]; then
               docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
               curl -sf http://localhost:8000/health && echo "BACKEND OK" || echo "BACKEND DOWN"
-
             else
-              echo "=== REBUILDING BACKEND ==="
               docker-compose up -d --no-deps --build backend 2>&1 | tail -10
-
-              echo "=== REBUILDING NGINX ==="
               docker-compose up -d --no-deps --build nginx 2>&1 | tail -5
-
-              echo "=== REBUILDING FRONTEND ==="
               docker-compose up -d --no-deps --build frontend 2>&1 | tail -5
-
               sleep 25
-
-              echo "=== RUNNING MIGRATIONS ==="
               docker-compose exec -T backend alembic upgrade head 2>&1 || \
                 docker exec jarvis_backend alembic upgrade head 2>&1 || \
                 echo "MIGRATION_ATTEMPTED"
-
               sleep 5
-
               curl -sf http://localhost/health && echo "NGINX_PROXY: OK" || echo "NGINX_PROXY: FAIL"
               curl -sf http://localhost:8000/health && echo "BACKEND: OK" || echo "BACKEND: FAIL"
-
               echo "=== DEPLOY COMPLETE ==="
             fi
 
-      # ── Final status report ────────────────────────────────────────────────
+      # ── Final status report ──────────────────────────────────────────────────
       - name: Status Report
         if: always()
         run: |
@@ -449,8 +237,8 @@ DEPLOY_SCRIPT_EOF
           GRAFANA=$(curl -so /dev/null -w "%{http_code}" --connect-timeout 5 https://aliyarsolutions.com/grafana/ 2>/dev/null || echo "000")
 
           echo "║  /health:    HTTP $HEALTH  (200=OK  502=backend down  000=nginx down)"
-          echo "║  /evolution: HTTP $EVOL   (200=OK)"
-          echo "║  /grafana:   HTTP $GRAFANA   (401=running)"
+          echo "║  /evolution: HTTP $EVOL"
+          echo "║  /grafana:   HTTP $GRAFANA  (401=running)"
 
           WA_STATE=$(curl -sf --connect-timeout 5 \
             "https://aliyarsolutions.com/evolution/instance/connectionState/jarvis-main" \
@@ -463,11 +251,7 @@ DEPLOY_SCRIPT_EOF
             echo "║  ✅ BACKEND IS UP AND HEALTHY"
           else
             echo "║  ❌ BACKEND DOWN (HTTP $HEALTH)"
-            echo "║"
             echo "║  To enable SSH fallback, add GitHub secret EC2_SSH_KEY:"
-            echo "║  github.com/syedabrarfff-stack/devops-docker-project"
-            echo "║  → Settings → Secrets → Actions → New repository secret"
-            echo "║  Name: EC2_SSH_KEY"
-            echo "║  Value: contents of your EC2 private key (.pem)"
+            echo "║  (EC2 private key .pem file contents)"
           fi
           echo "╚══════════════════════════════════════════════════╝"
