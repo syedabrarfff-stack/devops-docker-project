@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import collections
+import json
 import logging
 import time
 import uuid
@@ -377,6 +379,216 @@ def _limit_response(message: str, tenant_id: str, limits: dict) -> JSONResponse:
             "limits": limits,
         },
     )
+
+
+# ── O5-5: IP Rate Limiting Middleware ─────────────────────────────────────────
+#
+# Sliding window per client IP.  Window = 60 seconds.
+# - Global limit:         300 requests / 60s per IP
+# - Sensitive-path limit:  20 requests / 60s per IP
+#
+# "Sensitive" paths are any /api/v1/ routes that modify state (POST/PUT/PATCH/DELETE)
+# or any path whose prefix is in _SENSITIVE_PREFIXES.
+#
+# Implementation: in-process dict of deque[float] (arrival timestamps).
+# Fine for single-process deployments (ECS single-task) and development.
+# In a multi-replica deployment replace with a Redis INCR + EXPIRE approach.
+
+_IP_WINDOW_SECS   = 60
+_IP_GLOBAL_LIMIT  = 300
+_IP_SENSITIVE_LIMIT = 20
+
+_SENSITIVE_PREFIXES = (
+    "/api/v1/captain",
+    "/api/v1/kernel",
+    "/api/v1/council",
+    "/api/v1/approvals",
+    "/api/v1/emergency",
+    "/api/v1/scheduler",
+    "/api/v1/ai-ops",
+)
+
+# deque of (window_key, timestamps) — one deque per (ip, bucket) pair
+_ip_windows: dict[str, collections.deque] = collections.defaultdict(collections.deque)
+
+_audit_log = logging.getLogger("jarvis.request_audit")
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _is_sensitive(request: Request) -> bool:
+    path = request.url.path
+    if any(path.startswith(p) for p in _SENSITIVE_PREFIXES):
+        return True
+    if path.startswith("/api/v1/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        return True
+    return False
+
+
+def _sliding_window_check(key: str, limit: int, now: float) -> bool:
+    """Return True if the request should be allowed, False if rate-limited."""
+    window = _ip_windows[key]
+    cutoff = now - _IP_WINDOW_SECS
+    while window and window[0] < cutoff:
+        window.popleft()
+    if len(window) >= limit:
+        return False
+    window.append(now)
+    return True
+
+
+class IPRateLimitMiddleware(BaseHTTPMiddleware):
+    """O5-5: Per-IP sliding-window rate limiter.
+
+    Two-tier: global 300/min per IP, sensitive-path 20/min per IP.
+    Health and metrics endpoints are exempt.
+    """
+
+    _EXEMPT_PATHS = frozenset({"/health", "/readyz", "/metrics", "/favicon.ico"})
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        if path in self._EXEMPT_PATHS:
+            return await call_next(request)
+
+        ip = _client_ip(request)
+        now = time.monotonic()
+
+        # Sensitive-path check first (stricter).
+        if _is_sensitive(request):
+            if not _sliding_window_check(f"{ip}:sensitive", _IP_SENSITIVE_LIMIT, now):
+                logger.warning("rate_limit: sensitive path blocked ip=%s path=%s", ip, path)
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": "Rate limit exceeded",
+                        "detail": f"Max {_IP_SENSITIVE_LIMIT} requests/min on this endpoint.",
+                        "retry_after": _IP_WINDOW_SECS,
+                    },
+                    headers={"Retry-After": str(_IP_WINDOW_SECS)},
+                )
+
+        # Global per-IP check.
+        if not _sliding_window_check(f"{ip}:global", _IP_GLOBAL_LIMIT, now):
+            logger.warning("rate_limit: global limit exceeded ip=%s path=%s", ip, path)
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={
+                    "error": "Rate limit exceeded",
+                    "detail": f"Max {_IP_GLOBAL_LIMIT} requests/min per IP.",
+                    "retry_after": _IP_WINDOW_SECS,
+                },
+                headers={"Retry-After": str(_IP_WINDOW_SECS)},
+            )
+
+        return await call_next(request)
+
+
+# ── O5-6: Structured Request Audit Logging Middleware ─────────────────────────
+#
+# Emits a structured JSON audit record for every non-health request.
+# For mutating requests (POST/PUT/PATCH/DELETE) on /api/v1/ paths it also
+# writes an append-only record to the kernel audit_log table via AuditLogger
+# (K1-8) — giving Captain a queryable record of every system mutation.
+#
+# The structured log line goes to the "jarvis.request_audit" logger.
+# JSON format:
+#   {ts, method, path, status, latency_ms, ip, request_id, tenant_id, actor}
+
+_MUTATION_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_AUDIT_SKIP_PATHS = frozenset({"/health", "/readyz", "/metrics", "/favicon.ico"})
+
+
+class RequestAuditMiddleware(BaseHTTPMiddleware):
+    """O5-6: Structured request audit logging (K1-8 integration).
+
+    Every request → structured JSON log.
+    Every mutation on /api/v1/ → also persisted to audit_log table.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        if path in _AUDIT_SKIP_PATHS:
+            return await call_next(request)
+
+        t0 = time.monotonic()
+        response = await call_next(request)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+        ip         = _client_ip(request)
+        request_id = getattr(request.state, "request_id", "-")
+        tenant_id  = getattr(request.state, "tenant_id", "-")
+        method     = request.method
+        status_code = response.status_code
+
+        record = {
+            "ts":         datetime.now(tz=timezone.utc).isoformat(),
+            "method":     method,
+            "path":       path,
+            "status":     status_code,
+            "latency_ms": latency_ms,
+            "ip":         ip,
+            "request_id": request_id,
+            "tenant_id":  tenant_id,
+        }
+        _audit_log.info(json.dumps(record))
+
+        # Persist to audit_log table for API mutations.
+        if method in _MUTATION_METHODS and path.startswith("/api/v1/"):
+            await self._persist_audit(
+                request_id=request_id,
+                method=method,
+                path=path,
+                status_code=status_code,
+                latency_ms=latency_ms,
+                ip=ip,
+                tenant_id=tenant_id,
+            )
+
+        return response
+
+    @staticmethod
+    async def _persist_audit(
+        request_id: str,
+        method: str,
+        path: str,
+        status_code: int,
+        latency_ms: int,
+        ip: str,
+        tenant_id: str,
+    ) -> None:
+        """Write one audit record to the kernel audit_log table (non-blocking)."""
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.kernel.audit_logger import AuditLogger
+            async with AsyncSessionLocal() as db:
+                audit = AuditLogger(db)
+                outcome = "COMPLETED" if status_code < 400 else (
+                    "BLOCKED" if status_code in (401, 403, 429) else "FAILED"
+                )
+                await audit.write(
+                    action_type=f"http.{method.lower()}",
+                    actor=f"tenant:{tenant_id}",
+                    outcome=outcome,
+                    details={
+                        "path":       path,
+                        "status":     status_code,
+                        "latency_ms": latency_ms,
+                        "ip":         ip,
+                        "request_id": request_id,
+                    },
+                )
+                await db.commit()
+        except Exception as exc:
+            # Never block a response for an audit write failure.
+            logger.debug("request_audit: db write failed (non-fatal) — %s", exc)
 
 
 def _error_body(status_code: int, message: str, request: Request, detail=None) -> dict:

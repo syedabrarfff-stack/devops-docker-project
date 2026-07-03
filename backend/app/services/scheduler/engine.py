@@ -328,6 +328,13 @@ async def _register_default_jobs() -> None:
     # ── Nightly Signal Pipeline Scan — 02:00 UTC ─────────────────────────────
     add_cron_job("nightly_signal_scan", _job_nightly_signal_scan, hour=2, minute=0)
 
+    # ── Routing Optimizer — 1st of each month @ 03:00 UTC (O5-1) ─────────────
+    try:
+        from app.services.fabric.routing_optimizer import register_routing_optimizer_job
+        register_routing_optimizer_job()
+    except Exception as _exc:
+        logger.warning("routing_optimizer job registration skipped: %s", _exc)
+
     logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Daily Briefing + Weekly Performance + Nightly Signal Scan)")
 
 
