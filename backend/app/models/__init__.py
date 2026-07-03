@@ -96,6 +96,16 @@ from app.models.truth_resilience import (
     DependencyScore,
     MoatMetrics,
 )
+from app.models.kernel import (
+    SystemState,
+    KernelEvent,
+    KernelTaskQueue,
+    AuditLog,
+    HealthSnapshot,
+    KernelConfig,
+    DecisionRecord,
+    MemoryEntry,
+)
 
 
 MODEL_MODULES = (
