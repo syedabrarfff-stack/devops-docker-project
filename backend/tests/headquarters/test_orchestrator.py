@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.headquarters.orchestrator import HeadquartersOrchestrator, _infer_operation
+from app.services.headquarters.orchestrator import HeadquartersOrchestrator, _infer_deploy_action, _infer_operation
 from app.services.kernel.authority_matrix import AuthorityTier
 from app.services.kernel.policy_engine import PolicyDecision, PolicyViolationError
 
@@ -27,8 +27,8 @@ class TestOperationInference:
     def test_fix_maps_to_bug_fix(self):
         assert _infer_operation("please fix the dashboard bug") == "bug.fix"
 
-    def test_deploy_maps_to_ci_redeploy(self):
-        assert _infer_operation("deploy the latest backend to production") == "ci.fix_and_redeploy"
+    def test_deploy_maps_to_production_deploy(self):
+        assert _infer_operation("deploy the latest backend to production") == "production.deploy"
 
     def test_migration_maps_to_db_add_column(self):
         assert _infer_operation("add a migration for a new column") == "db.add_column"
@@ -146,6 +146,76 @@ class TestApproveReject:
         result = await orch.approve(uuid.uuid4())
         assert result["ok"] is False
         assert "not awaiting approval" in result["error"]
+
+
+class TestDeployActionInference:
+    def test_frontend_keyword_maps_to_frontend_only(self):
+        assert _infer_deploy_action("deploy the frontend changes") == "frontend-only"
+
+    def test_backend_keyword_maps_to_backend_only(self):
+        assert _infer_deploy_action("deploy the new backend code") == "backend-only"
+
+    def test_no_keyword_defaults_to_git_pull_only(self):
+        assert _infer_deploy_action("deploy production") == "git-pull-only"
+
+
+class TestDeployRequestFlow:
+    @pytest.mark.asyncio
+    async def test_deploy_request_skips_draft_and_review(self):
+        session = _mock_session()
+        orch = HeadquartersOrchestrator(session)
+        with (
+            patch.object(orch, "_draft_plan", new=AsyncMock()) as draft_mock,
+            patch.object(orch, "_review_plan", new=AsyncMock()) as review_mock,
+            patch.object(orch._policy, "check", new=AsyncMock(return_value=PolicyDecision(
+                operation="production.deploy", tier=AuthorityTier.ASK_CAPTAIN,
+                permitted=False, requires_captain=True, reason="blast radius",
+            ))),
+        ):
+            result = await orch.handle_message("deploy production", "sess-1")
+            draft_mock.assert_not_called()
+            review_mock.assert_not_called()
+            assert result["status"] == "PENDING_APPROVAL"
+            assert result["plan"] == [{"tool": "production_deploy", "args": {"action": "git-pull-only"}}]
+
+    @pytest.mark.asyncio
+    async def test_approve_deploy_calls_run_deploy_not_execution_engine(self):
+        session = _mock_session()
+        record = MagicMock(
+            status="PENDING_APPROVAL",
+            operation="production.deploy",
+            plan=[{"tool": "production_deploy", "args": {"action": "backend-only"}}],
+        )
+        session.get = AsyncMock(return_value=record)
+        orch = HeadquartersOrchestrator(session)
+        with (
+            patch("app.services.headquarters.orchestrator.deploy.run_deploy", new=AsyncMock(
+                return_value={"ok": True, "action": "backend-only", "ssm_status": "Success", "output_tail": "BACKEND_HEALTHY"},
+            )) as deploy_mock,
+            patch.object(orch._executor, "execute_plan", new=AsyncMock()) as exec_mock,
+        ):
+            result = await orch.approve(uuid.uuid4())
+            deploy_mock.assert_called_once_with("backend-only")
+            exec_mock.assert_not_called()
+            assert record.status == "COMPLETED"
+            assert "Deploy action: backend-only" in result["briefing"]
+
+    @pytest.mark.asyncio
+    async def test_approve_failed_deploy_marks_record_failed(self):
+        session = _mock_session()
+        record = MagicMock(
+            status="PENDING_APPROVAL",
+            operation="production.deploy",
+            plan=[{"tool": "production_deploy", "args": {"action": "git-pull-only"}}],
+        )
+        session.get = AsyncMock(return_value=record)
+        orch = HeadquartersOrchestrator(session)
+        with patch("app.services.headquarters.orchestrator.deploy.run_deploy", new=AsyncMock(
+            return_value={"ok": False, "error": "SSM send_command failed: boom"},
+        )):
+            result = await orch.approve(uuid.uuid4())
+            assert record.status == "FAILED"
+            assert "Failed" in result["briefing"]
 
 
 class TestPlanParsing:

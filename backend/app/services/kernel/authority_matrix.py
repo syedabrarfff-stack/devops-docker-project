@@ -104,6 +104,12 @@ AUTHORITY_MATRIX: list[AuthorityRule] = [
         reason="Brand authority — external communication",
         reversible=True,
     ),
+    AuthorityRule(
+        operation="production.deploy",
+        tier=AuthorityTier.ASK_CAPTAIN,
+        reason="Rebuilds and restarts live production services — blast radius warrants Captain sign-off until proven",
+        reversible=True,
+    ),
 
     # ── AUTO — safe, additive, or well-tested ────────────────────────────────
     AuthorityRule(

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.headquarters import HQActionRequest
 from app.services.fabric.router import FabricRouter
 from app.services.ai.base_provider import TaskType
+from app.services.headquarters import deploy
 from app.services.headquarters.execution_engine import ExecutionEngine
 from app.services.headquarters.reporter import narrate_execution
 from app.services.kernel.policy_engine import PolicyEngine, PolicyViolationError
@@ -45,7 +46,7 @@ _CHANGE_VERBS = re.compile(
 _OPERATION_HINTS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\bfix|bug\b", re.IGNORECASE), "bug.fix"),
     (re.compile(r"\bsecurity|patch|vulnerab", re.IGNORECASE), "security.patch"),
-    (re.compile(r"\bdeploy|production|release\b", re.IGNORECASE), "ci.fix_and_redeploy"),
+    (re.compile(r"\bdeploy|production|release\b", re.IGNORECASE), "production.deploy"),
     (re.compile(r"\bendpoint|route|api\b", re.IGNORECASE), "endpoint.add"),
     (re.compile(r"\bscheduler|cron|job\b", re.IGNORECASE), "scheduler.job.add"),
     (re.compile(r"\bcolumn|migration|schema\b", re.IGNORECASE), "db.add_column"),
@@ -58,6 +59,22 @@ def _infer_operation(text: str) -> str:
         if pattern.search(text):
             return op
     return "performance.improvement"  # safe AUTO-tier default for ambiguous asks
+
+
+_DEPLOY_ACTION_HINTS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\bfrontend\b", re.IGNORECASE), "frontend-only"),
+    (re.compile(r"\bbackend\b", re.IGNORECASE), "backend-only"),
+    (re.compile(r"\bnginx\b", re.IGNORECASE), "nginx-reload"),
+    (re.compile(r"\bstatus|verify|check\b", re.IGNORECASE), "verify-status"),
+    (re.compile(r"\bfull|everything|all\b", re.IGNORECASE), "full-restart"),
+]
+
+
+def _infer_deploy_action(text: str) -> str:
+    for pattern, action in _DEPLOY_ACTION_HINTS:
+        if pattern.search(text):
+            return action
+    return "git-pull-only"  # safest default — pulls code, restarts nothing
 
 
 class HeadquartersOrchestrator:
@@ -111,6 +128,9 @@ class HeadquartersOrchestrator:
     async def _handle_change_request(self, record: HQActionRequest, text: str, actor: str) -> dict[str, Any]:
         operation = _infer_operation(text)
         record.operation = operation
+
+        if operation == "production.deploy":
+            return await self._handle_deploy_request(record, text, actor)
 
         plan, driver_model = await self._draft_plan(text)
         record.plan = plan
@@ -167,6 +187,9 @@ class HeadquartersOrchestrator:
         if record.status != "PENDING_APPROVAL":
             return {"ok": False, "error": f"Request is '{record.status}', not awaiting approval"}
 
+        if record.operation == "production.deploy":
+            return await self._execute_deploy(record, actor)
+
         record.status = "EXECUTING"
         await self._session.commit()
         result = await self._executor.execute_plan(record.plan, actor=actor, request_id=record.id)
@@ -175,6 +198,68 @@ class HeadquartersOrchestrator:
         record.answer_text = narrate_execution(record.operation, record.driver_model, result)
         await self._session.commit()
         return {"request_id": str(record.id), "briefing": record.answer_text, **result}
+
+    # ── Deploy — a fixed, deterministic procedure, not an LLM-drafted plan ────
+    # No draft/review step: deploy isn't freeform code the model proposes, it's
+    # the same reviewed scripts/ec2-deploy-script.sh every time, just with a
+    # Captain-chosen action (git-pull-only/backend-only/frontend-only/etc).
+
+    async def _handle_deploy_request(self, record: HQActionRequest, text: str, actor: str) -> dict[str, Any]:
+        action = _infer_deploy_action(text)
+        record.plan = [{"tool": "production_deploy", "args": {"action": action}}]
+        record.driver_model = "deploy.run_deploy"
+
+        try:
+            decision = await self._policy.check(
+                "production.deploy", actor=actor, resource_id=record.id,
+                details={"request_text": text, "action": action},
+            )
+        except PolicyViolationError as exc:
+            record.status = "REJECTED"
+            record.error = str(exc)
+            await self._session.commit()
+            return {"request_id": str(record.id), "kind": "change_request", "status": "NEVER_BLOCKED", "reason": str(exc)}
+
+        record.tier = decision.tier.value
+
+        if decision.tier == AuthorityTier.ASK_CAPTAIN:
+            record.status = "PENDING_APPROVAL"
+            await self._session.commit()
+            return {
+                "request_id": str(record.id),
+                "kind": "change_request",
+                "status": "PENDING_APPROVAL",
+                "plan": record.plan,
+                "reason": decision.reason,
+            }
+
+        return await self._execute_deploy(record, actor)
+
+    async def _execute_deploy(self, record: HQActionRequest, actor: str) -> dict[str, Any]:
+        action = (record.plan or [{}])[0].get("args", {}).get("action", "git-pull-only")
+        record.status = "EXECUTING"
+        await self._session.commit()
+
+        result = await deploy.run_deploy(action)
+        record.status = "COMPLETED" if result.get("ok") else "FAILED"
+        record.result = result
+        record.answer_text = self._narrate_deploy(action, result)
+        await self._session.commit()
+        return {"request_id": str(record.id), "kind": "change_request", "briefing": record.answer_text, **result}
+
+    @staticmethod
+    def _narrate_deploy(action: str, result: dict[str, Any]) -> str:
+        lines = [f"Deploy action: {action}"]
+        if result.get("ok"):
+            lines.append(f"Succeeded (SSM status: {result.get('ssm_status')}).")
+        else:
+            failure_reason = result.get("error") or f"SSM status: {result.get('ssm_status')}"
+            lines.append(f"Failed — {failure_reason}.")
+        tail = result.get("output_tail")
+        if tail:
+            lines.append("Last output:")
+            lines.append(tail[-1500:])
+        return "\n".join(lines)
 
     async def reject(self, request_id: uuid.UUID) -> dict[str, Any]:
         record = await self._session.get(HQActionRequest, request_id)
