@@ -312,6 +312,9 @@ async def _register_default_jobs() -> None:
     # ── Autonomous Self-Healer — runs every 15 minutes ────────────────────────
     add_interval_job("self_healer", _job_self_healer, minutes=15)
 
+    # ── Drift Auditor — permanent config/infra drift check, daily at 05:30 UTC ─
+    add_cron_job("drift_auditor", _job_drift_auditor, hour=5, minute=30)
+
     # ── NEXUS Heartbeat — runs every hour ─────────────────────────────────────
     add_interval_job("nexus_heartbeat", _job_nexus_heartbeat, hours=1)
 
@@ -988,6 +991,47 @@ async def _job_self_healer() -> None:
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
         await _record_job_failure("self_healer", str(exc), _tb.format_exc())
+
+
+async def _job_drift_auditor() -> None:
+    """Permanent architectural rule: continuously check the repo and running
+    infrastructure for duplicate config, stale files, and conflicting
+    definitions — the same class of problem that caused the 2026-07-04
+    outage — before they cause another one. Runs daily.
+    """
+    try:
+        from app.services.monitoring.drift_auditor import run_drift_audit
+        report = await run_drift_audit()
+        await _report_drift_audit_to_headquarters(report)
+    except Exception as exc:
+        logger.warning("Drift auditor job failed: %s", exc)
+        await _record_job_failure("drift_auditor", str(exc), _tb.format_exc())
+
+
+async def _report_drift_audit_to_headquarters(report: dict) -> None:
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Drift audit ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} auto-fix(es) applied:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} issue(s) found — needs a decision, not auto-fixed:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="drift_auditor", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Drift auditor -> Headquarters reporting failed: %s", exc)
 
 
 async def _report_self_heal_to_headquarters(report: dict) -> None:
