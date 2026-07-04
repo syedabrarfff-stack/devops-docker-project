@@ -1,0 +1,79 @@
+description: >-
+  JARVIS production self-heal runbook. Checks /health and /readyz on the
+  production instance; if either is unhealthy, restarts the docker-compose
+  stack and re-verifies. Encodes the detect -> remediate -> verify sequence
+  used to recover production on 2026-07-04 so it can be run consistently by
+  hand or wired into a scheduled/EventBridge-triggered self-heal later.
+schemaVersion: '0.3'
+assumeRole: '{{ AutomationAssumeRole }}'
+parameters:
+  InstanceId:
+    type: String
+    description: EC2 instance ID to heal
+  AutomationAssumeRole:
+    type: String
+    description: IAM role ARN SSM Automation assumes to run this runbook
+mainSteps:
+  - name: CheckHealth
+    action: aws:runCommand
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceId }}'
+      Parameters:
+        commands:
+          - |
+            H=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://localhost/health || echo 000)
+            R=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:8000/readyz || echo 000)
+            echo "health=$H readyz=$R"
+            if [ "$H" = "200" ] && [ "$R" = "200" ]; then echo STATUS=HEALTHY; else echo STATUS=UNHEALTHY; fi
+    outputs:
+      - Name: Status
+        Selector: '$.Output'
+        Type: String
+    nextStep: BranchOnHealth
+
+  - name: BranchOnHealth
+    action: aws:branch
+    inputs:
+      Choices:
+        - NextStep: RestartStack
+          Not:
+            Variable: '{{ CheckHealth.Status }}'
+            Contains: 'STATUS=HEALTHY'
+      Default: Done
+
+  - name: RestartStack
+    action: aws:runCommand
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceId }}'
+      Parameters:
+        commands:
+          - |
+            cd /opt/jarvis/infrastructure
+            docker compose -p jarvis restart backend nginx
+            sleep 20
+    nextStep: VerifyHealth
+
+  - name: VerifyHealth
+    action: aws:runCommand
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceId }}'
+      Parameters:
+        commands:
+          - |
+            H=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://localhost/health || echo 000)
+            R=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 http://localhost:8000/readyz || echo 000)
+            echo "health=$H readyz=$R"
+            if [ "$H" = "200" ] && [ "$R" = "200" ]; then echo STATUS=RECOVERED; else echo STATUS=STILL_UNHEALTHY; fi
+    isEnd: true
+
+  - name: Done
+    action: aws:sleep
+    inputs:
+      Duration: PT1S
+    isEnd: true
