@@ -6,6 +6,7 @@ secrets/
 secrets/**
 !secrets/.gitkeep
 infrastructure/nginx/.htpasswd
+monitoring/alertmanager.rendered.yml
 
 # ─── AI Council sessions (transcripts, not source code) ──────────
 council/sessions/*.txt
