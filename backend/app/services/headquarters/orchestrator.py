@@ -30,6 +30,7 @@ from app.models.headquarters import HQActionRequest
 from app.services.fabric.router import FabricRouter
 from app.services.ai.base_provider import TaskType
 from app.services.headquarters.execution_engine import ExecutionEngine
+from app.services.headquarters.reporter import narrate_execution
 from app.services.kernel.policy_engine import PolicyEngine, PolicyViolationError
 from app.services.kernel.authority_matrix import AuthorityTier
 
@@ -155,8 +156,9 @@ class HeadquartersOrchestrator:
         result = await self._executor.execute_plan(plan, actor=actor, request_id=record.id)
         record.status = result["status"]
         record.result = result
+        record.answer_text = narrate_execution(operation, driver_model, result)
         await self._session.commit()
-        return {"request_id": str(record.id), "kind": "change_request", **result}
+        return {"request_id": str(record.id), "kind": "change_request", "briefing": record.answer_text, **result}
 
     async def approve(self, request_id: uuid.UUID, actor: str = "captain") -> dict[str, Any]:
         record = await self._session.get(HQActionRequest, request_id)
@@ -170,8 +172,9 @@ class HeadquartersOrchestrator:
         result = await self._executor.execute_plan(record.plan, actor=actor, request_id=record.id)
         record.status = result["status"]
         record.result = result
+        record.answer_text = narrate_execution(record.operation, record.driver_model, result)
         await self._session.commit()
-        return {"request_id": str(record.id), **result}
+        return {"request_id": str(record.id), "briefing": record.answer_text, **result}
 
     async def reject(self, request_id: uuid.UUID) -> dict[str, Any]:
         record = await self._session.get(HQActionRequest, request_id)

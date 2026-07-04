@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Loader2, Send, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Terminal } from 'lucide-react'
-import { hqSendMessage, hqApprove, hqReject, hqHistory } from '../../services/api'
+import { Loader2, Send, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Terminal, Wrench } from 'lucide-react'
+import { hqSendMessage, hqApprove, hqReject, hqHistory, hqAutonomousFeed } from '../../services/api'
+
+const AUTONOMOUS_POLL_MS = 30000
 
 const SESSION_KEY = 'jarvis_hq_session_id'
 
@@ -48,7 +50,27 @@ function PlanSteps({ plan }) {
   )
 }
 
+function AutonomousMessage({ item }) {
+  return (
+    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Wrench size={13} className="text-amber-400" />
+        <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide">
+          Autonomous — {item.driver_model}
+        </span>
+        <span className="text-[11px] text-white/30 ml-auto">
+          {new Date(item.created_at).toLocaleTimeString()}
+        </span>
+      </div>
+      <p className="text-xs text-white/60 whitespace-pre-wrap">{item.answer_text}</p>
+    </div>
+  )
+}
+
 function Message({ item, onApprove, onReject, busy }) {
+  if (item.kind === 'autonomous_operation') {
+    return <AutonomousMessage item={item} />
+  }
   const isChange = item.kind === 'change_request'
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-2">
@@ -106,17 +128,36 @@ export default function Headquarters() {
   const [actionBusyId, setActionBusyId] = useState(null)
   const bottomRef = useRef(null)
 
+  const mergeSorted = (list) => {
+    const byId = new Map(list.map((i) => [i.id, i]))
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
+    )
+  }
+
   const loadHistory = async () => {
     try {
       const { items: history } = await hqHistory(sessionId)
-      setItems(history.slice().reverse())
+      const { items: autonomous } = await hqAutonomousFeed()
+      setItems((prev) => mergeSorted([...prev, ...history, ...autonomous]))
     } catch (err) {
       console.warn('[Headquarters] history load failed', err)
     }
   }
 
+  const pollAutonomousFeed = async () => {
+    try {
+      const { items: autonomous } = await hqAutonomousFeed()
+      setItems((prev) => mergeSorted([...prev, ...autonomous]))
+    } catch (err) {
+      console.warn('[Headquarters] autonomous feed poll failed', err)
+    }
+  }
+
   useEffect(() => {
     loadHistory()
+    const interval = setInterval(pollAutonomousFeed, AUTONOMOUS_POLL_MS)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -138,11 +179,12 @@ export default function Headquarters() {
           request_text: message,
           kind: result.kind,
           status: result.status || 'COMPLETED',
-          answer_text: result.answer || result.reason,
+          answer_text: result.briefing || result.answer || result.reason,
           plan: result.plan,
           driver_model: result.driver_model,
           reviewer_model: result.reviewer_model,
           tier: result.tier,
+          created_at: new Date().toISOString(),
         },
       ])
     } catch (err) {
@@ -154,6 +196,7 @@ export default function Headquarters() {
           kind: 'status_query',
           status: 'FAILED',
           answer_text: err?.response?.data?.detail || 'Headquarters is unreachable.',
+          created_at: new Date().toISOString(),
         },
       ])
     } finally {

@@ -599,5 +599,7 @@ export const hqApprove       = (requestId) => api.post(`/api/v1/headquarters/app
 export const hqReject        = (requestId) => api.post(`/api/v1/headquarters/reject/${requestId}`).then(r => r.data)
 export const hqHistory       = (sessionId, limit = 50) =>
   api.get('/api/v1/headquarters/history', { params: { session_id: sessionId, limit } }).then(r => r.data)
+export const hqAutonomousFeed = (limit = 20) =>
+  api.get('/api/v1/headquarters/autonomous-feed', { params: { limit } }).then(r => r.data)
 
 export default api

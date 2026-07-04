@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.headquarters import HQActionRequest
 from app.services.headquarters.orchestrator import HeadquartersOrchestrator
+from app.services.headquarters.reporter import AUTONOMOUS_SESSION_ID
 
 router = APIRouter(prefix="/headquarters", tags=["Headquarters"])
 
@@ -45,6 +46,21 @@ async def reject(request_id: UUID, db: AsyncSession = Depends(get_db)):
     return await orchestrator.reject(request_id)
 
 
+def _serialize(r: HQActionRequest) -> dict:
+    return {
+        "id": str(r.id),
+        "request_text": r.request_text,
+        "kind": r.kind,
+        "status": r.status,
+        "tier": r.tier,
+        "answer_text": r.answer_text,
+        "plan": r.plan,
+        "driver_model": r.driver_model,
+        "reviewer_model": r.reviewer_model,
+        "created_at": r.created_at.isoformat(),
+    }
+
+
 @router.get("/history")
 async def history(session_id: str, limit: int = 50, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -54,20 +70,19 @@ async def history(session_id: str, limit: int = 50, db: AsyncSession = Depends(g
         .limit(limit)
     )
     rows = result.scalars().all()
-    return {
-        "items": [
-            {
-                "id": str(r.id),
-                "request_text": r.request_text,
-                "kind": r.kind,
-                "status": r.status,
-                "tier": r.tier,
-                "answer_text": r.answer_text,
-                "plan": r.plan,
-                "driver_model": r.driver_model,
-                "reviewer_model": r.reviewer_model,
-                "created_at": r.created_at.isoformat(),
-            }
-            for r in rows
-        ]
-    }
+    return {"items": [_serialize(r) for r in rows]}
+
+
+@router.get("/autonomous-feed")
+async def autonomous_feed(limit: int = 20, db: AsyncSession = Depends(get_db)):
+    """Background operations (self-heal, health checks, predictive scans) that
+    happened without Captain asking — surfaced into the same conversation.
+    """
+    result = await db.execute(
+        select(HQActionRequest)
+        .where(HQActionRequest.session_id == AUTONOMOUS_SESSION_ID)
+        .order_by(HQActionRequest.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    return {"items": [_serialize(r) for r in rows]}

@@ -983,10 +983,41 @@ async def _job_self_healer() -> None:
     """Autonomous self-healing cycle — runs every 15 minutes."""
     try:
         from app.services.monitoring.self_healer import run_self_healing_cycle
-        await run_self_healing_cycle()
+        report = await run_self_healing_cycle()
+        await _report_self_heal_to_headquarters(report)
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
         await _record_job_failure("self_healer", str(exc), _tb.format_exc())
+
+
+async def _report_self_heal_to_headquarters(report: dict) -> None:
+    """Surface self-heal cycles that actually did something into the same
+    Headquarters conversation Captain uses — no separate dashboard, per the
+    single-front-door principle. Silent no-op cycles are not logged.
+    """
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Self-heal cycle ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} action(s) taken:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} alert(s) — could not self-recover:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="self_healer", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Self-healer -> Headquarters reporting failed: %s", exc)
 
 
 async def _job_embed_leads() -> None:
