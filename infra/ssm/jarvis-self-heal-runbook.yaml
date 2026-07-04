@@ -28,7 +28,7 @@ mainSteps:
             echo "health=$H readyz=$R"
             if [ "$H" = "200" ] && [ "$R" = "200" ]; then echo STATUS=HEALTHY; else echo STATUS=UNHEALTHY; fi
     outputs:
-      - Name: Status
+      - Name: HealthStatus
         Selector: '$.Output'
         Type: String
     nextStep: BranchOnHealth
@@ -39,7 +39,7 @@ mainSteps:
       Choices:
         - NextStep: RestartStack
           Not:
-            Variable: '{{ CheckHealth.Status }}'
+            Variable: '{{ CheckHealth.HealthStatus }}'
             Contains: 'STATUS=HEALTHY'
       Default: Done
 
