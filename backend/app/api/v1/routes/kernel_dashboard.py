@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.routes.auth import get_current_captain
-from app.core.database import get_async_db
+from app.core.database import get_db as get_async_db
 
 log = logging.getLogger(__name__)
 

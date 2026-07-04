@@ -592,4 +592,12 @@ export const kernelFailover   = ()            => api.get('/api/v1/kernel/failove
 export const kernelAudit      = (limit = 50)  => api.get('/api/v1/kernel/audit', { params: { limit } }).then(r => r.data)
 export const kernelSync       = ()            => api.get('/api/v1/kernel/sync').then(r => r.data)
 
+// Headquarters — Orchestrator + Execution Engine chat entry point
+export const hqSendMessage   = (message, sessionId) =>
+  api.post('/api/v1/headquarters/chat', { message, session_id: sessionId }).then(r => r.data)
+export const hqApprove       = (requestId) => api.post(`/api/v1/headquarters/approve/${requestId}`).then(r => r.data)
+export const hqReject        = (requestId) => api.post(`/api/v1/headquarters/reject/${requestId}`).then(r => r.data)
+export const hqHistory       = (sessionId, limit = 50) =>
+  api.get('/api/v1/headquarters/history', { params: { session_id: sessionId, limit } }).then(r => r.data)
+
 export default api

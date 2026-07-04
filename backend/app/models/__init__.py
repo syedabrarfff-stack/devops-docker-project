@@ -111,6 +111,7 @@ from app.models.fabric import (
     ModelMetrics,
     CouncilAssembly,
 )
+from app.models.headquarters import HQActionRequest
 
 
 MODEL_MODULES = (
@@ -253,4 +254,5 @@ __all__ = [
     "DeliveryLesson",
     "DependencyScore",
     "MoatMetrics",
+    "HQActionRequest",
 ]

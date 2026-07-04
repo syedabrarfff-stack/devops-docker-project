@@ -51,6 +51,8 @@ from app.api.v1.routes import constitution
 from app.api.v1.routes import slack_bot, zapier, captain_whitelabel
 # Phase 6B — Voice & Media
 from app.api.v1.routes import voice_webhook
+# Headquarters — Orchestrator + Execution Engine chat entry point
+from app.api.v1.routes import headquarters
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -157,3 +159,5 @@ api_router.include_router(zapier.router)             # public — Zapier/Make HM
 api_router.include_router(captain_whitelabel.router, dependencies=[Depends(get_current_captain)])
 # Phase 6B — Voice & Media
 api_router.include_router(voice_webhook.router)      # mixed auth — see route decorators
+# Headquarters — Captain-only, drives real repo mutation via the Execution Engine
+api_router.include_router(headquarters.router, dependencies=[Depends(get_current_captain)])
