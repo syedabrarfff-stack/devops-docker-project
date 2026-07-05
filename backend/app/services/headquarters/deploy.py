@@ -28,7 +28,7 @@ from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
-INSTANCE_ID = "i-0ef8f36bbe4c23681"
+INSTANCE_ID = "i-07887c05a28c22675"  # jarvis-work-dr-recovery — production since 2026-07-05 DR migration
 DEPLOY_TOKEN_PARAMETER = "/jarvis/production/github-deploy-token"
 DEPLOY_TOKEN_REGION = settings.AWS_REGION
 DEPLOY_SCRIPT_URL = (
