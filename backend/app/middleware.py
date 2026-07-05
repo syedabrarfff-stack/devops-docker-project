@@ -194,7 +194,12 @@ async def _refresh_redis_metrics() -> None:
     try:
         import redis.asyncio as aioredis
 
-        client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        client = aioredis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
         info = await client.info("memory")
         JARVIS_REDIS_MEMORY_BYTES.set(float(info.get("used_memory") or 0))
     except Exception as exc:
