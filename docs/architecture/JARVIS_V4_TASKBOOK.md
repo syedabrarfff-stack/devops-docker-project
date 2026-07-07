@@ -130,3 +130,25 @@ Updated on every transition. This file is the coordination point for all paralle
 | V6-4 | WhatsApp voice automation (TTS → Evolution send) | `voice/whatsapp_voice.py` | Claude | Claude | V6-2 | 3 |
 | V6-5 | Voice analytics + scheduler job | `voice/analytics.py` + scheduler registration | Claude | Claude | V6-4 | 2 |
 | V6-6 | Phase 6B tests | `backend/tests/voice/` | Claude | Claude | each | 3 |
+
+## PHASE 7 — MISSION PLANNER & ENGINEERING ORGANIZATION (`backend/app/services/engineering/`)
+
+> See `docs/architecture/HEADQUARTERS_ENGINEERING_ORG.md` for the full design. Scope
+> boundary: this phase builds the organization that maintains the product — it does
+> NOT touch CRM, dashboard, governance, AI Fabric, memory, or the business AI Council
+> (Phase 4). Reuses Kernel Task Queue (K1-5), Fabric Router (F3-3), Council engine
+> (C4-1..C4-4), Authority Matrix (K1-3), and the existing deploy path (HQ-7) — no
+> parallel subsystems.
+
+| ID | Task | Output | builder | reviewer | deps | est |
+|----|------|--------|---------|----------|------|-----|
+| E7-1 | Alembic migration: engineering org tables (departments, work_packages, task_graphs, department_agents) | `backend/alembic/versions/*_engineering_org_tables.py` | NIM | Claude | K1-1 | 2 |
+| E7-2 | Mission Planner — objective → task graph decomposition via Fabric classify + dependency resolution | `engineering/mission_planner.py` | Gemini | Claude | F3-3, E7-1 | 6 |
+| E7-3 | Department Registry — 12 departments, ownership boundaries (path globs), model tier assignment | `engineering/department_registry.py` | NIM | Claude | E7-1 | 3 |
+| E7-4 | Work Package Dispatcher — routes task graph nodes to owning department via existing Task Queue | `engineering/dispatcher.py` | DeepSeek | Claude | E7-2, E7-3, K1-5 | 4 |
+| E7-5 | Department Agent runtime — builder draft → self-test loop per department | `engineering/department_agent.py` | NIM | Claude | E7-4 | 5 |
+| E7-6 | Engineering Council — new `engineering_review` task_category + department-lead member catalogue on existing Council | `council/assembly.py` (extend) | Claude | Claude | C4-1 | 3 |
+| E7-7 | Peer Review Gate — cross-department review requirement wired into Merge Protocol | `engineering/peer_review.py` | Claude | Claude | E7-5, E7-6 | 3 |
+| E7-8 | Deployment Pipeline Integration — work package completion → PR → existing CI/CD → existing deploy.py | wiring in `engineering/dispatcher.py` | Claude | Claude | E7-7 | 3 |
+| E7-9 | Engineering Org Dashboard — department status, active work packages, task graph view | `api/v1/routes/engineering_dashboard.py` + `frontend/src/components/EngineeringOrg/` | Claude | Claude | E7-4 | 4 |
+| E7-10 | Phase 7 tests (Mission Planner decomposition, dispatcher routing, authority-tier enforcement per department) | `backend/tests/engineering/` | Claude | Claude | each | 5 |

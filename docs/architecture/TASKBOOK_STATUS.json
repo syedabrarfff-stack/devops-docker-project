@@ -4,7 +4,7 @@
     "deps": "F3-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/assembly.py — CouncilAssembler, 7-member catalogue, 12 task categories, availability filtering, weight normalisation, ai_council_assemblies persistence",
+    "output": "backend/app/services/council/assembly.py \u2014 CouncilAssembler, 7-member catalogue, 12 task categories, availability filtering, weight normalisation, ai_council_assemblies persistence",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-2": {
@@ -12,7 +12,7 @@
     "deps": "C4-1,F3-5",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/reasoning.py — ParallelReasoner, asyncio.gather parallel reasoning, ContextSync snapshot, 45s per-member timeout, JSON vote parsing with regex fallback",
+    "output": "backend/app/services/council/reasoning.py \u2014 ParallelReasoner, asyncio.gather parallel reasoning, ContextSync snapshot, 45s per-member timeout, JSON vote parsing with regex fallback",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-3": {
@@ -20,7 +20,7 @@
     "deps": "C4-2",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/conflict_resolution.py — ConflictResolver, pair-wise detection (category_conflict + score_delta≥30), polar_opposition tag, score std-dev, dominant share",
+    "output": "backend/app/services/council/conflict_resolution.py \u2014 ConflictResolver, pair-wise detection (category_conflict + score_delta\u226530), polar_opposition tag, score std-dev, dominant share",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-4": {
@@ -28,7 +28,7 @@
     "deps": "C4-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/recommendation.py — RecommendationEngine, weighted vote score, conflict penalty (0.04/pair, max 0.25), quorum gate (MIN_QUORUM=2), APPROVE/CAPTAIN_REVIEW/REJECT mapping",
+    "output": "backend/app/services/council/recommendation.py \u2014 RecommendationEngine, weighted vote score, conflict penalty (0.04/pair, max 0.25), quorum gate (MIN_QUORUM=2), APPROVE/CAPTAIN_REVIEW/REJECT mapping",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-5": {
@@ -36,7 +36,7 @@
     "deps": "C4-4",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/__init__.py — ResponseVerifier integration in CouncilSession._verify_recommendation(); non-fatal on verifier error",
+    "output": "backend/app/services/council/__init__.py \u2014 ResponseVerifier integration in CouncilSession._verify_recommendation(); non-fatal on verifier error",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-6": {
@@ -44,7 +44,7 @@
     "deps": "C4-5",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/council/__init__.py — CouncilSession._record_to_memory() writes outcome to operational memory via ContextSync.merge() OCC; non-fatal on any error; marks ai_council_assemblies.outcome_verified",
+    "output": "backend/app/services/council/__init__.py \u2014 CouncilSession._record_to_memory() writes outcome to operational memory via ContextSync.merge() OCC; non-fatal on any error; marks ai_council_assemblies.outcome_verified",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "C4-7": {
@@ -52,7 +52,7 @@
     "deps": "each",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/tests/council/ — 73 tests: test_assembly (11), test_conflict_resolution (14), test_reasoning (17), test_recommendation (19), test_session (12); 73/73 passed in 0.84s",
+    "output": "backend/tests/council/ \u2014 73 tests: test_assembly (11), test_conflict_resolution (14), test_reasoning (17), test_recommendation (19), test_session (12); 73/73 passed in 0.84s",
     "commit": "feat(v4-phase-4): C4-1 through C4-7 AI Council"
   },
   "F3-1": {
@@ -60,7 +60,7 @@
     "deps": "K1-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/alembic/versions/0039_fabric_tables.py — ai_model_registry, ai_model_metrics, ai_council_assemblies",
+    "output": "backend/alembic/versions/0039_fabric_tables.py \u2014 ai_model_registry, ai_model_metrics, ai_council_assemblies",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-2": {
@@ -68,7 +68,7 @@
     "deps": "F3-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/fabric/model_registry.py — 20 seed models, rolling p50/p95, status transitions, health loop",
+    "output": "backend/app/services/fabric/model_registry.py \u2014 20 seed models, rolling p50/p95, status transitions, health loop",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-3": {
@@ -76,7 +76,7 @@
     "deps": "F3-2",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/fabric/router.py — FabricRouter, FabricResponse, full 6-step pipeline",
+    "output": "backend/app/services/fabric/router.py \u2014 FabricRouter, FabricResponse, full 6-step pipeline",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-4": {
@@ -84,7 +84,7 @@
     "deps": "F3-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/fabric/token_governor.py — monthly budget, 80% alert→EventBus, per-minute rate limit, cheap fallback chain",
+    "output": "backend/app/services/fabric/token_governor.py \u2014 monthly budget, 80% alert\u2192EventBus, per-minute rate limit, cheap fallback chain",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-5": {
@@ -92,7 +92,7 @@
     "deps": "K1-2",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/fabric/context_sync.py — transient snapshots, asyncio.Lock advisory lock, OCC merge",
+    "output": "backend/app/services/fabric/context_sync.py \u2014 transient snapshots, asyncio.Lock advisory lock, OCC merge",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-6": {
@@ -100,7 +100,7 @@
     "deps": "K1-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/fabric/response_verifier.py — hallucination detection, policy gate, format check, confidence threshold",
+    "output": "backend/app/services/fabric/response_verifier.py \u2014 hallucination detection, policy gate, format check, confidence threshold",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-7": {
@@ -108,7 +108,7 @@
     "deps": "F3-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/ai/router.py — _LazyFabricBridge wraps AIRouter singleton; all 30+ call sites automatically route through Fabric",
+    "output": "backend/app/services/ai/router.py \u2014 _LazyFabricBridge wraps AIRouter singleton; all 30+ call sites automatically route through Fabric",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "F3-8": {
@@ -116,7 +116,7 @@
     "deps": "each",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/tests/fabric/ — 83 tests across token_governor, context_sync, response_verifier, model_registry, fabric_router, lazy_fabric_bridge; 83/83 passed",
+    "output": "backend/tests/fabric/ \u2014 83 tests across token_governor, context_sync, response_verifier, model_registry, fabric_router, lazy_fabric_bridge; 83/83 passed",
     "commit": "feat(v4-phase-3): F3-1 through F3-8 AI Fabric"
   },
   "K1-1": {
@@ -204,7 +204,7 @@
     "deps": "K1-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/kernel/config_service.py — DB-backed KV, 60s hot-reload, 14 built-in defaults",
+    "output": "backend/app/services/kernel/config_service.py \u2014 DB-backed KV, 60s hot-reload, 14 built-in defaults",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-2": {
@@ -212,7 +212,7 @@
     "deps": "K1-4",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/kernel/sync_protocol.py — read-after-write epochs, asyncio.Event unblocking",
+    "output": "backend/app/services/kernel/sync_protocol.py \u2014 read-after-write epochs, asyncio.Event unblocking",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-3": {
@@ -220,7 +220,7 @@
     "deps": "K1-2",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/kernel/service_discovery.py — TTL heartbeat registry, 90s timeout, reaper",
+    "output": "backend/app/services/kernel/service_discovery.py \u2014 TTL heartbeat registry, 90s timeout, reaper",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-4": {
@@ -228,7 +228,7 @@
     "deps": "K2-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/kernel/plugin_loader.py — manifest-driven dynamic importlib loading",
+    "output": "backend/app/services/kernel/plugin_loader.py \u2014 manifest-driven dynamic importlib loading",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-5": {
@@ -236,7 +236,7 @@
     "deps": "K1-7",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/kernel/failover_controller.py — 60s CRITICAL threshold, Captain alert, auto_switch config",
+    "output": "backend/app/services/kernel/failover_controller.py \u2014 60s CRITICAL threshold, Captain alert, auto_switch config",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-6": {
@@ -244,7 +244,7 @@
     "deps": "K1-2,K1-5,K1-7",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/api/v1/routes/kernel_dashboard.py — 13 endpoints, Captain JWT auth",
+    "output": "backend/app/api/v1/routes/kernel_dashboard.py \u2014 13 endpoints, Captain JWT auth",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-7": {
@@ -252,7 +252,7 @@
     "deps": "K2-6",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "frontend/src/components/KernelDashboard/index.jsx — 30s auto-refresh, 8 panel grid",
+    "output": "frontend/src/components/KernelDashboard/index.jsx \u2014 30s auto-refresh, 8 panel grid",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "K2-8": {
@@ -260,7 +260,7 @@
     "deps": "each",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/tests/kernel/test_{config_service,sync_protocol,service_discovery,plugin_loader,failover_controller}.py — 53/53 passed",
+    "output": "backend/tests/kernel/test_{config_service,sync_protocol,service_discovery,plugin_loader,failover_controller}.py \u2014 53/53 passed",
     "commit": "feat(v4-phase-2): K2-1 through K2-8 kernel completion"
   },
   "O5-1": {
@@ -378,34 +378,34 @@
   },
   "R6-1": {
     "builder": "Claude",
-    "deps": "—",
+    "deps": "\u2014",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/notifications/slack_bot.py — verify_slack_signature (HMAC-SHA256 + 5min replay guard), handle_slash_command (status/leads/pipeline/approve/reject/briefing/help), handle_event; backend/app/api/v1/routes/slack_bot.py — POST /webhooks/slack/command + /events",
+    "output": "backend/app/services/notifications/slack_bot.py \u2014 verify_slack_signature (HMAC-SHA256 + 5min replay guard), handle_slash_command (status/leads/pipeline/approve/reject/briefing/help), handle_event; backend/app/api/v1/routes/slack_bot.py \u2014 POST /webhooks/slack/command + /events",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "R6-2": {
     "builder": "Claude",
-    "deps": "—",
+    "deps": "\u2014",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/integrations/zapier_gateway.py — verify_zapier_signature, verify_make_signature, handle_inbound_lead, handle_inbound_payment, handle_generic_trigger, ZapierGateway (trigger/on_lead_qualified/on_proposal_sent/on_approval_created); backend/app/api/v1/routes/zapier.py",
+    "output": "backend/app/services/integrations/zapier_gateway.py \u2014 verify_zapier_signature, verify_make_signature, handle_inbound_lead, handle_inbound_payment, handle_generic_trigger, ZapierGateway (trigger/on_lead_qualified/on_proposal_sent/on_approval_created); backend/app/api/v1/routes/zapier.py",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "R6-3": {
     "builder": "Claude",
-    "deps": "—",
+    "deps": "\u2014",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/whitelabel/license_manager.py — _generate_license_key (HMAC-SHA256 + secrets.token_bytes, wl_ prefix), LicenseManager (provision_tenant/rotate_license_key/validate_license/get_mrr_snapshot/list_tenants/upgrade_plan); backend/app/api/v1/routes/captain_whitelabel.py — /captain/licensing/* Captain-only",
+    "output": "backend/app/services/whitelabel/license_manager.py \u2014 _generate_license_key (HMAC-SHA256 + secrets.token_bytes, wl_ prefix), LicenseManager (provision_tenant/rotate_license_key/validate_license/get_mrr_snapshot/list_tenants/upgrade_plan); backend/app/api/v1/routes/captain_whitelabel.py \u2014 /captain/licensing/* Captain-only",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "R6-4": {
     "builder": "Claude",
-    "deps": "—",
+    "deps": "\u2014",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/outreach/linkedin_outreach.py — enrich_person_profile (Proxycurl /v2/linkedin), enrich_company_profile, generate_linkedin_message (SALES task, 300-char cap, template fallback), enrich_and_queue_lead, linkedin_outreach_sweep (icp_score>=60, cap 25), register_linkedin_job (interval 2h)",
+    "output": "backend/app/services/outreach/linkedin_outreach.py \u2014 enrich_person_profile (Proxycurl /v2/linkedin), enrich_company_profile, generate_linkedin_message (SALES task, 300-char cap, template fallback), enrich_and_queue_lead, linkedin_outreach_sweep (icp_score>=60, cap 25), register_linkedin_job (interval 2h)",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "R6-5": {
@@ -413,7 +413,7 @@
     "deps": "R6-1,R6-2,R6-3,R6-4",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "frontend/src/components/RevenueActivation/index.jsx — 6-tab dashboard (MRR/White-label/LinkedIn/Zapier-Make/Voice/Slack); registered in App.jsx VIEWS + Sidebar.jsx NAV",
+    "output": "frontend/src/components/RevenueActivation/index.jsx \u2014 6-tab dashboard (MRR/White-label/LinkedIn/Zapier-Make/Voice/Slack); registered in App.jsx VIEWS + Sidebar.jsx NAV",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "R6-6": {
@@ -426,10 +426,10 @@
   },
   "V6-1": {
     "builder": "Claude",
-    "deps": "—",
+    "deps": "\u2014",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/voice/transcription.py — transcribe_audio_url (download+Whisper), transcribe_audio_bytes, classify_voice_intent (FAST task, 7 intent types, regex fallback), store_voice_interaction (episodic memory); POST /webhooks/voice/transcribe + /upload-transcribe",
+    "output": "backend/app/services/voice/transcription.py \u2014 transcribe_audio_url (download+Whisper), transcribe_audio_bytes, classify_voice_intent (FAST task, 7 intent types, regex fallback), store_voice_interaction (episodic memory); POST /webhooks/voice/transcribe + /upload-transcribe",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "V6-2": {
@@ -437,7 +437,7 @@
     "deps": "V6-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/voice/briefing_voice.py — _tts_elevenlabs (eleven_turbo_v2, stability 0.65/similarity 0.80), _send_telegram_voice (sendVoice API), deliver_briefing_as_voice (800-char cap, word-boundary trim), send_alert_voice",
+    "output": "backend/app/services/voice/briefing_voice.py \u2014 _tts_elevenlabs (eleven_turbo_v2, stability 0.65/similarity 0.80), _send_telegram_voice (sendVoice API), deliver_briefing_as_voice (800-char cap, word-boundary trim), send_alert_voice",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "V6-3": {
@@ -445,7 +445,7 @@
     "deps": "V6-1",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/voice/call_summariser.py — _generate_call_summary (ANALYSIS task, 5-field JSON, regex fallback), process_call_recording (5-step pipeline: download→transcribe→summarise→DB update→memory store); POST /webhooks/voice/call-ended",
+    "output": "backend/app/services/voice/call_summariser.py \u2014 _generate_call_summary (ANALYSIS task, 5-field JSON, regex fallback), process_call_recording (5-step pipeline: download\u2192transcribe\u2192summarise\u2192DB update\u2192memory store); POST /webhooks/voice/call-ended",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "V6-4": {
@@ -453,7 +453,7 @@
     "deps": "V6-2",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/voice/whatsapp_voice.py — send_voice_note (ElevenLabs→base64→Evolution API sendMedia), send_proposal_voice_summary (DB lookup leads+proposals), send_meeting_reminder_voice; POST /api/v1/voice/send-note + /proposal-followup/{lead_id} Captain-only",
+    "output": "backend/app/services/voice/whatsapp_voice.py \u2014 send_voice_note (ElevenLabs\u2192base64\u2192Evolution API sendMedia), send_proposal_voice_summary (DB lookup leads+proposals), send_meeting_reminder_voice; POST /api/v1/voice/send-note + /proposal-followup/{lead_id} Captain-only",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "V6-5": {
@@ -461,7 +461,7 @@
     "deps": "V6-1,V6-3",
     "reviewer": "Claude",
     "status": "VERIFIED",
-    "output": "backend/app/services/voice/analytics.py — compute_voice_metrics (queries memory for voice_interaction+call_summary), run_voice_analytics_job (metrics→operational memory→Slack alert), register_voice_analytics_job (cron 04:30 UTC); registered in scheduler/engine.py",
+    "output": "backend/app/services/voice/analytics.py \u2014 compute_voice_metrics (queries memory for voice_interaction+call_summary), run_voice_analytics_job (metrics\u2192operational memory\u2192Slack alert), register_voice_analytics_job (cron 04:30 UTC); registered in scheduler/engine.py",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
   },
   "V6-6": {
@@ -471,5 +471,85 @@
     "status": "VERIFIED",
     "output": "backend/tests/voice/__init__.py, test_transcription.py (URL/bytes transcription, intent classify, memory store), test_call_summariser.py (AI summary, malformed JSON fallback, full pipeline), test_whatsapp_voice.py (send note, TTS failure, Evolution failure, missing lead), test_briefing_voice.py (TTS, Telegram send, 800-char cap)",
     "commit": "feat(v4-phase-6): R6-1 through V6-6 Revenue Activation + Voice & Media"
+  },
+  "E7-1": {
+    "builder": "NIM",
+    "deps": "K1-1",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-2": {
+    "builder": "Gemini",
+    "deps": "F3-3, E7-1",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-3": {
+    "builder": "NIM",
+    "deps": "E7-1",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-4": {
+    "builder": "DeepSeek",
+    "deps": "E7-2, E7-3, K1-5",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-5": {
+    "builder": "NIM",
+    "deps": "E7-4",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-6": {
+    "builder": "Claude",
+    "deps": "C4-1",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-7": {
+    "builder": "Claude",
+    "deps": "E7-5, E7-6",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-8": {
+    "builder": "Claude",
+    "deps": "E7-7",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-9": {
+    "builder": "Claude",
+    "deps": "E7-4",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
+  },
+  "E7-10": {
+    "builder": "Claude",
+    "deps": "each",
+    "reviewer": "Claude",
+    "status": "PENDING",
+    "output": null,
+    "commit": null
   }
 }
