@@ -602,4 +602,14 @@ export const hqHistory       = (sessionId, limit = 50) =>
 export const hqAutonomousFeed = (limit = 20) =>
   api.get('/api/v1/headquarters/autonomous-feed', { params: { limit } }).then(r => r.data)
 
+// Phase 7 — Engineering Organization (Mission Planner + departments)
+export const engineeringDepartments = () => api.get('/api/v1/engineering/departments').then(r => r.data)
+export const engineeringDashboard   = () => api.get('/api/v1/engineering/dashboard').then(r => r.data)
+export const engineeringSubmitObjective = (objective, objectiveType = 'feature', context = {}) =>
+  api.post('/api/v1/engineering/objectives', { objective, objective_type: objectiveType, context }).then(r => r.data)
+export const engineeringTaskGraph = (graphId) =>
+  api.get(`/api/v1/engineering/task-graphs/${graphId}`).then(r => r.data)
+export const engineeringDispatch = (graphId) =>
+  api.post(`/api/v1/engineering/task-graphs/${graphId}/dispatch`).then(r => r.data)
+
 export default api

@@ -99,6 +99,7 @@ import SupremeDashboard from './components/supreme/SupremeDashboard'
 import MonitoringDashboard from './components/monitoring/MonitoringDashboard'
 import KernelDashboard from './components/KernelDashboard'
 import RevenueActivation from './components/RevenueActivation'
+import EngineeringOrg from './components/EngineeringOrg'
 import Headquarters from './components/Headquarters'
 import useJarvisStore from './store/useJarvisStore'
 
@@ -181,6 +182,8 @@ export const VIEWS = {
   // Phase 6A — Revenue Activation
   revenueActivation: { path: controlPath('/revenue-activation'),  title: 'Revenue Activation',      Component: RevenueActivation },
   headquarters:      { path: controlPath('/headquarters'),        title: 'Headquarters',             Component: Headquarters },
+  // Phase 7 — Engineering Organization (Mission Planner + departments)
+  engineeringOrg:    { path: controlPath('/engineering'),         title: 'Engineering Organization', Component: EngineeringOrg },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

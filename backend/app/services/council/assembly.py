@@ -34,6 +34,13 @@ _MEMBER_CATALOGUE: dict[str, tuple[str, str, str, float]] = {
     "speedster":   ("groq",        "llama-4",           "fast",        0.08),
     "contrarian":  ("openrouter",  "deepseek-v4-pro",   "critique",    0.07),
     "economist":   ("openai",      "gpt-4o-mini",       "economics",   0.05),
+    # E7-6: Engineering Organization department leads — reuse the same
+    # premium models as strategist/engineer above (no new provider/model
+    # combos), just distinct specialties/weights for engineering_review.
+    "platform_lead":     ("bedrock",   "claude-sonnet-4-6", "platform_architecture",   0.30),
+    "backend_lead":      ("anthropic", "claude-sonnet",     "backend_engineering",     0.25),
+    "security_lead":     ("anthropic", "claude-sonnet",     "security_review",         0.25),
+    "architecture_lead": ("bedrock",   "claude-sonnet-4-6", "cross_department_design", 0.20),
 }
 
 # Task category → ordered member IDs (most important first).
@@ -51,6 +58,11 @@ _CATEGORY_MEMBERS: dict[str, list[str]] = {
     "fast":        ["speedster",  "contrarian"],
     "general":     ["strategist", "engineer",   "analyst"],
     "long_context":["scout",      "strategist", "analyst"],
+    # E7-6: cross-department engineering decisions — peer review / conflict
+    # resolution for the Engineering Organization. Reuses the SAME
+    # assembly/reasoning/conflict-resolution/recommendation pipeline as
+    # every other category above — no parallel council.
+    "engineering_review": ["architecture_lead", "security_lead", "platform_lead", "backend_lead"],
 }
 
 # Minimum members required before a quorum is meaningful.

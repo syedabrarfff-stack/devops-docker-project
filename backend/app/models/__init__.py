@@ -112,6 +112,7 @@ from app.models.fabric import (
     CouncilAssembly,
 )
 from app.models.headquarters import HQActionRequest
+from app.models.engineering import EngineeringTaskGraph, EngineeringWorkPackage
 
 
 MODEL_MODULES = (
@@ -255,4 +256,6 @@ __all__ = [
     "DependencyScore",
     "MoatMetrics",
     "HQActionRequest",
+    "EngineeringTaskGraph",
+    "EngineeringWorkPackage",
 ]

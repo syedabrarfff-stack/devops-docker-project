@@ -7,7 +7,7 @@ import {
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
   TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
-  Radio, Infinity, Scale, HardDrive, ShieldCheck,
+  Radio, Infinity, Scale, HardDrive, ShieldCheck, Workflow,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -66,6 +66,7 @@ const NAV = [
   { id: 'kernel',          path: '/control-room/kernel',            label: 'Kernel Ops',        icon: HardDrive },
   { id: 'revenueActivation', path: '/control-room/revenue-activation', label: 'Rev Activation', icon: TrendingUp },
   { id: 'headquarters',    path: '/control-room/headquarters',       label: 'Headquarters',   icon: ShieldCheck },
+  { id: 'engineeringOrg',  path: '/control-room/engineering',         label: 'Engineering Org', icon: Workflow },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

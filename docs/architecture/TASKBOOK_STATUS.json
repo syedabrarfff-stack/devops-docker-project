@@ -476,80 +476,80 @@
     "builder": "NIM",
     "deps": "K1-1",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/alembic/versions/0042_engineering_org_tables.py + backend/app/models/engineering.py \u2014 EngineeringTaskGraph, EngineeringWorkPackage tables",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-2": {
     "builder": "Gemini",
     "deps": "F3-3, E7-1",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/mission_planner.py \u2014 decompose_objective(), Fabric-based decomposition with heuristic fallback, dependency resolution + cycle-breaking",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-3": {
     "builder": "NIM",
     "deps": "E7-1",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/department_registry.py \u2014 12 departments, ownership globs, model tiers (Security/Architecture Claude-only)",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-4": {
     "builder": "DeepSeek",
     "deps": "E7-2, E7-3, K1-5",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/dispatcher.py \u2014 dispatch_ready_packages() routes to existing Kernel Task Queue, Authority Matrix enforced at dispatch time",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-5": {
     "builder": "NIM",
     "deps": "E7-4",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/department_agent.py \u2014 run_one_cycle() dequeues + drafts via Fabric Router + self-tests",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-6": {
     "builder": "Claude",
     "deps": "C4-1",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/council/assembly.py \u2014 engineering_review category + 4 department-lead members added to existing Council engine",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-7": {
     "builder": "Claude",
     "deps": "E7-5, E7-6",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/peer_review.py \u2014 review_work_package() via existing Council engineering_review category",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-8": {
     "builder": "Claude",
     "deps": "E7-7",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/services/engineering/deployment_integration.py \u2014 integrate_work_package(), safe auto-deploy for read-only actions, PR-summary handoff for code changes",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-9": {
     "builder": "Claude",
     "deps": "E7-4",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/app/api/v1/routes/engineering_dashboard.py + frontend/src/components/EngineeringOrg/ \u2014 dashboard, objective submission, task graph view",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   },
   "E7-10": {
     "builder": "Claude",
     "deps": "each",
     "reviewer": "Claude",
-    "status": "PENDING",
-    "output": null,
-    "commit": null
+    "status": "VERIFIED",
+    "output": "backend/tests/engineering/ \u2014 56 tests: department_registry, mission_planner, dispatcher, council_extension, peer_review, deployment_integration; 370/370 passed (council+kernel+fabric+headquarters+engineering, no regressions)",
+    "commit": "feat(v4-phase-7): E7-1 through E7-10 Mission Planner + Engineering Organization"
   }
 }

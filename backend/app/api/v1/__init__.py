@@ -161,3 +161,6 @@ api_router.include_router(captain_whitelabel.router, dependencies=[Depends(get_c
 api_router.include_router(voice_webhook.router)      # mixed auth — see route decorators
 # Headquarters — Captain-only, drives real repo mutation via the Execution Engine
 api_router.include_router(headquarters.router, dependencies=[Depends(get_current_captain)])
+# Phase 7 — Engineering Organization (Mission Planner + departments)
+from app.api.v1.routes import engineering_dashboard
+api_router.include_router(engineering_dashboard.router)  # auth already wired on the router
