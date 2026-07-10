@@ -1,16 +1,13 @@
 name: JARVIS — EC2 Deploy (Full Stack) [OIDC active]
 
+# NOTE: the automatic `push` trigger that used to live here was removed on
+# 2026-07-10. It silently ran a destructive `full-restart` (stop+remove
+# backend/nginx, rebuild, restart) on every commit to scripts/**, backend/**,
+# frontend/**, or this file — with no review step and no way to opt out.
+# That is what took production down mid-incident while fixing an unrelated
+# login bug. Deploys to production now happen ONLY via an explicit,
+# manually-triggered "Run workflow" (workflow_dispatch below).
 on:
-  push:
-    branches:
-      - claude/jarvis-cans-api-integration-ZThTD
-    paths:
-      - 'infrastructure/nginx/**'
-      - 'infrastructure/docker-compose.yml'
-      - 'backend/**'
-      - 'frontend/**'
-      - 'scripts/**'
-      - '.github/workflows/ec2-deploy.yml'
   workflow_dispatch:
     inputs:
       action:

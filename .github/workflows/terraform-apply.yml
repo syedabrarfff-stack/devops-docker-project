@@ -1,19 +1,20 @@
 name: JARVIS — Terraform Apply (ECS Infrastructure)
 
+# NOTE: the automatic push trigger was removed 2026-07-10. This workflow's
+# infra/terraform/** provisions ALB + RDS + ECS — Captain's explicit
+# directive (2026-07-10) is single-EC2 + Docker Compose only, with
+# ALB/RDS/ElastiCache/ASG deferred until customer growth justifies the
+# added cost. An accidental push-triggered `apply` here would provision
+# infrastructure outside the approved architecture and budget. Manual
+# workflow_dispatch only, default action changed to the read-only
+# plan-only so a forgotten dropdown selection can't apply/destroy anything.
 on:
-  push:
-    branches:
-      - claude/jarvis-cans-api-integration-ZThTD
-      - main
-    paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/terraform-apply.yml'
   workflow_dispatch:
     inputs:
       action:
-        description: Terraform action to run
-        required: false
-        default: apply
+        description: 'Terraform action — defaults to the read-only plan-only; you must actively pick apply or destroy'
+        required: true
+        default: plan-only
         type: choice
         options: [apply, plan-only, destroy]
       db_password:
