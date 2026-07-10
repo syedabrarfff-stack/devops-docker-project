@@ -83,14 +83,23 @@ jobs:
             echo "::add-mask::${CAPTAIN_PASS_INPUT}"
           fi
 
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --region ap-south-2 \
-            --filters "Name=instance-state-name,Values=running" \
-            --query "Reservations[].Instances[].InstanceId" \
-            --output text 2>/dev/null | tr '\t' '\n' | head -1)
+          # Pinned to the verified production instance — there is a second, unrelated
+          # "running" instance (i-00381dfb44fd3cf45, Jarvis-Terraform-Server) in this
+          # account that a "first running instance" query used to pick up instead,
+          # silently deploying to the wrong box. Verified via:
+          #   python3 -c "import socket; print(socket.gethostbyname('aliyarsolutions.com'))"
+          #   → 16.112.184.189 → i-07887c05a28c22675 ("jarvis-work-dr-recovery")
+          # If this instance is ever replaced (e.g. Phase 8 resize), update this ID.
+          INSTANCE_ID="i-07887c05a28c22675"
 
-          echo "EC2 Instance: $INSTANCE_ID"
-          [ -z "$INSTANCE_ID" ] && { echo "No running instance"; exit 1; }
+          ACTUAL_STATE=$(aws ec2 describe-instances \
+            --region ap-south-2 \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[].Instances[].State.Name" \
+            --output text 2>/dev/null)
+
+          echo "EC2 Instance: $INSTANCE_ID (state: $ACTUAL_STATE)"
+          [ "$ACTUAL_STATE" != "running" ] && { echo "Pinned instance $INSTANCE_ID is not running (state: $ACTUAL_STATE) — refusing to deploy blind to another instance"; exit 1; }
 
           # Inject GitHub token into the deploy script then base64-encode it.
           # The script file lives in the repo — no YAML heredoc issues.
