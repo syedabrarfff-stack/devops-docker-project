@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Deploy action
-        required: false
-        default: full-restart
+        description: 'Deploy action — GitHub pre-fills this dropdown with the default below; you must click it and actively pick the action you want, or it silently reruns the default'
+        required: true
+        default: verify-status
         type: choice
         options:
           - full-restart

@@ -3,6 +3,11 @@
 # __GHTOKEN__ is replaced by sed in the workflow before encoding.
 set -e
 
+# AWS-RunShellScript via SSM does not set $HOME the way an interactive SSH
+# session does — `git config --global` and similar fail with
+# "fatal: $HOME not set" without this. SSM commands run as root.
+export HOME="${HOME:-/root}"
+
 ACTION="${1:-full-restart}"
 GH_TOKEN="__GHTOKEN__"
 
