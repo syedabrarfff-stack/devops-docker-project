@@ -161,6 +161,49 @@ case "$ACTION" in
     docker exec jarvis_backend alembic current 2>/dev/null || true
     ;;
 
+  set-captain-credentials)
+    # Fixes login by forcing CAPTAIN_USERNAME/PASSWORD in .env and regenerating
+    # nginx basic-auth .htpasswd to match — both are gitignored secrets that only
+    # ever existed in a local sandbox, never reached this server until now.
+    # NEW_USER / NEW_PASS must be supplied via env vars at invocation time —
+    # never hardcode credentials in this script, it is committed to git.
+    NEW_USER="${CAPTAIN_USERNAME_OVERRIDE:?CAPTAIN_USERNAME_OVERRIDE must be set}"
+    NEW_PASS="${CAPTAIN_PASSWORD_OVERRIDE:?CAPTAIN_PASSWORD_OVERRIDE must be set}"
+
+    if grep -q "^CAPTAIN_USERNAME=" "$DEPLOY_DIR/.env"; then
+      sed -i "s|^CAPTAIN_USERNAME=.*|CAPTAIN_USERNAME=${NEW_USER}|" "$DEPLOY_DIR/.env"
+    else
+      echo "CAPTAIN_USERNAME=${NEW_USER}" >> "$DEPLOY_DIR/.env"
+    fi
+    if grep -q "^CAPTAIN_PASSWORD=" "$DEPLOY_DIR/.env"; then
+      sed -i "s|^CAPTAIN_PASSWORD=.*|CAPTAIN_PASSWORD=${NEW_PASS}|" "$DEPLOY_DIR/.env"
+    else
+      echo "CAPTAIN_PASSWORD=${NEW_PASS}" >> "$DEPLOY_DIR/.env"
+    fi
+    echo "=== .env CAPTAIN credentials set ==="
+
+    # Regenerate nginx basic-auth file (bcrypt via openssl, no extra deps needed)
+    HTPASSWD_FILE="$DEPLOY_DIR/infrastructure/nginx/.htpasswd"
+    HASH=$(openssl passwd -apr1 "${NEW_PASS}")
+    echo "${NEW_USER}:${HASH}" > "$HTPASSWD_FILE"
+    echo "=== nginx .htpasswd regenerated for user '${NEW_USER}' ==="
+
+    cd "$DEPLOY_DIR/infrastructure"
+    docker-compose -p jarvis up -d --no-deps --force-recreate backend nginx 2>&1 | tail -10
+    sleep 15
+
+    echo "=== VERIFYING LOGIN ==="
+    LOGIN_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
+      -H "Content-Type: application/json" \
+      -d "{\"username\":\"${NEW_USER}\",\"password\":\"${NEW_PASS}\"}")
+    if [ "$LOGIN_RESP" = "200" ]; then
+      echo "LOGIN_VERIFIED_OK (HTTP $LOGIN_RESP)"
+    else
+      echo "LOGIN_VERIFY_FAILED (HTTP $LOGIN_RESP)"
+    fi
+    curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
+    ;;
+
   *)
     # full-restart
     cd "$DEPLOY_DIR/infrastructure"

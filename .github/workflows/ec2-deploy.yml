@@ -25,6 +25,15 @@ on:
           - nginx-reload
           - git-pull-only
           - verify-status
+          - set-captain-credentials
+      captain_username:
+        description: 'New captain username (only used for set-captain-credentials)'
+        required: false
+        type: string
+      captain_password:
+        description: 'New captain password (only used for set-captain-credentials — never logged or committed)'
+        required: false
+        type: string
 
 env:
   EC2_HOST: aliyarsolutions.com
@@ -63,9 +72,16 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CAPTAIN_USER_INPUT: ${{ github.event.inputs.captain_username }}
+          CAPTAIN_PASS_INPUT: ${{ github.event.inputs.captain_password }}
         run: |
           ACTION="${{ github.event.inputs.action }}"
           ACTION="${ACTION:-full-restart}"
+
+          # Mask the password everywhere it might otherwise appear in step output
+          if [ -n "$CAPTAIN_PASS_INPUT" ]; then
+            echo "::add-mask::${CAPTAIN_PASS_INPUT}"
+          fi
 
           INSTANCE_ID=$(aws ec2 describe-instances \
             --region ap-south-2 \
@@ -82,13 +98,18 @@ jobs:
           sed "s|__GHTOKEN__|${GH_TOKEN}|g" scripts/ec2-deploy-script.sh > /tmp/inject.sh
           SCRIPT_B64=$(base64 -w0 /tmp/inject.sh)
 
-          # Single SSM command: decode and run the script with ACTION as $1
+          # Credentials (only used for set-captain-credentials) travel base64-encoded
+          # inside the SSM command too, so they never appear in plaintext in logs or JSON.
+          CAPTAIN_USER_B64=$(printf '%s' "$CAPTAIN_USER_INPUT" | base64 -w0)
+          CAPTAIN_PASS_B64=$(printf '%s' "$CAPTAIN_PASS_INPUT" | base64 -w0)
+
+          # Single SSM command: export decoded credential overrides, then decode and run the script with ACTION as $1
           CMD_ID=$(aws ssm send-command \
             --region ap-south-2 \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --timeout-seconds 1800 \
-            --parameters "{\"commands\": [\"echo '${SCRIPT_B64}' | base64 -d | bash -s '${ACTION}'\"]}" \
+            --parameters "{\"commands\": [\"export CAPTAIN_USERNAME_OVERRIDE=\$(echo ${CAPTAIN_USER_B64} | base64 -d); export CAPTAIN_PASSWORD_OVERRIDE=\$(echo ${CAPTAIN_PASS_B64} | base64 -d); echo '${SCRIPT_B64}' | base64 -d | bash -s '${ACTION}'\"]}" \
             --comment "JARVIS ${ACTION} deploy" \
             --query "Command.CommandId" \
             --output text 2>/dev/null)
