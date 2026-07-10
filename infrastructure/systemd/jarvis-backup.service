@@ -1,0 +1,18 @@
+[Unit]
+Description=JARVIS PostgreSQL Backup to S3
+After=jarvis-docker-compose.service
+Requires=jarvis-docker-compose.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash /root/devops-docker-project/scripts/backup-postgres.sh
+StandardOutput=journal
+StandardError=journal
+Environment="AWS_REGION=ap-south-2"
+Environment="POSTGRES_DB=jarvis"
+Environment="POSTGRES_USER=jarvis"
+EnvironmentFile=/root/devops-docker-project/.env
+
+[Install]
+WantedBy=multi-user.target

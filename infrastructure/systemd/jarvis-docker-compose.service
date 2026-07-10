@@ -1,0 +1,33 @@
+[Unit]
+Description=JARVIS Docker Compose Service
+Documentation=https://aliyarsolutions.com/docs
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+ConditionFileNotEmpty=/root/devops-docker-project/infrastructure/docker-compose.yml
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/devops-docker-project/infrastructure
+
+# Start all containers
+ExecStart=/usr/bin/docker-compose -f docker-compose.yml up -d
+
+# Wait for all services to be healthy (max 5 minutes)
+ExecStartPost=/bin/bash -c 'for i in {1..60}; do docker-compose -f docker-compose.yml ps | grep -q "unhealthy" && sleep 5 || break; done'
+
+# Stop containers gracefully on shutdown
+ExecStop=/usr/bin/docker-compose -f docker-compose.yml down --timeout 30
+
+# Restart service on failure (but not immediately)
+Restart=on-failure
+RestartSec=30s
+StartLimitInterval=600s
+StartLimitBurst=3
+
+# Ensure service starts after reboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
