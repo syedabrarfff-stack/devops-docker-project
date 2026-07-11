@@ -32,7 +32,7 @@ apscheduler==3.10.4
 psycopg2-binary==2.9.9
 
 # Phase 3 — Secure credential storage + AWS
-cryptography>=41.0.0
+cryptography==49.0.0
 boto3==1.35.0
 
 # Phase 3 — Calendar integrations + legacy auth compatibility
