@@ -2,6 +2,11 @@
 # JARVIS Phase 1 Health Check & Auto-Healing Script
 # Monitors container health, disk space, memory, SSL certificates
 # Performs automatic recovery actions when issues detected
+#
+# Runs locally on the production instance via systemd timer (every 5 min).
+# No AWS API calls for the healing actions themselves — only the alert()
+# path touches AWS, and only to publish to the SNS topic already wired to
+# Captain's email. This intentionally has no cross-instance dependency.
 
 set -euo pipefail
 
@@ -9,17 +14,22 @@ LOG_FILE="/var/log/jarvis-health-check.log"
 ALERT_THRESHOLD_DISK_PERCENT=85
 ALERT_THRESHOLD_MEMORY_PERCENT=85
 SSL_EXPIRY_WARNING_DAYS=30
-DOCKER_COMPOSE_DIR="/root/devops-docker-project/infrastructure"
+DOCKER_COMPOSE_DIR="/opt/jarvis/infrastructure"
+SNS_TOPIC_ARN="arn:aws:sns:ap-south-2:824232273953:jarvis-production-alerts"
+AWS_REGION="ap-south-2"
 
 # Logging function
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-# Alert function (logs critical issues)
+# Alert function (logs critical issues + publishes to the SNS topic already
+# subscribed to Captain's email)
 alert() {
     log "⚠️  ALERT: $*"
-    # TODO: Send to CloudWatch / SNS / Telegram in production
+    aws sns publish --region "$AWS_REGION" --topic-arn "$SNS_TOPIC_ARN" \
+        --subject "JARVIS self-heal alert" --message "$*" >/dev/null 2>&1 || \
+        log "  (SNS publish failed — check IAM permissions on this instance's role)"
 }
 
 # Health check function
@@ -80,7 +90,7 @@ check_memory() {
 
 # SSL certificate expiry check
 check_ssl_expiry() {
-    local cert_path="/root/devops-docker-project/infrastructure/nginx/letsencrypt/live/aliyarsolutions.com/fullchain.pem"
+    local cert_path="/opt/jarvis/infrastructure/nginx/letsencrypt/live/aliyarsolutions.com/fullchain.pem"
 
     if [ ! -f "$cert_path" ]; then
         log "⚠ SSL certificate not found at $cert_path"
@@ -102,25 +112,27 @@ check_ssl_expiry() {
     fi
 }
 
-# Backup status check
+# Backup status check — backups run via AWS Backup (daily EBS snapshots of
+# the instance's volumes), not a local script, so check the vault directly.
 check_backup_status() {
-    local backup_log="/var/backups/jarvis/backups.log"
+    local last_backup_epoch
+    last_backup_epoch=$(aws backup list-recovery-points-by-backup-vault \
+        --region "$AWS_REGION" --backup-vault-name jarvis-production-vault \
+        --query "max_by(RecoveryPoints, &CreationDate).CreationDate" \
+        --output text 2>/dev/null | cut -d. -f1)
 
-    if [ ! -f "$backup_log" ]; then
-        alert "No backup log found"
+    if [ -z "$last_backup_epoch" ] || [ "$last_backup_epoch" = "None" ]; then
+        alert "Could not read AWS Backup recovery points — check IAM permissions or vault name"
         return 1
     fi
 
-    local last_backup_line=$(tail -1 "$backup_log")
-    local last_backup_time=$(echo "$last_backup_line" | awk '{print $1}')
-    local last_backup_epoch=$(date -d "$last_backup_time" +%s)
     local current_epoch=$(date +%s)
     local hours_since_backup=$(( (current_epoch - last_backup_epoch) / 3600 ))
 
     if (( hours_since_backup > 26 )); then
-        alert "Last backup was $hours_since_backup hours ago (expected daily)"
+        alert "Last AWS Backup snapshot was $hours_since_backup hours ago (expected daily)"
     else
-        log "✓ Last backup: $hours_since_backup hours ago"
+        log "✓ Last AWS Backup snapshot: $hours_since_backup hours ago"
     fi
 }
 

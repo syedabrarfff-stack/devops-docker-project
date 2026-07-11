@@ -4,21 +4,23 @@ Documentation=https://aliyarsolutions.com/docs
 After=network-online.target docker.service
 Requires=docker.service
 Wants=network-online.target
-ConditionFileNotEmpty=/root/devops-docker-project/infrastructure/docker-compose.yml
+ConditionFileNotEmpty=/opt/jarvis/infrastructure/docker-compose.yml
 
 [Service]
 Type=oneshot
 User=root
-WorkingDirectory=/root/devops-docker-project/infrastructure
+WorkingDirectory=/opt/jarvis/infrastructure
 
-# Start all containers
-ExecStart=/usr/bin/docker-compose -f docker-compose.yml up -d
+# Start all containers (-p jarvis matches the project name used by every
+# manual/CI deploy so far — keeping it consistent avoids docker-compose
+# spinning up a second, differently-named copy of the stack)
+ExecStart=/usr/bin/docker-compose -p jarvis -f docker-compose.yml up -d
 
 # Wait for all services to be healthy (max 5 minutes)
-ExecStartPost=/bin/bash -c 'for i in {1..60}; do docker-compose -f docker-compose.yml ps | grep -q "unhealthy" && sleep 5 || break; done'
+ExecStartPost=/bin/bash -c 'for i in {1..60}; do docker-compose -p jarvis -f docker-compose.yml ps | grep -q "unhealthy" && sleep 5 || break; done'
 
 # Stop containers gracefully on shutdown
-ExecStop=/usr/bin/docker-compose -f docker-compose.yml down --timeout 30
+ExecStop=/usr/bin/docker-compose -p jarvis -f docker-compose.yml down --timeout 30
 
 # Restart service on failure (but not immediately)
 Restart=on-failure
