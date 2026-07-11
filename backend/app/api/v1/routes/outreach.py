@@ -384,7 +384,10 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
     if not destination.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid redirect URL")
 
-    # SSRF guard — block AWS metadata, private/loopback addresses
+    # SSRF/redirect guard — block AWS metadata, private/loopback addresses.
+    # Checking the literal host isn't enough: a hostname that itself resolves
+    # to a private/metadata IP (DNS rebinding) would sail through untouched,
+    # so any non-IP host also gets resolved and every returned address checked.
     _BLOCKED_HOSTS = {"169.254.169.254", "metadata.google.internal", "localhost"}
     try:
         parsed = urlparse(destination)
@@ -396,7 +399,19 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 raise HTTPException(status_code=400, detail="Redirect target not allowed")
         except ValueError:
-            pass  # hostname string, not IP — allow
+            # Hostname, not a literal IP — resolve it and check every address
+            # returned, since attacker-controlled DNS can point anywhere.
+            import asyncio
+            import socket
+
+            try:
+                addrinfo = await asyncio.to_thread(socket.getaddrinfo, host, None)
+            except socket.gaierror:
+                raise HTTPException(status_code=400, detail="Redirect target not allowed")
+            for family, _type, _proto, _canon, sockaddr in addrinfo:
+                resolved_ip = ipaddress.ip_address(sockaddr[0])
+                if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local or resolved_ip.is_reserved:
+                    raise HTTPException(status_code=400, detail="Redirect target not allowed")
     except HTTPException:
         raise
     except Exception:
