@@ -4,6 +4,13 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Evolution API (WhatsApp) connects to its own database
+-- (docker-compose.yml: DATABASE_CONNECTION_URI references ${EVOLUTION_POSTGRES_DB:-evolution}).
+-- Postgres only auto-creates POSTGRES_DB on first init, so this must be created explicitly
+-- or the evolution-api container fails to connect and crash-loops.
+SELECT 'CREATE DATABASE evolution'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'evolution')\gexec
+
 -- Performance indexes created after SQLAlchemy auto-creates tables
 -- These run idempotently on every startup (CREATE INDEX IF NOT EXISTS)
 

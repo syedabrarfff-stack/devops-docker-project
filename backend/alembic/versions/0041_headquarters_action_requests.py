@@ -1,7 +1,7 @@
 """HQ-1: hq_action_requests table for the Headquarters Orchestrator.
 
 Revision ID: 0041_headquarters_action_requests
-Revises: 0040_revenue_activation_columns
+Revises: 0039_fabric_tables
 Create Date: 2026-07-04
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "0041_headquarters_action_requests"
-down_revision = "0040_revenue_activation_columns"
+down_revision = "0039_fabric_tables"
 branch_labels = None
 depends_on = None
 
