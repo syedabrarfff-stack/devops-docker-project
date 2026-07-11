@@ -66,11 +66,12 @@ class TestVerifySlackSignature:
 class TestSlashCommands:
     @pytest.mark.asyncio
     async def test_cmd_status_returns_dict(self):
-        with (
-            patch("app.core.database.AsyncSessionLocal"),
-            patch("app.services.notifications.slack_bot.memory_service") as mem,
-        ):
-            mem.retrieve = AsyncMock(return_value=None)
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
+            mock_session = AsyncMock()
+            mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one=MagicMock(return_value=3)))
+            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+
             from app.services.notifications.slack_bot import handle_slash_command
             result = await handle_slash_command(
                 command="/status", text="", channel_id="C123", user_id="U123", response_url=""
@@ -99,19 +100,18 @@ class TestSlashCommands:
 class TestSlackEvents:
     @pytest.mark.asyncio
     async def test_url_verification_challenge(self):
-        with patch("app.services.notifications.slack_bot.memory_service") as mem:
-            mem.store = AsyncMock()
-            from app.services.notifications.slack_bot import handle_event
-            result = await handle_event({"type": "url_verification", "challenge": "test123"})
-            assert result is None or isinstance(result, dict)
+        # Note: url_verification is actually handled at the route layer
+        # (routes/slack_bot.py:54-55), not inside handle_event() — this
+        # exercises handle_event()'s correct behavior of ignoring event
+        # types it doesn't recognize (only "app_mention" is handled).
+        from app.services.notifications.slack_bot import handle_event
+        result = await handle_event({"type": "url_verification", "challenge": "test123"})
+        assert result is None or isinstance(result, dict)
 
     @pytest.mark.asyncio
     async def test_message_event_processed(self):
-        with (
-            patch("app.services.notifications.slack_bot.memory_service") as mem,
-            patch("app.services.ai.router.ai_router") as ai,
-        ):
-            mem.store = AsyncMock()
-            ai.chat = AsyncMock(return_value=(MagicMock(content="reply"), "fast"))
-            from app.services.notifications.slack_bot import handle_event
-            await handle_event({"type": "message", "text": "hello", "channel": "C123", "user": "U123"})
+        # handle_event() only acts on "app_mention" events — a plain
+        # "message" event is a no-op by design, so this just confirms it
+        # doesn't raise.
+        from app.services.notifications.slack_bot import handle_event
+        await handle_event({"type": "message", "text": "hello", "channel": "C123", "user": "U123"})

@@ -56,14 +56,12 @@ class TestInboundHandlers:
         }
         with (
             patch("app.core.database.AsyncSessionLocal") as db_ctx,
-            patch("app.services.integrations.zapier_gateway.lead_scorer") as scorer,
-            patch("app.services.integrations.zapier_gateway.memory_service") as mem,
+            patch("app.services.leads.scoring.lead_scoring_engine") as scorer,
         ):
             mock_db = AsyncMock()
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             scorer.score_lead = AsyncMock(return_value={"score": 72})
-            mem.store = AsyncMock()
 
             from app.services.integrations.zapier_gateway import handle_inbound_lead
             result = await handle_inbound_lead(payload)
@@ -80,12 +78,13 @@ class TestInboundHandlers:
         }
         with (
             patch("app.core.database.AsyncSessionLocal") as db_ctx,
-            patch("app.services.integrations.zapier_gateway.slack_notify") as slack,
+            patch("app.services.notifications.slack.notify_slack") as notify,
         ):
             mock_db = AsyncMock()
+            mock_db.execute = AsyncMock(return_value=MagicMock(rowcount=1))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-            slack.return_value = AsyncMock()
+            notify.return_value = AsyncMock()
 
             from app.services.integrations.zapier_gateway import handle_inbound_payment
             result = await handle_inbound_payment(payload)
@@ -108,4 +107,4 @@ class TestZapierGatewayOutbound:
                 from app.services.integrations.zapier_gateway import ZapierGateway
                 gw = ZapierGateway()
                 # trigger is a fire-and-forget; just ensure it doesn't raise
-                await gw.trigger("https://hooks.zapier.com/test", {"lead_id": "123"})
+                await gw.trigger("https://hooks.zapier.com/test", "lead.qualified", {"lead_id": "123"})

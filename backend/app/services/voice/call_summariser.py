@@ -45,7 +45,7 @@ async def _generate_call_summary(
             "  sentiment: 'positive' | 'neutral' | 'negative'\n"
             "Return only the JSON, no markdown."
         )
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[{"role": "user", "content": prompt}],
             task_type="ANALYSIS",
         )

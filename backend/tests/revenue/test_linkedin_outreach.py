@@ -32,7 +32,7 @@ class TestEnrichPersonProfile:
             assert isinstance(result, dict)
 
     @pytest.mark.asyncio
-    async def test_api_error_returns_empty_dict(self):
+    async def test_api_error_returns_none(self):
         with (
             patch("app.services.outreach.linkedin_outreach.settings") as cfg,
             patch("app.services.outreach.linkedin_outreach.httpx") as mock_httpx,
@@ -47,7 +47,9 @@ class TestEnrichPersonProfile:
 
             from app.services.outreach.linkedin_outreach import enrich_person_profile
             result = await enrich_person_profile("https://linkedin.com/in/alice-smith")
-            assert isinstance(result, dict)
+            # Non-200 (e.g. rate limited) intentionally returns None, not {} —
+            # distinguishes "lookup failed" from "profile has no data".
+            assert result is None
 
 
 class TestGenerateLinkedInMessage:

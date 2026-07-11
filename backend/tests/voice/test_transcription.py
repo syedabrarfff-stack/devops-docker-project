@@ -11,23 +11,30 @@ class TestTranscribeAudioUrl:
     @pytest.mark.asyncio
     async def test_returns_transcript_dict(self):
         fake_audio = b"fake_ogg_data"
-        fake_whisper_response = MagicMock()
-        fake_whisper_response.text = "Hello, I want to schedule a meeting."
-        fake_whisper_response.language = "en"
-        fake_whisper_response.duration = 4.2
 
         with (
             patch("app.services.voice.transcription.httpx") as mock_httpx,
-            patch("app.services.voice.transcription.openai_client") as mock_ai,
+            patch("app.services.voice.transcription.settings") as cfg,
         ):
-            mock_resp = MagicMock(status_code=200)
-            mock_resp.content = fake_audio
-            mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock(get=AsyncMock(return_value=mock_resp))
-            )
-            mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock(return_value=False)
+            cfg.OPENAI_API_KEY = "sk-test"
+            mock_get_resp = MagicMock(status_code=200)
+            mock_get_resp.content = fake_audio
+            mock_get_resp.raise_for_status = MagicMock()
 
-            mock_ai.audio.transcriptions.create = AsyncMock(return_value=fake_whisper_response)
+            mock_post_resp = MagicMock(status_code=200)
+            mock_post_resp.raise_for_status = MagicMock()
+            mock_post_resp.json.return_value = {
+                "text": "Hello, I want to schedule a meeting.",
+                "language": "en",
+                "duration": 4.2,
+            }
+
+            mock_client = MagicMock(
+                get=AsyncMock(return_value=mock_get_resp),
+                post=AsyncMock(return_value=mock_post_resp),
+            )
+            mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             from app.services.voice.transcription import transcribe_audio_url
             result = await transcribe_audio_url("https://example.com/voice.ogg")
@@ -53,13 +60,22 @@ class TestTranscribeAudioUrl:
 class TestTranscribeAudioBytes:
     @pytest.mark.asyncio
     async def test_bytes_transcription(self):
-        fake_resp = MagicMock()
-        fake_resp.text = "Payment confirmed for invoice."
-        fake_resp.language = "en"
-        fake_resp.duration = 2.1
+        with (
+            patch("app.services.voice.transcription.httpx") as mock_httpx,
+            patch("app.services.voice.transcription.settings") as cfg,
+        ):
+            cfg.OPENAI_API_KEY = "sk-test"
+            mock_post_resp = MagicMock(status_code=200)
+            mock_post_resp.raise_for_status = MagicMock()
+            mock_post_resp.json.return_value = {
+                "text": "Payment confirmed for invoice.",
+                "language": "en",
+                "duration": 2.1,
+            }
+            mock_client = MagicMock(post=AsyncMock(return_value=mock_post_resp))
+            mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("app.services.voice.transcription.openai_client") as mock_ai:
-            mock_ai.audio.transcriptions.create = AsyncMock(return_value=fake_resp)
             from app.services.voice.transcription import transcribe_audio_bytes
             result = await transcribe_audio_bytes(b"audio_data", filename="recording.mp3")
             assert result["transcript"] == "Payment confirmed for invoice."
@@ -69,6 +85,7 @@ class TestClassifyVoiceIntent:
     @pytest.mark.asyncio
     async def test_meeting_request_classified(self):
         ai_response = MagicMock()
+        ai_response.error = None
         ai_response.content = json.dumps({"intent": "meeting_request", "confidence": 0.92, "reply": "I'll book that."})
 
         with patch("app.services.ai.router.ai_router") as ai:
@@ -102,8 +119,11 @@ class TestClassifyVoiceIntent:
 class TestStoreVoiceInteraction:
     @pytest.mark.asyncio
     async def test_interaction_stored_in_memory(self):
-        with patch("app.services.voice.transcription.memory_service") as mem:
-            mem.store = AsyncMock()
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
+            mock_session = AsyncMock()
+            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+
             from app.services.voice.transcription import store_voice_interaction
             await store_voice_interaction(
                 phone="+447911123456",
@@ -111,7 +131,7 @@ class TestStoreVoiceInteraction:
                 intent="general",
                 language="en",
             )
-            mem.store.assert_called_once()
-            call_kwargs = mem.store.call_args
+            mock_session.execute.assert_called_once()
             # key should contain the phone number
-            assert "+447911123456" in str(call_kwargs) or "voice_interaction" in str(call_kwargs)
+            call_args = mock_session.execute.call_args
+            assert "+447911123456" in str(call_args)

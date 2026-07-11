@@ -31,7 +31,7 @@ class TestTtsElevenLabs:
             assert len(result) > 0
 
     @pytest.mark.asyncio
-    async def test_api_error_raises(self):
+    async def test_api_error_returns_none(self):
         with (
             patch("app.services.voice.briefing_voice.settings") as cfg,
             patch("app.services.voice.briefing_voice.httpx") as mock_httpx,
@@ -41,14 +41,18 @@ class TestTtsElevenLabs:
 
             mock_resp = MagicMock(status_code=429)
             mock_resp.content = b""
+            mock_resp.text = "rate limited"
             mock_httpx.AsyncClient.return_value.__aenter__ = AsyncMock(
                 return_value=MagicMock(post=AsyncMock(return_value=mock_resp))
             )
             mock_httpx.AsyncClient.return_value.__aexit__ = AsyncMock(return_value=False)
 
             from app.services.voice.briefing_voice import _tts_elevenlabs
-            with pytest.raises(Exception):
-                await _tts_elevenlabs("Morning briefing text")
+            # Non-200 is handled (logged + returns None), not raised — the
+            # caller (deliver_briefing_as_voice) treats voice delivery as
+            # non-fatal so text briefings still go out.
+            result = await _tts_elevenlabs("Morning briefing text")
+            assert result is None
 
 
 class TestSendTelegramVoice:
@@ -71,7 +75,7 @@ class TestSendTelegramVoice:
 
             from app.services.voice.briefing_voice import _send_telegram_voice
             result = await _send_telegram_voice(fake_audio, caption="Morning Briefing")
-            assert isinstance(result, dict)
+            assert result is True
 
 
 class TestDeliverBriefingAsVoice:

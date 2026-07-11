@@ -103,7 +103,7 @@ async def generate_linkedin_message(
             "end with a soft CTA ('Would love to connect.'). "
             "Return ONLY the message text, nothing else."
         )
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[{"role": "user", "content": prompt}],
             task_type="SALES",
         )

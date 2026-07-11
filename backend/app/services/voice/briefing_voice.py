@@ -104,9 +104,11 @@ async def deliver_briefing_as_voice(briefing_text: str) -> dict[str, Any]:
 
     # Trim to a reasonable voice length (~60 seconds max)
     MAX_CHARS = 800
-    voice_text = briefing_text[:MAX_CHARS]
     if len(briefing_text) > MAX_CHARS:
-        voice_text = voice_text.rsplit(" ", 1)[0] + " — briefing continues in dashboard."
+        suffix = " — briefing continues in dashboard."
+        voice_text = briefing_text[:MAX_CHARS - len(suffix)].rsplit(" ", 1)[0] + suffix
+    else:
+        voice_text = briefing_text
 
     logger.info("[BriefingVoice] Generating voice for %d chars", len(voice_text))
 

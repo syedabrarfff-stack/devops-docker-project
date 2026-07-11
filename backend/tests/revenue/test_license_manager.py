@@ -37,21 +37,19 @@ class TestProvisionTenant:
     @pytest.mark.asyncio
     async def test_provision_returns_tenant_record(self):
         with (
-            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.whitelabel.license_manager._generate_license_key", return_value="wl_abc123"),
             patch("app.services.whitelabel.license_manager.settings") as cfg,
         ):
             cfg.SECRET_KEY = "test_secret"
-            mock_db = AsyncMock()
-            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_session = AsyncMock()
 
             from app.services.whitelabel.license_manager import LicenseManager
             lm = LicenseManager()
             result = await lm.provision_tenant(
                 company_name="TestCo",
-                contact_email="admin@testco.com",
-                plan="STARTER",
+                admin_email="admin@testco.com",
+                plan_tier="STARTER",
+                session=mock_session,
             )
             assert isinstance(result, dict)
             assert "license_key" in result or "tenant_id" in result or "status" in result
@@ -60,52 +58,39 @@ class TestProvisionTenant:
 class TestValidateLicense:
     @pytest.mark.asyncio
     async def test_valid_key_returns_tenant_info(self):
-        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
-            mock_db = AsyncMock()
-            mock_tenant = MagicMock()
-            mock_tenant.license_key = "wl_valid_key"
-            mock_tenant.is_active = True
-            mock_tenant.plan = "GROWTH"
-            mock_tenant.company_name = "ValidCo"
-            mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_tenant)))
-            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_session = AsyncMock()
+        mock_row = ("tenant-id-1", "ValidCo", "GROWTH", True, 500, 5000)
+        mock_session.execute = AsyncMock(return_value=MagicMock(fetchone=MagicMock(return_value=mock_row)))
 
-            from app.services.whitelabel.license_manager import LicenseManager
-            lm = LicenseManager()
-            result = await lm.validate_license("wl_valid_key")
-            assert isinstance(result, dict)
+        from app.services.whitelabel.license_manager import LicenseManager
+        lm = LicenseManager()
+        result = await lm.validate_license("wl_valid_key", mock_session)
+        assert isinstance(result, dict)
 
     @pytest.mark.asyncio
     async def test_invalid_key_returns_invalid(self):
-        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
-            mock_db = AsyncMock()
-            mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=MagicMock(fetchone=MagicMock(return_value=None)))
 
-            from app.services.whitelabel.license_manager import LicenseManager
-            lm = LicenseManager()
-            result = await lm.validate_license("wl_nonexistent")
-            assert result.get("valid") is False or result.get("status") == "invalid" or isinstance(result, dict)
+        from app.services.whitelabel.license_manager import LicenseManager
+        lm = LicenseManager()
+        result = await lm.validate_license("wl_nonexistent", mock_session)
+        assert result is None
 
 
 class TestMrrSnapshot:
     @pytest.mark.asyncio
     async def test_mrr_snapshot_returns_numeric_total(self):
-        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
-            mock_db = AsyncMock()
-            mock_db.execute = AsyncMock(return_value=MagicMock(
-                fetchall=MagicMock(return_value=[
-                    MagicMock(plan="STARTER", count=2),
-                    MagicMock(plan="GROWTH", count=1),
-                ])
-            ))
-            db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-            db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=MagicMock(
+            fetchall=MagicMock(return_value=[
+                ("STARTER", 2),
+                ("GROWTH", 1),
+            ])
+        ))
 
-            from app.services.whitelabel.license_manager import LicenseManager
-            lm = LicenseManager()
-            result = await lm.get_mrr_snapshot()
-            assert isinstance(result, dict)
-            assert "total_mrr" in result or "mrr" in result or "tenants" in result
+        from app.services.whitelabel.license_manager import LicenseManager
+        lm = LicenseManager()
+        result = await lm.get_mrr_snapshot(mock_session)
+        assert isinstance(result, dict)
+        assert "total_mrr_gbp" in result

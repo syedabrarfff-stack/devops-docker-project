@@ -17,7 +17,7 @@ class TestGenerateCallSummary:
             "key_points": ["Budget £5k/month", "AWS migration", "Timeline Q3"],
             "sentiment": "positive",
         }
-        ai_response = MagicMock(content=json.dumps(ai_payload))
+        ai_response = MagicMock(content=json.dumps(ai_payload), error=None)
 
         with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(ai_response, "analysis"))
@@ -77,12 +77,10 @@ class TestProcessCallRecording:
             patch("app.services.voice.call_summariser.transcribe_audio_url", return_value=fake_transcript_result),
             patch("app.services.voice.call_summariser._generate_call_summary", return_value=fake_summary) as gen_mock,
             patch("app.core.database.AsyncSessionLocal") as db_ctx,
-            patch("app.services.voice.call_summariser.memory_service") as mem,
         ):
             mock_db = AsyncMock()
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
-            mem.store = AsyncMock()
 
             from app.services.voice.call_summariser import process_call_recording
             result = await process_call_recording(

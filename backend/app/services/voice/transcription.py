@@ -139,7 +139,7 @@ async def classify_voice_intent(transcript: str, sender_phone: str) -> dict[str,
             "Respond in JSON: {\"intent\": \"<intent>\", \"confidence\": 0.0-1.0, "
             "\"suggested_reply\": \"<brief reply in <100 words>\"}"
         )
-        response = await ai_router.chat(
+        response, _ = await ai_router.chat(
             messages=[{"role": "user", "content": prompt}],
             task_type="FAST",
         )

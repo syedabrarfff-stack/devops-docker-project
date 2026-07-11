@@ -70,7 +70,7 @@ class TestSendProposalVoiceSummary:
     async def test_missing_lead_returns_error(self):
         with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
-            mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
+            mock_db.execute = AsyncMock(return_value=MagicMock(fetchone=MagicMock(return_value=None)))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
 
@@ -81,17 +81,16 @@ class TestSendProposalVoiceSummary:
 
     @pytest.mark.asyncio
     async def test_lead_without_phone_returns_error(self):
-        mock_lead = MagicMock()
-        mock_lead.contact_phone = None
-        mock_lead.contact_name = "Bob"
-        mock_lead.company = "BobCo"
+        # (company_name, contact_name, contact_phone, proposal_title, total_value)
+        no_phone_row = ("BobCo", "Bob", None, "Proposal", 5000.0)
 
         with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
-            mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_lead)))
+            mock_db.execute = AsyncMock(return_value=MagicMock(fetchone=MagicMock(return_value=no_phone_row)))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
             db_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
 
             from app.services.voice.whatsapp_voice import send_proposal_voice_summary
             result = await send_proposal_voice_summary("lead_no_phone")
             assert isinstance(result, dict)
+            assert "error" in result or "status" in result

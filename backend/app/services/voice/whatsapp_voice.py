@@ -73,7 +73,11 @@ async def send_voice_note(phone: str, text: str) -> dict[str, Any]:
     Generate TTS audio and send as a WhatsApp voice note.
     phone: E.164 format without '+' (e.g. '447911123456')
     """
-    audio = await _generate_audio(text)
+    try:
+        audio = await _generate_audio(text)
+    except Exception as exc:
+        logger.warning("[WAVoice] TTS error: %s", exc)
+        audio = None
     if not audio:
         return {"status": "tts_failed", "phone": phone}
 
