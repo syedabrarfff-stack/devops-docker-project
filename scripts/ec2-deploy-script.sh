@@ -269,6 +269,11 @@ case "$ACTION" in
     echo "=== HEALTH CHECKS ==="
     curl -sf http://localhost/health && echo NGINX_PROXY_HEALTH_OK || echo NGINX_PROXY_HEALTH_FAIL
     curl -sf http://localhost:8000/health && echo BACKEND_HEALTH_OK || echo BACKEND_HEALTH_FAIL
+    # /health is shallow (no DB) — /readyz actually checks DB connectivity.
+    # A deploy where /health passes but /readyz fails means the backend
+    # process is up but can't reach its database, which /health alone
+    # would silently pass through as a successful deploy.
+    curl -sf http://localhost:8000/readyz && echo BACKEND_READYZ_OK || echo BACKEND_READYZ_FAIL
 
     echo "=== BACKEND LOGS TAIL ==="
     docker logs jarvis_backend --tail=30 2>&1 | tail -30

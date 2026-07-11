@@ -145,16 +145,23 @@ jobs:
 
           if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ]; then
             BACKEND_UP=$(echo "$OUTPUT" | grep -c "BACKEND_HEALTH_OK" || true)
+            # /health is shallow (no DB check) — /readyz actually verifies DB
+            # connectivity. Requiring both means a backend that's "up" but
+            # can't reach Postgres no longer counts as a successful deploy.
+            BACKEND_READY=$(echo "$OUTPUT" | grep -c "BACKEND_READYZ_OK" || true)
             BUILD_FAILED=$(echo "$OUTPUT" | grep -c "BUILD_FAILED" || true)
-            if [ "$BACKEND_UP" -gt 0 ]; then
-              echo "=== DEPLOY SUCCEEDED — backend is UP ==="
+            if [ "$BACKEND_UP" -gt 0 ] && [ "$BACKEND_READY" -gt 0 ]; then
+              echo "=== DEPLOY SUCCEEDED — backend is UP and ready (DB reachable) ==="
               exit 0
             elif [ "$BUILD_FAILED" -gt 0 ]; then
               echo "=== BUILD FAILED — check output above for Docker build errors ==="
               exit 1
+            elif [ "$BACKEND_UP" -gt 0 ] && [ "$BACKEND_READY" -eq 0 ]; then
+              echo "=== DEPLOY FAILED — backend responds to /health but /readyz failed (DB/dependency unreachable) ==="
+              exit 1
             elif [ "$STATUS" = "Success" ]; then
               echo "=== SSM succeeded but backend health unknown ==="
-              echo "$OUTPUT" | grep -E "HEALTH_OK|HEALTH_FAIL|BUILD_|DEPLOY_COMPLETE" || true
+              echo "$OUTPUT" | grep -E "HEALTH_OK|HEALTH_FAIL|READYZ_OK|READYZ_FAIL|BUILD_|DEPLOY_COMPLETE" || true
               exit 1
             else
               echo "=== SSM FAILED — check output above ==="

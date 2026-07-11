@@ -235,7 +235,8 @@ jobs:
           echo "Checking readiness: $READYZ_URL"
           RSTAT=$(curl -s -o /dev/null -w "%{http_code}" "$READYZ_URL" || echo "000")
           if [ "$RSTAT" != "200" ]; then
-            echo "::warning::Readiness degraded — HTTP $RSTAT (deployment continues)"
+            echo "::error::Readiness check failed — HTTP $RSTAT (DB/dependency unreachable)"
+            exit 1
           fi
           echo "✅ JARVIS v$(curl -s $HEALTH_URL | python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"version\",\"?\"))') is live"
 
