@@ -1,17 +1,31 @@
-FROM python:3.11-slim
+# ── Build stage: compiles/installs Python deps, needs the full toolchain ──────
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev postgresql-client curl gzip \
+    gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir \
+RUN pip install --no-cache-dir --user \
     --trusted-host pypi.org \
     --trusted-host pypi.python.org \
     --trusted-host files.pythonhosted.org \
     -r requirements.txt
+
+# ── Runtime stage: only what's needed to actually run the app ─────────────────
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# postgresql-client provides pg_dump, used at runtime by the scheduler's daily
+# backup job (app/services/scheduler/scheduler.py) — curl is for the container
+# HEALTHCHECK — gzip compresses backup dumps. No compiler/dev headers here;
+# those only exist in the builder stage above.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client curl gzip \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 jarvis \
     && mkdir -p /data/proposals /data/invoices /var/backups/jarvis /etc/ssl/certs \
@@ -20,6 +34,9 @@ RUN useradd -m -u 1000 jarvis \
 # Set CA bundle paths for agent proxy SSL verification
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
+
+COPY --from=builder --chown=jarvis:jarvis /root/.local /home/jarvis/.local
+ENV PATH=/home/jarvis/.local/bin:$PATH
 
 USER jarvis
 
