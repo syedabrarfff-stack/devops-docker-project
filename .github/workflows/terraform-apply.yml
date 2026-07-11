@@ -32,6 +32,11 @@ on:
         required: false
         default: ""
         type: string
+      confirm_destroy:
+        description: 'Only used when action=destroy. Must be typed exactly: destroy production infrastructure'
+        required: false
+        default: ""
+        type: string
 
 env:
   AWS_REGION: ap-south-2
@@ -339,6 +344,15 @@ jobs:
         with:
           path: infra/terraform/terraform.tfstate
           key: terraform-state-production-${{ github.run_id }}
+
+      - name: Verify destroy confirmation phrase
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "destroy production infrastructure" ]; then
+            echo "::error::confirm_destroy did not match the required phrase — refusing to destroy. Re-run and type exactly: destroy production infrastructure"
+            exit 1
+          fi
+          echo "Confirmation phrase matched — proceeding to destroy."
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
