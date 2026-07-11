@@ -46,6 +46,10 @@ slowapi==0.1.9
 # Utilities
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1  # pinned: passlib 1.7.4's bcrypt backend crashes on bcrypt>=4.1
+               # (AttributeError probing __about__, then ValueError in its own
+               # 72-byte self-test) — confirmed by reproduction, breaks every
+               # pwd_context.hash() call including tenant_manager.py onboarding
 python-dotenv==1.0.1
 pytz==2024.2
 reportlab==4.2.5
