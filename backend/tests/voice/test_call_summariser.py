@@ -19,7 +19,7 @@ class TestGenerateCallSummary:
         }
         ai_response = MagicMock(content=json.dumps(ai_payload))
 
-        with patch("app.services.voice.call_summariser.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(ai_response, "analysis"))
             from app.services.voice.call_summariser import _generate_call_summary
             result = await _generate_call_summary(
@@ -36,7 +36,7 @@ class TestGenerateCallSummary:
     async def test_malformed_json_uses_fallback(self):
         ai_response = MagicMock(content="Summary: Great call. Outcome: needs_follow_up")
 
-        with patch("app.services.voice.call_summariser.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(ai_response, "analysis"))
             from app.services.voice.call_summariser import _generate_call_summary
             result = await _generate_call_summary(
@@ -50,7 +50,7 @@ class TestGenerateCallSummary:
 
     @pytest.mark.asyncio
     async def test_ai_failure_returns_error_dict(self):
-        with patch("app.services.voice.call_summariser.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(side_effect=Exception("timeout"))
             from app.services.voice.call_summariser import _generate_call_summary
             result = await _generate_call_summary("transcript", "Caller", "inbound", 60)
@@ -76,7 +76,7 @@ class TestProcessCallRecording:
         with (
             patch("app.services.voice.call_summariser.transcribe_audio_url", return_value=fake_transcript_result),
             patch("app.services.voice.call_summariser._generate_call_summary", return_value=fake_summary) as gen_mock,
-            patch("app.services.voice.call_summariser.get_db_session") as db_ctx,
+            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.voice.call_summariser.memory_service") as mem,
         ):
             mock_db = AsyncMock()

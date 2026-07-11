@@ -68,7 +68,7 @@ class TestSendVoiceNote:
 class TestSendProposalVoiceSummary:
     @pytest.mark.asyncio
     async def test_missing_lead_returns_error(self):
-        with patch("app.services.voice.whatsapp_voice.get_db_session") as db_ctx:
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
             mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
@@ -86,7 +86,7 @@ class TestSendProposalVoiceSummary:
         mock_lead.contact_name = "Bob"
         mock_lead.company = "BobCo"
 
-        with patch("app.services.voice.whatsapp_voice.get_db_session") as db_ctx:
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
             mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=mock_lead)))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)

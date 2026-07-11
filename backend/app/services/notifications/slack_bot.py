@@ -26,7 +26,7 @@ _SLACK_API = "https://slack.com/api"
 
 # ── HMAC Verification ─────────────────────────────────────────────────────────
 
-def verify_slack_signature(body: bytes, timestamp: str, signature: str) -> bool:
+def verify_slack_signature(body: bytes | str, timestamp: str, signature: str) -> bool:
     """Verify Slack request authenticity via HMAC-SHA256."""
     if not settings.SLACK_SIGNING_SECRET:
         logger.warning("SLACK_SIGNING_SECRET not set — bot verification disabled")
@@ -39,7 +39,8 @@ def verify_slack_signature(body: bytes, timestamp: str, signature: str) -> bool:
     except (ValueError, TypeError):
         return False
 
-    base = f"v0:{timestamp}:{body.decode()}"
+    body_str = body.decode() if isinstance(body, bytes) else body
+    base = f"v0:{timestamp}:{body_str}"
     expected = "v0=" + hmac.new(
         settings.SLACK_SIGNING_SECRET.encode(),
         base.encode(),

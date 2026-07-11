@@ -23,20 +23,24 @@ logger = logging.getLogger(__name__)
 
 # ── HMAC verification ─────────────────────────────────────────────────────────
 
-def verify_zapier_signature(body: bytes, signature: str) -> bool:
+def verify_zapier_signature(body: bytes | str, signature: str) -> bool:
     if not settings.ZAPIER_WEBHOOK_SECRET:
-        return True  # not configured → accept (log warning)
+        logger.warning("ZAPIER_WEBHOOK_SECRET not set — rejecting inbound Zapier webhook")
+        return False  # fail closed, matches Stripe/Telegram webhook hardening
+    body_bytes = body.encode() if isinstance(body, str) else body
     expected = hmac.new(
-        settings.ZAPIER_WEBHOOK_SECRET.encode(), body, hashlib.sha256
+        settings.ZAPIER_WEBHOOK_SECRET.encode(), body_bytes, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(expected, signature.removeprefix("sha256="))
 
 
-def verify_make_signature(body: bytes, signature: str) -> bool:
+def verify_make_signature(body: bytes | str, signature: str) -> bool:
     if not settings.MAKE_WEBHOOK_SECRET:
-        return True
+        logger.warning("MAKE_WEBHOOK_SECRET not set — rejecting inbound Make webhook")
+        return False  # fail closed, matches Stripe/Telegram webhook hardening
+    body_bytes = body.encode() if isinstance(body, str) else body
     expected = hmac.new(
-        settings.MAKE_WEBHOOK_SECRET.encode(), body, hashlib.sha256
+        settings.MAKE_WEBHOOK_SECRET.encode(), body_bytes, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(expected, signature.removeprefix("sha256="))
 

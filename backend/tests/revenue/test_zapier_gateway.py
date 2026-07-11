@@ -55,7 +55,7 @@ class TestInboundHandlers:
             "source": "zapier",
         }
         with (
-            patch("app.services.integrations.zapier_gateway.get_db_session") as db_ctx,
+            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.integrations.zapier_gateway.lead_scorer") as scorer,
             patch("app.services.integrations.zapier_gateway.memory_service") as mem,
         ):
@@ -79,7 +79,7 @@ class TestInboundHandlers:
             "payment_method": "stripe",
         }
         with (
-            patch("app.services.integrations.zapier_gateway.get_db_session") as db_ctx,
+            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.integrations.zapier_gateway.slack_notify") as slack,
         ):
             mock_db = AsyncMock()

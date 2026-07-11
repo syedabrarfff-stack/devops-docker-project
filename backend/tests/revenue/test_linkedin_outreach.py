@@ -59,7 +59,7 @@ class TestGenerateLinkedInMessage:
             "summary": "Scaling SaaS businesses.",
         }
         mock_ai_resp = MagicMock(content="Hi Bob! Would love to connect about cloud automation for TechCorp.")
-        with patch("app.services.outreach.linkedin_outreach.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(mock_ai_resp, "sales"))
             from app.services.outreach.linkedin_outreach import generate_linkedin_message
             msg = await generate_linkedin_message(
@@ -73,7 +73,7 @@ class TestGenerateLinkedInMessage:
 
     @pytest.mark.asyncio
     async def test_ai_failure_returns_template_fallback(self):
-        with patch("app.services.outreach.linkedin_outreach.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(side_effect=Exception("AI down"))
             from app.services.outreach.linkedin_outreach import generate_linkedin_message
             msg = await generate_linkedin_message(
@@ -97,7 +97,7 @@ class TestLinkedInSweep:
         mock_lead.icp_score = 75
 
         with (
-            patch("app.services.outreach.linkedin_outreach.get_db_session") as db_ctx,
+            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.outreach.linkedin_outreach.enrich_and_queue_lead") as enrich,
         ):
             mock_db = AsyncMock()

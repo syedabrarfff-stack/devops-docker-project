@@ -71,7 +71,7 @@ class TestClassifyVoiceIntent:
         ai_response = MagicMock()
         ai_response.content = json.dumps({"intent": "meeting_request", "confidence": 0.92, "reply": "I'll book that."})
 
-        with patch("app.services.voice.transcription.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(ai_response, "fast"))
             from app.services.voice.transcription import classify_voice_intent
             result = await classify_voice_intent("Can we schedule a call tomorrow?", "+447911123456")
@@ -82,7 +82,7 @@ class TestClassifyVoiceIntent:
         ai_response = MagicMock()
         ai_response.content = "not valid json at all"
 
-        with patch("app.services.voice.transcription.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(return_value=(ai_response, "fast"))
             from app.services.voice.transcription import classify_voice_intent
             result = await classify_voice_intent("hello world", "+447911000000")
@@ -91,7 +91,7 @@ class TestClassifyVoiceIntent:
 
     @pytest.mark.asyncio
     async def test_ai_failure_returns_general_intent(self):
-        with patch("app.services.voice.transcription.ai_router") as ai:
+        with patch("app.services.ai.router.ai_router") as ai:
             ai.chat = AsyncMock(side_effect=Exception("AI down"))
             from app.services.voice.transcription import classify_voice_intent
             result = await classify_voice_intent("some message", "+447911000000")

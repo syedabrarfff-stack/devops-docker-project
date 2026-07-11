@@ -37,7 +37,7 @@ class TestProvisionTenant:
     @pytest.mark.asyncio
     async def test_provision_returns_tenant_record(self):
         with (
-            patch("app.services.whitelabel.license_manager.get_db_session") as db_ctx,
+            patch("app.core.database.AsyncSessionLocal") as db_ctx,
             patch("app.services.whitelabel.license_manager._generate_license_key", return_value="wl_abc123"),
             patch("app.services.whitelabel.license_manager.settings") as cfg,
         ):
@@ -60,7 +60,7 @@ class TestProvisionTenant:
 class TestValidateLicense:
     @pytest.mark.asyncio
     async def test_valid_key_returns_tenant_info(self):
-        with patch("app.services.whitelabel.license_manager.get_db_session") as db_ctx:
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
             mock_tenant = MagicMock()
             mock_tenant.license_key = "wl_valid_key"
@@ -78,7 +78,7 @@ class TestValidateLicense:
 
     @pytest.mark.asyncio
     async def test_invalid_key_returns_invalid(self):
-        with patch("app.services.whitelabel.license_manager.get_db_session") as db_ctx:
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
             mock_db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
             db_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_db)
@@ -93,7 +93,7 @@ class TestValidateLicense:
 class TestMrrSnapshot:
     @pytest.mark.asyncio
     async def test_mrr_snapshot_returns_numeric_total(self):
-        with patch("app.services.whitelabel.license_manager.get_db_session") as db_ctx:
+        with patch("app.core.database.AsyncSessionLocal") as db_ctx:
             mock_db = AsyncMock()
             mock_db.execute = AsyncMock(return_value=MagicMock(
                 fetchall=MagicMock(return_value=[

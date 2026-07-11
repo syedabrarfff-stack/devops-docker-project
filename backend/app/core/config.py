@@ -187,9 +187,16 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000,https://aliyarsolutions.com,https://www.aliyarsolutions.com"
 
+    # Separate from DEBUG on purpose: DEBUG also controls verbose logging/tracebacks
+    # and gets flipped for reasons unrelated to secrets (e.g. diagnosing on a
+    # prod-like box). A stale or copied .env with DEBUG=True must not silently
+    # skip the insecure-default checks below — this second, explicitly-named
+    # flag has to also be set for that skip to take effect.
+    ALLOW_INSECURE_DEV_DEFAULTS: bool = False
+
     @model_validator(mode="after")
     def _validate_production_config(self) -> "Settings":
-        if not self.DEBUG:
+        if not (self.DEBUG and self.ALLOW_INSECURE_DEV_DEFAULTS):
             errors: list[str] = []
             if self.SECRET_KEY in ("change-this-in-production", "", None):
                 errors.append(
@@ -220,11 +227,11 @@ class Settings(BaseSettings):
                     + "\n".join(f"  • {e}" for e in errors)
                 )
         else:
-            # Dev mode — warn but don't block
+            # DEBUG=True and ALLOW_INSECURE_DEV_DEFAULTS=true both set — warn but don't block
             if self.SECRET_KEY == "change-this-in-production":
-                _cfg_logger.warning("DEV: SECRET_KEY is the default (acceptable in DEBUG mode only)")
+                _cfg_logger.warning("DEV: SECRET_KEY is the default (acceptable only with ALLOW_INSECURE_DEV_DEFAULTS=true)")
             if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", ""):
-                _cfg_logger.warning("DEV: CAPTAIN_PASSWORD is the default (acceptable in DEBUG mode only)")
+                _cfg_logger.warning("DEV: CAPTAIN_PASSWORD is the default (acceptable only with ALLOW_INSECURE_DEV_DEFAULTS=true)")
         return self
 
     class Config:

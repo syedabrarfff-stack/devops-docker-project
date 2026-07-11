@@ -67,7 +67,7 @@ class TestSlashCommands:
     @pytest.mark.asyncio
     async def test_cmd_status_returns_dict(self):
         with (
-            patch("app.services.notifications.slack_bot.get_db_session"),
+            patch("app.core.database.AsyncSessionLocal"),
             patch("app.services.notifications.slack_bot.memory_service") as mem,
         ):
             mem.retrieve = AsyncMock(return_value=None)
@@ -109,7 +109,7 @@ class TestSlackEvents:
     async def test_message_event_processed(self):
         with (
             patch("app.services.notifications.slack_bot.memory_service") as mem,
-            patch("app.services.notifications.slack_bot.ai_router") as ai,
+            patch("app.services.ai.router.ai_router") as ai,
         ):
             mem.store = AsyncMock()
             ai.chat = AsyncMock(return_value=(MagicMock(content="reply"), "fast"))
