@@ -364,6 +364,12 @@ services:
       - ../monitoring/alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
       - "127.0.0.1:9093:9093"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - jarvis_net
     deploy:
@@ -382,6 +388,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9187/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - jarvis_net
     deploy:
@@ -400,6 +412,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    # No healthcheck: this image ships only the exporter binary itself —
+    # no shell, wget, or curl (verified: `docker export` shows no such
+    # binaries anywhere in the image), so there's no way to run a CMD-based
+    # check without adding a second process to the container. Restart
+    # policy + the depends_on condition above are what protect this one.
     networks:
       - jarvis_net
     deploy:
@@ -417,6 +434,12 @@ services:
       - "--path.rootfs=/host"
     volumes:
       - /:/host:ro,rslave
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9100/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - jarvis_net
     deploy:
@@ -436,6 +459,12 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - jarvis_net
     deploy:
@@ -455,6 +484,12 @@ services:
       - loki_data:/loki
     ports:
       - "127.0.0.1:3100:3100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks:
       - jarvis_net
     deploy:
@@ -475,6 +510,12 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     depends_on:
       - loki
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - jarvis_net
     deploy:
