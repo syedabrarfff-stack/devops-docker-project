@@ -191,4 +191,10 @@ class PolicyEngine:
             )
             await telegram_bridge.send_captain_alert(msg)
         except Exception:
-            pass  # Notification failure must never block policy enforcement
+            # Notification failure must never block policy enforcement, but
+            # a silent alert-delivery outage is exactly the kind of thing
+            # Captain would want to know about — log it instead of swallowing.
+            log.warning(
+                "Captain Telegram alert failed to send for operation=%r actor=%r",
+                operation, actor, exc_info=True,
+            )
