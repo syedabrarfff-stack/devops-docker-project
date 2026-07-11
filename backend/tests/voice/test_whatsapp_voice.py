@@ -15,7 +15,7 @@ class TestSendVoiceNote:
 
         with (
             patch("app.services.voice.whatsapp_voice.settings") as cfg,
-            patch("app.services.voice.whatsapp_voice._tts_elevenlabs", return_value=fake_audio) as tts_mock,
+            patch("app.services.voice.whatsapp_voice._generate_audio", return_value=fake_audio) as tts_mock,
             patch("app.services.voice.whatsapp_voice.httpx") as mock_httpx,
         ):
             cfg.EVOLUTION_API_URL = "https://evo.example.com"
@@ -34,7 +34,7 @@ class TestSendVoiceNote:
 
     @pytest.mark.asyncio
     async def test_tts_failure_returns_error(self):
-        with patch("app.services.voice.whatsapp_voice._tts_elevenlabs", side_effect=Exception("ElevenLabs down")):
+        with patch("app.services.voice.whatsapp_voice._generate_audio", side_effect=Exception("ElevenLabs down")):
             from app.services.voice.whatsapp_voice import send_voice_note
             result = await send_voice_note("+447911123456", "Hello briefing")
             assert isinstance(result, dict)
@@ -48,7 +48,7 @@ class TestSendVoiceNote:
 
         with (
             patch("app.services.voice.whatsapp_voice.settings") as cfg,
-            patch("app.services.voice.whatsapp_voice._tts_elevenlabs", return_value=fake_audio),
+            patch("app.services.voice.whatsapp_voice._generate_audio", return_value=fake_audio),
             patch("app.services.voice.whatsapp_voice.httpx") as mock_httpx,
         ):
             cfg.EVOLUTION_API_URL = "https://evo.example.com"
