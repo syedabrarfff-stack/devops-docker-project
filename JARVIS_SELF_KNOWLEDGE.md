@@ -1,7 +1,57 @@
 # JARVIS — Complete Self-Knowledge
-## Installed: 2026-06-22 | Updated: 2026-06-29 | Source: Full Codebase Audit
+## Installed: 2026-06-22 | Updated: 2026-07-11 | Source: Full Codebase Audit + Production Incident Session
 
 *Every JARVIS session must read this file on startup. This is operational self-awareness.*
+
+---
+
+## PRODUCTION INFRASTRUCTURE — CURRENT STATE (as of 2026-07-11)
+
+**Read this section first if you are picking up production/DevOps work.** It captures the real AWS account layout, an incident and its fixes, and every open decision — so no session has to re-derive this from scratch.
+
+### AWS account layout (account 824232273953, region ap-south-2 only)
+
+| Instance ID | Name tag | State | Role |
+|---|---|---|---|
+| `i-07887c05a28c22675` | jarvis-work-dr-recovery | running | **THIS IS PRODUCTION.** Confirmed via `aliyarsolutions.com` DNS → `16.112.184.189` → this instance. IAM profile `jarvis-ops` attached. Elastic IP `16.112.184.189`. |
+| `i-00381dfb44fd3cf45` | Jarvis-Terraform-Server | running | **Zombie/orphaned.** No IAM profile, no SSH key, SSM agent disconnected, serves HTTP 503, receives zero real traffic, not covered by AWS Backup. Do not deploy to this one. Candidate for termination after a fresh snapshot + traffic verification (Captain's explicit condition: snapshot + confirm zero production workload before deleting anything). |
+| `i-0ef8f36bbe4c23681` | jarvis-work | stopped | Cold spare, same IAM profile/key as production, its volume is in the backup plan. Likely the pre-DR-recovery production box (DR event was 2026-07-04). Not currently in use. |
+
+- **AWS Backup:** plan `jarvis-production-daily`, vault `jarvis-production-vault` — daily EBS snapshots of the production instance's volume (and the stopped spare's), confirmed working, 11+ recovery points at last check.
+- **CloudWatch monitoring installed 2026-07-10/11:** CloudWatch Agent installed on production (was not present before — this is why memory pressure was invisible during the incident). 4 alarms live: `jarvis-production-high-memory` (>85%), `jarvis-production-high-disk` (>85%), `jarvis-production-high-cpu` (>80%), `jarvis-production-system-status-check-failed`.
+- **SNS alert topic:** `arn:aws:sns:ap-south-2:824232273953:jarvis-production-alerts` — Captain's email (syedabrarbhd@gmail.com) subscribed; **confirm the AWS confirmation email was clicked, or alarms fire silently.**
+- **AWS billing:** account was on Free Tier (blocked EC2 resize + Bedrock with `FreeTierRestrictionError`/`INVALID_PAYMENT_INSTRUMENT`) — **upgraded to paid plan 2026-07-10/11, confirmed via AWS email.** Resize to t3.medium should now succeed.
+- **IAM:** role `jarvis-ops` is the instance profile on production (has `CloudWatchAgentServerPolicy` + `AmazonSSMManagedInstanceCore`, does NOT yet have `sns:Publish` — needed for the self-heal script's alert() function, pending Captain's named approval). Role `JarvisGitHubActionsRole` is what GitHub Actions assumes via OIDC (no stored secrets). Role `JarvisSSMAutomationRole` exists for the (currently on-hold) cross-instance failover automation — not needed for the single-instance self-healing approach Captain confirmed.
+
+### Incident (2026-07-10) and what was fixed
+
+Captain's dashboard login (`captain`/a chosen password) didn't work. Root-caused and fixed:
+
+1. **Root cause of login failure:** credentials were only ever set in a local sandbox `.env` in a prior session — `.env` is correctly gitignored, so it never reached the real server. Added a `set-captain-credentials` GitHub Actions deploy action (`scripts/ec2-deploy-script.sh` + `.github/workflows/ec2-deploy.yml`) that rewrites `.env` and regenerates nginx's `.htpasswd` on the actual instance, with the password passed only as a runtime workflow input — never committed to git.
+2. **Wrong instance targeted:** the deploy workflow picked "the first running instance" blindly and kept hitting the zombie (`i-00381dfb44fd3cf45`) instead of production. Fixed by pinning `INSTANCE_ID` explicitly in `ec2-deploy.yml` to the verified production instance.
+3. **`$HOME not set` killed every SSM-based deploy:** AWS SSM's `AWS-RunShellScript` document doesn't set `$HOME` the way SSH does; the deploy script's `git config --global` call died immediately. Fixed with an explicit `export HOME=/root` at the top of `scripts/ec2-deploy-script.sh`.
+4. **The real production outage:** while fixing the above, `ec2-deploy.yml`'s `push` trigger (fired on every commit to `scripts/**`, `backend/**`, `frontend/**`, or the workflow file) silently ran a `full-restart` in the background on every push — stopping and removing backend/nginx mid-fix, compounding with a genuinely undersized t3.micro (908MB RAM) under memory pressure. **The push trigger has been removed entirely from both `ec2-deploy.yml` and `terraform-apply.yml` — deploys now only happen via explicit manual "Run workflow".** `terraform-apply.yml`'s default action was also changed from `apply` to the read-only `plan-only` (it provisions ALB+RDS+ECS, out of scope — see architecture decisions below).
+5. Production was recovered via an EC2-level reboot, then (after discovering the account was Free Tier and blocking the resize) a stop → start cycle back to t3.micro as a stopgap. All 15 containers confirmed healthy after.
+
+### Architecture decisions Captain has explicitly made (do not deviate without asking)
+
+- **Single instance only.** No ALB, no RDS, no ElastiCache, no Auto Scaling Group, no standby/multi-instance failover, no multi-region — **until customer growth justifies it.** An earlier proposal for a stopped warm-standby with cross-instance EventBridge failover was explicitly walked back in favor of this.
+- **No AWS Bedrock, for now.** Was investigated (region has model access, e.g. Claude Haiku via inference profile `global.anthropic.claude-haiku-4-5-20251001-v1:0`), but Captain said stop/remove it. Nothing was integrated into the codebase — only a test invoke was run, no lasting resource or code change exists to clean up.
+- **Self-healing must be single-instance/local**, not cross-instance: a systemd timer running `scripts/jarvis-health-check.sh` every 5 minutes on the production box itself (container health → restart, disk >85% → prune, memory >85% → alert via SNS, SSL expiry check, AWS Backup freshness check). This was written, corrected against the real `/opt/jarvis` deploy path and `-p jarvis` compose project name, and committed — **but not yet installed on production** (systemd units exist in `infrastructure/systemd/`, need to be copied to the instance and `systemctl enable --now`'d once AWS access allows it).
+- **Backups:** rely on the existing AWS Backup (EBS snapshot) mechanism only. Deliberately did not add a second, separate pg_dump-to-S3 backup path (`scripts/backup-postgres.sh` exists in the repo but is not installed) to avoid extra IAM permissions, a new S3 bucket, and unnecessary cost/complexity.
+- **DNS stays on GoDaddy** — no migration to Route53. Only the A record gets updated if/when the instance changes.
+- **Instance sizing:** real on-demand pricing pulled from AWS for ap-south-2 — t3.micro $8/mo, t3.small $16/mo, **t3.medium $33/mo (Captain's chosen size)**, t3.large $65/mo, t3.xlarge $131/mo. (An earlier much lower t3.large estimate given in this project's docs was wrong — use the numbers here.) Target budget: $40-60/month total infrastructure.
+- **In-place resize, not a new instance.** Captain was explicit: resize the *existing* production instance (stop → `modify-instance-attribute` → start), not build-and-cutover to a freshly launched box.
+
+### Open items / where this session left off
+
+1. **This session's AWS CLI access broke mid-session** (`InvalidClientTokenId`) despite both `jarvis-ops` IAM access keys showing "Active" in the console — the problem is in what credentials were injected into *this specific sandbox session*, not an AWS-side revocation. Needs fixing at the environment/session-provisioning level before any further AWS CLI work in a session can continue. Two keys exist on `jarvis-ops`: `AKIA372ASNAQ3U6CLTPJ` (desc "NEW", last used for bedrock) and `AKIA372ASNAQXZCVZNU5` (desc "jarvis headquarter", last used for ssm) — actual secret values are not recorded here, they live in the environment/secrets config only.
+2. **Resize to t3.medium not yet done** — blocked only by #1 above (billing is confirmed upgraded, so the resize itself should work once AWS access is restored). Sequence: stop instance → `aws ec2 modify-instance-attribute --instance-type t3.medium` → start → verify all containers healthy → verify `/health` returns 200.
+3. **`sns:Publish` permission on `jarvis-ops` role** — needed so the self-heal script's alerts actually reach Captain's email. Requires Captain's specific named approval (a general "continue"/"go ahead" was insufficient for this class of IAM change in this session — needs literal wording naming the role, the action, and the resource ARN).
+4. **Self-heal systemd units not yet installed on production** — code is ready and corrected (see above), just needs deploying once AWS access works again.
+5. **PR #1** on GitHub (`claude/jarvis-cans-api-integration-ZThTD` → `main`) has been open since 2026-05-07, 641 commits, 809 files changed, mergeable/clean — all Phase 1-108 work sits here unmerged.
+6. **`evolution_api` / WhatsApp** had been crashed for 2 days before the 2026-07-10 incident; came back on its own after the reboot — worth a stability check, not yet root-caused.
+7. **`jarvis_frontend` unhealthy** was diagnosed and fixed during this session (stale cached DNS resolution to `backend` from before backend was stable — a plain `docker restart jarvis_frontend` cleared it). Not expected to recur once the resize gives more headroom, but the same class of issue (nginx caching a failed upstream DNS lookup at container startup) could resurface after any restart sequence where backend isn't up first.
 
 ---
 
