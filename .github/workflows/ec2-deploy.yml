@@ -289,3 +289,15 @@ jobs:
             echo "║  (EC2 private key .pem file contents)"
           fi
           echo "╚══════════════════════════════════════════════════╝"
+
+          # Both "Deploy via SSM" and "Deploy via SSH" have continue-on-error:
+          # true (so one failing lets the other be tried as a fallback), and
+          # this step itself only printed a report so far — without an
+          # explicit exit here, a run where SSM times out, SSH has no key
+          # configured, AND the live health check confirms the backend is
+          # down would still show green in the Actions UI. Make the run's
+          # conclusion match reality: fail whenever /health isn't 200.
+          if [ "$HEALTH" != "200" ]; then
+            echo "::error::Backend health check failed (HTTP $HEALTH) — see report above."
+            exit 1
+          fi
