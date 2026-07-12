@@ -331,26 +331,15 @@ async def _register_default_jobs() -> None:
     # ── Nightly Signal Pipeline Scan — 02:00 UTC ─────────────────────────────
     add_cron_job("nightly_signal_scan", _job_nightly_signal_scan, hour=2, minute=0)
 
-    # ── Routing Optimizer — 1st of each month @ 03:00 UTC (O5-1) ─────────────
-    try:
-        from app.services.fabric.routing_optimizer import register_routing_optimizer_job
-        register_routing_optimizer_job()
-    except Exception as _exc:
-        logger.warning("routing_optimizer job registration skipped: %s", _exc)
-
-    # ── LinkedIn Outreach Sweep — every 2h (R6-4) ─────────────────────────────
-    try:
-        from app.services.outreach.linkedin_outreach import register_linkedin_job
-        register_linkedin_job()
-    except Exception as _exc:
-        logger.warning("linkedin_outreach job registration skipped: %s", _exc)
-
-    # ── Voice Analytics — daily 04:30 UTC (V6-5) ──────────────────────────────
-    try:
-        from app.services.voice.analytics import register_voice_analytics_job
-        register_voice_analytics_job()
-    except Exception as _exc:
-        logger.warning("voice_analytics job registration skipped: %s", _exc)
+    # NOTE (Task #23 Phase B): routing_optimizer, linkedin_outreach, and
+    # voice_analytics were migrated to app/services/scheduler/scheduler.py's
+    # canonical _production_job_specs(). Their registrar functions here
+    # (register_routing_optimizer_job / register_linkedin_job /
+    # register_voice_analytics_job) have been removed from their source
+    # modules — this whole function is unreachable anyway since nothing
+    # calls start_scheduler() on this module (see scheduler/__init__.py,
+    # which only re-exports from scheduler.py). Left as historical record
+    # until engine.py is deleted in Task #23 Phase C.
 
     logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Daily Briefing + Weekly Performance + Nightly Signal Scan)")
 

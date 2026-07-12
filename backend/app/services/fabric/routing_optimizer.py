@@ -191,34 +191,7 @@ async def run_routing_optimizer(session: AsyncSession) -> dict:
     }
 
 
-# ── Scheduler job wrapper ──────────────────────────────────────────────────────
-
-async def _job_routing_optimizer() -> None:
-    """APScheduler job: run monthly routing weight optimisation."""
-    from app.core.database import AsyncSessionLocal
-    try:
-        async with AsyncSessionLocal() as session:
-            result = await run_routing_optimizer(session)
-            log.info("routing_optimizer job complete: %s", result)
-    except Exception as exc:
-        log.error("routing_optimizer job failed: %s", exc)
-
-
-def register_routing_optimizer_job() -> None:
-    """Register the monthly routing optimizer job with the scheduler.
-
-    Call this from the scheduler engine's ``_register_default_jobs()``.
-    The job runs on the 1st of each month at 03:00 UTC so it processes
-    the previous month's full data before business hours.
-    """
-    from apscheduler.triggers.cron import CronTrigger
-    from app.services.scheduler.engine import get_scheduler
-    scheduler = get_scheduler()
-    scheduler.add_job(
-        _job_routing_optimizer,
-        trigger=CronTrigger(day=1, hour=3, minute=0, timezone="UTC"),
-        id="routing_optimizer_sweep",
-        replace_existing=True,
-        name="routing_optimizer_sweep",
-    )
-    log.info("routing_optimizer: monthly job registered (1st of month @ 03:00 UTC)")
+# Scheduler registration: see app/services/scheduler/scheduler.py's
+# `routing_optimizer_sweep()` (registered in _production_job_specs(), runs
+# on the 1st of each month at 03:00 UTC). That is the only registration path
+# — do not re-add a registrar here (Task #23: one scheduler, one job registry).

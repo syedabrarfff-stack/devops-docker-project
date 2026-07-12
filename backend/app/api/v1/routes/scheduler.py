@@ -228,7 +228,7 @@ async def resolve_job_failure(request: Request, failure_id: str, db: AsyncSessio
 async def trigger_job_now(job_id: str, request: Request):
     """Trigger a scheduled job to run immediately (within 2 seconds)."""
     from datetime import timezone, timedelta
-    from app.services.scheduler.engine import get_scheduler
+    from app.services.scheduler.scheduler import get_scheduler
 
     scheduler = get_scheduler()
     job = scheduler.get_job(job_id)

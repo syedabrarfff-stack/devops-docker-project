@@ -114,21 +114,11 @@ async def run_voice_analytics_job() -> dict[str, Any]:
     return metrics
 
 
-def register_voice_analytics_job() -> None:
-    """Register voice_analytics_daily in APScheduler."""
-    try:
-        from app.services.scheduler.engine import scheduler
-
-        scheduler.add_job(
-            run_voice_analytics_job,
-            "cron",
-            hour=4,
-            minute=30,
-            id="voice_analytics_daily",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        logger.info("[VoiceAnalytics] Scheduler job registered (04:30 UTC daily)")
-    except Exception as exc:
-        logger.warning("[VoiceAnalytics] Job registration failed: %s", exc)
+# Scheduler registration: see app/services/scheduler/scheduler.py's
+# `voice_analytics_daily()` (registered in _production_job_specs(), runs
+# 04:30 UTC daily). That is the only registration path — do not re-add a
+# registrar here (Task #23: one scheduler, one job registry). This module's
+# previous `register_voice_analytics_job()` was dead on arrival — it
+# imported a `scheduler` attribute that has never existed on engine.py, so
+# this job never ran in production regardless of the engine.py/scheduler.py
+# split.

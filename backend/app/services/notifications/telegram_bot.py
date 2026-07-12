@@ -832,7 +832,7 @@ async def notify_captain_morning_briefing(db) -> None:
 
     # ── Scheduler health ──────────────────────────────────────────────────────
     try:
-        from app.services.scheduler.engine import get_scheduler, get_jobs
+        from app.services.scheduler.scheduler import get_scheduler, get_jobs
         sched = get_scheduler()
         if sched and sched.running:
             job_count = len(get_jobs())

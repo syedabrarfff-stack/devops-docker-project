@@ -85,7 +85,7 @@ async def diagnose_all(db) -> dict[str, dict]:
 
     # Scheduler
     try:
-        from app.services.scheduler.engine import get_scheduler
+        from app.services.scheduler.scheduler import get_scheduler
         sched = get_scheduler()
         running = sched.running if sched else False
         results["scheduler"] = {
@@ -125,16 +125,16 @@ async def heal_subsystem(subsystem: str, db) -> dict:
 
     elif subsystem == "scheduler":
         try:
-            from app.services.scheduler.engine import get_scheduler, start_scheduler
-            engine = get_scheduler()
-            if engine and not engine.running:
+            from app.services.scheduler.scheduler import get_scheduler, start_scheduler
+            sched = get_scheduler()
+            if sched and not sched.running:
                 await start_scheduler()
                 result["action"] = "scheduler_restart"
                 result["success"] = True
                 result["detail"] = "Scheduler restarted."
             else:
                 result["action"] = "noop"
-                result["detail"] = "Scheduler already running or engine unavailable."
+                result["detail"] = "Scheduler already running or unavailable."
         except Exception as exc:
             result["detail"] = f"Restart failed: {exc}"
 

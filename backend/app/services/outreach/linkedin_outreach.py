@@ -226,20 +226,10 @@ async def linkedin_outreach_sweep() -> dict[str, Any]:
     return {"processed": processed, "errors": errors, "run_at": datetime.now(UTC).isoformat()}
 
 
-def register_linkedin_job() -> None:
-    """Register the LinkedIn outreach sweep in APScheduler."""
-    try:
-        from app.services.scheduler.engine import scheduler
-
-        scheduler.add_job(
-            linkedin_outreach_sweep,
-            "interval",
-            hours=2,
-            id="linkedin_outreach_sweep",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        logger.info("[LinkedIn] Sweep job registered (every 2h)")
-    except Exception as exc:
-        logger.warning("[LinkedIn] Job registration failed: %s", exc)
+# Scheduler registration: see app/services/scheduler/scheduler.py's
+# `linkedin_outreach_sweep_job()` (registered in _production_job_specs(),
+# runs every 2h). That is the only registration path — do not re-add a
+# registrar here (Task #23: one scheduler, one job registry). This module's
+# previous `register_linkedin_job()` was dead on arrival — it imported a
+# `scheduler` attribute that has never existed on engine.py, so this sweep
+# never ran in production regardless of the engine.py/scheduler.py split.

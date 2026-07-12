@@ -119,6 +119,17 @@ PRODUCTION_JOB_IDS = (
     "daily_connector_hub_ingestion",
     "daily_market_intelligence",
     "self_healer",
+    "daily_opportunity_radar",
+    "daily_truth_reality_check",
+    "weekly_financial_health",
+    "weekly_founder_dependency",
+    "weekly_moat_scan",
+    "weekly_cashflow_forecast",
+    "weekly_learning_optimization",
+    "weekly_competitor_monitoring",
+    "routing_optimizer_sweep",
+    "linkedin_outreach_sweep",
+    "voice_analytics_daily",
 )
 
 AIONX_JOB_IDS = (
@@ -154,6 +165,7 @@ JOB_LOCK_TTLS = {
     "weekly_market_scan": 2400,
     "daily_db_backup": 2400,
     "daily_outreach_safety_review": 900,
+    "linkedin_outreach_sweep": 3600,
 }
 
 
@@ -331,15 +343,64 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "weekly_moat_scan", "func": weekly_moat_scan, "hour": 8, "minute": 0, "day_of_week": "mon"},
         {"job_id": "weekly_cashflow_forecast", "func": weekly_cashflow_forecast, "hour": 8, "minute": 30, "day_of_week": "mon"},
         {"job_id": "weekly_learning_optimization", "func": weekly_learning_optimization, "hour": 9, "minute": 0, "day_of_week": "mon"},
+        # ── Migrated from engine.py (Task #23 Phase B) ───────────────────────
+        # Competitor Monitoring — Monday 09:00 UTC — restored per Captain's
+        # decision that competitor intelligence must never silently disappear.
+        {"job_id": "weekly_competitor_monitoring", "func": weekly_competitor_monitoring, "hour": 9, "minute": 0, "day_of_week": "mon"},
+        # Routing Optimizer — 1st of each month @ 03:00 UTC — AI provider
+        # routing weight learning. Never ran in production (dead engine.py
+        # registrar); implementation was production-quality, only the wiring
+        # was broken.
+        {"job_id": "routing_optimizer_sweep", "func": routing_optimizer_sweep, "hour": 3, "minute": 0, "day": 1},
+        # LinkedIn Outreach Sweep — every 2h — enrich HOT leads via Proxycurl
+        # and generate first-connection messages. Never ran (dead registrar
+        # that referenced a non-existent `scheduler` attribute in engine.py).
+        {"job_id": "linkedin_outreach_sweep", "func": linkedin_outreach_sweep_job, "kind": "interval", "hours": 2},
+        # Voice Analytics — 04:30 UTC daily — voice interaction metrics.
+        # Never ran (same broken-attribute registrar bug as LinkedIn above).
+        {"job_id": "voice_analytics_daily", "func": voice_analytics_daily, "hour": 4, "minute": 30},
     ]
 
 
 async def _job_self_healer() -> None:
     try:
         from app.services.monitoring.self_healer import run_self_healing_cycle
-        await run_self_healing_cycle()
+        report = await run_self_healing_cycle()
+        await _report_self_heal_to_headquarters(report)
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+
+
+async def _report_self_heal_to_headquarters(report: dict) -> None:
+    """Surface self-heal cycles that actually did something into the same
+    Headquarters conversation Captain uses — no separate dashboard, per the
+    single-front-door principle. Silent no-op cycles are not logged.
+    """
+    if not isinstance(report, dict):
+        return
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Self-heal cycle ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} action(s) taken:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} alert(s) — could not self-recover:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="self_healer", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Self-healer -> Headquarters reporting failed: %s", exc)
 
 
 def _remove_deprecated_jobs() -> None:
@@ -820,6 +881,57 @@ async def daily_market_intelligence() -> None:
     )
 
 
+async def weekly_competitor_monitoring() -> None:
+    """Weekly competitor intelligence scan (Monday 09:00 UTC) — restored per
+    Task #23 Phase B: competitor intelligence is a core strategic capability
+    and must always exist as a scheduled job, not silently disappear.
+    """
+    from app.services.intelligence.market_intel import MarketIntelligenceEngine
+
+    engine = MarketIntelligenceEngine()
+    changes = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            changes += len(await engine.monitor_competitors(tenant_id))
+        except Exception as exc:
+            logger.error("Competitor monitoring failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_competitor_monitoring", "success", {"changes_detected": changes})
+
+
+async def routing_optimizer_sweep() -> None:
+    """Monthly AI routing weight optimization (1st of month, 03:00 UTC) —
+    migrated from the dead engine.py registrar per Task #23 Phase B.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.services.fabric.routing_optimizer import run_routing_optimizer
+
+    async with AsyncSessionLocal() as db:
+        result = await run_routing_optimizer(db)
+    await _record_job_result("routing_optimizer_sweep", "success", result)
+
+
+async def linkedin_outreach_sweep_job() -> None:
+    """LinkedIn outreach enrichment + message generation sweep (every 2h) —
+    migrated from the dead engine.py registrar per Task #23 Phase B. The
+    business logic (Proxycurl enrichment, AI message generation) was already
+    production-quality; only the scheduler wiring was broken.
+    """
+    from app.services.outreach.linkedin_outreach import linkedin_outreach_sweep
+
+    result = await linkedin_outreach_sweep()
+    await _record_job_result("linkedin_outreach_sweep", "success", result)
+
+
+async def voice_analytics_daily() -> None:
+    """Daily voice interaction analytics (04:30 UTC) — migrated from the dead
+    engine.py registrar per Task #23 Phase B.
+    """
+    from app.services.voice.analytics import run_voice_analytics_job
+
+    result = await run_voice_analytics_job()
+    await _record_job_result("voice_analytics_daily", "success", result)
+
+
 async def daily_opportunity_radar() -> None:
     """Scan for hot leads that have gone idle and surface them to Captain."""
     from app.services.intelligence.opportunity_radar import run_opportunity_radar
@@ -1183,10 +1295,12 @@ def _task_type_for_job(job_id: str) -> str:
         return "connector_hub"
     if "market_intelligence" in job_id:
         return "intelligence"
-    if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
+    if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id or "competitor" in job_id:
         return "intelligence"
-    if "weight" in job_id:
+    if "weight" in job_id or "routing_optimizer" in job_id:
         return "ai_council"
+    if "voice_analytics" in job_id:
+        return "voice"
     return "system"
 
 
