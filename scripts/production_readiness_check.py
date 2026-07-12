@@ -203,7 +203,7 @@ async def run_checks():
         checker.check("Outreach engine", False, str(e)[:80])
 
     try:
-        from app.services.scheduler.engine import get_scheduler
+        from app.services.scheduler.scheduler import get_scheduler
         scheduler = get_scheduler()
         checker.check("APScheduler engine", True, "Ready for job registration")
     except Exception as e:

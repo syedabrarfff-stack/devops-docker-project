@@ -620,19 +620,24 @@ docker-compose logs -f backend | grep "AIRouter"
 
 ### Adding a Scheduled Job
 
-1. Define job function in `app/services/scheduler/engine.py`:
+`app/services/scheduler/scheduler.py` is the single canonical scheduler —
+there is no other one. (A second module, `engine.py`, existed alongside it
+until Task #23; it was never started in production and was deleted once
+every job and consumer was migrated off it. If you see `engine.py`
+referenced anywhere, that reference is stale.)
+
+1. Define the job function directly in `scheduler.py`, following the
+   existing pattern — no manual try/except needed, `run_registered_production_job`
+   already wraps every job call with locking, retry, and failure recording:
    ```python
-   async def _job_my_task() -> None:
-       logger.info("Running my task")
-       try:
-           # Job logic here
-       except Exception as e:
-           await _record_job_failure("my_task", str(e))
+   async def my_task() -> None:
+       result = await do_the_work()
+       await _record_job_result("my_task", "success", result)
    ```
 
-2. Register in `_register_default_jobs()`:
+2. Add it to `_production_job_specs()` and `PRODUCTION_JOB_IDS`:
    ```python
-   add_interval_job("my_task", _job_my_task, hours=1)
+   {"job_id": "my_task", "func": my_task, "kind": "interval", "hours": 1},
    ```
 
 ### Adding a Database Model

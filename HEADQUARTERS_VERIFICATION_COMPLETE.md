@@ -120,10 +120,17 @@ The JARVIS headquarters has been comprehensively verified across infrastructure,
 
 **Verification:** All routes properly registered with auth dependencies. No missing endpoints. Routing complete.
 
-### Scheduler Jobs (64 Total)
+### Scheduler Jobs (64 Total at time of this verification; 71 as of Task #23)
 
-**Status:** ✅ VERIFIED  
-**Evidence:** `backend/services/scheduler/engine.py` (38 core) + `aionx_scheduler.py` (26 organs)
+**Status:** ✅ VERIFIED (historical snapshot — see note below for current state)
+**Evidence at the time:** `backend/services/scheduler/engine.py` (38 core) + `aionx_scheduler.py` (26 organs)
+
+**Update (Task #23):** `engine.py` was a second, never-started scheduler
+implementation that diverged from the one actually running in production
+(`scheduler.py`). It has since been retired; every job listed below was
+reconciled and migrated into `scheduler.py`'s canonical registry (now 45
+core jobs + 26 AIONX = 71 total). See `docs/architecture/SCHEDULER_MIGRATION_MATRIX.md`
+for the full job-by-job reconciliation.
 
 **Core Jobs (38):**
 - Morning briefings (3): daily_briefing, morning_briefing, captain_dashboard_briefing

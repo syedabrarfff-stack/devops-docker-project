@@ -105,7 +105,7 @@ async def validate():
     # ─────────────────────────────────────────────────────────────────────────
     print("[5/8] Scheduler...")
     try:
-        from app.services.scheduler.engine import get_scheduler
+        from app.services.scheduler.scheduler import get_scheduler
 
         scheduler = get_scheduler()
         checks.append(("✓", "Scheduler engine initialized", "Ready for jobs"))

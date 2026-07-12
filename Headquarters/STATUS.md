@@ -306,25 +306,27 @@ This document represents the **single source of truth** for JARVIS system implem
 ---
 
 ### APScheduler (Job Scheduler)
-**Status:** ✅ VERIFIED  
-**File:** `backend/app/services/scheduler/engine.py`  
+**Status:** ✅ VERIFIED (updated Task #23 — see docs/architecture/SCHEDULER_MIGRATION_MATRIX.md)
+**File:** `backend/app/services/scheduler/scheduler.py` — the single canonical scheduler.
+(`engine.py`, a second scheduler module referenced in earlier snapshots of this
+file, was never started in production and has been retired.)
 
 **Verification:**
-- ✅ 64 scheduled jobs configured (38 core + 26 AIONX)
+- ✅ 71 scheduled jobs configured (45 core + 26 AIONX)
 - ✅ Jobs registered with persistent job store
 - ✅ Timezone: UTC
 - ✅ Execution logging active
 - ✅ Failed job recovery implemented
 
 **Core Jobs (Sample):**
-- ✅ daily_briefing (08:00 UTC)
-- ✅ morning_briefing (07:00 UTC)
-- ✅ lead_scoring_sweep (every 6h)
-- ✅ outreach_processor (every 1h)
-- ✅ reply_handler_scan (every 2h)
-- ✅ overnight_lead_discovery (18:00 UTC)
+- ✅ daily_morning_briefing (01:30 UTC)
+- ✅ captain_dashboard_briefing (06:55 UTC)
+- ✅ daily_lead_scoring (20:30 UTC)
+- ✅ daily_follow_up_check (04:30 UTC)
+- ✅ daily_lead_discovery (22:00 UTC)
 - ✅ self_healer (every 15min)
 - ✅ nexus_heartbeat (every 1h)
+- ✅ nightly_signal_scan (02:00 UTC)
 
 ---
 

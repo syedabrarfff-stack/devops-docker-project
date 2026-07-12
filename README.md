@@ -299,7 +299,7 @@ python -m alembic revision --autogenerate -m "description"
 - `app/api/v1/__init__.py` — Route registration (47 routers)
 - `app/core/config.py` — Configuration management
 - `app/core/database.py` — SQLAlchemy setup
-- `app/services/scheduler/engine.py` — APScheduler jobs (64 total)
+- `app/services/scheduler/scheduler.py` — APScheduler jobs (71 total: 45 production + 26 AIONX)
 
 ### Frontend Development
 

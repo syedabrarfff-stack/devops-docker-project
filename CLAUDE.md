@@ -255,50 +255,69 @@ Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 
 ## 12. Operational Intelligence (Scheduled Jobs)
 
-**64 total jobs** — 38 core engine jobs + 26 AIONX organ jobs. Full list in `backend/app/services/scheduler/engine.py` and `backend/app/services/aionx/aionx_scheduler.py`.
+**71 total jobs** — 45 core production jobs + 26 AIONX organ jobs, all registered
+in a single canonical scheduler. Full list in `backend/app/services/scheduler/scheduler.py`'s
+`_production_job_specs()` and `backend/app/services/aionx/aionx_scheduler.py`.
+(As of Task #23: the former `engine.py` module — an entire second, never-started
+scheduler implementation — was retired. If you see any reference to `engine.py`
+in older docs or code, it is stale; the canonical scheduler has always been
+`scheduler.py`, confirmed by `scheduler/__init__.py`'s own re-exports.)
 
-**Core Engine Jobs (38):**
+**Core Production Jobs (45):**
 
 | Job | Schedule | Purpose |
 |---|---|---|
-| daily_briefing | 08:00 UTC daily | Captain Telegram briefing — pipeline + alerts |
-| morning_briefing | 07:00 UTC daily | Intelligence morning briefing |
-| captain_dashboard_briefing | 06:55 UTC daily | Dashboard snapshot for Captain |
-| lead_scoring_sweep | every 6h | Score and rank all active leads |
-| daily_icp_lead_scoring | 05:00 UTC daily | ICP score yesterday's new leads, promote top 20 |
-| outreach_processor | every 1h | Process and send queued outreach |
-| reply_handler_scan | every 2h | Classify prospect replies, advance lead state |
-| contact_sync | every 12h | Sync contacts with Apollo/HubSpot |
-| tech_radar_scan | Mon 06:00 UTC | Emerging technology classification |
-| competitor_monitoring | Mon 09:00 UTC | Competitive landscape monitoring |
-| market_intelligence_report | Sun 07:00 UTC | Market intelligence generation |
-| daily_optimization_review | 23:00 UTC daily | System performance recommendations |
-| biweekly_research_report | Sun 07:00 UTC | Deep research report generation |
-| daily_self_learning | 00:05 UTC daily | JARVIS self-evolution cycle |
-| memory_consolidation | 00:30 UTC daily | Promote working → operational memory |
-| weekly_memory_promotion | Sun 00:45 UTC | Promote operational → strategic memory |
-| overnight_lead_discovery | 18:00 UTC daily | US/EU market lead discovery (11:30 PM IST) |
-| overnight_intel_analysis | 18:30 UTC daily | Market intelligence analysis (12:00 AM IST) |
-| overnight_proposal_engine | 19:30 UTC daily | Proposal writing for top-scored leads (1:00 AM IST) |
-| overnight_cold_outreach | 20:30 UTC daily | Cold outreach — US afternoon prime time (2:00 AM IST) |
-| overnight_freelance_bids | 21:30 UTC daily | Upwork/PPH bid sweep (3:00 AM IST) |
-| overnight_followup_sequences | 23:30 UTC daily | Follow-up sequences — US evening (5:00 AM IST) |
-| overnight_pipeline_health | 01:00 UTC daily | Pipeline health + CRM sync (6:30 AM IST) |
-| overnight_ops_report | 02:30 UTC daily | Morning operations report (8:00 AM IST) |
-| daily_strategy_report | 23:00 UTC daily | 6-Layer strategy cascade to all departments |
-| milestone_bulk_review | 10:00 UTC daily | Council review of all pending milestones |
-| tech_evolution_scan | every 6h | 24/7 technology discovery cycle |
-| pre_call_briefing_trigger | every 30min | Generate briefings 1h before scheduled calls |
-| weekly_strategy_review | Sun 07:00 UTC | Full strategic review cycle |
-| dio_health_check | 06:30 UTC daily | DIO initialization and health verification |
-| daily_scout_network | 01:30 UTC daily | 9-agent scout network → jarvis-data/ on GitHub |
-| daily_connector_hub_ingestion | 14:30 UTC daily | Pull jarvis-data/, score 20 leads from connectors |
+| daily_morning_briefing | 01:30 UTC daily | Data-driven morning briefing (MorningBriefingEngine) |
+| daily_lead_scoring | 20:30 UTC daily | ICP-score yesterday's new leads, promote top 20 |
+| daily_lead_discovery | 22:00 UTC daily | Discover new leads across 25 targeted geo/industry searches |
+| daily_follow_up_check | 04:30 UTC daily | Send due outreach follow-ups |
+| daily_outreach_safety_review | 04:45 UTC daily | Auto-pause outreach on bad reply rate |
+| daily_memory_consolidate | 19:00 UTC daily | Working → operational → strategic memory promotion (all in one) |
+| daily_optimization_review | 17:30 UTC daily | System performance recommendations, per tenant |
+| weekly_outreach_stats | Mon 02:30 UTC | Weekly outreach stats notification |
+| weekly_pipeline_health | Sun 14:30 UTC | Pipeline health summary + notification |
+| weekly_tech_radar | Mon 00:30 UTC | Emerging technology classification |
+| weekly_innovation_review | Mon 03:30 UTC | Council review of innovation queue |
+| biweekly_research_report | Sun 01:30 UTC | Deep research report generation (alternate weeks) |
+| monthly_weight_adjust | 1st-of-month 18:30 UTC | AI Council monthly weight adjustment |
+| daily_db_backup | 01:00 UTC daily | pg_dump → gzip → S3 (or local if unconfigured) |
+| speed_to_lead_5min | every 5min | Speed-to-lead response trigger |
+| daily_free_lead_discovery | 03:30 UTC daily | Free-tier lead discovery engine |
+| weekly_market_scan | Mon 05:00 UTC | Market awareness weekly scan |
+| daily_connector_hub_ingestion | 14:30 UTC daily | Pull jarvis-data/, score leads from connectors |
 | daily_market_intelligence | 04:00 UTC daily | Feed next-day intelligence pipeline |
-| self_healer | every 15min | Autonomous system self-repair |
-| nexus_heartbeat | every 1h | NEXUS core coordination ping |
-| lead_embedding_sweep | 03:15 UTC daily | Semantic embeddings for all unembedded leads |
+| self_healer | every 15min | Autonomous system self-repair, reports to Headquarters |
+| daily_opportunity_radar | 06:00 UTC daily | Surface idle hot leads before workday |
+| daily_truth_reality_check | 23:30 UTC daily | Truth engine reality checks (5 prediction types) |
+| weekly_financial_health | Mon 07:00 UTC | Financial health snapshot + CFO briefing |
+| weekly_founder_dependency | Mon 07:30 UTC | Founder dependency score assessment |
+| weekly_moat_scan | Mon 08:00 UTC | Competitive moat scan |
+| weekly_cashflow_forecast | Mon 08:30 UTC | 30/60/90-day cashflow forecast |
+| weekly_learning_optimization | Mon 09:00 UTC | Outreach + proposal optimization recommendations |
+| weekly_competitor_monitoring | Mon 09:00 UTC | Competitive landscape monitoring |
+| routing_optimizer_sweep | 1st-of-month 03:00 UTC | Learn AI provider routing weights from 30d metrics |
+| linkedin_outreach_sweep | every 2h | Enrich HOT leads via Proxycurl, generate connection messages |
+| voice_analytics_daily | 04:30 UTC daily | Voice interaction metrics, persist + Slack alert |
+| captain_dashboard_briefing | 06:55 UTC daily | Real pipeline-stats dashboard snapshot for Captain |
 | weekly_performance_briefing | Sat 19:00 UTC | Weekly performance metrics briefing |
-| nightly_signal_scan | 02:00 UTC daily | Signal pipeline scan |
+| daily_self_learning | 00:05 UTC daily | JARVIS self-evolution cycle |
+| drift_auditor | 05:30 UTC daily | Repo/infra drift detection, reports to Headquarters |
+| daily_strategy_report | 23:00 UTC daily | 6-Layer strategy cascade to all departments |
+| weekly_strategy_review | Sun 07:00 UTC | Full strategic review, 30/60/90-day horizon |
+| milestone_bulk_review | 10:00 UTC daily | Council review of all pending milestones |
+| dio_health_check | 06:30 UTC daily | DIO initialization and health verification |
+| tech_evolution_scan | every 6h | 24/7 technology discovery cycle |
+| daily_scout_network | 01:30 UTC daily | 9-agent scout network → jarvis-data/ on GitHub |
+| lead_embedding_sweep | 03:15 UTC daily | Semantic embeddings for all unembedded leads |
+| pre_call_briefing_trigger | every 30min | Generate briefings 90min before scheduled calls |
+| nexus_heartbeat | every 1h | NEXUS pulse; autonomous outreach trigger (4h Redis throttle) |
+| nightly_signal_scan | 02:00 UTC daily | Signal scan + the ONE proposal-generation pipeline |
+
+`contact_sync` (Apollo sync) is intentionally manual-only — reachable via
+`POST /sync/apollo`, not scheduled. `reply_handler_scan` and the old
+`overnight_freelance_bids`/`overnight_proposal_engine` jobs were retired
+permanently (dead/duplicate logic — see `docs/architecture/SCHEDULER_MIGRATION_MATRIX.md`
+for the full reconciliation against the previous job list).
 
 **AIONX Organ Jobs (26) — registered via `register_aionx_jobs()`:**
 

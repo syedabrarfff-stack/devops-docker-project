@@ -478,8 +478,8 @@ The 4 fundamental layers of JARVIS consciousness:
 │  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝     │
 │                                                                                                                                                           │
 │  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗     │
-│  ║  THE SPINE: APScheduler — 64 Production Jobs (Continuously Running)                                                                               ║     │
-│  ║  Files: backend/app/services/scheduler/engine.py (38 jobs) + aionx_scheduler.py (26 jobs)                                                       ║     │
+│  ║  THE SPINE: APScheduler — 71 Production Jobs (Continuously Running) [updated Task #23]                                                          ║     │
+│  ║  Files: backend/app/services/scheduler/scheduler.py (45 jobs, canonical) + aionx_scheduler.py (26 jobs)                                         ║     │
 │  ╠═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╣     │
 │  ║                                                                                                                                                   ║     │
 │  ║  CORE ENGINE JOBS (38):                                                                                                                         ║     │
