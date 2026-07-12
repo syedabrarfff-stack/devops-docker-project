@@ -130,6 +130,20 @@ PRODUCTION_JOB_IDS = (
     "routing_optimizer_sweep",
     "linkedin_outreach_sweep",
     "voice_analytics_daily",
+    "captain_dashboard_briefing",
+    "weekly_performance_briefing",
+    "daily_self_learning",
+    "drift_auditor",
+    "daily_strategy_report",
+    "weekly_strategy_review",
+    "milestone_bulk_review",
+    "dio_health_check",
+    "tech_evolution_scan",
+    "daily_scout_network",
+    "lead_embedding_sweep",
+    "pre_call_briefing_trigger",
+    "nexus_heartbeat",
+    "nightly_signal_scan",
 )
 
 AIONX_JOB_IDS = (
@@ -359,6 +373,23 @@ def _production_job_specs() -> list[dict[str, Any]]:
         # Voice Analytics — 04:30 UTC daily — voice interaction metrics.
         # Never ran (same broken-attribute registrar bug as LinkedIn above).
         {"job_id": "voice_analytics_daily", "func": voice_analytics_daily, "hour": 4, "minute": 30},
+        # ── Migrated from engine.py (Task #23 Phase C) ───────────────────────
+        {"job_id": "captain_dashboard_briefing", "func": captain_dashboard_briefing, "hour": 6, "minute": 55},
+        {"job_id": "weekly_performance_briefing", "func": weekly_performance_briefing, "hour": 19, "minute": 0, "day_of_week": "sat"},
+        {"job_id": "daily_self_learning", "func": daily_self_learning, "hour": 0, "minute": 5},
+        {"job_id": "drift_auditor", "func": drift_auditor, "hour": 5, "minute": 30},
+        {"job_id": "daily_strategy_report", "func": daily_strategy_report, "hour": 23, "minute": 0},
+        {"job_id": "weekly_strategy_review", "func": weekly_strategy_review, "hour": 7, "minute": 0, "day_of_week": "sun"},
+        {"job_id": "milestone_bulk_review", "func": milestone_bulk_review, "hour": 10, "minute": 0},
+        {"job_id": "dio_health_check", "func": dio_health_check, "hour": 6, "minute": 30},
+        {"job_id": "tech_evolution_scan", "func": tech_evolution_scan, "kind": "interval", "hours": 6},
+        {"job_id": "daily_scout_network", "func": daily_scout_network, "hour": 1, "minute": 30},
+        {"job_id": "lead_embedding_sweep", "func": lead_embedding_sweep, "hour": 3, "minute": 15},
+        {"job_id": "pre_call_briefing_trigger", "func": pre_call_briefing_trigger, "kind": "interval", "minutes": 30},
+        {"job_id": "nexus_heartbeat", "func": nexus_heartbeat, "kind": "interval", "hours": 1},
+        # nightly_signal_scan is the sole proposal-generation pipeline —
+        # overnight_proposal_engine was retired, not migrated (see docstring).
+        {"job_id": "nightly_signal_scan", "func": nightly_signal_scan, "hour": 2, "minute": 0},
     ]
 
 
@@ -1395,3 +1426,414 @@ async def weekly_learning_optimization() -> None:
         except Exception as exc:
             logger.warning("Learning optimization failed for tenant %s: %s", tenant_id, exc)
     await _record_job_result("weekly_learning_optimization", "success", {"tenants": optimized})
+
+
+# ── Migrated from engine.py (Task #23 Phase C) ───────────────────────────────
+# Everything below was ported from the dead engine.py module per the
+# migration matrix (docs/architecture/SCHEDULER_MIGRATION_MATRIX.md).
+
+async def captain_dashboard_briefing() -> None:
+    """Captain morning dashboard — 06:55 daily. Real pipeline stats via Telegram."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.notifications.telegram_bot import notify_captain_morning_briefing
+
+    async with AsyncSessionLocal() as db:
+        await notify_captain_morning_briefing(db)
+    await _record_job_result("captain_dashboard_briefing", "success", {})
+
+
+async def weekly_performance_briefing() -> None:
+    """Weekly Saturday 19:00 UTC — full 7-day performance summary via Telegram."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.notifications.telegram_bot import notify_weekly_performance_briefing
+
+    async with AsyncSessionLocal() as db:
+        await notify_weekly_performance_briefing(db)
+    await _record_job_result("weekly_performance_briefing", "success", {})
+
+
+async def daily_self_learning() -> None:
+    """Midnight UTC (00:05) — JARVIS daily self-evolution/learning cycle."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.intelligence.jarvis_self_learning import run_daily_learning_cycle
+
+    async with AsyncSessionLocal() as db:
+        result = await run_daily_learning_cycle(db)
+    await _record_job_result("daily_self_learning", "success", result)
+
+
+async def drift_auditor() -> None:
+    """Daily 05:30 UTC — permanent architectural rule: continuously check the
+    repo and running infrastructure for duplicate config, stale files, and
+    conflicting definitions before they cause an outage.
+    """
+    from app.services.monitoring.drift_auditor import run_drift_audit
+
+    report = await run_drift_audit()
+    await _report_drift_audit_to_headquarters(report)
+    await _record_job_result("drift_auditor", "success", report)
+
+
+async def _report_drift_audit_to_headquarters(report: dict) -> None:
+    if not isinstance(report, dict):
+        return
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Drift audit ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} auto-fix(es) applied:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} issue(s) found — needs a decision, not auto-fixed:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="drift_auditor", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Drift auditor -> Headquarters reporting failed: %s", exc)
+
+
+async def daily_strategy_report() -> None:
+    """Layer 6: Daily strategy report — collect all dept data → Council → cascade → Captain."""
+    from app.services.departments.strategy_report_service import strategy_report_service
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await strategy_report_service.generate_daily_strategy_report(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "score": result.get("council_score", 0),
+            "directives": result.get("directives_issued", 0),
+        })
+    await _record_job_result("daily_strategy_report", "success", {"tenants": results})
+
+
+async def weekly_strategy_review() -> None:
+    """Layer 6: Full weekly strategic review with 30/60/90 day horizon — Sunday 07:00 UTC."""
+    from app.services.departments.strategy_report_service import strategy_report_service
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await strategy_report_service.generate_weekly_strategy_report(tenant_id)
+        results.append({"tenant_id": tenant_id, "score": result.get("council_score", 0)})
+    await _record_job_result("weekly_strategy_review", "success", {"tenants": results})
+
+
+async def milestone_bulk_review() -> None:
+    """Layer 2: Process all pending milestones through the Council Intelligence Loop — 10:00 UTC."""
+    from app.services.departments.milestone_engine import milestone_engine
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await milestone_engine.run_bulk_milestone_review(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "processed": result.get("processed", 0),
+            "failed": result.get("failed", 0),
+        })
+    await _record_job_result("milestone_bulk_review", "success", {"tenants": results})
+
+
+async def dio_health_check() -> None:
+    """Layer 1: Ensure all Department Intelligence Officers are initialized — 06:30 UTC."""
+    from app.services.departments.department_agent_service import department_agent_service
+
+    checked = 0
+    for tenant_id in await _target_tenant_ids():
+        await department_agent_service.initialize_all_dios(tenant_id)
+        checked += 1
+    await _record_job_result("dio_health_check", "success", {"tenants_checked": checked})
+
+
+async def tech_evolution_scan() -> None:
+    """Layer 4: 24/7 technology discovery and evaluation cycle — every 6 hours."""
+    from app.services.departments.tech_evolution_engine import tech_evolution_engine
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await tech_evolution_engine.run_discovery_cycle(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "new": result.get("new_saved", 0),
+            "high_priority": result.get("high_priority_count", 0),
+        })
+    await _record_job_result("tech_evolution_scan", "success", {"tenants": results})
+
+
+async def daily_scout_network() -> None:
+    """9 Scout Agents: discover leads in parallel, push to GitHub jarvis-data/ — 01:30 UTC."""
+    from app.services.leads.scout_network import scout_network
+
+    result = await scout_network.run_all_scouts()
+    await _record_job_result(
+        "daily_scout_network",
+        "success",
+        {
+            "total_leads": result.get("total_leads", 0),
+            "scouts": len(result.get("scout_summary", {})),
+            "github_push": result.get("github_push", {}).get("github", "unknown"),
+        },
+    )
+
+
+async def lead_embedding_sweep() -> None:
+    """Nightly 03:15 UTC — semantic embedding sweep for leads without embeddings."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.intelligence.lead_embeddings import embed_pending_leads
+
+    async with AsyncSessionLocal() as db:
+        result = await embed_pending_leads(db, limit=100)
+    await _record_job_result("lead_embedding_sweep", "success", result)
+
+
+async def pre_call_briefing_trigger() -> None:
+    """Layer 5: Generate pre-call briefings for calls scheduled in the next 90 minutes — every 30 min."""
+    from datetime import timedelta
+    from sqlalchemy import and_
+    from app.core.database import AsyncSessionLocal
+    from app.models.department_intelligence import ClientCallIntelligence, CallStatus
+    from app.services.departments.call_intelligence_service import call_intelligence_service
+
+    now = datetime.now(UTC)
+    window_end = now + timedelta(minutes=90)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(ClientCallIntelligence).where(
+                and_(
+                    ClientCallIntelligence.scheduled_at >= now,
+                    ClientCallIntelligence.scheduled_at <= window_end,
+                    ClientCallIntelligence.status == CallStatus.SCHEDULED.value,
+                    ClientCallIntelligence.briefing_pdf_url.is_(None),
+                )
+            ).limit(50)
+        )
+        calls = result.scalars().all()
+        call_pairs = [(str(c.tenant_id), str(c.id)) for c in calls]
+
+    generated = 0
+    for tenant_id, call_id in call_pairs:
+        try:
+            await call_intelligence_service.generate_pre_call_briefing(tenant_id, call_id)
+            generated += 1
+        except Exception as exc:
+            logger.warning("Pre-call briefing failed: call=%s | %s", call_id, exc)
+
+    await _record_job_result(
+        "pre_call_briefing_trigger",
+        "success",
+        {"briefings_generated": generated, "calls_found": len(call_pairs)},
+    )
+
+
+async def nexus_heartbeat() -> None:
+    """
+    NEXUS heartbeat — hourly. Pulses pipeline state. If action_signal is
+    OUTREACH_READY and no drafts are pending, autonomously triggers AUTOPILOT
+    (max 5 leads, min_score 75).
+
+    Locking note (Task #23): this job's own 4-hour Redis lock is a
+    business-logic throttle on the autonomous-outreach *action* — it is
+    deliberately separate from run_registered_production_job's
+    _acquire_job_lock/_release_job_lock, which only guards against this
+    *job* running twice concurrently. Conflating the two would mean a
+    concurrency-safety mechanism silently gained business-logic meaning
+    (or vice versa) — kept distinct on purpose.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.services.nexus.heartbeat import run_pulse
+    from app.services.autopilot.pipeline import get_pending_drafts, run_autopilot_cycle
+
+    async with AsyncSessionLocal() as db:
+        pulse = await run_pulse(db)
+
+    action = pulse.get("action_signal", "MONITOR")
+    pending = await get_pending_drafts(None)
+
+    if pending:
+        try:
+            from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
+            await notify_autopilot_drafts_pending(pending)
+        except Exception as exc:
+            logger.warning("NEXUS: autopilot draft notification failed: %s", exc)
+
+    autonomous_triggered = False
+    if action == "OUTREACH_READY" and not pending:
+        lock_acquired = False
+        try:
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.REDIS_URL or "redis://localhost:6379")
+            lock_acquired = await r.set(
+                "nexus:auto_outreach:lock", "1",
+                nx=True, ex=14400,  # 4-hour business-logic throttle
+            )
+            await r.aclose()
+        except Exception as exc:
+            logger.warning("NEXUS: Redis lock unavailable, skipping autonomous outreach: %s", exc)
+            lock_acquired = False
+
+        if lock_acquired:
+            logger.info("NEXUS AUTONOMOUS: OUTREACH_READY — triggering AUTOPILOT (max 5 leads)")
+            try:
+                result = await run_autopilot_cycle(max_leads=5, min_score=75.0)
+                autonomous_triggered = True
+                from app.services.nexus.heartbeat import log_decision
+                await log_decision({
+                    "action": "auto_outreach_triggered",
+                    "composed": result.get("composed", 0),
+                    "source": "nexus_heartbeat",
+                })
+            except Exception as exc:
+                logger.warning("NEXUS autonomous outreach failed: %s", exc)
+
+    try:
+        from app.api.v1.routes.ws import broadcast
+        await broadcast("nexus_pulse", {
+            "action_signal": pulse.get("action_signal", "MONITOR"),
+            "hot_leads": pulse.get("pipeline", {}).get("hot_leads", 0),
+            "pending_drafts": len(pending),
+            "ai_available": pulse.get("ai_available", False),
+        })
+    except Exception as exc:
+        logger.warning("NEXUS: WebSocket broadcast failed: %s", exc)
+
+    await _record_job_result(
+        "nexus_heartbeat",
+        "success",
+        {"action_signal": action, "pending_drafts": len(pending), "autonomous_triggered": autonomous_triggered},
+    )
+
+
+async def nightly_signal_scan() -> None:
+    """Nightly 02:00 UTC — scan active pipeline leads for buying-intent
+    signals, brief Captain on high signals, and auto-queue proposals for the
+    highest-confidence HOT leads.
+
+    This is the ONE proposal-generation pipeline (Task #23 architectural
+    decision): overnight_proposal_engine was retired rather than migrated
+    separately, because this job's auto-proposal path already uses the real
+    governance/proposals system (auto_generate_proposal_for_lead, which
+    creates an actual Proposal record) with proper confidence gates —
+    overnight_proposal_engine only stored a memory blob and flipped lead
+    status, a cruder duplicate of the same intent. Do not add a second
+    proposal-drafting job; extend this one if requirements change.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models.lead import Lead, LeadStatus
+    from sqlalchemy import and_
+
+    signals_found = 0
+    proposals_queued = 0
+
+    for tenant_id in await _target_tenant_ids():
+        tenant_uuid = _coerce_tenant_id(tenant_id)
+        async with AsyncSessionLocal() as db:
+            await _safe_set_tenant_context(db, tenant_uuid)
+            rows = (await db.execute(
+                select(Lead)
+                .where(
+                    and_(
+                        Lead.tenant_id == tenant_uuid,
+                        Lead.score >= 45,
+                        Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE, LeadStatus.CONTACTED]),
+                    )
+                )
+                .order_by(Lead.score.desc())
+                .limit(30)
+            )).scalars().all()
+
+        if not rows:
+            continue
+
+        from app.services.signal.scanner import scan_lead
+        signals = []
+        for lead in rows:
+            try:
+                lead_dict = {
+                    "id": str(lead.id),
+                    "company_name": lead.company_name or "",
+                    "company": lead.company or "",
+                    "industry": lead.industry or "",
+                    "score": lead.score,
+                    "status": lead.status.value if lead.status else "NEW",
+                    "pain_points": lead.pain_points or "",
+                    "contact_name": lead.contact_name or "",
+                    "email": lead.email or "",
+                    "country": lead.country or "",
+                    "notes": lead.notes or "",
+                    "outreach_count": lead.outreach_count or 0,
+                }
+                result = await scan_lead(lead_dict)
+                if result.get("intent_tier") in ("HOT", "WARM"):
+                    signals.append(result)
+            except Exception as exc:
+                logger.warning("Signal scan failed for lead %s: %s", lead.id, exc)
+
+        signals_found += len(signals)
+
+        if signals:
+            from app.services.notifications.telegram import notify_telegram
+            lines = [f"📡 *Nightly Signal Scan — {len(signals)} high-signal lead(s)*\n"]
+            for s in signals[:5]:
+                company = s.get("lead_company", "?")
+                tier = s.get("intent_tier", "?")
+                why_now = (s.get("why_now") or "")[:80]
+                lines.append(f"• *{company}* [{tier}] — {why_now}")
+            if len(signals) > 5:
+                lines.append(f"\n_...and {len(signals) - 5} more. Review in /control-room/signal_")
+            await notify_telegram("\n".join(lines))
+
+        hot_candidates = [
+            s for s in signals
+            if s.get("intent_tier") == "HOT"
+            and int(s.get("confidence", 0) or 0) >= 85
+            and int(s.get("lead_score", 0) or 0) >= 75
+        ]
+        for sig in hot_candidates[:2]:
+            if proposals_queued >= 2:
+                break
+            lead_id_str = sig.get("lead_id")
+            if not lead_id_str:
+                continue
+            try:
+                from app.services.governance.auto_proposal import auto_generate_proposal_for_lead
+                lead_score = float(sig.get("lead_score", 75))
+                estimated_value = max(3000.0, lead_score * 60)
+                result = await auto_generate_proposal_for_lead(
+                    lead_id=uuid.UUID(lead_id_str),
+                    lead_name=sig.get("lead_contact") or "Decision Maker",
+                    lead_email=sig.get("lead_email") or "",
+                    lead_company=sig.get("lead_company") or "Unknown",
+                    estimated_deal_value=estimated_value,
+                    lead_context=f"HOT signal — {sig.get('why_now', '')}",
+                )
+                if result.get("proposal_id"):
+                    proposals_queued += 1
+            except Exception as exc:
+                logger.warning("Auto-proposal failed for lead %s: %s", lead_id_str, exc)
+
+    if proposals_queued:
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"📋 *Auto-Proposals Queued*\n"
+                f"{proposals_queued} proposal(s) drafted for your highest-confidence HOT leads.\n"
+                f"Review at /control-room/proposals"
+            )
+        except Exception as exc:
+            logger.warning("Auto-proposal Telegram notify failed: %s", exc)
+
+    await _record_job_result(
+        "nightly_signal_scan",
+        "success",
+        {"signals_found": signals_found, "proposals_queued": proposals_queued},
+    )
