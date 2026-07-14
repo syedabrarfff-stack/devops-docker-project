@@ -208,20 +208,26 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Task worker skipped: {e}")
         worker_task = None
 
-    # ── APScheduler ───────────────────────────────────────────────────────────
-    # Only start in the primary worker (age==0) to prevent each gunicorn worker
-    # running every job independently. gunicorn.conf.py sets JARVIS_SCHEDULER_DISABLED
-    # on worker.age > 0 via post_fork.
-    import os as _os
-    if not _os.environ.get("JARVIS_SCHEDULER_DISABLED"):
-        try:
-            from app.services.scheduler.scheduler import start_scheduler
-            await start_scheduler()
-            logger.info("✅ Scheduler started")
-        except Exception as e:
-            logger.warning(f"Scheduler skipped: {e}")
-    else:
-        logger.info("Scheduler disabled in this worker (non-primary)")
+    # ── APScheduler (file-lock leader election) ────────────────────────────────
+    # Only one gunicorn worker may run the scheduler. We use an exclusive file
+    # lock: the first worker to acquire it starts APScheduler; the rest skip.
+    # When the leader dies (recycling, shutdown), the OS releases the lock and
+    # the next worker to start claims it.
+    import fcntl as _fcntl
+    _scheduler_lock_fd = None
+    try:
+        _scheduler_lock_fd = open("/tmp/jarvis_scheduler.lock", "w")
+        _fcntl.flock(_scheduler_lock_fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+        from app.services.scheduler.scheduler import start_scheduler
+        await start_scheduler()
+        logger.info("✅ Scheduler started (this worker is the scheduler leader)")
+    except BlockingIOError:
+        logger.info("Scheduler running in another worker — skipping in this one")
+        if _scheduler_lock_fd:
+            _scheduler_lock_fd.close()
+        _scheduler_lock_fd = None
+    except Exception as e:
+        logger.warning("Scheduler skipped (this worker holds the leader lock): %s", e)
 
     logger.info("🚀 JARVIS operational — Aliyar Solutions v9.0.0")
     yield
@@ -229,11 +235,13 @@ async def lifespan(app: FastAPI):
     # ── Graceful shutdown ─────────────────────────────────────────────────────
     if worker_task:
         worker_task.cancel()
-    try:
-        from app.services.scheduler.scheduler import stop_scheduler
-        stop_scheduler()
-    except Exception as exc:
-        logger.warning("Scheduler stop failed during shutdown: %s", exc)
+    if _scheduler_lock_fd:
+        try:
+            from app.services.scheduler.scheduler import stop_scheduler
+            stop_scheduler()
+        except Exception as exc:
+            logger.warning("Scheduler stop failed during shutdown: %s", exc)
+        _scheduler_lock_fd.close()
     logger.info("JARVIS shutting down cleanly")
 
 
