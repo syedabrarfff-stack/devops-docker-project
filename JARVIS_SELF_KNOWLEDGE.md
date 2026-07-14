@@ -62,7 +62,7 @@ Captain's dashboard login (`captain`/a chosen password) didn't work. Root-caused
 | Backend | FastAPI + SQLAlchemy 2.0 async + PostgreSQL 16 + pgvector |
 | Frontend | React 18 + Vite + Tailwind CSS (60+ views) |
 | Cache | Redis 7 (384MB, LRU, password-protected) |
-| Scheduler | APScheduler — 64 production jobs |
+| Scheduler | APScheduler — 71 production jobs (file-lock leader election) |
 | AI Routing | 11-provider router + 14-model council |
 | WhatsApp | Evolution API v2.3.7 |
 | Infrastructure | Docker Compose (local) → AWS ECS Fargate (production) |
@@ -236,7 +236,10 @@ All registered in: `backend/app/api/v1/__init__.py`
 4. Team registry seeded (8 personas)
 5. JARVIS authority instructions stored in memory
 6. Task queue initialized + worker started
-7. APScheduler started (64 jobs loaded — 38 core + 26 AIONX)
+7. Scheduler leader election via `fcntl.flock(LOCK_EX|LOCK_NB)` on `/tmp/jarvis_scheduler.lock`
+   - First gunicorn worker to acquire the exclusive lock starts APScheduler (71 jobs — 45 core + 26 AIONX)
+   - Other workers get `BlockingIOError` and skip gracefully
+   - OS auto-releases lock on worker death → seamless leadership transfer during recycling/reload
 
 Health endpoints: `/health` (shallow) · `/readyz` (deep — checks DB, AI, Redis, Evolution, SES, Scheduler)
 

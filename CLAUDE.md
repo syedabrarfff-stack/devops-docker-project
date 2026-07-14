@@ -258,6 +258,16 @@ Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 **71 total jobs** — 45 core production jobs + 26 AIONX organ jobs, all registered
 in a single canonical scheduler. Full list in `backend/app/services/scheduler/scheduler.py`'s
 `_production_job_specs()` and `backend/app/services/aionx/aionx_scheduler.py`.
+
+**Scheduler leader election:** In multi-worker gunicorn deployments, exactly one
+worker runs APScheduler. Leader election uses `fcntl.flock(LOCK_EX|LOCK_NB)` on
+`/tmp/jarvis_scheduler.lock` in the FastAPI lifespan (`main.py`). The first worker
+to acquire the exclusive lock starts APScheduler; others skip gracefully. The OS
+auto-releases the lock on worker death, enabling seamless leadership transfer during
+worker recycling (`max_requests`) or graceful reload (`SIGHUP`). The previous
+`post_fork`/`worker.age`-based approach was broken and removed — see
+`gunicorn.conf.py` and `tests/scheduler/test_leader_election.py` for details.
+
 (As of Task #23: the former `engine.py` module — an entire second, never-started
 scheduler implementation — was retired. If you see any reference to `engine.py`
 in older docs or code, it is stale; the canonical scheduler has always been

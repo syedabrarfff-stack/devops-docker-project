@@ -392,7 +392,7 @@ Your deployment is successful when:
 | 502 Bad Gateway | ECS task not passing health check | Check `/readyz` logs, verify DB connectivity |
 | Email not sending | SES not verified or credentials wrong | Verify SES_FROM_EMAIL is verified in SES console |
 | Webhooks fail | Secret mismatch | Regenerate Stripe webhook secret and update env var |
-| Scheduler not running | Scheduler disabled or database unreachable | Check JARVIS_SCHEDULER_DISABLED env var, verify RDS connectivity |
+| Scheduler not running | File-lock not acquired or database unreachable | Check logs for "Scheduler started (this worker is the scheduler leader)" — exactly one worker should log this. Verify `/tmp/jarvis_scheduler.lock` exists and RDS is reachable. |
 | High latency | AI provider timeout | Check provider API status, adjust timeout settings |
 
 ### Debug Commands
