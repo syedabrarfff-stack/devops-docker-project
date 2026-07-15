@@ -24,11 +24,11 @@ on:
           - verify-status
           - set-captain-credentials
       captain_username:
-        description: 'New captain username (only used for set-captain-credentials)'
+        description: 'New captain username (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false
         type: string
       captain_password:
-        description: 'New captain password (only used for set-captain-credentials — never logged or committed)'
+        description: 'New captain password (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false
         type: string
 
@@ -62,6 +62,38 @@ jobs:
           role-session-name: JarvisGitHubDeploy
           aws-region: ap-south-2
 
+      # ── Mask captain-credential inputs BEFORE any step's env: block references them
+      # workflow_dispatch inputs of type: string are NOT auto-masked by GitHub Actions.
+      # The previous approach put ${{ github.event.inputs.captain_password }} in the
+      # SSM step's env: block and called ::add-mask:: inside the run script, but the
+      # env: block is displayed VERBATIM before the run script executes — that's how
+      # the previous captain password leaked in plaintext into the run log.
+      # This step reads the inputs from $GITHUB_EVENT_PATH via jq (which never
+      # interpolates them into the rendered run script), registers the masks, then
+      # publishes them via $GITHUB_ENV so every subsequent step's env: block renders
+      # them as *** at display time.
+      - name: Register captain-credential masks
+        if: github.event.inputs.action == 'set-captain-credentials'
+        run: |
+          CAPTAIN_USER=$(jq -r '.inputs.captain_username // ""' "$GITHUB_EVENT_PATH")
+          CAPTAIN_PASS=$(jq -r '.inputs.captain_password // ""' "$GITHUB_EVENT_PATH")
+          if [ -z "$CAPTAIN_USER" ] || [ -z "$CAPTAIN_PASS" ]; then
+            echo "::error::set-captain-credentials requires both captain_username and captain_password inputs"
+            exit 1
+          fi
+          echo "::add-mask::$CAPTAIN_USER"
+          echo "::add-mask::$CAPTAIN_PASS"
+          DELIM="EOF_$(openssl rand -hex 16)"
+          {
+            echo "CAPTAIN_USER<<$DELIM"
+            echo "$CAPTAIN_USER"
+            echo "$DELIM"
+            echo "CAPTAIN_PASS<<$DELIM"
+            echo "$CAPTAIN_PASS"
+            echo "$DELIM"
+          } >> "$GITHUB_ENV"
+          echo "Captain credential inputs registered and masked"
+
       # ── SSM path (uses AWS credentials) ─────────────────────────────────────
       - name: Deploy via SSM
         id: ssm
@@ -69,16 +101,13 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CAPTAIN_USER_INPUT: ${{ github.event.inputs.captain_username }}
-          CAPTAIN_PASS_INPUT: ${{ github.event.inputs.captain_password }}
+          # CAPTAIN_USER and CAPTAIN_PASS are inherited from $GITHUB_ENV (set by
+          # the "Register captain-credential masks" step above). Because the mask
+          # was registered before this step began, any log rendering of these
+          # values in this step's env block appears as ***.
         run: |
           ACTION="${{ github.event.inputs.action }}"
           ACTION="${ACTION:-full-restart}"
-
-          # Mask the password everywhere it might otherwise appear in step output
-          if [ -n "$CAPTAIN_PASS_INPUT" ]; then
-            echo "::add-mask::${CAPTAIN_PASS_INPUT}"
-          fi
 
           # Pinned to the verified production instance — there is a second, unrelated
           # "running" instance (i-00381dfb44fd3cf45, Jarvis-Terraform-Server) in this
@@ -106,8 +135,15 @@ jobs:
 
           # Credentials (only used for set-captain-credentials) travel base64-encoded
           # inside the SSM command too, so they never appear in plaintext in logs or JSON.
-          CAPTAIN_USER_B64=$(printf '%s' "$CAPTAIN_USER_INPUT" | base64 -w0)
-          CAPTAIN_PASS_B64=$(printf '%s' "$CAPTAIN_PASS_INPUT" | base64 -w0)
+          # CAPTAIN_USER / CAPTAIN_PASS come from $GITHUB_ENV (set + masked earlier).
+          # Empty for every other action — base64 of empty is safe, unused downstream.
+          CAPTAIN_USER_B64=$(printf '%s' "${CAPTAIN_USER:-}" | base64 -w0)
+          CAPTAIN_PASS_B64=$(printf '%s' "${CAPTAIN_PASS:-}" | base64 -w0)
+          # Defensive: even the base64 form should never appear in logs if the
+          # plaintext was masked. Registering masks on the encoded values covers
+          # any code path that logs the SSM parameters JSON verbatim.
+          [ -n "$CAPTAIN_USER_B64" ] && echo "::add-mask::$CAPTAIN_USER_B64"
+          [ -n "$CAPTAIN_PASS_B64" ] && echo "::add-mask::$CAPTAIN_PASS_B64"
 
           # Single SSM command: export decoded credential overrides, then decode and run the script with ACTION as $1
           CMD_ID=$(aws ssm send-command \
