@@ -23,6 +23,7 @@ on:
           - git-pull-only
           - verify-status
           - set-captain-credentials
+          - production-audit
       captain_username:
         description: 'New captain username (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false
@@ -180,6 +181,11 @@ jobs:
           [ -n "$STDERR" ] && echo "STDERR: $STDERR"
 
           if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ]; then
+            AUDIT_OK=$(echo "$OUTPUT" | grep -c "AUDIT_COMPLETE" || true)
+            if [ "$AUDIT_OK" -gt 0 ]; then
+              echo "=== PRODUCTION AUDIT COMPLETE — diagnostic output above ==="
+              exit 0
+            fi
             BACKEND_UP=$(echo "$OUTPUT" | grep -c "BACKEND_HEALTH_OK" || true)
             # /health is shallow (no DB check) — /readyz actually verifies DB
             # connectivity. Requiring both means a backend that's "up" but

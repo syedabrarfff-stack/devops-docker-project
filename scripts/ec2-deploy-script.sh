@@ -166,6 +166,260 @@ case "$ACTION" in
     docker exec jarvis_backend alembic current 2>/dev/null || true
     ;;
 
+  production-audit)
+    # ══════════════════════════════════════════════════════════════════════════
+    # READ-ONLY PRODUCTION AUDIT — collects evidence only, modifies nothing.
+    # Never: stops/starts/restarts containers, modifies .env/DB/Docker/AWS,
+    # sends emails/WhatsApp, creates/updates/deletes data.
+    # ══════════════════════════════════════════════════════════════════════════
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║           JARVIS PRODUCTION AUDIT — READ ONLY              ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+
+    # ── 1. Backend Health ─────────────────────────────────────────────────
+    echo "═══ [1/18] BACKEND HEALTH ═══"
+    HEALTH=$(curl -sf http://localhost:8000/health 2>&1) && echo "  /health: OK" || echo "  /health: FAIL"
+    echo "  Response: $HEALTH"
+    READYZ=$(curl -sf http://localhost:8000/readyz 2>&1) && echo "  /readyz: OK" || echo "  /readyz: FAIL"
+    echo "  Response: $READYZ"
+    docker inspect jarvis_backend --format='  Container state: {{.State.Status}} | Restarts: {{.RestartCount}} | Started: {{.State.StartedAt}}' 2>/dev/null || echo "  Container: NOT FOUND"
+    echo ""
+
+    # ── 2. PostgreSQL ─────────────────────────────────────────────────────
+    echo "═══ [2/18] POSTGRESQL ═══"
+    docker inspect jarvis_postgres --format='  Container state: {{.State.Status}} | Restarts: {{.RestartCount}}' 2>/dev/null || echo "  Container: NOT FOUND"
+    docker exec jarvis_postgres pg_isready -U jarvis 2>/dev/null && echo "  pg_isready: OK" || echo "  pg_isready: FAIL"
+    docker exec jarvis_postgres psql -U jarvis -d jarvis -c "SELECT count(*) AS table_count FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "  Query failed"
+    docker exec jarvis_postgres psql -U jarvis -d jarvis -c "SELECT pg_size_pretty(pg_database_size('jarvis')) AS db_size;" 2>/dev/null || echo "  Size query failed"
+    echo ""
+
+    # ── 3. Redis ──────────────────────────────────────────────────────────
+    echo "═══ [3/18] REDIS ═══"
+    docker inspect jarvis_redis --format='  Container state: {{.State.Status}} | Restarts: {{.RestartCount}}' 2>/dev/null || echo "  Container: NOT FOUND"
+    docker exec jarvis_redis redis-cli ping 2>/dev/null || echo "  PING: FAIL"
+    docker exec jarvis_redis redis-cli info memory 2>/dev/null | grep -E "used_memory_human|maxmemory_human" || echo "  Memory info unavailable"
+    docker exec jarvis_redis redis-cli dbsize 2>/dev/null || echo "  DBSIZE: unavailable"
+    echo ""
+
+    # ── 4. Scheduler Status ───────────────────────────────────────────────
+    echo "═══ [4/18] SCHEDULER STATUS ═══"
+    curl -sf http://localhost:8000/api/v1/scheduler/status 2>&1 || echo "  Scheduler status endpoint failed"
+    echo ""
+
+    # ── 5. Registered Jobs ────────────────────────────────────────────────
+    echo "═══ [5/18] REGISTERED JOBS ═══"
+    JOBS=$(curl -sf http://localhost:8000/api/v1/scheduler/jobs 2>&1) && echo "$JOBS" | python3 -c "
+import json,sys
+try:
+    data=json.load(sys.stdin)
+    jobs=data if isinstance(data,list) else data.get('jobs',data.get('items',[]))
+    print(f'  Total registered: {len(jobs)}')
+    for j in jobs[:10]:
+        name=j.get('id',j.get('name','?'))
+        nr=j.get('next_run','?')
+        print(f'    {name} → next: {nr}')
+    if len(jobs)>10: print(f'    ... and {len(jobs)-10} more')
+except: print('  Parse failed')
+" 2>/dev/null || echo "  Jobs endpoint failed"
+    echo ""
+
+    # ── 6. Recent Scheduler Executions ────────────────────────────────────
+    echo "═══ [6/18] RECENT SCHEDULER EXECUTIONS ═══"
+    curl -sf "http://localhost:8000/api/v1/scheduler/history?limit=15" 2>&1 | python3 -c "
+import json,sys
+try:
+    data=json.load(sys.stdin)
+    items=data if isinstance(data,list) else data.get('items',data.get('history',[]))
+    print(f'  Recent executions: {len(items)}')
+    for h in items[:10]:
+        jid=h.get('job_id',h.get('name','?'))
+        status=h.get('status',h.get('outcome','?'))
+        ts=h.get('executed_at',h.get('timestamp','?'))
+        print(f'    {jid}: {status} @ {ts}')
+except: print('  No execution history available or parse failed')
+" 2>/dev/null || echo "  History endpoint unavailable"
+    echo ""
+
+    # ── 7. Scheduler Exceptions ───────────────────────────────────────────
+    echo "═══ [7/18] SCHEDULER EXCEPTIONS ═══"
+    docker logs jarvis_backend --since=24h 2>&1 | grep -iE "scheduler.*error|scheduler.*exception|job.*failed|apscheduler.*error" | tail -10 || echo "  No scheduler exceptions in last 24h"
+    echo ""
+
+    # ── 8. Amazon SES Configuration ───────────────────────────────────────
+    echo "═══ [8/18] AMAZON SES CONFIGURATION ═══"
+    curl -sf http://localhost:8000/api/v1/email/status 2>&1 || echo "  SES status endpoint failed"
+    echo ""
+    echo "  SES info from /readyz:"
+    echo "$READYZ" | python3 -c "
+import json,sys
+try:
+    data=json.load(sys.stdin)
+    ses=data.get('checks',{}).get('ses',data.get('ses',{}))
+    print(f'    Status: {ses.get(\"status\",\"unknown\")}')
+    print(f'    Blocker: {ses.get(\"blocker_code\",ses.get(\"detail\",\"none\"))}')
+    print(f'    Message: {ses.get(\"human_message\",ses.get(\"message\",\"n/a\"))}')
+except: print('    SES parse from readyz failed')
+" 2>/dev/null
+    echo ""
+
+    # ── 9. Evolution/WhatsApp Container ───────────────────────────────────
+    echo "═══ [9/18] EVOLUTION / WHATSAPP CONTAINER ═══"
+    docker inspect evolution-api --format='  Container state: {{.State.Status}} | Restarts: {{.RestartCount}} | Started: {{.State.StartedAt}}' 2>/dev/null || echo "  Container: NOT FOUND"
+    docker logs evolution-api --tail=15 2>&1 | head -15 || echo "  No logs available"
+    echo ""
+
+    # ── 10. Evolution Database Existence ──────────────────────────────────
+    echo "═══ [10/18] EVOLUTION DATABASE EXISTENCE ═══"
+    docker exec jarvis_postgres psql -U jarvis -c "SELECT datname FROM pg_database WHERE datname='evolution';" 2>/dev/null || echo "  Cannot query postgres for evolution DB"
+    docker exec jarvis_postgres psql -U jarvis -d evolution -c "SELECT count(*) AS table_count FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "  Evolution DB query failed (DB may not exist)"
+    echo ""
+
+    # ── 11. Backend ↔ Evolution Connectivity ──────────────────────────────
+    echo "═══ [11/18] BACKEND ↔ EVOLUTION CONNECTIVITY ═══"
+    WA_STATE=$(curl -sf http://localhost:8080/instance/connectionState/jarvis-main \
+      -H "apikey: jarvis-master-key" 2>&1) && echo "  Evolution API response: $WA_STATE" || echo "  Evolution API unreachable"
+    docker exec jarvis_backend curl -sf http://evolution:8080/instance/connectionState/jarvis-main \
+      -H "apikey: jarvis-master-key" 2>/dev/null && echo "  Backend→Evolution internal: OK" || echo "  Backend→Evolution internal: FAIL"
+    echo ""
+
+    # ── 12. AI Providers ──────────────────────────────────────────────────
+    echo "═══ [12/18] AI PROVIDERS ═══"
+    curl -sf http://localhost:8000/api/v1/ai/providers/status 2>&1 | python3 -c "
+import json,sys
+try:
+    data=json.load(sys.stdin)
+    providers=data if isinstance(data,list) else data.get('providers',data.get('items',[]))
+    for p in providers:
+        name=p.get('name',p.get('provider','?'))
+        status=p.get('status',p.get('state','?'))
+        print(f'    {name}: {status}')
+except: print('    AI providers parse failed')
+" 2>/dev/null || echo "  AI providers endpoint failed"
+    echo ""
+
+    # ── 13. Nginx + Basic Auth Investigation ──────────────────────────────
+    echo "═══ [13/18] NGINX + BASIC AUTH INVESTIGATION ═══"
+    docker inspect jarvis_nginx --format='  Container state: {{.State.Status}} | Restarts: {{.RestartCount}} | Started: {{.State.StartedAt}}' 2>/dev/null || echo "  Container: NOT FOUND"
+    curl -sf http://localhost/health && echo "  Nginx proxy /health: OK" || echo "  Nginx proxy /health: FAIL"
+    echo ""
+    echo "  --- .htpasswd diagnostics ---"
+    if [ -f "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" ]; then
+      echo "  .htpasswd file exists: YES"
+      echo "  .htpasswd file size: $(wc -c < "$DEPLOY_DIR/infrastructure/nginx/.htpasswd") bytes"
+      echo "  .htpasswd line count: $(wc -l < "$DEPLOY_DIR/infrastructure/nginx/.htpasswd")"
+      HTPASSWD_USER=$(cut -d: -f1 "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" | head -1)
+      echo "  .htpasswd username: $HTPASSWD_USER"
+    else
+      echo "  .htpasswd file exists: NO — this explains auth failure"
+    fi
+    echo ""
+    echo "  --- .env CAPTAIN_USERNAME ---"
+    if [ -f "$DEPLOY_DIR/.env" ]; then
+      ENV_USER=$(grep "^CAPTAIN_USERNAME=" "$DEPLOY_DIR/.env" | cut -d= -f2 | head -1)
+      echo "  .env CAPTAIN_USERNAME: ${ENV_USER:-NOT SET}"
+    else
+      echo "  .env file: NOT FOUND"
+    fi
+    echo ""
+    if [ -n "$HTPASSWD_USER" ] && [ -n "$ENV_USER" ]; then
+      if [ "$HTPASSWD_USER" = "$ENV_USER" ]; then
+        echo "  Username match: YES — .htpasswd and .env agree"
+      else
+        echo "  Username match: NO — MISMATCH DETECTED"
+        echo "    .htpasswd has: $HTPASSWD_USER"
+        echo "    .env has: $ENV_USER"
+        echo "    ROOT CAUSE: set-captain-credentials regenerated .htpasswd but"
+        echo "    a subsequent git pull may have overwritten it with the repo copy"
+      fi
+    fi
+    echo ""
+    echo "  --- Nginx auth_basic config ---"
+    docker exec jarvis_nginx cat /etc/nginx/conf.d/default.conf 2>/dev/null | grep -E "auth_basic|htpasswd" || echo "  Could not read nginx config from container"
+    echo ""
+    echo "  --- Nginx .htpasswd inside container ---"
+    if docker exec jarvis_nginx test -f /etc/nginx/.htpasswd 2>/dev/null; then
+      CONTAINER_HTPASSWD_USER=$(docker exec jarvis_nginx cut -d: -f1 /etc/nginx/.htpasswd 2>/dev/null | head -1)
+      echo "  Container .htpasswd username: $CONTAINER_HTPASSWD_USER"
+      echo "  Container .htpasswd size: $(docker exec jarvis_nginx wc -c < /etc/nginx/.htpasswd 2>/dev/null) bytes"
+    else
+      echo "  Container /etc/nginx/.htpasswd: FILE NOT FOUND"
+    fi
+    echo ""
+    echo "  --- Nginx error log (auth failures) ---"
+    docker logs jarvis_nginx --since=6h 2>&1 | grep -iE "auth|401|htpasswd|password" | tail -10 || echo "  No auth-related errors in nginx logs"
+    echo ""
+    echo "  --- Nginx reload check ---"
+    docker exec jarvis_nginx nginx -t 2>&1 || echo "  Nginx config test failed"
+    echo ""
+
+    # ── 14. HTTPS / SSL ───────────────────────────────────────────────────
+    echo "═══ [14/18] HTTPS / SSL ═══"
+    DOMAIN="${SSL_DOMAIN:-aliyarsolutions.com}"
+    CERT_PATH="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+    if [ -f "$CERT_PATH" ]; then
+      echo "  SSL cert exists: YES"
+      openssl x509 -in "$CERT_PATH" -noout -dates 2>/dev/null || echo "  Cannot read cert dates"
+      openssl x509 -in "$CERT_PATH" -noout -subject 2>/dev/null || echo "  Cannot read cert subject"
+    else
+      echo "  SSL cert at $CERT_PATH: NOT FOUND"
+    fi
+    curl -sf -o /dev/null -w "  HTTPS status: %{http_code}\n" "https://${DOMAIN}/health" 2>/dev/null || echo "  HTTPS probe failed (may need --insecure or cert not yet issued)"
+    echo ""
+
+    # ── 15. Monitoring Stack ──────────────────────────────────────────────
+    echo "═══ [15/18] MONITORING STACK ═══"
+    docker inspect jarvis_prometheus --format='  Prometheus: {{.State.Status}}' 2>/dev/null || echo "  Prometheus: NOT RUNNING"
+    docker inspect jarvis_grafana --format='  Grafana: {{.State.Status}}' 2>/dev/null || echo "  Grafana: NOT RUNNING"
+    curl -sf http://localhost:9090/-/ready && echo "  Prometheus /ready: OK" || echo "  Prometheus /ready: FAIL or not exposed"
+    curl -sf http://localhost:3000/api/health && echo "  Grafana /api/health: OK" || echo "  Grafana /api/health: FAIL or not exposed"
+    echo ""
+
+    # ── 16. Container Health (all) ────────────────────────────────────────
+    echo "═══ [16/18] CONTAINER HEALTH ═══"
+    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  docker ps failed"
+    echo ""
+    echo "  Stopped containers:"
+    docker ps -a --filter "status=exited" --format "    {{.Names}}: exited {{.Status}}" 2>/dev/null || true
+    echo ""
+
+    # ── 17. System Resources ──────────────────────────────────────────────
+    echo "═══ [17/18] SYSTEM RESOURCES ═══"
+    echo "  --- CPU ---"
+    uptime 2>/dev/null || echo "  uptime unavailable"
+    echo "  CPU cores: $(nproc 2>/dev/null || echo unknown)"
+    echo ""
+    echo "  --- Memory ---"
+    free -h 2>/dev/null || echo "  free unavailable"
+    echo ""
+    echo "  --- Disk ---"
+    df -h / /var/lib/docker 2>/dev/null || df -h / 2>/dev/null || echo "  df unavailable"
+    echo ""
+    echo "  --- Swap ---"
+    swapon --show 2>/dev/null || echo "  swap info unavailable"
+    echo ""
+
+    # ── 18. Remaining Production Blockers ─────────────────────────────────
+    echo "═══ [18/18] REMAINING PRODUCTION BLOCKERS SUMMARY ═══"
+    echo "  (Automated summary based on evidence above)"
+    BLOCKERS=0
+    curl -sf http://localhost:8000/health >/dev/null 2>&1 || { echo "  BLOCKER: Backend /health failing"; BLOCKERS=$((BLOCKERS+1)); }
+    curl -sf http://localhost:8000/readyz >/dev/null 2>&1 || { echo "  BLOCKER: Backend /readyz failing (DB/dep unreachable)"; BLOCKERS=$((BLOCKERS+1)); }
+    curl -sf http://localhost/health >/dev/null 2>&1 || { echo "  BLOCKER: Nginx proxy failing"; BLOCKERS=$((BLOCKERS+1)); }
+    docker exec jarvis_redis redis-cli ping >/dev/null 2>&1 || { echo "  BLOCKER: Redis not responding"; BLOCKERS=$((BLOCKERS+1)); }
+    docker exec jarvis_postgres pg_isready -U jarvis >/dev/null 2>&1 || { echo "  BLOCKER: PostgreSQL not ready"; BLOCKERS=$((BLOCKERS+1)); }
+    docker inspect evolution-api --format='{{.State.Status}}' 2>/dev/null | grep -q running || { echo "  BLOCKER: Evolution/WhatsApp not running"; BLOCKERS=$((BLOCKERS+1)); }
+    docker exec jarvis_postgres psql -U jarvis -c "SELECT 1 FROM pg_database WHERE datname='evolution'" -tA 2>/dev/null | grep -q 1 || { echo "  BLOCKER: Evolution database does not exist"; BLOCKERS=$((BLOCKERS+1)); }
+    echo ""
+    echo "  Total blockers detected: $BLOCKERS"
+    echo ""
+
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║              AUDIT COMPLETE — NO CHANGES MADE              ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo "AUDIT_COMPLETE"
+    ;;
+
   set-captain-credentials)
     # Fixes login by forcing CAPTAIN_USERNAME/PASSWORD in .env and regenerating
     # nginx basic-auth .htpasswd to match — both are gitignored secrets that only
