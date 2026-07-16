@@ -334,6 +334,40 @@ except: print('    AI providers parse failed')
       fi
     fi
     echo ""
+    echo "  --- Password hash verification ---"
+    if [ -f "$DEPLOY_DIR/.env" ] && [ -f "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" ]; then
+      ENV_PASS=$(grep "^CAPTAIN_PASSWORD=" "$DEPLOY_DIR/.env" | cut -d= -f2 | head -1)
+      if [ -n "$ENV_PASS" ]; then
+        HTPASSWD_HASH=$(cut -d: -f2 "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" | head -1)
+        HASH_TYPE="unknown"
+        case "$HTPASSWD_HASH" in
+          '$apr1$'*) HASH_TYPE="apr1 (MD5)" ;;
+          '$2y$'*|'$2b$'*)  HASH_TYPE="bcrypt" ;;
+          '{SHA}'*)  HASH_TYPE="SHA1" ;;
+          *)         HASH_TYPE="crypt/other" ;;
+        esac
+        echo "  Hash algorithm: $HASH_TYPE"
+        if command -v htpasswd &>/dev/null; then
+          htpasswd -bv "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" "$HTPASSWD_USER" "$ENV_PASS" 2>/dev/null \
+            && echo "  Password verification: PASS — .env password matches .htpasswd hash" \
+            || echo "  Password verification: FAIL — .env password does NOT match .htpasswd hash"
+        else
+          VERIFY_HASH=$(openssl passwd -apr1 -salt "$(echo "$HTPASSWD_HASH" | cut -d'$' -f3)" "$ENV_PASS" 2>/dev/null)
+          if [ "$VERIFY_HASH" = "$HTPASSWD_HASH" ]; then
+            echo "  Password verification (openssl): PASS — .env password matches .htpasswd hash"
+          else
+            echo "  Password verification (openssl): FAIL — .env password does NOT match .htpasswd hash"
+            echo "    ROOT CAUSE: The .htpasswd was generated with a different password than what is in .env"
+            echo "    This happens when set-captain-credentials ran but git pull later overwrote .htpasswd"
+          fi
+        fi
+      else
+        echo "  CAPTAIN_PASSWORD not set in .env — cannot verify hash"
+      fi
+    else
+      echo "  Cannot verify — .env or .htpasswd missing"
+    fi
+    echo ""
     echo "  --- Nginx auth_basic config ---"
     docker exec jarvis_nginx cat /etc/nginx/conf.d/default.conf 2>/dev/null | grep -E "auth_basic|htpasswd" || echo "  Could not read nginx config from container"
     echo ""
@@ -346,11 +380,62 @@ except: print('    AI providers parse failed')
       echo "  Container /etc/nginx/.htpasswd: FILE NOT FOUND"
     fi
     echo ""
+    echo "  --- Host vs container .htpasswd comparison ---"
+    if [ -f "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" ] && docker exec jarvis_nginx test -f /etc/nginx/.htpasswd 2>/dev/null; then
+      HOST_MD5=$(md5sum "$DEPLOY_DIR/infrastructure/nginx/.htpasswd" 2>/dev/null | cut -d' ' -f1)
+      CONTAINER_MD5=$(docker exec jarvis_nginx md5sum /etc/nginx/.htpasswd 2>/dev/null | cut -d' ' -f1)
+      if [ "$HOST_MD5" = "$CONTAINER_MD5" ]; then
+        echo "  Host ↔ Container .htpasswd: IDENTICAL (md5 match)"
+      else
+        echo "  Host ↔ Container .htpasswd: DIFFERENT — container has stale copy"
+        echo "    Host md5:      $HOST_MD5"
+        echo "    Container md5: $CONTAINER_MD5"
+        echo "    ROOT CAUSE: Nginx container was not restarted after .htpasswd was regenerated"
+        echo "    (volume is mounted :ro — container sees the bind-mount at start time)"
+      fi
+    else
+      echo "  Cannot compare — one or both files missing"
+    fi
+    echo ""
     echo "  --- Nginx error log (auth failures) ---"
     docker logs jarvis_nginx --since=6h 2>&1 | grep -iE "auth|401|htpasswd|password" | tail -10 || echo "  No auth-related errors in nginx logs"
     echo ""
     echo "  --- Nginx reload check ---"
     docker exec jarvis_nginx nginx -t 2>&1 || echo "  Nginx config test failed"
+    echo ""
+    echo "  --- Live basic auth test (curl with .env credentials) ---"
+    if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
+      AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" http://localhost/control-room 2>/dev/null)
+      echo "  Basic auth curl to /control-room: HTTP $AUTH_CODE"
+      if [ "$AUTH_CODE" = "200" ] || [ "$AUTH_CODE" = "301" ] || [ "$AUTH_CODE" = "302" ]; then
+        echo "  Result: PASS — Nginx accepts .env credentials"
+      elif [ "$AUTH_CODE" = "401" ]; then
+        echo "  Result: FAIL — Nginx rejects .env credentials (401 Unauthorized)"
+        echo "    CONFIRMED: .htpasswd credentials do not match .env credentials"
+      else
+        echo "  Result: Unexpected HTTP $AUTH_CODE"
+      fi
+      NO_AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/control-room 2>/dev/null)
+      echo "  No-auth curl to /control-room: HTTP $NO_AUTH_CODE"
+    else
+      echo "  Cannot test — username or password not available from .env"
+    fi
+    echo ""
+    echo "  --- Backend login vs basic auth sync check ---"
+    if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
+      BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"${ENV_USER}\",\"password\":\"${ENV_PASS}\"}" 2>/dev/null)
+      echo "  Backend /api/v1/auth/login with .env creds: HTTP $BACKEND_LOGIN"
+      if [ "$BACKEND_LOGIN" = "200" ] && [ "$AUTH_CODE" = "401" ]; then
+        echo "  DIAGNOSIS: Backend accepts creds but Nginx rejects them"
+        echo "    → .htpasswd is out of sync with .env (git pull overwrote it)"
+      elif [ "$BACKEND_LOGIN" = "200" ] && [ "$AUTH_CODE" != "401" ]; then
+        echo "  DIAGNOSIS: Both backend and Nginx accept .env credentials — auth is synchronized"
+      else
+        echo "  DIAGNOSIS: Backend login returned HTTP $BACKEND_LOGIN — investigate separately"
+      fi
+    fi
     echo ""
 
     # ── 14. HTTPS / SSL ───────────────────────────────────────────────────
