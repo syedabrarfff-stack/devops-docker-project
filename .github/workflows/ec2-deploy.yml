@@ -24,6 +24,7 @@ on:
           - verify-status
           - set-captain-credentials
           - production-audit
+          - regenerate-htpasswd
       captain_username:
         description: 'New captain username (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false
@@ -185,6 +186,15 @@ jobs:
             if [ "$AUDIT_OK" -gt 0 ]; then
               echo "=== PRODUCTION AUDIT COMPLETE — diagnostic output above ==="
               exit 0
+            fi
+            HTPASSWD_OK=$(echo "$OUTPUT" | grep -c "HTPASSWD_REGEN_OK" || true)
+            HTPASSWD_DONE=$(echo "$OUTPUT" | grep -c "HTPASSWD_REGEN_COMPLETE" || true)
+            if [ "$HTPASSWD_OK" -gt 0 ]; then
+              echo "=== HTPASSWD REGEN SUCCEEDED — nginx accepts .env credentials ==="
+              exit 0
+            elif [ "$HTPASSWD_DONE" -gt 0 ]; then
+              echo "=== HTPASSWD REGEN COMPLETED but nginx still rejects — see output above ==="
+              exit 1
             fi
             BACKEND_UP=$(echo "$OUTPUT" | grep -c "BACKEND_HEALTH_OK" || true)
             # /health is shallow (no DB check) — /readyz actually verifies DB

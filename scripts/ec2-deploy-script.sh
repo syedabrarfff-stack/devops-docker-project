@@ -11,6 +11,108 @@ export HOME="${HOME:-/root}"
 ACTION="${1:-full-restart}"
 GH_TOKEN="__GHTOKEN__"
 
+# ── Safe .env var setter (immune to sed escaping bugs) ────────────────────────
+# sed with `|` delimiter breaks silently on passwords containing `|`, `&`, `\`,
+# or newlines — which is exactly the class of characters a strong random
+# password may contain. Python str.replace is byte-safe.
+_update_env_var() {
+    local env_file="$1" key="$2" value="$3"
+    ENV_KEY="$key" ENV_VALUE="$value" ENV_FILE="$env_file" python3 <<'PYEOF'
+import os, re
+env_file = os.environ["ENV_FILE"]
+key      = os.environ["ENV_KEY"]
+value    = os.environ["ENV_VALUE"]
+try:
+    with open(env_file, "r") as f: content = f.read()
+except FileNotFoundError:
+    content = ""
+pattern = re.compile(r"^" + re.escape(key) + r"=.*$", re.MULTILINE)
+new_line = f"{key}={value}"
+if pattern.search(content):
+    content = pattern.sub(lambda _: new_line, content)
+else:
+    if content and not content.endswith("\n"): content += "\n"
+    content += new_line + "\n"
+with open(env_file, "w") as f: f.write(content)
+PYEOF
+}
+
+# ── Read a value from .env safely (returns empty if not set) ─────────────────
+_read_env_var() {
+    local env_file="$1" key="$2"
+    ENV_KEY="$key" ENV_FILE="$env_file" python3 <<'PYEOF'
+import os, re, sys
+env_file = os.environ["ENV_FILE"]
+key      = os.environ["ENV_KEY"]
+try:
+    with open(env_file, "r") as f: content = f.read()
+except FileNotFoundError:
+    sys.exit(0)
+m = re.search(r"^" + re.escape(key) + r"=(.*)$", content, re.MULTILINE)
+if m: print(m.group(1))
+PYEOF
+}
+
+# ── Sync .htpasswd with .env — .env is single source of truth ────────────────
+# Runs on every deploy. Regenerates .htpasswd from .env CAPTAIN_USERNAME/PASSWORD
+# ONLY when they are out of sync (missing file, username mismatch, or password
+# hash mismatch). Prevents nginx basic auth from ever drifting from backend auth.
+# Uses > redirection (truncate-and-write, inode preserved) so the docker bind
+# mount picks up the change without a container recreate.
+_sync_htpasswd_from_env() {
+    local env_file="$1" htpasswd_file="$2"
+    [ ! -f "$env_file" ] && { echo "=== .htpasswd sync SKIPPED: .env missing ==="; return 0; }
+
+    local env_user env_pass
+    env_user=$(_read_env_var "$env_file" CAPTAIN_USERNAME)
+    env_pass=$(_read_env_var "$env_file" CAPTAIN_PASSWORD)
+    [ -z "$env_user" ] || [ -z "$env_pass" ] && {
+        echo "=== .htpasswd sync SKIPPED: CAPTAIN_USERNAME or CAPTAIN_PASSWORD not set in .env ==="
+        return 0
+    }
+
+    local need_regen=false reason=""
+    if [ ! -f "$htpasswd_file" ]; then
+        need_regen=true; reason="file missing"
+    else
+        local file_user
+        file_user=$(cut -d: -f1 "$htpasswd_file" 2>/dev/null | head -1)
+        if [ "$file_user" != "$env_user" ]; then
+            need_regen=true; reason="username mismatch"
+        elif command -v htpasswd >/dev/null 2>&1; then
+            if ! htpasswd -bv "$htpasswd_file" "$env_user" "$env_pass" >/dev/null 2>&1; then
+                need_regen=true; reason="password hash mismatch"
+            fi
+        else
+            # Fall back to openssl-based salt-matched hash comparison
+            local existing_hash existing_salt candidate_hash
+            existing_hash=$(cut -d: -f2- "$htpasswd_file" 2>/dev/null | head -1)
+            case "$existing_hash" in
+              '$apr1$'*)
+                existing_salt=$(echo "$existing_hash" | cut -d'$' -f3)
+                candidate_hash=$(openssl passwd -apr1 -salt "$existing_salt" "$env_pass" 2>/dev/null)
+                [ "$candidate_hash" != "$existing_hash" ] && { need_regen=true; reason="password hash mismatch"; }
+                ;;
+              *) need_regen=true; reason="unknown hash format — regenerating to apr1" ;;
+            esac
+        fi
+    fi
+
+    if [ "$need_regen" = true ]; then
+        echo "=== .htpasswd sync: regenerating ($reason) ==="
+        local hash
+        hash=$(openssl passwd -apr1 "$env_pass")
+        mkdir -p "$(dirname "$htpasswd_file")"
+        printf '%s:%s\n' "$env_user" "$hash" > "$htpasswd_file"
+        chmod 644 "$htpasswd_file"
+        echo "=== .htpasswd sync: OK — nginx basic auth now matches .env ==="
+        return 10  # signal caller that a reload is warranted
+    else
+        echo "=== .htpasswd sync: already in sync with .env ==="
+    fi
+    return 0
+}
+
 # ── Locate deploy directory ───────────────────────────────────────────────────
 DEPLOY_DIR=/opt/jarvis
 if [ ! -f /opt/jarvis/infrastructure/docker-compose.yml ]; then
@@ -87,6 +189,23 @@ mkdir -p "$DEPLOY_DIR/jarvis-data/daily" "$DEPLOY_DIR/jarvis-data/outputs"
 # ── P0-1: Enforce DEBUG=false — never runs in debug mode on EC2 ──────────────
 sed -i 's/^DEBUG=.*/DEBUG=false/' "$DEPLOY_DIR/.env"
 echo "=== DEBUG=false enforced in .env ==="
+
+# ── Ensure nginx basic auth is synchronized with .env on every deploy ────────
+# .htpasswd is gitignored (not tracked); this sync is the single source of
+# truth mechanism. Runs on every action so nginx and backend Captain auth
+# can never drift. If it regenerates, we reload nginx below when applicable.
+HTPASSWD_NEEDS_RELOAD=0
+if _sync_htpasswd_from_env "$DEPLOY_DIR/.env" "$DEPLOY_DIR/infrastructure/nginx/.htpasswd"; then
+    :
+else
+    rc=$?
+    [ "$rc" = "10" ] && HTPASSWD_NEEDS_RELOAD=1
+fi
+# If nginx is already running and .htpasswd changed, poke it to re-read.
+# Nginx re-reads auth_basic_user_file on each request, so this is defensive.
+if [ "$HTPASSWD_NEEDS_RELOAD" = "1" ] && docker ps --format '{{.Names}}' | grep -q '^jarvis_nginx$'; then
+    docker exec jarvis_nginx nginx -s reload 2>/dev/null && echo "=== nginx reloaded after .htpasswd sync ===" || echo "=== nginx reload attempt (best-effort) ==="
+fi
 
 # ── P0-3: SSL certificate via certbot ────────────────────────────────────────
 if [ "$ACTION" = "full-restart" ]; then
@@ -514,23 +633,18 @@ except: print('    AI providers parse failed')
     NEW_USER="${CAPTAIN_USERNAME_OVERRIDE:?CAPTAIN_USERNAME_OVERRIDE must be set}"
     NEW_PASS="${CAPTAIN_PASSWORD_OVERRIDE:?CAPTAIN_PASSWORD_OVERRIDE must be set}"
 
-    if grep -q "^CAPTAIN_USERNAME=" "$DEPLOY_DIR/.env"; then
-      sed -i "s|^CAPTAIN_USERNAME=.*|CAPTAIN_USERNAME=${NEW_USER}|" "$DEPLOY_DIR/.env"
-    else
-      echo "CAPTAIN_USERNAME=${NEW_USER}" >> "$DEPLOY_DIR/.env"
-    fi
-    if grep -q "^CAPTAIN_PASSWORD=" "$DEPLOY_DIR/.env"; then
-      sed -i "s|^CAPTAIN_PASSWORD=.*|CAPTAIN_PASSWORD=${NEW_PASS}|" "$DEPLOY_DIR/.env"
-    else
-      echo "CAPTAIN_PASSWORD=${NEW_PASS}" >> "$DEPLOY_DIR/.env"
-    fi
+    # Byte-safe .env update (immune to sed `|` / `&` / `\` escaping bugs
+    # that silently corrupted strong random passwords under the old sed approach)
+    _update_env_var "$DEPLOY_DIR/.env" CAPTAIN_USERNAME "$NEW_USER"
+    _update_env_var "$DEPLOY_DIR/.env" CAPTAIN_PASSWORD "$NEW_PASS"
     echo "=== .env CAPTAIN credentials set ==="
 
-    # Regenerate nginx basic-auth file (bcrypt via openssl, no extra deps needed)
+    # Regenerate nginx basic-auth file via the sync function (single code path)
     HTPASSWD_FILE="$DEPLOY_DIR/infrastructure/nginx/.htpasswd"
-    HASH=$(openssl passwd -apr1 "${NEW_PASS}")
-    echo "${NEW_USER}:${HASH}" > "$HTPASSWD_FILE"
-    echo "=== nginx .htpasswd regenerated for user '${NEW_USER}' ==="
+    # Force a regen by removing then syncing — guarantees a fresh hash
+    rm -f "$HTPASSWD_FILE"
+    _sync_htpasswd_from_env "$DEPLOY_DIR/.env" "$HTPASSWD_FILE" || true
+    echo "=== nginx .htpasswd regenerated for CAPTAIN user ==="
 
     cd "$DEPLOY_DIR/infrastructure"
     docker-compose -p jarvis up -d --no-deps --force-recreate backend nginx 2>&1 | tail -10
@@ -546,6 +660,76 @@ except: print('    AI providers parse failed')
       echo "LOGIN_VERIFY_FAILED (HTTP $LOGIN_RESP)"
     fi
     curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
+    ;;
+
+  regenerate-htpasswd)
+    # Re-syncs nginx basic-auth .htpasswd from .env WITHOUT requiring Captain
+    # to re-enter credentials in the workflow form. Use this when the Command
+    # Center popup keeps reappearing after set-captain-credentials succeeded —
+    # this rules out .htpasswd drift, stale bind mount, or a missed nginx reload.
+    # Read-only w.r.t. credentials — never changes what's in .env.
+    cd "$DEPLOY_DIR/infrastructure"
+    HTPASSWD_FILE="$DEPLOY_DIR/infrastructure/nginx/.htpasswd"
+
+    echo "=== BEFORE state ==="
+    if [ -f "$HTPASSWD_FILE" ]; then
+      echo "  Host .htpasswd size: $(wc -c < "$HTPASSWD_FILE") bytes"
+      echo "  Host .htpasswd user: $(cut -d: -f1 "$HTPASSWD_FILE" | head -1)"
+    else
+      echo "  Host .htpasswd: MISSING"
+    fi
+    if docker exec jarvis_nginx test -f /etc/nginx/.htpasswd 2>/dev/null; then
+      echo "  Container .htpasswd size: $(docker exec jarvis_nginx wc -c < /etc/nginx/.htpasswd)"
+      echo "  Container .htpasswd user: $(docker exec jarvis_nginx cut -d: -f1 /etc/nginx/.htpasswd | head -1)"
+    else
+      echo "  Container .htpasswd: MISSING"
+    fi
+
+    # Force regen from current .env
+    rm -f "$HTPASSWD_FILE"
+    _sync_htpasswd_from_env "$DEPLOY_DIR/.env" "$HTPASSWD_FILE" || true
+
+    # Poke nginx to re-read (belt and suspenders — nginx re-reads per request
+    # anyway, but this handles the edge case where the bind mount inode changed)
+    docker exec jarvis_nginx nginx -s reload 2>/dev/null && echo "=== nginx reloaded ==="  || true
+
+    # If reload didn't propagate (rare), force-recreate nginx as fallback
+    sleep 2
+    docker-compose -p jarvis up -d --no-deps --force-recreate nginx 2>&1 | tail -5
+    sleep 8
+
+    echo "=== AFTER state ==="
+    HOST_MD5=$(md5sum "$HTPASSWD_FILE" 2>/dev/null | cut -d' ' -f1)
+    CONTAINER_MD5=$(docker exec jarvis_nginx md5sum /etc/nginx/.htpasswd 2>/dev/null | cut -d' ' -f1)
+    echo "  Host md5:      $HOST_MD5"
+    echo "  Container md5: $CONTAINER_MD5"
+    if [ "$HOST_MD5" = "$CONTAINER_MD5" ] && [ -n "$HOST_MD5" ]; then
+      echo "  Bind mount: SYNCHRONIZED"
+    else
+      echo "  Bind mount: DRIFT — investigate docker-compose volume mount"
+    fi
+
+    # Live curl auth test using .env credentials (no secrets echoed)
+    ENV_USER=$(_read_env_var "$DEPLOY_DIR/.env" CAPTAIN_USERNAME)
+    ENV_PASS=$(_read_env_var "$DEPLOY_DIR/.env" CAPTAIN_PASSWORD)
+    if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
+      AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" http://localhost/control-room/dashboard 2>/dev/null)
+      echo "  Nginx basic auth to /control-room/dashboard: HTTP $AUTH_CODE"
+      case "$AUTH_CODE" in
+        200|301|302|304) echo "  Result: HTPASSWD_REGEN_OK — nginx accepts .env creds" ;;
+        401)             echo "  Result: HTPASSWD_REGEN_FAIL — nginx still rejects (dig deeper)" ;;
+        *)               echo "  Result: unexpected HTTP $AUTH_CODE" ;;
+      esac
+
+      BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
+        -H "Content-Type: application/json" \
+        --data-binary "$(python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))' U="$ENV_USER" P="$ENV_PASS")" 2>/dev/null)
+      echo "  Backend login: HTTP $BACKEND_LOGIN"
+      [ "$BACKEND_LOGIN" = "200" ] && echo "  Backend login: LOGIN_VERIFIED_OK" || echo "  Backend login: FAILED"
+    fi
+
+    curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
+    echo "=== HTPASSWD_REGEN_COMPLETE ==="
     ;;
 
   *)
