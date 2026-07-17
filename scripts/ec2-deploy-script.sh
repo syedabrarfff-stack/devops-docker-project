@@ -584,7 +584,7 @@ else:
     if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
       BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
         -H "Content-Type: application/json" \
-        --data-binary "$(python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))' U="$ENV_USER" P="$ENV_PASS")" 2>/dev/null)
+        --data-binary "$(U="$ENV_USER" P="$ENV_PASS" python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))')" 2>/dev/null)
       echo "  Backend /api/v1/auth/login (direct :8000): HTTP $BACKEND_LOGIN"
     fi
     echo ""
@@ -818,7 +818,7 @@ else:
 
       BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
         -H "Content-Type: application/json" \
-        --data-binary "$(python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))' U="$ENV_USER" P="$ENV_PASS")" 2>/dev/null)
+        --data-binary "$(U="$ENV_USER" P="$ENV_PASS" python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))')" 2>/dev/null)
       echo "  Backend login (localhost:8000, no nginx): HTTP $BACKEND_LOGIN"
       [ "$BACKEND_LOGIN" = "200" ] && echo "  Backend login: LOGIN_VERIFIED_OK" || echo "  Backend login: FAILED"
     fi
