@@ -522,37 +522,86 @@ except: print('    AI providers parse failed')
     echo "  --- Nginx reload check ---"
     docker exec jarvis_nginx nginx -t 2>&1 || echo "  Nginx config test failed"
     echo ""
-    echo "  --- Live basic auth test (curl with .env credentials) ---"
+    echo "  --- Nginx effective config (nginx -T, filtered to auth surface) ---"
+    docker exec jarvis_nginx nginx -T 2>&1 | grep -nE "listen |server_name |location |auth_basic|htpasswd|ssl_certificate |return 301|return 302|proxy_pass" | head -60 || echo "  nginx -T unavailable"
+    echo ""
+    echo "  --- .htpasswd byte-level inspection inside running container ---"
+    if docker exec jarvis_nginx test -f /etc/nginx/.htpasswd 2>/dev/null; then
+      echo "  Container .htpasswd stat:"
+      docker exec jarvis_nginx stat -c "    size=%s bytes | mtime=%y | inode=%i | perms=%a | owner=%U:%G" /etc/nginx/.htpasswd 2>/dev/null || \
+        docker exec jarvis_nginx ls -la /etc/nginx/.htpasswd 2>/dev/null
+      echo "  Container .htpasswd first line (user:hash-prefix only):"
+      docker exec jarvis_nginx head -1 /etc/nginx/.htpasswd 2>/dev/null | python3 -c "
+import sys
+line = sys.stdin.readline().strip()
+if ':' in line:
+    u, h = line.split(':', 1)
+    print(f'    user=<{u}> hash_len={len(h)} hash_algo={h.split(\"\$\")[1] if h.startswith(\"\$\") else \"crypt\"}  hash_first10=<{h[:10]}...>')
+else:
+    print(f'    MALFORMED — no colon in line, {len(line)} chars')
+" 2>/dev/null
+      echo "  Container .htpasswd trailing bytes (checks for CRLF/trailing junk):"
+      docker exec jarvis_nginx od -c /etc/nginx/.htpasswd 2>/dev/null | tail -3
+    fi
+    echo ""
+    echo "  --- Nginx recent 401s (last 6h from access log) ---"
+    docker exec jarvis_nginx sh -c "test -f /var/log/nginx/access.log && grep ' 401 ' /var/log/nginx/access.log | tail -10" 2>/dev/null \
+      || docker logs jarvis_nginx --since=6h 2>&1 | grep -E ' 401 |401 Unauth' | tail -10 \
+      || echo "  No 401s found or access log unavailable"
+    echo ""
+    echo "  --- Nginx error log (auth failures, last 6h) ---"
+    docker exec jarvis_nginx sh -c "test -f /var/log/nginx/error.log && tail -50 /var/log/nginx/error.log | grep -iE 'auth|htpasswd|password|user|no user'" 2>/dev/null \
+      || docker logs jarvis_nginx --since=6h 2>&1 | grep -iE "auth|htpasswd|password|user \"" | tail -10 \
+      || echo "  No auth-related errors in nginx logs"
+    echo ""
+    echo "  --- Live basic auth test — HTTP path (should redirect, NOT auth) ---"
     if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
-      AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" http://localhost/control-room 2>/dev/null)
-      echo "  Basic auth curl to /control-room: HTTP $AUTH_CODE"
-      if [ "$AUTH_CODE" = "200" ] || [ "$AUTH_CODE" = "301" ] || [ "$AUTH_CODE" = "302" ]; then
-        echo "  Result: PASS — Nginx accepts .env credentials"
-      elif [ "$AUTH_CODE" = "401" ]; then
-        echo "  Result: FAIL — Nginx rejects .env credentials (401 Unauthorized)"
-        echo "    CONFIRMED: .htpasswd credentials do not match .env credentials"
-      else
-        echo "  Result: Unexpected HTTP $AUTH_CODE"
-      fi
-      NO_AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/control-room 2>/dev/null)
-      echo "  No-auth curl to /control-room: HTTP $NO_AUTH_CODE"
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" http://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTP curl to /control-room/dashboard: HTTP $HTTP_CODE (expect 301 = redirect to HTTPS)"
+    fi
+    echo ""
+    echo "  --- Live basic auth test — HTTPS path (actual auth surface) ---"
+    if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
+      HTTPS_401=$(curl -sk -o /dev/null -w "%{http_code}" -H "Host: aliyarsolutions.com" https://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTPS no-auth (control, expect 401):        HTTP $HTTPS_401"
+      HTTPS_AUTH=$(curl -sk -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" -H "Host: aliyarsolutions.com" https://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTPS with .env creds:                      HTTP $HTTPS_AUTH"
+      HTTPS_WRONG=$(curl -sk -o /dev/null -w "%{http_code}" -u "definitely-wrong:definitely-wrong" -H "Host: aliyarsolutions.com" https://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTPS with intentionally-wrong creds:       HTTP $HTTPS_WRONG (expect 401)"
+      HTTPS_ROOT=$(curl -sk -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" -H "Host: aliyarsolutions.com" https://localhost/control-room 2>/dev/null)
+      echo "  HTTPS with .env creds to /control-room:     HTTP $HTTPS_ROOT (expect 302)"
+      case "$HTTPS_AUTH" in
+        200|302|304) echo "  DIAGNOSIS: nginx accepts .env creds over HTTPS — server-side auth is HEALTHY" ;;
+        401)         echo "  DIAGNOSIS: nginx REJECTS .env creds over HTTPS — root cause is server-side" ;;
+        000)         echo "  DIAGNOSIS: HTTPS connection failed — SSL cert or nginx-443 issue" ;;
+        *)           echo "  DIAGNOSIS: unexpected HTTP $HTTPS_AUTH — investigate" ;;
+      esac
     else
       echo "  Cannot test — username or password not available from .env"
     fi
     echo ""
-    echo "  --- Backend login vs basic auth sync check ---"
+    echo "  --- Backend Captain login (bypasses nginx entirely) ---"
     if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
       BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
         -H "Content-Type: application/json" \
-        -d "{\"username\":\"${ENV_USER}\",\"password\":\"${ENV_PASS}\"}" 2>/dev/null)
-      echo "  Backend /api/v1/auth/login with .env creds: HTTP $BACKEND_LOGIN"
-      if [ "$BACKEND_LOGIN" = "200" ] && [ "$AUTH_CODE" = "401" ]; then
-        echo "  DIAGNOSIS: Backend accepts creds but Nginx rejects them"
-        echo "    → .htpasswd is out of sync with .env (git pull overwrote it)"
-      elif [ "$BACKEND_LOGIN" = "200" ] && [ "$AUTH_CODE" != "401" ]; then
-        echo "  DIAGNOSIS: Both backend and Nginx accept .env credentials — auth is synchronized"
-      else
-        echo "  DIAGNOSIS: Backend login returned HTTP $BACKEND_LOGIN — investigate separately"
+        --data-binary "$(python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))' U="$ENV_USER" P="$ENV_PASS")" 2>/dev/null)
+      echo "  Backend /api/v1/auth/login (direct :8000): HTTP $BACKEND_LOGIN"
+    fi
+    echo ""
+    echo "  --- External HTTPS reachability (aliyarsolutions.com) ---"
+    curl -so /dev/null -w "  External HTTPS status (no auth): %{http_code}\n" -m 10 https://aliyarsolutions.com/health 2>/dev/null || echo "  External /health unreachable"
+    echo ""
+    echo "  --- Cross-layer auth diagnosis ---"
+    if [ -n "$HTTPS_AUTH" ] && [ -n "$BACKEND_LOGIN" ]; then
+      if [ "$HTTPS_AUTH" = "401" ] && [ "$BACKEND_LOGIN" = "200" ]; then
+        echo "  ▶ ROOT CAUSE ISOLATED to nginx layer: backend accepts, nginx rejects"
+        echo "    Next: compare .htpasswd contents vs .env credentials byte-by-byte"
+      elif [ "$HTTPS_AUTH" != "401" ] && [ "$BACKEND_LOGIN" = "200" ]; then
+        echo "  ▶ SERVER-SIDE AUTH HEALTHY — nginx and backend both accept .env creds"
+        echo "    If browser still gets popup: browser cache or wrong creds entered"
+      elif [ "$HTTPS_AUTH" = "401" ] && [ "$BACKEND_LOGIN" != "200" ]; then
+        echo "  ▶ .env CAPTAIN_PASSWORD may be corrupted (rejected by BOTH layers)"
+        echo "    Next: re-run set-captain-credentials with a fresh password"
       fi
     fi
     echo ""
@@ -713,18 +762,32 @@ except: print('    AI providers parse failed')
     ENV_USER=$(_read_env_var "$DEPLOY_DIR/.env" CAPTAIN_USERNAME)
     ENV_PASS=$(_read_env_var "$DEPLOY_DIR/.env" CAPTAIN_PASSWORD)
     if [ -n "$ENV_USER" ] && [ -n "$ENV_PASS" ]; then
-      AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" http://localhost/control-room/dashboard 2>/dev/null)
-      echo "  Nginx basic auth to /control-room/dashboard: HTTP $AUTH_CODE"
-      case "$AUTH_CODE" in
-        200|301|302|304) echo "  Result: HTPASSWD_REGEN_OK — nginx accepts .env creds" ;;
-        401)             echo "  Result: HTPASSWD_REGEN_FAIL — nginx still rejects (dig deeper)" ;;
-        *)               echo "  Result: unexpected HTTP $AUTH_CODE" ;;
+      # CRITICAL: test HTTPS on 443, NOT HTTP on 80. The HTTP server block
+      # does an unconditional `return 301 https://$host$request_uri` BEFORE
+      # any auth check — so an HTTP curl to /control-room/dashboard returns
+      # 301 without ever exercising auth_basic. A green HTTP-301 result was
+      # what made the previous HTPASSWD_REGEN_OK a false positive.
+      HTTPS_CODE=$(curl -sk -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" \
+        -H "Host: aliyarsolutions.com" \
+        https://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTPS basic auth to /control-room/dashboard: HTTP $HTTPS_CODE"
+
+      HTTPS_NO_AUTH=$(curl -sk -o /dev/null -w "%{http_code}" \
+        -H "Host: aliyarsolutions.com" \
+        https://localhost/control-room/dashboard 2>/dev/null)
+      echo "  HTTPS no-auth control (should be 401): HTTP $HTTPS_NO_AUTH"
+
+      case "$HTTPS_CODE" in
+        200|302|304) echo "  Result: HTPASSWD_REGEN_OK — nginx accepts .env creds over HTTPS" ;;
+        401)         echo "  Result: HTPASSWD_REGEN_FAIL — nginx rejects .env creds over HTTPS" ;;
+        000)         echo "  Result: HTPASSWD_REGEN_FAIL — HTTPS connection failed (cert/network)" ;;
+        *)           echo "  Result: HTPASSWD_REGEN_FAIL — unexpected HTTP $HTTPS_CODE" ;;
       esac
 
       BACKEND_LOGIN=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
         -H "Content-Type: application/json" \
         --data-binary "$(python3 -c 'import os,json; print(json.dumps({"username":os.environ["U"],"password":os.environ["P"]}))' U="$ENV_USER" P="$ENV_PASS")" 2>/dev/null)
-      echo "  Backend login: HTTP $BACKEND_LOGIN"
+      echo "  Backend login (localhost:8000, no nginx): HTTP $BACKEND_LOGIN"
       [ "$BACKEND_LOGIN" = "200" ] && echo "  Backend login: LOGIN_VERIFIED_OK" || echo "  Backend login: FAILED"
     fi
 
