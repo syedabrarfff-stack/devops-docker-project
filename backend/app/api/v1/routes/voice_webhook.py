@@ -7,11 +7,14 @@ POST /api/v1/voice/proposal-followup    — send proposal voice summary (Captain
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, UploadFile, File
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from app.api.v1.routes.auth import get_current_captain
+from app.core.config import settings
 from app.services.voice.transcription import (
     transcribe_audio_url,
     transcribe_audio_bytes,
@@ -22,6 +25,26 @@ from app.services.voice.call_summariser import process_call_recording
 from app.services.voice.whatsapp_voice import send_voice_note, send_proposal_voice_summary
 
 router = APIRouter(prefix="", tags=["Voice Webhooks"])
+
+
+def verify_voice_webhook_secret(request: Request) -> None:
+    """
+    These three routes are called by external systems (Evolution API, call
+    recording integrations) with no user session to attach a JWT to — same
+    situation as the Telegram/Zapier/Slack webhooks, which all validate a
+    shared secret header instead. Previously the ONLY thing gating these was
+    nginx's blanket Basic Auth in front of /api/ — removing that (in favor of
+    a single JWT-based auth layer, per the Captain's direction) would have
+    left them fully open to unauthenticated calls that trigger paid
+    transcription/AI work. This restores equivalent protection at the
+    application layer, matching the pattern already used by the other
+    external webhooks in this codebase.
+    """
+    if not settings.VOICE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Voice webhook not configured")
+    header = request.headers.get("X-Voice-Webhook-Secret", "")
+    if not secrets.compare_digest(header, settings.VOICE_WEBHOOK_SECRET):
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -48,7 +71,7 @@ class SendVoiceRequest(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
-@router.post("/webhooks/voice/transcribe")
+@router.post("/webhooks/voice/transcribe", dependencies=[Depends(verify_voice_webhook_secret)])
 async def transcribe_voice(body: TranscribeRequest):
     """
     Transcribe a voice message from an audio URL.
@@ -75,7 +98,7 @@ async def transcribe_voice(body: TranscribeRequest):
     return result
 
 
-@router.post("/webhooks/voice/call-ended")
+@router.post("/webhooks/voice/call-ended", dependencies=[Depends(verify_voice_webhook_secret)])
 async def call_ended(body: CallEndedRequest):
     """
     Process a completed call recording.
@@ -90,7 +113,7 @@ async def call_ended(body: CallEndedRequest):
     )
 
 
-@router.post("/webhooks/voice/upload-transcribe")
+@router.post("/webhooks/voice/upload-transcribe", dependencies=[Depends(verify_voice_webhook_secret)])
 async def upload_and_transcribe(file: UploadFile = File(...)):
     """Upload an audio file and return its transcript."""
     audio_bytes = await file.read()

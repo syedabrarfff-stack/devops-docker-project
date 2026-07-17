@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
     TELEGRAM_WEBHOOK_SECRET: Optional[str] = None  # Set to validate X-Telegram-Bot-API-Secret-Token
+    VOICE_WEBHOOK_SECRET: Optional[str] = None  # Set to validate X-Voice-Webhook-Secret on /api/v1/webhooks/voice/*
 
     # Executive email / SES
     OUTBOUND_EMAIL_PROVIDER: str = "ses"
