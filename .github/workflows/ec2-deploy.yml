@@ -196,6 +196,15 @@ jobs:
               echo "=== HTPASSWD REGEN COMPLETED but nginx still rejects — see output above ==="
               exit 1
             fi
+            NGINX_AUTH_OK=$(echo "$OUTPUT" | grep -c "NGINX_BASIC_AUTH_VERIFIED_OK" || true)
+            NGINX_AUTH_FAILED=$(echo "$OUTPUT" | grep -c "NGINX_BASIC_AUTH_VERIFY_FAILED" || true)
+            if [ "$NGINX_AUTH_OK" -gt 0 ]; then
+              echo "=== CAPTAIN CREDENTIALS SET — nginx Basic Auth verified over HTTPS ==="
+              exit 0
+            elif [ "$NGINX_AUTH_FAILED" -gt 0 ]; then
+              echo "=== CAPTAIN CREDENTIALS SET but nginx Basic Auth still rejects them — see output above ==="
+              exit 1
+            fi
             BACKEND_UP=$(echo "$OUTPUT" | grep -c "BACKEND_HEALTH_OK" || true)
             # /health is shallow (no DB check) — /readyz actually verifies DB
             # connectivity. Requiring both means a backend that's "up" but

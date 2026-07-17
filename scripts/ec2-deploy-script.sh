@@ -699,15 +699,47 @@ else:
     docker-compose -p jarvis up -d --no-deps --force-recreate backend nginx 2>&1 | tail -10
     sleep 15
 
-    echo "=== VERIFYING LOGIN ==="
+    echo "=== VERIFYING BACKEND LOGIN (application layer, bypasses nginx) ==="
     LOGIN_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/auth/login \
       -H "Content-Type: application/json" \
       -d "{\"username\":\"${NEW_USER}\",\"password\":\"${NEW_PASS}\"}")
     if [ "$LOGIN_RESP" = "200" ]; then
-      echo "LOGIN_VERIFIED_OK (HTTP $LOGIN_RESP)"
+      echo "BACKEND_LOGIN_VERIFIED_OK (HTTP $LOGIN_RESP)"
     else
-      echo "LOGIN_VERIFY_FAILED (HTTP $LOGIN_RESP)"
+      echo "BACKEND_LOGIN_VERIFY_FAILED (HTTP $LOGIN_RESP)"
     fi
+
+    # CRITICAL: the backend check above proves the application accepted the new
+    # password. It proves NOTHING about nginx's Basic Auth wall — the thing that
+    # actually produces the browser popup at /control-room/dashboard. That wall
+    # is a separate credential store (.htpasswd) enforced by nginx, one layer in
+    # front of the backend. Every prior "LOGIN_VERIFIED_OK" only ever exercised
+    # the backend path and was mistaken for proof the browser would work — it
+    # never was. Test the real surface here, same as regenerate-htpasswd does.
+    echo "=== VERIFYING NGINX BASIC AUTH (the actual browser-facing wall) ==="
+    NGINX_AUTH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" -u "${NEW_USER}:${NEW_PASS}" \
+      -H "Host: aliyarsolutions.com" \
+      https://localhost/control-room/dashboard 2>/dev/null)
+    NGINX_NO_AUTH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+      -H "Host: aliyarsolutions.com" \
+      https://localhost/control-room/dashboard 2>/dev/null)
+    echo "  HTTPS with new creds:    HTTP $NGINX_AUTH_CODE"
+    echo "  HTTPS no-auth (control): HTTP $NGINX_NO_AUTH_CODE (expect 401)"
+    case "$NGINX_AUTH_CODE" in
+      200|302|304)
+        echo "NGINX_BASIC_AUTH_VERIFIED_OK — nginx accepts the new credentials over HTTPS"
+        ;;
+      401)
+        echo "NGINX_BASIC_AUTH_VERIFY_FAILED (HTTP 401) — nginx REJECTS the new credentials"
+        echo "  Container .htpasswd contents (user + hash prefix only):"
+        docker exec jarvis_nginx head -1 /etc/nginx/.htpasswd 2>/dev/null | cut -d: -f1
+        docker exec jarvis_nginx md5sum /etc/nginx/.htpasswd 2>/dev/null
+        md5sum "$HTPASSWD_FILE" 2>/dev/null
+        ;;
+      *)
+        echo "NGINX_BASIC_AUTH_VERIFY_FAILED (unexpected HTTP $NGINX_AUTH_CODE)"
+        ;;
+    esac
     curl -sf http://localhost/health && echo NGINX_PROXY_OK || echo NGINX_PROXY_FAIL
     ;;
 
