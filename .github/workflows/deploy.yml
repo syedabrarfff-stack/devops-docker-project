@@ -1,8 +1,14 @@
 name: JARVIS — Build & Deploy to AWS ECS
 
+# This targets a separate AWS ECS pipeline (jarvis-production-cluster) that is
+# NOT the real production system — that's the single EC2 instance deployed by
+# ec2-deploy.yml. This workflow has failed on every run since it was added
+# (missing the AWS_OIDC_ROLE_ARN secret it needs), generating a permanent red
+# X on every PR/push with zero bearing on actual production health. Removed
+# the automatic `push` trigger so it stops firing and failing on unrelated
+# work — kept as workflow_dispatch-only in case ECS deployment is properly
+# configured and intentionally used later.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
