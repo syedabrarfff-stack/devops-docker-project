@@ -1,5 +1,6 @@
 import logging
-from pydantic import model_validator
+import uuid
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -25,6 +26,33 @@ class Settings(BaseSettings):
     CAPTAIN_PASSWORD: str = "CHANGE_ME_IN_ENV"
     APP_BASE_URL: str = "http://localhost:8000"
     JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
+
+    @field_validator("JARVIS_DEFAULT_TENANT_ID", mode="before")
+    @classmethod
+    def _sanitize_default_tenant_id(cls, v):
+        # docker-compose's `env_file` loader does NOT strip inline comments —
+        # `KEY=  # some comment` on one line makes the ENTIRE remainder of the
+        # line (including "# ...") the literal value. That corrupted value then
+        # failed uuid.UUID(...) everywhere this setting is read (aionx_scheduler,
+        # client_digital_twin, main.py's tenant-context queries, etc.), which is
+        # what crashed BULK_DISCOVER/HUBSPOT_SYNC and other scheduled jobs.
+        # Sanitize here once so every consumer gets either a real UUID string or
+        # None, regardless of what stray comment ended up in .env.
+        if not v:
+            return None
+        cleaned = str(v).split("#", 1)[0].strip()
+        if not cleaned:
+            return None
+        try:
+            uuid.UUID(cleaned)
+        except ValueError:
+            _cfg_logger.warning(
+                "JARVIS_DEFAULT_TENANT_ID is not a valid UUID (%r) — ignoring, "
+                "tenant-scoped scheduled jobs will run without a default tenant.",
+                v,
+            )
+            return None
+        return cleaned
     PILOT_READY: bool = True
     AUTONOMOUS_CONFIDENCE_THRESHOLD: float = 0.70
     SYSTEM_CONFIDENCE_BASE: float = 0.68

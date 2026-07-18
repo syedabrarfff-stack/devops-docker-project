@@ -110,15 +110,23 @@ services:
       GUNICORN_WORKERS: "${GUNICORN_WORKERS:-3}"
       GUNICORN_TIMEOUT: "240"
       GUNICORN_GRACEFUL_TIMEOUT: "45"
-      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
-      CURL_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
-      SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt
-      HTTPX_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
+    # NOTE: a prior commit (d8f9557) added REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE/
+    # SSL_CERT_FILE/HTTPX_CA_BUNDLE plus a bind mount of /root/.ccr/ca-bundle.crt
+    # here. That path is specific to a Claude Code coding sandbox's outbound
+    # proxy — it does not exist on this production EC2 host. Docker silently
+    # auto-creates a missing bind-mount source as an empty DIRECTORY, so inside
+    # the container /etc/ssl/certs/ca-bundle.crt was a directory, not a file.
+    # Every outbound HTTPS call that read these env vars to verify TLS then
+    # failed with "[Errno 21] Is a directory" — confirmed root cause of SES
+    # showing "not_connected"/"ses_validation_error", and it applied to every
+    # AI provider using the same os.getenv("SSL_CERT_FILE") pattern (Google,
+    # OpenRouter, extra_providers). Production has no intercepting proxy and
+    # needs none of this — removed so these calls fall back to the default
+    # (correct) system CA trust store.
     volumes:
       - backend_data:/data
       - backup_data:/var/backups/jarvis
       - ../jarvis-data:/jarvis-data
-      - /root/.ccr/ca-bundle.crt:/etc/ssl/certs/ca-bundle.crt:ro
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
