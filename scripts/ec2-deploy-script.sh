@@ -827,6 +827,46 @@ else:
     echo "=== HTPASSWD_REGEN_COMPLETE ==="
     ;;
 
+  fix-evolution)
+    # The evolution-api container had accumulated 7,462 restarts, crash-looping
+    # on "P1001: Can't reach database server at postgres:5432" while postgres
+    # itself was healthy and the evolution DB existed with all 37 tables. Root
+    # cause: no deploy action ever RECREATED this container — full-restart only
+    # rebuilds backend/nginx/frontend — so after the docker network was rebuilt
+    # in a past deploy, the old container kept auto-restarting while attached
+    # to a network where "postgres" no longer resolves. Restart never fixes
+    # that (network attachment is set at create time); only a recreate does.
+    cd "$DEPLOY_DIR/infrastructure"
+    echo "=== BEFORE: evolution container state ==="
+    docker inspect evolution-api --format='  state={{.State.Status}} restarts={{.RestartCount}}' 2>/dev/null || echo "  container not found"
+    docker inspect evolution-api --format='  networks: {{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true
+
+    echo "=== FORCE-RECREATING evolution container ==="
+    docker-compose -p jarvis up -d --no-deps --force-recreate evolution 2>&1 | tail -5
+    echo "=== Waiting 45s for evolution startup + prisma migrations ==="
+    sleep 45
+
+    echo "=== AFTER: evolution container state ==="
+    docker inspect evolution-api --format='  state={{.State.Status}} restarts={{.RestartCount}}' 2>/dev/null
+    docker logs evolution-api --tail=20 2>&1 | tail -20
+
+    EVO_STATE=$(docker inspect evolution-api --format='{{.State.Status}}' 2>/dev/null)
+    if [ "$EVO_STATE" = "running" ]; then
+      sleep 15
+      EVO_STATE=$(docker inspect evolution-api --format='{{.State.Status}}' 2>/dev/null)
+    fi
+    if [ "$EVO_STATE" = "running" ]; then
+      echo "EVOLUTION_FIX_OK — container stable and running"
+      docker exec jarvis_backend curl -sf http://evolution:8080/ >/dev/null 2>&1 \
+        && echo "Backend→Evolution connectivity: OK" \
+        || echo "Backend→Evolution connectivity: still failing (may need WhatsApp instance pairing)"
+    else
+      echo "EVOLUTION_FIX_FAIL — container state: $EVO_STATE"
+      docker logs evolution-api --tail=40 2>&1 | tail -40
+    fi
+    echo "=== EVOLUTION_FIX_COMPLETE ==="
+    ;;
+
   *)
     # full-restart
     cd "$DEPLOY_DIR/infrastructure"
@@ -870,6 +910,13 @@ else:
       && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_WARN
     tail -10 /tmp/frontend_build.log
     docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3
+
+    # Evolution was never part of any restart path — after a network rebuild
+    # the stale container crash-looped for 7k+ restarts unable to resolve
+    # "postgres". Recreate (not restart) it on every full-restart so its
+    # network attachment and env always match the current compose state.
+    echo "=== RECREATING EVOLUTION (WhatsApp) ==="
+    docker-compose -p jarvis up -d --no-deps --force-recreate evolution 2>&1 | tail -3
 
     echo "=== WAITING FOR BACKEND STARTUP (45s) ==="
     sleep 45

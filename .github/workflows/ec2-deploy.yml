@@ -25,6 +25,7 @@ on:
           - set-captain-credentials
           - production-audit
           - regenerate-htpasswd
+          - fix-evolution
       captain_username:
         description: 'New captain username (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false
@@ -194,6 +195,15 @@ jobs:
               exit 0
             elif [ "$HTPASSWD_DONE" -gt 0 ]; then
               echo "=== HTPASSWD REGEN COMPLETED but nginx still rejects — see output above ==="
+              exit 1
+            fi
+            EVO_FIX_OK=$(echo "$OUTPUT" | grep -c "EVOLUTION_FIX_OK" || true)
+            EVO_FIX_FAIL=$(echo "$OUTPUT" | grep -c "EVOLUTION_FIX_FAIL" || true)
+            if [ "$EVO_FIX_OK" -gt 0 ]; then
+              echo "=== EVOLUTION CONTAINER FIXED — running stable ==="
+              exit 0
+            elif [ "$EVO_FIX_FAIL" -gt 0 ]; then
+              echo "=== EVOLUTION FIX FAILED — container still not stable, see logs above ==="
               exit 1
             fi
             NGINX_AUTH_OK=$(echo "$OUTPUT" | grep -c "NGINX_BASIC_AUTH_VERIFIED_OK" || true)
