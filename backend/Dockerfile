@@ -28,12 +28,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 jarvis \
-    && mkdir -p /data/proposals /data/invoices /var/backups/jarvis /etc/ssl/certs \
+    && mkdir -p /data/proposals /data/invoices /var/backups/jarvis \
     && chown -R jarvis:jarvis /data /var/backups/jarvis
 
-# Set CA bundle paths for agent proxy SSL verification
-ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
-ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
+# REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE pointing at /etc/ssl/certs/ca-bundle.crt were
+# previously baked in here for "agent proxy SSL verification" — that proxy is a
+# Claude Code coding sandbox construct, not anything present on production hosts.
+# With no file ever mounted at that path in production, every outbound HTTPS
+# call reading these vars (SES, several AI providers) failed SSL verification
+# with ENOENT/ENOTDIR. Removed — production has no intercepting proxy and needs
+# none; these calls now use the default system CA trust store via certifi.
 
 COPY --from=builder --chown=jarvis:jarvis /root/.local /home/jarvis/.local
 ENV PATH=/home/jarvis/.local/bin:$PATH
