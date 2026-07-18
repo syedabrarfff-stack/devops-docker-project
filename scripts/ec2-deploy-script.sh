@@ -377,6 +377,35 @@ except: print('  No execution history available or parse failed')
       echo "    $t: $([ "$exists" = "1" ] && echo EXISTS || echo MISSING)"
     done
     echo ""
+    echo "  --- Full schema diff: ORM-expected tables vs actual live tables ---"
+    echo "  --- (Base.metadata is the app's own single source of truth for  ---"
+    echo "  --- every table it relies on — this is NOT inferred from        ---"
+    echo "  --- migration files, so it catches ANY gap, not just AIONX)     ---"
+    docker exec jarvis_backend python3 -c "
+import asyncio, os
+os.environ.setdefault('DATABASE_URL', 'postgresql+asyncpg://jarvis:x@postgres:5432/jarvis')
+import app.models  # noqa: registers every table on Base.metadata
+from app.core.database import Base, engine
+
+async def main():
+    expected = set(Base.metadata.tables.keys())
+    async with engine.connect() as conn:
+        result = await conn.exec_driver_sql(
+            \"SELECT table_name FROM information_schema.tables WHERE table_schema='public'\"
+        )
+        actual = {row[0] for row in result}
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected - {'alembic_version'})
+    print(f'ORM-expected tables: {len(expected)} | Live tables: {len(actual)}')
+    if missing:
+        print(f'MISSING (expected by code, not in DB): {missing}')
+    else:
+        print('MISSING: none — every ORM-defined table exists in the live database')
+    if extra:
+        print(f'EXTRA (in DB, not defined in current ORM models): {extra}')
+asyncio.run(main())
+" 2>&1 || echo "    schema diff check failed"
+    echo ""
 
     # ── 8. Amazon SES Configuration ───────────────────────────────────────
     echo "═══ [8/18] AMAZON SES CONFIGURATION ═══"
