@@ -635,6 +635,14 @@ else:
     echo "  Stopped containers:"
     docker ps -a --filter "status=exited" --format "    {{.Names}}: exited {{.Status}}" 2>/dev/null || true
     echo ""
+    echo "  --- jarvis_frontend recent logs (outer nginx proxies /control-room/ ---"
+    echo "  --- straight to this container with no static fallback — a crash or ---"
+    echo "  --- restart loop here surfaces as 502 on every dashboard page load) ---"
+    docker logs jarvis_frontend --tail=30 2>&1 || echo "  jarvis_frontend logs unavailable"
+    echo ""
+    echo "  --- Direct in-network check: outer nginx -> frontend:80 ---"
+    docker exec jarvis_nginx wget -qO- --timeout=5 http://frontend:80/ 2>&1 | head -c 200 || echo "  jarvis_nginx cannot reach frontend:80"
+    echo ""
 
     # ── 17. System Resources ──────────────────────────────────────────────
     echo "═══ [17/18] SYSTEM RESOURCES ═══"
