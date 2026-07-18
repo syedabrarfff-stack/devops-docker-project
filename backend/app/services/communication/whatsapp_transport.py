@@ -112,7 +112,21 @@ async def evolution_request(method: str, path: str, *, json: dict[str, Any] | No
         async with httpx.AsyncClient(timeout=EVOLUTION_TIMEOUT_SECONDS) as client:
             response = await client.request(method.upper(), url, headers=_headers(), json=json)
         content_type = response.headers.get("content-type", "")
-        data = response.json() if "json" in content_type else {"raw": response.text[:4000]}
+        if "json" in content_type:
+            try:
+                data = response.json()
+            except ValueError:
+                # Evolution API can claim a JSON content-type while returning a
+                # truncated/garbled body (e.g. mid-restart during an outage).
+                # response.json() raises json.JSONDecodeError (a ValueError) in
+                # that case — uncaught here, it propagated past both httpx
+                # except clauses below and surfaced as an unhandled 500 from
+                # /api/v1/communication/status, which is what turned a normal
+                # "WhatsApp unreachable" status into the dashboard's opaque
+                # "PROBE DEGRADED" instead of the intended "CHANNELS BLOCKED".
+                data = {"raw": response.text[:4000]}
+        else:
+            data = {"raw": response.text[:4000]}
         return {
             "ok": response.status_code < 400,
             "status_code": response.status_code,
