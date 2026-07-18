@@ -917,6 +917,19 @@ else:
     docker-compose -p jarvis build --no-cache frontend > /tmp/frontend_build.log 2>&1 \
       && echo FRONTEND_BUILD_OK || echo FRONTEND_BUILD_WARN
     tail -10 /tmp/frontend_build.log
+    # Explicitly stop+remove before recreating: docker-compose's internal
+    # recreate sequence (rename old container to a temp name, create new one,
+    # remove old) has been observed to fail with "Conflict. The container name
+    # ... already in use" when a leftover container from an earlier
+    # interrupted/failed recreate still occupies that temp-name slot. When
+    # that happens the recreate aborts and the OLD frontend container (or
+    # worse, no properly-named container at all) keeps running — invisible in
+    # `docker ps` as a problem since it still reports healthy, but silently
+    # stale. This is the confirmed root cause of intermittent 502s on every
+    # /control-room/ page load. Force a clean slate every time so the
+    # subsequent `up -d` always creates fresh, never hits the rename race.
+    docker stop jarvis_frontend 2>/dev/null || true
+    docker rm -f jarvis_frontend 2>/dev/null || true
     docker-compose -p jarvis up -d --no-deps frontend 2>&1 | tail -3
 
     # Evolution was never part of any restart path — after a network rebuild
@@ -933,9 +946,25 @@ else:
     docker inspect jarvis_backend --format='{{.State.Status}}' 2>/dev/null || echo no_container
 
     echo "=== RUNNING ALEMBIC MIGRATIONS ==="
-    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -10 \
-      || docker exec jarvis_backend alembic upgrade head 2>&1 | tail -10 \
-      || echo MIGRATION_ATTEMPTED
+    # `cmd | tail -10` without `set -o pipefail` (deliberately not set globally
+    # in this script — other pipelines here rely on non-strict behavior) always
+    # reports success from tail's own exit code, regardless of whether alembic
+    # itself failed. That silently hid every migration failure: the AIONX
+    # tables migration (0043_reassert_aionx_tables) has evidently never
+    # actually applied on production despite this step "succeeding" on every
+    # deploy. Use bash's PIPESTATUS to check the real exit code of the first
+    # command in the pipe instead.
+    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -20
+    alembic_rc=${PIPESTATUS[0]}
+    if [ "$alembic_rc" != "0" ]; then
+      docker exec jarvis_backend alembic upgrade head 2>&1 | tail -20
+      alembic_rc=${PIPESTATUS[0]}
+    fi
+    if [ "$alembic_rc" = "0" ]; then
+      echo MIGRATION_OK
+    else
+      echo "MIGRATION_FAILED (exit $alembic_rc) — see alembic output above"
+    fi
 
     sleep 5
 
