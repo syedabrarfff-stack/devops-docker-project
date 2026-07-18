@@ -277,4 +277,15 @@ async def _whatsapp_status_with_timeout(
 
 
 router.include_router(communication_router)
-router.include_router(webhook_router)
+# webhook_router is registered separately in app/api/v1/__init__.py, deliberately
+# NOT nested under this module's `router` — that has
+# dependencies=[Depends(get_current_captain)], and FastAPI merges a parent
+# router's constructor-level dependencies into every route added via
+# include_router, even nested ones. Evolution API's inbound webhook call
+# (EVOLUTION_WEBHOOK_URL in docker-compose.yml) sends no auth headers at all,
+# so nesting it here meant every real inbound WhatsApp message was being
+# rejected with 401 — the endpoint was unreachable by its only legitimate
+# caller. Safe to leave unauthenticated: this path is called container-to-
+# container over the internal Docker network (http://backend:8000/...) and is
+# never proxied externally by nginx — backend only binds 127.0.0.1:8000 on
+# the host, so it isn't reachable from the public internet at all.

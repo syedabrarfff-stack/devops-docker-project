@@ -125,6 +125,7 @@ api_router.include_router(batch1.router, dependencies=[Depends(get_current_capta
 api_router.include_router(frontier.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(system.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(communication.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(communication.webhook_router)  # internal-only — see comment in communication.py
 api_router.include_router(ses_inbound.router)          # public — SES inbound webhook
 api_router.include_router(whitelabel.router)           # public — white-label client onboarding
 api_router.include_router(payments.router)             # public — checkout / payment links
