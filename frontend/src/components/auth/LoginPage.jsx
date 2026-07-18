@@ -3,8 +3,8 @@ import React, { useState } from 'react'
 const LOGIN_URL = (import.meta.env.DEV ? 'http://localhost:8000' : '') + '/api/v1/auth/login'
 
 export default function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState('captain')
-  const [password, setPassword] = useState('abrarnuha3')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
