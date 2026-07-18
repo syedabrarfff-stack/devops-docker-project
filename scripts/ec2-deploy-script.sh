@@ -364,6 +364,19 @@ except: print('  No execution history available or parse failed')
     echo "═══ [7/18] SCHEDULER EXCEPTIONS ═══"
     docker logs jarvis_backend --since=24h 2>&1 | grep -iE "scheduler.*error|scheduler.*exception|job.*failed|apscheduler.*error" | tail -10 || echo "  No scheduler exceptions in last 24h"
     echo ""
+    echo "  --- Alembic migration state (read-only — no upgrade/downgrade run) ---"
+    echo "  DB-tracked current revision(s):"
+    docker exec jarvis_backend alembic current 2>&1 || echo "    alembic current failed"
+    echo "  Code-defined head revision(s):"
+    docker exec jarvis_backend alembic heads 2>&1 || echo "    alembic heads failed"
+    echo "  Raw alembic_version table contents:"
+    docker exec jarvis_postgres psql -U jarvis -d jarvis -tA -c "SELECT version_num FROM alembic_version;" 2>&1 || echo "    could not query alembic_version"
+    echo "  AIONX table existence check:"
+    for t in aionx_system_state_snapshots aionx_omni_system_registry aionx_event_spine; do
+      exists=$(docker exec jarvis_postgres psql -U jarvis -d jarvis -tA -c "SELECT 1 FROM information_schema.tables WHERE table_name='$t';" 2>/dev/null)
+      echo "    $t: $([ "$exists" = "1" ] && echo EXISTS || echo MISSING)"
+    done
+    echo ""
 
     # ── 8. Amazon SES Configuration ───────────────────────────────────────
     echo "═══ [8/18] AMAZON SES CONFIGURATION ═══"
@@ -954,10 +967,13 @@ else:
     # actually applied on production despite this step "succeeding" on every
     # deploy. Use bash's PIPESTATUS to check the real exit code of the first
     # command in the pipe instead.
-    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -20
+    echo "  --- alembic current (DB-tracked revision) vs heads (code-defined) ---"
+    docker exec jarvis_backend alembic current 2>&1
+    docker exec jarvis_backend alembic heads 2>&1
+    docker-compose -p jarvis exec -T backend alembic upgrade head 2>&1 | tail -60
     alembic_rc=${PIPESTATUS[0]}
     if [ "$alembic_rc" != "0" ]; then
-      docker exec jarvis_backend alembic upgrade head 2>&1 | tail -20
+      docker exec jarvis_backend alembic upgrade head 2>&1 | tail -60
       alembic_rc=${PIPESTATUS[0]}
     fi
     if [ "$alembic_rc" = "0" ]; then
