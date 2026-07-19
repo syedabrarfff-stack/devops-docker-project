@@ -98,6 +98,17 @@ resource "aws_iam_role_policy" "ecs_task_permissions" {
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = ["${aws_cloudwatch_log_group.backend.arn}:*"]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:GetAccount",
+          "ses:GetSendQuota",
+          "ses:GetSendStatistics",
+          "ses:SendEmail",
+          "ses:SendRawEmail",
+        ]
+        Resource = "*"
       }
     ]
   })
