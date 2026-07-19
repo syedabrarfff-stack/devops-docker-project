@@ -283,14 +283,35 @@ async def compose_and_send(
 ):
     """
     Compose email with AI and immediately send via the Aliyar Gmail stack.
-    The lead must have a valid email address.
+    The lead must have a valid email address and clear the same outreach
+    compliance gate (do-not-contact, daily cap, reply-rate pause) as the
+    automated sequence engine — this is a manual send, not an exemption.
     """
     from app.services.outreach.gmail import send_client_email
+    from app.services.outreach.compliance import outreach_compliance
 
     lead = await _resolve_lead(db, body.lead_id, body.lead_data, tenant_id=body.tenant_id)
     to_email = lead.get("email")
     if not to_email:
         raise HTTPException(status_code=400, detail="Lead has no email address")
+
+    # Only leads backed by a real DB row can be compliance-checked (do-not-contact,
+    # daily cap, etc. all key off the Lead row) — inline test lead_data has none.
+    lead_row = None
+    if body.lead_id:
+        _q = select(Lead).where(Lead.id == body.lead_id)
+        if body.tenant_id is not None:
+            _q = _q.where(Lead.tenant_id == body.tenant_id)
+        lead_row = (await db.execute(_q)).scalar_one_or_none()
+
+    if lead_row is not None:
+        tenant_uuid = body.tenant_id or lead_row.tenant_id
+        safety = await outreach_compliance.safety_gate(db, tenant_uuid, lead_row, to_email)
+        if not safety["allowed"]:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Blocked by outreach compliance: {safety.get('reason', 'not_allowed')}",
+            )
 
     persona = _resolve_persona(lead, body.persona_name)
 
@@ -300,6 +321,7 @@ async def compose_and_send(
     subject, body_text = _parse_email(full_text)
     if not subject:
         subject = f"A thought for {lead.get('company_name') or 'your team'}"
+    body_text = outreach_compliance.append_footer(body_text, to_email)
 
     success, error, method = await send_client_email(
         db=db,
@@ -312,17 +334,17 @@ async def compose_and_send(
         raise HTTPException(status_code=502, detail=f"Email send failed: {error}")
 
     # Increment outreach count on lead
-    if body.lead_id:
-        _q = select(Lead).where(Lead.id == body.lead_id)
-        if body.tenant_id is not None:
-            _q = _q.where(Lead.tenant_id == body.tenant_id)
-        row = (await db.execute(_q)).scalar_one_or_none()
-        if row:
-            row.outreach_count = (row.outreach_count or 0) + 1
-            if row.status.value == "NEW":
-                from app.models.lead import LeadStatus
-                row.status = LeadStatus.CONTACTED
-            await db.commit()
+    if lead_row is not None:
+        lead_row.outreach_count = (lead_row.outreach_count or 0) + 1
+        if lead_row.status.value == "NEW":
+            from app.models.lead import LeadStatus
+            lead_row.status = LeadStatus.CONTACTED
+        try:
+            from app.services.crm.sync import sync_lead_to_crm
+            await sync_lead_to_crm(db, lead_row)
+        except Exception as exc:
+            logger.warning("CRM sync failed for lead %s: %s", lead_row.id, exc)
+        await db.commit()
 
     return {
         "sent": True,

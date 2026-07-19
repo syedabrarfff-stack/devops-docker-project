@@ -81,6 +81,7 @@ api_router.include_router(agents.router, dependencies=[Depends(get_current_capta
 api_router.include_router(ws.router)
 api_router.include_router(crm.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(leads.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(leads.public_router)
 api_router.include_router(outreach.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(memory.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(tasks.router, dependencies=[Depends(get_current_captain)])

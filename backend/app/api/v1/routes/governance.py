@@ -326,15 +326,117 @@ async def update_contract_status(
         ok = await _update(db, contract_id, req.status, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(404, "Contract not found")
+
+    result: dict = {"id": contract_id, "status": req.status}
     if req.status == "signed":
+        result.update(await _activate_signed_contract(db, contract_id, tenant_id))
+    return result
+
+
+async def _activate_signed_contract(db: AsyncSession, contract_id: int, tenant_id: Optional[UUID]) -> dict:
+    """Best-effort: turn a signed contract into a Client record + draft invoice.
+
+    Runs after the contract status update has already committed, so a failure here
+    never masks the fact that the signature itself was recorded.
+    """
+    from datetime import datetime, timezone
+    import uuid as uuid_module
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.core.database import set_tenant_context
+    from app.models.revenue import Client, ClientStatus
+    from app.services.governance.document_gen import get_contract, create_invoice
+
+    try:
+        contract = await get_contract(db, contract_id)
+        if not contract:
+            return {}
+
+        resolved_tenant = tenant_id or uuid_module.UUID(
+            settings.JARVIS_DEFAULT_TENANT_ID or "00000000-0000-0000-0000-000000000000"
+        )
+        pricing = contract.get("pricing") or {}
+        setup_fee = float(pricing.get("setup_fee") or 0.0)
+        monthly = float(pricing.get("monthly_retainer") or pricing.get("monthly_fee") or 0.0)
+        service_type = contract.get("service_type") or "Services"
+
+        client_id = None
+        async with db.begin():
+            await set_tenant_context(db, str(resolved_tenant))
+
+            client = None
+            if contract.get("client_email"):
+                existing = await db.execute(
+                    select(Client).where(
+                        Client.tenant_id == resolved_tenant,
+                        Client.email == contract["client_email"],
+                    )
+                )
+                client = existing.scalar_one_or_none()
+            if client is None:
+                client = Client(
+                    tenant_id=resolved_tenant,
+                    company_name=contract.get("client_company") or contract.get("client_name"),
+                    contact_name=contract.get("client_name"),
+                    email=contract.get("client_email") or None,
+                    package_tier=service_type,
+                    mrr_usd=monthly,
+                    status=ClientStatus.ACTIVE,
+                    started_at=datetime.now(timezone.utc),
+                )
+                db.add(client)
+                await db.flush()
+            client_id = client.id
+
+            items = []
+            if setup_fee:
+                items.append({
+                    "description": f"{service_type} — one-time setup", "qty": 1,
+                    "unit_price": setup_fee, "amount": setup_fee,
+                })
+            if monthly:
+                items.append({
+                    "description": f"{service_type} — monthly retainer", "qty": 1,
+                    "unit_price": monthly, "amount": monthly,
+                })
+            if not items:
+                # No pricing captured on the contract — still create a draft so
+                # Captain has something to review rather than nothing at all.
+                items.append({"description": service_type, "qty": 1, "unit_price": 0.0, "amount": 0.0})
+
+            invoice = await create_invoice(
+                db,
+                client_name=contract.get("client_name") or "",
+                client_email=contract.get("client_email") or "",
+                client_company=contract.get("client_company") or "",
+                items=items,
+                notes=f"Auto-generated on signature of contract #{contract_id}.",
+                tenant_id=resolved_tenant,
+            )
+
         try:
             from app.services.notifications.telegram import notify_telegram
             await notify_telegram(
-                f"✍️ *Contract Signed*\nContract `{contract_id}` has been marked as signed. Create client record and issue first invoice."
+                f"✍️ *Contract Signed* — Contract `{contract_id}`\n"
+                f"✅ Client record ready, draft invoice `{invoice['invoice_number']}` created "
+                f"(${invoice['total']:,.2f}).\nReview & send from Governance → Invoices."
             )
         except Exception as exc:
             logger.warning("Telegram notification failed for contract %s signed: %s", contract_id, exc)
-    return {"id": contract_id, "status": req.status}
+
+        return {"client_id": str(client_id), "invoice": invoice}
+
+    except Exception as exc:
+        logger.error("Auto client/invoice creation failed for contract %s: %s", contract_id, exc)
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"⚠️ *Contract Signed* — Contract `{contract_id}` marked signed, but automatic "
+                f"client/invoice creation failed: {exc}. Create the client record and invoice manually."
+            )
+        except Exception:
+            pass
+        return {}
 
 
 # ── Autonomous Approval Stats ────────────────────────────────────────────────

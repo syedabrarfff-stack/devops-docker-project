@@ -80,8 +80,17 @@ def _verify_sns_signature(body: dict) -> bool:
     signature_b64 = body.get("Signature", "")
     msg_type = body.get("Type", "")
 
-    if not cert_url or not signature_b64 or msg_type not in _SNS_SIGN_FIELDS:
-        return True  # Can't verify — allow through
+    if msg_type not in _SNS_SIGN_FIELDS:
+        # Not a message type SNS signs at all — nothing to verify against.
+        return True
+
+    if not cert_url or not signature_b64:
+        # A genuine SNS message of a type we know how to sign always carries both
+        # fields — their absence means a forged payload, not an edge case. Fail closed.
+        logger.warning(
+            "SNS signature rejected: %s message missing cert/signature fields", msg_type
+        )
+        return False
 
     # Validate cert URL origin before fetching (prevent SSRF to forged certs)
     try:

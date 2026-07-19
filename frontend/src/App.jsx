@@ -212,7 +212,7 @@ function PublicWebsite() {
     setContactSubmitting(true)
     setContactError(null)
     try {
-      await fetch('/api/v1/leads/', {
+      const res = await fetch('/api/v1/leads/public/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,11 +220,10 @@ function PublicWebsite() {
           contact_name: contactForm.name,
           email: contactForm.email,
           opportunity_type: contactForm.service,
-          notes: contactForm.message,
-          source: 'website_contact',
-          pain_points: [contactForm.service],
+          message: contactForm.message,
         }),
       })
+      if (!res.ok) throw new Error(`Submission failed (${res.status})`)
       setContactSent(true)
     } catch {
       setContactError('Something went wrong. Please email info@aliyarsolutions.com directly.')

@@ -622,11 +622,30 @@ async def daily_lead_scoring() -> None:
 
 async def daily_lead_discovery() -> None:
     from app.services.leads.discovery import lead_discovery_engine
+    from app.core.config import settings
 
     discovered = 0
     for tenant_id in await _target_tenant_ids():
         discovered += await lead_discovery_engine.run_daily_discovery(tenant_id, DAILY_DISCOVERY_TARGETS)
-    await _record_job_result("daily_lead_discovery", "success", {"discovered": discovered})
+
+    result_payload = {"discovered": discovered}
+    if not settings.APOLLO_API_KEY and not settings.GOOGLE_MAPS_API_KEY:
+        # Without either key this job (and the free-tier fallback) can still create
+        # leads, but none carry an email address — outreach silently never fires
+        # for them. Surface that loudly instead of leaving it to be discovered later.
+        result_payload["warning"] = "no_email_capable_discovery_source_configured"
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                "⚠️ *Lead Discovery* — APOLLO_API_KEY and GOOGLE_MAPS_API_KEY are both unset.\n"
+                f"{discovered} lead(s) discovered today via free sources only — none carry an "
+                "email address, so automated outreach cannot fire for them. Add an Apollo API "
+                "key to production `.env` to unlock email-capable discovery."
+            )
+        except Exception as exc:
+            logger.warning("Lead discovery config-gap notification failed: %s", exc)
+
+    await _record_job_result("daily_lead_discovery", "success", result_payload)
 
 
 async def daily_follow_up_check() -> None:

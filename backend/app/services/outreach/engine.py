@@ -448,6 +448,11 @@ class OutreachEngine:
                     lead.last_contact = now
                     lead.last_contacted = now
                     sent += 1
+                    try:
+                        from app.services.crm.sync import sync_lead_to_crm
+                        await sync_lead_to_crm(session, lead)
+                    except Exception as exc:
+                        logger.warning("CRM sync failed for lead %s: %s", lead.id, exc)
                     await self._audit(
                         session,
                         tenant_uuid,

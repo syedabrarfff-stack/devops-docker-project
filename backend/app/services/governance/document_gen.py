@@ -407,6 +407,14 @@ async def generate_contract(
     return _serialize_contract(contract)
 
 
+async def get_contract(db: AsyncSession, contract_id: int) -> dict | None:
+    # Contract has no tenant_id column (single-tenant document); unlike get_contracts/
+    # update_contract_status this deliberately doesn't accept a tenant filter param.
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalar_one_or_none()
+    return _serialize_contract(contract) if contract else None
+
+
 async def get_contracts(db: AsyncSession, status: str | None = None, tenant_id=None) -> list[dict]:
     q = select(Contract).order_by(Contract.created_at.desc()).limit(200)
     if status:

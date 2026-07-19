@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, BackgroundTasks, Request, UploadFile
 from app.api.v1.routes.auth import get_current_captain
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +17,11 @@ from app.services.leads.discovery import lead_discovery_engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/leads", tags=["Leads"], dependencies=[Depends(get_current_captain)])
+
+# Unauthenticated router for the public marketing-site contact form. No captain-JWT
+# dependency here by design — this is the only inbound channel visitors outside the
+# company can reach. Kept intentionally tiny (single endpoint) and rate-limited.
+public_router = APIRouter(prefix="/leads/public", tags=["Public Contact"])
 
 _BATCH_IMPORT_MAX = 500
 
@@ -73,6 +78,14 @@ class LeadLossIn(BaseModel):
     tenant_id: Optional[UUID] = None
     reason: str = Field(..., min_length=1, max_length=500)
     notes: Optional[str] = Field(default=None, max_length=5_000)
+
+
+class PublicContactIn(BaseModel):
+    company: str = Field(..., min_length=1, max_length=500)
+    contact_name: Optional[str] = Field(default=None, max_length=200)
+    email: EmailStr
+    opportunity_type: Optional[str] = Field(default=None, max_length=100)
+    message: Optional[str] = Field(default=None, max_length=10_000)
 
 
 @router.post("/")
@@ -151,6 +164,39 @@ async def _trigger_auto_outreach(lead_id: UUID, lead, tenant_id: UUID):
                 logger.debug("Auto-outreach skipped for lead %s: %s", lead_id, result.get("reason"))
     except Exception as exc:
         logger.error("Auto-outreach trigger failed: %s", exc)
+
+
+@public_router.post("/contact")
+@limiter.limit("5/hour")
+async def public_contact(
+    request: Request,
+    body: PublicContactIn,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public marketing-site contact form. No auth — visitors outside the company post here."""
+    try:
+        lead = await leads.create_lead(db, {
+            "company": body.company,
+            "contact_name": body.contact_name,
+            "email": body.email,
+            "opportunity_type": body.opportunity_type,
+            "notes": body.message,
+            "source": "website_contact",
+            "pain_points": [body.opportunity_type] if body.opportunity_type else None,
+        })
+        await db.commit()
+    except IntegrityError:
+        # Lead with this email already exists — don't leak that to an anonymous caller,
+        # just acknowledge receipt so the visitor gets an honest "we got it".
+        await db.rollback()
+        return {"status": "received"}
+
+    background_tasks.add_task(_score_in_background, lead.id)
+    background_tasks.add_task(
+        _notify_captain_new_lead, _lead_company(lead), lead.email, "website_contact", lead.contact_name,
+    )
+    return {"status": "received"}
 
 
 @router.get("/")
