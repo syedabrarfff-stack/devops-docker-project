@@ -610,8 +610,21 @@ else:
       echo "  HTTPS with .env creds:                      HTTP $HTTPS_AUTH"
       HTTPS_WRONG=$(curl -sk -o /dev/null -w "%{http_code}" -u "definitely-wrong:definitely-wrong" -H "Host: aliyarsolutions.com" https://localhost/control-room/dashboard 2>/dev/null)
       echo "  HTTPS with intentionally-wrong creds:       HTTP $HTTPS_WRONG (expect 401)"
+      # /control-room (no trailing slash) auth-bypass check.
+      # Before the fix: return 302 fired before auth_basic, bypassing the wall.
+      # After the fix: proxy_pass with auth_basic — anonymous gets 401, creds get 200.
+      HTTPS_ROOT_NOAUTH=$(curl -sk -o /dev/null -w "%{http_code}" -H "Host: aliyarsolutions.com" https://localhost/control-room 2>/dev/null)
+      echo "  HTTPS no-auth to /control-room (expect 401): HTTP $HTTPS_ROOT_NOAUTH"
       HTTPS_ROOT=$(curl -sk -o /dev/null -w "%{http_code}" -u "${ENV_USER}:${ENV_PASS}" -H "Host: aliyarsolutions.com" https://localhost/control-room 2>/dev/null)
-      echo "  HTTPS with .env creds to /control-room:     HTTP $HTTPS_ROOT (expect 302)"
+      echo "  HTTPS with .env creds to /control-room:      HTTP $HTTPS_ROOT (expect 200 from SPA)"
+      if [ "$HTTPS_ROOT_NOAUTH" = "401" ]; then
+        echo "  AUTH BYPASS CHECK: PASSED — /control-room correctly challenges without creds"
+      elif [ "$HTTPS_ROOT_NOAUTH" = "302" ]; then
+        echo "  AUTH BYPASS CHECK: FAILED — /control-room returns 302 without auth (nginx return bypass)"
+        echo "    REQUIRED: deploy the nginx auth fix (commit 565ac81) via nginx-reload"
+      else
+        echo "  AUTH BYPASS CHECK: UNEXPECTED $HTTPS_ROOT_NOAUTH — investigate"
+      fi
       case "$HTTPS_AUTH" in
         200|302|304) echo "  DIAGNOSIS: nginx accepts .env creds over HTTPS — server-side auth is HEALTHY" ;;
         401)         echo "  DIAGNOSIS: nginx REJECTS .env creds over HTTPS — root cause is server-side" ;;
