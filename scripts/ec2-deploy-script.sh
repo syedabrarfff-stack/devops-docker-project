@@ -1065,6 +1065,11 @@ else:
 
     echo "=== DEPLOY_COMPLETE ==="
     ;;
+
+  install-systemd)
+    echo "=== Installing JARVIS systemd units ==="
+    bash "$DEPLOY_DIR/scripts/install-systemd-units.sh"
+    ;;
 esac
 
 # Clean up ephemeral git credentials

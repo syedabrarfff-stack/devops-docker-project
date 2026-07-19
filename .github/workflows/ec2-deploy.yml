@@ -26,6 +26,7 @@ on:
           - production-audit
           - regenerate-htpasswd
           - fix-evolution
+          - install-systemd
       captain_username:
         description: 'New captain username (only used for set-captain-credentials — masked in logs via ::add-mask::)'
         required: false

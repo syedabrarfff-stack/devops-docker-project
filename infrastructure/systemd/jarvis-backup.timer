@@ -3,8 +3,6 @@ Description=Run JARVIS backup nightly at 02:00 UTC
 Requires=jarvis-backup.service
 
 [Timer]
-# Run backup daily at 02:00 UTC (07:30 IST)
-OnCalendar=daily
 OnCalendar=*-*-* 02:00:00
 Persistent=true
 AccuracySec=1min

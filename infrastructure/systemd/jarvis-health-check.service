@@ -1,6 +1,6 @@
 [Unit]
 Description=JARVIS Health Check & Auto-Healing
-After=jarvis-docker-compose.service
+After=jarvis-stable.service
 
 [Service]
 Type=oneshot
@@ -8,6 +8,7 @@ User=root
 ExecStart=/bin/bash /opt/jarvis/scripts/jarvis-health-check.sh
 StandardOutput=journal
 StandardError=journal
+EnvironmentFile=/opt/jarvis/.env
 
 [Install]
 WantedBy=multi-user.target
