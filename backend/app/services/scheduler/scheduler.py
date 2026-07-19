@@ -171,6 +171,8 @@ AIONX_JOB_IDS = (
     "aionx_agent_capacity_check",
     "aionx_idle_intelligence_cycle",
     "aionx_mission_control_snapshot",
+    "aionx_execute_due_outreach",
+    "aionx_speed_to_lead_check",
 )
 
 JOB_LOCK_TTLS = {
