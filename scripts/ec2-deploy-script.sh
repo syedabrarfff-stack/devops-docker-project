@@ -988,14 +988,26 @@ else:
     docker inspect jarvis_backend --format='{{.State.Status}}' 2>/dev/null || echo no_container
 
     echo "=== RUNNING ALEMBIC MIGRATIONS ==="
-    # `cmd | tail -10` without `set -o pipefail` (deliberately not set globally
-    # in this script — other pipelines here rely on non-strict behavior) always
-    # reports success from tail's own exit code, regardless of whether alembic
-    # itself failed. That silently hid every migration failure: the AIONX
-    # tables migration (0043_reassert_aionx_tables) has evidently never
-    # actually applied on production despite this step "succeeding" on every
-    # deploy. Use bash's PIPESTATUS to check the real exit code of the first
-    # command in the pipe instead.
+    # Bootstrap alembic tracking if alembic_version doesn't exist.
+    # Production's schema was created outside alembic's knowledge, so the
+    # tracking table was never initialized — every `alembic upgrade head` was
+    # a no-op because alembic had no starting point to migrate FROM.
+    # Strategy: if alembic_version is absent, stamp at the revision just before
+    # the current head (0042_engineering_org_tables), then upgrade to head.
+    # This runs ONLY migration 0043_reassert_aionx_tables, which creates the 3
+    # missing AIONX tables using IF NOT EXISTS — safe on any environment.
+    HAS_ALEMBIC_VERSION=$(docker exec jarvis_postgres psql -U jarvis -d jarvis \
+      -tA -c "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='alembic_version');" 2>/dev/null | tr -d '[:space:]')
+    echo "  alembic_version table present: $HAS_ALEMBIC_VERSION"
+    if [ "$HAS_ALEMBIC_VERSION" = "f" ] || [ -z "$HAS_ALEMBIC_VERSION" ]; then
+      echo "  alembic_version not found — stamping at 0042_engineering_org_tables"
+      echo "  (tells alembic all migrations up to 0042 are applied; upgrade will run 0043 only)"
+      docker exec jarvis_backend alembic stamp 0042_engineering_org_tables 2>&1
+      echo "  stamp exit: $?"
+    else
+      echo "  alembic_version exists — no stamp needed"
+    fi
+    # Use bash PIPESTATUS to detect real alembic exit code (pipe to tail masks it).
     echo "  --- alembic current (DB-tracked revision) vs heads (code-defined) ---"
     docker exec jarvis_backend alembic current 2>&1
     docker exec jarvis_backend alembic heads 2>&1
