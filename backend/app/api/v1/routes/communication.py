@@ -285,7 +285,15 @@ router.include_router(communication_router)
 # (EVOLUTION_WEBHOOK_URL in docker-compose.yml) sends no auth headers at all,
 # so nesting it here meant every real inbound WhatsApp message was being
 # rejected with 401 — the endpoint was unreachable by its only legitimate
-# caller. Safe to leave unauthenticated: this path is called container-to-
-# container over the internal Docker network (http://backend:8000/...) and is
-# never proxied externally by nginx — backend only binds 127.0.0.1:8000 on
-# the host, so it isn't reachable from the public internet at all.
+# caller.
+#
+# This endpoint has NO application-level auth of its own. It is only safe
+# because nginx.conf explicitly blocks public access to this exact path
+# (`location = /api/v1/webhooks/whatsapp { return 404; }`, ahead of the
+# general /api/v1/webhooks/ proxy block) — an earlier version of this
+# comment claimed nginx "never" proxied this path externally, which turned
+# out to be false once nginx.conf grew a general webhook passthrough for
+# Stripe/SES. Evolution reaches this route directly, container-to-container
+# (http://backend:8000/...), never through nginx, so the block costs nothing.
+# If that nginx location is ever removed, this endpoint MUST get real
+# verification (shared secret header, IP allowlist, etc.) before that happens.
