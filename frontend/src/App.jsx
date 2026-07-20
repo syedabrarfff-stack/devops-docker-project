@@ -60,6 +60,7 @@ import DiscoveryView from './components/discovery/DiscoveryView'
 import ProjectsView from './components/projects/ProjectsView'
 import VoiceView from './components/voice/VoiceView'
 import KnowledgeView from './components/knowledge/KnowledgeView'
+import TrustView from './components/trust/TrustView'
 import ResearchView from './components/research/ResearchView'
 import SettingsView from './components/settings/SettingsView'
 import DepartmentsView from './components/departments/DepartmentsView'
@@ -132,6 +133,7 @@ export const VIEWS = {
   gmailLegacy:   { path: controlPath('/gmail'),         title: 'Executive Email Center', Component: EmailRedirect },
   voice:         { path: controlPath('/voice'),         title: 'Voice Briefings',        Component: VoiceView },
   knowledge:     { path: controlPath('/knowledge'),     title: 'Knowledge Base',         Component: KnowledgeView },
+  trust:         { path: controlPath('/trust'),         title: 'Client Trust',           Component: TrustView },
   research:      { path: controlPath('/research'),      title: 'Research Reports',       Component: ResearchView },
   departments:   { path: controlPath('/departments'),   title: 'Department Intelligence', Component: DepartmentsView },
   governance:    { path: controlPath('/governance'),    title: 'Governance',             Component: GovernanceDashboard },

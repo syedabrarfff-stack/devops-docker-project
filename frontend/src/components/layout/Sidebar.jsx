@@ -9,7 +9,7 @@ import {
   TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
   Radio, Infinity, Scale, HardDrive, ShieldCheck, Workflow,
   Bot, Sparkles, ClipboardCheck, Calendar, RefreshCw, Boxes, LineChart,
-  UsersRound, Tags,
+  UsersRound, Tags, HeartHandshake,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -31,6 +31,7 @@ const NAV = [
   { id: 'communications', path: '/control-room/communications', label: 'Comms', icon: MessageCircle },
   { id: 'crm',            path: '/control-room/crm', label: 'CRM',           icon: UserCircle },
   { id: 'relationships',  path: '/control-room/relationships', label: 'Relationships', icon: Users },
+  { id: 'trust',          path: '/control-room/trust', label: 'Client Trust',   icon: HeartHandshake },
   { id: 'proposals',      path: '/control-room/proposals', label: 'Proposals',     icon: FileText },
   { id: 'invoices',       path: '/control-room/invoices', label: 'Invoices',      icon: Receipt },
   { id: 'revenueIntel',   path: '/control-room/revenue-intelligence', label: 'Revenue Intel', icon: DollarSign },
