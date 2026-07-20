@@ -189,8 +189,8 @@ export default function MonitoringDashboard() {
             <MetricCard
               icon={DollarSign}
               label="AI Cost Today"
-              value={costToday?.total_cost ? formatMoney(costToday.total_cost) : '$0.00'}
-              detail={`${costToday?.request_count || 0} requests`}
+              value={costToday?.total_cost_usd ? formatMoney(costToday.total_cost_usd) : '$0.00'}
+              detail={`${Object.values(costToday?.by_provider || {}).reduce((sum, p) => sum + (p.requests || 0), 0)} requests`}
               color="gold"
             />
             <MetricCard
@@ -203,8 +203,8 @@ export default function MonitoringDashboard() {
             <MetricCard
               icon={Activity}
               label="Scheduler Jobs"
-              value={scheduler?.total || 0}
-              detail={`${scheduler?.active || 0} active`}
+              value={Array.isArray(scheduler) ? scheduler.length : 0}
+              detail={`${Array.isArray(scheduler) ? scheduler.filter(j => j.next_run).length : 0} active`}
               color="blue"
             />
             <MetricCard

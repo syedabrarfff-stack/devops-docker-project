@@ -587,10 +587,10 @@ async def axiom_departments():
 
 
 @router.get("/axiom/pulse")
-async def axiom_pulse():
+async def axiom_pulse(db: AsyncSession = Depends(get_db)):
     """15-minute department pulse model with health and escalation thresholds."""
     from app.services.departments.axiom_operating_model import pulse_snapshot
-    return pulse_snapshot()
+    return await pulse_snapshot(db)
 
 
 @router.post("/axiom/diagnose")

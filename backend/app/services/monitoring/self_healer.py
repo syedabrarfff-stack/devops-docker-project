@@ -212,18 +212,30 @@ async def _heal_job_failures(report: dict) -> None:
 
 
 async def _alert_captain(report: dict) -> None:
-    """Send a consolidated self-healer alert to Captain via Telegram."""
+    """Create a real incident record for unrecoverable issues and notify Captain
+    through every channel (Slack + Telegram + WebSocket) — not just a Telegram
+    message that leaves no trace in the Incidents system.
+    """
     try:
-        from app.services.notifications.telegram import notify_telegram
+        from app.core.database import AsyncSessionLocal
+        from app.services.monitoring.emergency import declare_emergency
 
-        lines = ["🔧 *JARVIS Self-Healer Report*\n"]
-        if report["actions"]:
-            lines.append("*Auto-recovered:*")
-            lines.extend(f"  ✅ {a}" for a in report["actions"])
-        if report["alerts"]:
-            lines.append("\n*Requires attention:*")
-            lines.extend(f"  ⚠️ {a}" for a in report["alerts"])
-        lines.append(f"\n_Scan completed in {report.get('duration_ms', '?')}ms_")
-        await notify_telegram("\n".join(lines))
+        actions_line = "; ".join(report["actions"]) if report["actions"] else "none"
+        alerts_line = "; ".join(report["alerts"])
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await declare_emergency(
+                    db,
+                    title="Self-healer detected issues it could not auto-recover",
+                    severity="medium",
+                    category="automation",
+                    description=(
+                        f"Auto-recovered this cycle: {actions_line}\n"
+                        f"Requires attention: {alerts_line}\n"
+                        f"Scan completed in {report.get('duration_ms', '?')}ms"
+                    ),
+                    affected_systems=["self_healer"],
+                    auto_detected=True,
+                )
     except Exception as exc:
-        logger.warning("Self-healer captain alert failed: %s", exc)
+        logger.warning("Self-healer incident creation failed: %s", exc)

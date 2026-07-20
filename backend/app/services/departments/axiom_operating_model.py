@@ -134,17 +134,91 @@ def operating_model() -> dict[str, Any]:
     }
 
 
-def pulse_snapshot() -> dict[str, Any]:
+async def _gateway_health_scores(db) -> dict[str, int]:
+    """Derive a real health score per commercial gateway from actual system signals.
+
+    There's no per-fictional-department telemetry to draw on (these are 25 catalog
+    entries, not 25 real teams), so each gateway's score is computed from the real
+    subsystem it fronts rather than invented per department:
+      - AXIOM_OUTREACH: outreach send success rate over the last 24h + SES readiness
+      - AXIOM_CLOUDOPS:  DB + Redis + scheduler liveness (the same signals /readyz uses)
+      - AXIOM_COUNCIL:   AI provider availability across the router's circuit breakers
+    """
+    from datetime import datetime, timedelta, timezone as _tz
+    from sqlalchemy import select, func
+    from app.models.outreach import OutreachLog, OutreachStatus
+    from app.core.config import settings
+
+    scores = {"AXIOM_OUTREACH": 70, "AXIOM_CLOUDOPS": 70, "AXIOM_COUNCIL": 70}
+
+    # AXIOM_OUTREACH — real send success rate, last 24h
+    try:
+        since = datetime.now(_tz.utc) - timedelta(hours=24)
+        result = await db.execute(
+            select(OutreachLog.status, func.count())
+            .where(OutreachLog.sent_at.isnot(None), OutreachLog.sent_at >= since)
+            .group_by(OutreachLog.status)
+        )
+        rows = dict(result.all())
+        sent = rows.get(OutreachStatus.SENT, 0)
+        failed = rows.get(OutreachStatus.FAILED, 0)
+        total = sent + failed
+        if total > 0:
+            scores["AXIOM_OUTREACH"] = round(60 + 40 * (sent / total))
+        elif settings.SES_FROM_EMAIL:
+            scores["AXIOM_OUTREACH"] = 75  # configured but quiet — not yet proven, not failing
+        else:
+            scores["AXIOM_OUTREACH"] = 40  # SES unconfigured — outreach structurally can't send
+    except Exception:
+        pass
+
+    # AXIOM_CLOUDOPS — real DB/Redis/scheduler liveness
+    try:
+        checks_ok = 0
+        checks_total = 3
+        await db.execute(select(1))
+        checks_ok += 1
+        try:
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.REDIS_URL or "redis://localhost:6379", decode_responses=True)
+            await r.ping()
+            await r.aclose()
+            checks_ok += 1
+        except Exception:
+            pass
+        try:
+            from app.services.scheduler.scheduler import get_scheduler
+            if get_scheduler().running:
+                checks_ok += 1
+        except Exception:
+            pass
+        scores["AXIOM_CLOUDOPS"] = round(40 + 60 * (checks_ok / checks_total))
+    except Exception:
+        pass
+
+    # AXIOM_COUNCIL — real AI provider availability (configured + circuit breaker open)
+    try:
+        from app.services.ai.router import ai_router
+        status = ai_router.get_provider_status()
+        if status:
+            available = sum(1 for p in status.values() if p["available"])
+            scores["AXIOM_COUNCIL"] = round(40 + 60 * (available / len(status)))
+    except Exception:
+        pass
+
+    return scores
+
+
+async def pulse_snapshot(db) -> dict[str, Any]:
+    gateway_scores = await _gateway_health_scores(db)
     departments = []
     for department in AXIOM_DEPARTMENTS:
-        base = 88
-        if department["group"] == "Legendary 3":
-            base = 92
+        score = gateway_scores.get(department["gateway"], 70)
         departments.append({
             **department,
-            "health_score": base,
-            "status": "operational",
-            "escalation": escalation_for_health(base),
+            "health_score": score,
+            "status": "operational" if score >= 70 else ("degraded" if score >= 40 else "at_risk"),
+            "escalation": escalation_for_health(score),
             "milestone_path": "consultant -> council -> jarvis -> captain when authority threshold is crossed",
         })
     return {

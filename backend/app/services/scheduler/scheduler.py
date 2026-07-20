@@ -1522,6 +1522,28 @@ async def _report_drift_audit_to_headquarters(report: dict) -> None:
     except Exception as exc:
         logger.warning("Drift auditor -> Headquarters reporting failed: %s", exc)
 
+    if alerts:
+        # Issues that couldn't be auto-fixed need a decision — surface them as a
+        # real incident (Slack + Telegram + WebSocket), not just a Headquarters
+        # chat log entry Captain has to go looking for.
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.monitoring.emergency import declare_emergency
+
+            async with AsyncSessionLocal() as db:
+                async with db.begin():
+                    await declare_emergency(
+                        db,
+                        title="Drift auditor found issues requiring a decision",
+                        severity="medium",
+                        category="infrastructure",
+                        description="\n".join(f"- {a}" for a in alerts),
+                        affected_systems=["drift_auditor"],
+                        auto_detected=True,
+                    )
+        except Exception as exc:
+            logger.warning("Drift auditor incident creation failed: %s", exc)
+
 
 async def daily_strategy_report() -> None:
     """Layer 6: Daily strategy report — collect all dept data → Council → cascade → Captain."""
