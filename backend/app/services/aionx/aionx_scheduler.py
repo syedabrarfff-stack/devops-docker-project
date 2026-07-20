@@ -171,9 +171,18 @@ async def _job_operational_iq() -> None:
     try:
         from app.core.database import AsyncSessionLocal
         from app.services.aionx.orchestration_cortex import compute_operational_iq
+        from app.services.aionx.operational_persistence import record_event
 
         async with AsyncSessionLocal() as db:
-            iq = await compute_operational_iq(db)
+            async with db.begin():
+                iq = await compute_operational_iq(db)
+                await record_event(
+                    db,
+                    event_type="OPERATIONAL_IQ_SNAPSHOT",
+                    source="aionx_operational_iq",
+                    payload=iq,
+                    severity="INFO",
+                )
             logger.info("AIONX Operational IQ: %s — %s", iq["operational_iq"], iq["interpretation"])
     except Exception as exc:
         logger.warning("AIONX Operational IQ failed: %s", exc)
@@ -327,6 +336,8 @@ async def _job_trust_erosion_check() -> None:
         from sqlalchemy import select
         from app.models.aionx_organs import ClientDigitalTwin
 
+        from app.services.aionx.operational_persistence import record_event
+
         async with AsyncSessionLocal() as db:
             _q = select(ClientDigitalTwin).limit(500)
             if _settings.JARVIS_DEFAULT_TENANT_ID:
@@ -334,13 +345,36 @@ async def _job_trust_erosion_check() -> None:
                 _q = _q.where(ClientDigitalTwin.tenant_id == _uuid.UUID(str(_settings.JARVIS_DEFAULT_TENANT_ID)))
             twins = (await db.execute(_q)).scalars().all()
 
-            escalations = 0
-            for twin in twins:
-                result = await escalate_trust_erosion(db, twin.client_id)
-                if result.get("escalated"):
-                    escalations += 1
+            erosions = []
+            async with db.begin():
+                for twin in twins:
+                    result = await escalate_trust_erosion(db, twin.client_id)
+                    if result.get("escalated"):
+                        erosions.append(result)
+                        await record_event(
+                            db,
+                            event_type="CLIENT_TRUST_EROSION",
+                            source="aionx_trust_erosion_check",
+                            payload=result,
+                            severity="WARNING",
+                            captain_approval_required=True,
+                        )
 
-            logger.info("AIONX Trust: checked %d clients, %d erosion alerts", len(twins), escalations)
+            logger.info("AIONX Trust: checked %d clients, %d erosion alerts", len(twins), len(erosions))
+
+            if erosions:
+                try:
+                    from app.services.notifications.telegram import notify_telegram
+                    lines = ["⚠️ *Client Trust Erosion Detected*\n"]
+                    for e in erosions:
+                        lines.append(
+                            f"  • Client `{e['client_id']}`: {e['previous_score']} → "
+                            f"{e['current_score']} ({e['score_change_30d']:+.1f} pts / 30d)"
+                        )
+                    lines.append("\nReview via Client Trust in the dashboard.")
+                    await notify_telegram("\n".join(lines))
+                except Exception as exc:
+                    logger.warning("Trust erosion Telegram alert failed: %s", exc)
     except Exception as exc:
         logger.warning("AIONX trust erosion check failed: %s", exc)
 
