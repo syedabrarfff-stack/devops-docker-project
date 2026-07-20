@@ -122,7 +122,7 @@ All client communications are attributed to named team members. These are the fa
 | Lucas Reed | Process Integration Specialist | Automation operations, API integration |
 | Olivia Bennett | Account Coordinator | Client success, retention, reporting |
 
-JARVIS routes every proposal, email, and outreach to the correct team member based on service category. The 36-key routing map is defined in `backend/app/services/team/team_service.py`.
+JARVIS routes every proposal, email, and outreach to the correct team member based on service category. The 137-key routing map (`CATEGORY_PRIORITY_MAP`) is defined in `backend/app/services/team/team_service.py`.
 
 ---
 
