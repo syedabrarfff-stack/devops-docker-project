@@ -9,7 +9,7 @@ import uuid
 import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse, unquote
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
@@ -271,12 +271,27 @@ async def start_scheduler() -> None:
     scheduler = get_scheduler()
     if not scheduler.running:
         scheduler.start()
-        register_production_jobs()
+        aionx_error = register_production_jobs()
         try:
             await _sync_job_metadata()
         except Exception as exc:
             logger.warning("Scheduler metadata sync skipped: %s", exc)
         logger.info("JARVIS production scheduler started")
+
+        if aionx_error:
+            # All 26 AIONX organ jobs failed to register — that's the whole
+            # intelligence layer silently absent, not something to leave as
+            # a log line nobody watches.
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    "🚨 *AIONX scheduler registration failed on startup*\n"
+                    f"Error: {aionx_error}\n\n"
+                    "All 26 AIONX organ jobs are absent from the scheduler — core "
+                    "production jobs are running normally, only the AIONX layer is affected."
+                )
+            except Exception as exc:
+                logger.warning("AIONX registration-failure alert failed: %s", exc)
 
 
 def stop_scheduler() -> None:
@@ -286,7 +301,10 @@ def stop_scheduler() -> None:
         logger.info("JARVIS production scheduler stopped")
 
 
-def register_production_jobs() -> None:
+def register_production_jobs() -> Optional[str]:
+    """Registers all production + AIONX jobs. Returns an error string if AIONX
+    registration failed (all 26 organ jobs would be silently absent otherwise),
+    or None on success."""
     _remove_deprecated_jobs()
     existing_job_ids = {job.id for job in get_scheduler().get_jobs()}
     specs = _production_job_specs()
@@ -307,6 +325,7 @@ def register_production_jobs() -> None:
         if not already_persisted:
             seeded += 1
 
+    aionx_error: Optional[str] = None
     try:
         from app.services.aionx.aionx_scheduler import register_aionx_jobs
 
@@ -314,6 +333,7 @@ def register_production_jobs() -> None:
         aionx_seeded = len([job_id for job_id in AIONX_JOB_IDS if job_id not in existing_job_ids])
     except Exception as exc:
         logger.warning("AIONX scheduler heartbeat registration skipped: %s", exc)
+        aionx_error = str(exc)
 
     loaded = len(PRODUCTION_JOB_IDS) - seeded
     logger.info(
@@ -323,6 +343,7 @@ def register_production_jobs() -> None:
         seeded,
         aionx_seeded,
     )
+    return aionx_error
 
 
 def _production_job_specs() -> list[dict[str, Any]]:
