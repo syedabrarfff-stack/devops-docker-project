@@ -10,7 +10,7 @@ import {
   supremeEscalationTriggers, supremeCEODashboard, supremeCEOPriorities,
   supremeCEOCompetitive, supremeRevenueDashboard, supremePipelineHealth,
   supremePlatformDashboard, supremeTechDebt, supremeSalesDashboard,
-  supremeObjectionPlaybook,
+  supremeObjectionPlaybook, getRevenueARR, getLeadStats,
 } from '../../services/api'
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -233,12 +233,27 @@ function CEOBrain() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([supremeCEODashboard(0), supremeCEOCompetitive()])
-      .then(([d, c]) => { setData(d); setCompetitive(c) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-    supremeCEOPriorities({ mrr: 0, client_count: 0, hot_leads: 0, top_client_revenue_pct: 0 })
-      .then(setPriorities).catch(() => {})
+    // Pull real business figures first — the constitutional math here is real,
+    // it was just always being fed hardcoded zeros regardless of actual state.
+    Promise.all([
+      getRevenueARR().catch(() => ({ mrr_usd: 0, active_clients: 0 })),
+      getLeadStats().catch(() => ({ high_score: 0 })),
+    ]).then(([arr, leadStats]) => {
+      const mrr = arr.mrr_usd || 0
+      const clientCount = arr.active_clients || 0
+      const hotLeads = leadStats.high_score || 0
+
+      Promise.all([supremeCEODashboard(mrr), supremeCEOCompetitive()])
+        .then(([d, c]) => { setData(d); setCompetitive(c) })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+      supremeCEOPriorities({
+        mrr, client_count: clientCount, hot_leads: hotLeads,
+        // Not yet backed by a per-client concentration metric — left at 0
+        // rather than a fabricated figure until that's wired up.
+        top_client_revenue_pct: 0,
+      }).then(setPriorities).catch(() => {})
+    })
   }, [])
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>
