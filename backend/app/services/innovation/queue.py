@@ -9,6 +9,7 @@ from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.innovation import InnovationQueueItem, InnovationStatus
 from app.services.civilization import civilization_ledger
+from app.services.council import get_council_session
 from app.services.memory.graph import _upsert_node
 
 
@@ -201,15 +202,42 @@ class InnovationQueueService:
                         .limit(3)
                     )
                 ).scalars().all()
+                council = get_council_session()
                 for item in rows:
-                    approved = float(item.priority_score or 0.0) >= 60.0
+                    try:
+                        outcome = await council.run(
+                            task_category="strategy",
+                            question=(
+                                f"Should JARVIS implement this proposed innovation?\n\n"
+                                f"Title: {item.title}\n"
+                                f"Description: {item.description}\n"
+                                f"Impact score: {item.impact_score}/100\n"
+                                f"Feasibility score: {item.feasibility_score}/100\n"
+                                f"Priority score: {item.priority_score}/100"
+                            ),
+                            context={
+                                "innovation_item_id": str(item.id),
+                                "impact_score": item.impact_score,
+                                "feasibility_score": item.feasibility_score,
+                                "priority_score": item.priority_score,
+                            },
+                            session=session,
+                        )
+                        recommendation = outcome.recommendation.to_dict()
+                        approved = recommendation["decision"] == "APPROVE"
+                        item.review_notes = recommendation.get("unified_reasoning") or (
+                            f"Council decision: {recommendation['decision']}"
+                        )
+                    except Exception as exc:
+                        # Council unavailable — fall back to the priority threshold rather
+                        # than silently claiming a review that never happened.
+                        approved = float(item.priority_score or 0.0) >= 60.0
+                        item.review_notes = (
+                            f"AI council unavailable ({exc}) — held to priority-score threshold "
+                            f"as a fallback: {'passed' if approved else 'did not pass'} (>=60)."
+                        )
                     item.council_approved = approved
                     item.status = InnovationStatus.IMPLEMENTING.value if approved else InnovationStatus.PROPOSED.value
-                    item.review_notes = (
-                        "Council approved for implementation because priority score is above the execution threshold."
-                        if approved
-                        else "Council held this proposal for more evidence before implementation."
-                    )
                     reviewed.append(_serialize(item))
                 session.add(
                     AuditLog(
