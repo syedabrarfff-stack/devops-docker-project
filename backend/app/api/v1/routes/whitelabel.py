@@ -35,12 +35,22 @@ class SignupRequest(BaseModel):
     admin_email: str = Field(min_length=5, max_length=255)
     plan_tier: str = Field(default="STARTER", max_length=50)
 
-@router.post("/signup")
+@router.post("/signup", dependencies=[Depends(get_current_captain)])
 @limiter.limit("3/minute")
 async def agency_signup(request: Request, body: SignupRequest):
     """
-    Called when an agency completes payment on the landing page.
-    Creates tenant, returns login credentials, begins onboarding.
+    Creates a new agency tenant, returns login credentials, begins onboarding.
+
+    SECURITY: this docstring used to say "called when an agency completes
+    payment on the landing page" as if that were enforced — it wasn't. The
+    full call chain (this route -> onboarding.create_agency_tenant ->
+    TenantManager.create_tenant) contains no payment verification anywhere;
+    it unconditionally mints a real password and a real plaintext API key
+    for whatever plan_tier is requested. With no auth, this was a public,
+    unauthenticated, free account-creation endpoint for a product with
+    $2K-$75K/month pricing. Gated behind Captain auth until a real
+    Stripe-verified flow (checkout session created here, tenant created only
+    from a verified `checkout.session.completed` webhook) replaces this.
     """
     result = await onboarding.create_agency_tenant(
         body.company_name, body.admin_email, body.plan_tier
