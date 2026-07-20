@@ -221,6 +221,16 @@ async def lifespan(app: FastAPI):
         from app.services.scheduler.scheduler import start_scheduler
         await start_scheduler()
         logger.info("✅ Scheduler started (this worker is the scheduler leader)")
+
+        try:
+            from app.services.kernel.health_aggregator import get_health_aggregator
+            from app.services.kernel.core_health_checks import register_core_checks
+            _aggregator = get_health_aggregator()
+            register_core_checks(_aggregator)
+            await _aggregator.start()
+            logger.info("✅ HealthAggregator started (this worker is the scheduler leader)")
+        except Exception as e:
+            logger.warning("HealthAggregator start skipped: %s", e)
     except BlockingIOError:
         logger.info("Scheduler running in another worker — skipping in this one")
         if _scheduler_lock_fd:
@@ -241,6 +251,11 @@ async def lifespan(app: FastAPI):
             stop_scheduler()
         except Exception as exc:
             logger.warning("Scheduler stop failed during shutdown: %s", exc)
+        try:
+            from app.services.kernel.health_aggregator import get_health_aggregator
+            await get_health_aggregator().stop()
+        except Exception as exc:
+            logger.warning("HealthAggregator stop failed during shutdown: %s", exc)
         _scheduler_lock_fd.close()
     logger.info("JARVIS shutting down cleanly")
 
