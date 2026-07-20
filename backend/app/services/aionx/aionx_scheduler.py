@@ -493,9 +493,18 @@ async def _job_founder_mirror_analysis() -> None:
     try:
         from app.core.database import AsyncSessionLocal
         from app.services.aionx.frontier_intelligence import captain_mirror_profile
+        from app.services.aionx.operational_persistence import record_event
 
         async with AsyncSessionLocal() as db:
             profile = await captain_mirror_profile(db)
+            async with db.begin():
+                await record_event(
+                    db,
+                    event_type="FOUNDER_MIRROR_SNAPSHOT",
+                    source="aionx_founder_mirror_analysis",
+                    payload=profile,
+                    severity="INFO",
+                )
             logger.info("AIONX Founder Mirror: %s decisions recorded", profile.get("decisions_recorded"))
     except Exception as exc:
         logger.warning("AIONX Founder Mirror analysis failed: %s", exc)
