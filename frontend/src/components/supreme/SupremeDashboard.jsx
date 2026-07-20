@@ -413,9 +413,45 @@ function Platform() {
   const infra = data?.infrastructure || {}
   const sla = data?.sla_standards || {}
   const items = debt?.immediate_priorities || []
+  const liveDebt = debt?.live_debt_index
 
   return (
     <div className="space-y-4">
+      {liveDebt ? (
+        <Card>
+          <SectionTitle icon={AlertTriangle} label={`Live Debt Index — week of ${liveDebt.week_of}`} />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">Total debt score</p>
+              <p className="text-sm font-semibold text-white/80 mt-0.5">{liveDebt.total_debt_score}</p>
+            </div>
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">Trend</p>
+              <p className="text-sm font-semibold text-white/80 mt-0.5">{liveDebt.trend}</p>
+            </div>
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">Est. repayment</p>
+              <p className="text-sm font-semibold text-white/80 mt-0.5">{liveDebt.estimated_repayment_weeks}w</p>
+            </div>
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">Critical items</p>
+              <p className="text-sm font-semibold text-red-400 mt-0.5">{liveDebt.critical_count}</p>
+            </div>
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">High items</p>
+              <p className="text-sm font-semibold text-amber-400 mt-0.5">{liveDebt.high_count}</p>
+            </div>
+            <div className="p-2 rounded bg-white/[0.02] border border-white/[0.05]">
+              <p className="text-[10px] text-white/40">Refactor triggered</p>
+              <p className="text-sm font-semibold text-white/80 mt-0.5">{liveDebt.refactoring_triggered ? 'Yes' : 'No'}</p>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="text-[11px] text-white/40 px-1">
+          No debt index computed yet — the weekly aionx_debt_assessment job populates this.
+        </div>
+      )}
       <Card>
         <SectionTitle icon={Server} label="Infrastructure" />
         <div className="grid grid-cols-2 gap-2">

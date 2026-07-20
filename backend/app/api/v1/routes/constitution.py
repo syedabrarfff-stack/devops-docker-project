@@ -18,9 +18,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.routes.auth import get_current_captain
 
+from app.core.database import get_db
 from app.core.rate_limit import limiter
+from app.models.aionx_organs import InstitutionalDebtIndex
 from app.services.intelligence.jarvis_constitution import jarvis_constitution
 from app.services.intelligence.autonomous_ceo import autonomous_ceo
 from app.services.intelligence.revenue_consciousness import revenue_consciousness
@@ -258,8 +262,37 @@ async def get_platform_dashboard() -> dict[str, Any]:
 
 
 @router.get("/platform/tech-debt")
-async def get_tech_debt() -> dict[str, Any]:
-    return platform_intelligence.get_tech_debt_registry()
+async def get_tech_debt(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    registry = platform_intelligence.get_tech_debt_registry()
+
+    # aionx_debt_assessment computes a real weekly debt score from actual
+    # decision data — surface it here instead of leaving it write-only.
+    live_index = None
+    try:
+        result = await db.execute(
+            select(InstitutionalDebtIndex).order_by(InstitutionalDebtIndex.week_of.desc()).limit(1)
+        )
+        row = result.scalar_one_or_none()
+        if row is not None:
+            live_index = {
+                "week_of": row.week_of.isoformat(),
+                "total_debt_score": row.total_debt_score,
+                "technical_debt": row.technical_debt,
+                "operational_debt": row.operational_debt,
+                "complexity_debt": row.complexity_debt,
+                "migration_debt": row.migration_debt,
+                "dependency_debt": row.dependency_debt,
+                "critical_count": row.critical_count,
+                "high_count": row.high_count,
+                "estimated_repayment_weeks": row.estimated_repayment_weeks,
+                "trend": row.trend,
+                "refactoring_triggered": row.refactoring_triggered,
+            }
+    except Exception:
+        live_index = None
+
+    registry["live_debt_index"] = live_index
+    return registry
 
 
 class CostPostureRequest(BaseModel):
