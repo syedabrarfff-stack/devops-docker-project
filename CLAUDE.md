@@ -259,6 +259,15 @@ Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 in a single canonical scheduler. Full list in `backend/app/services/scheduler/scheduler.py`'s
 `_production_job_specs()` and `backend/app/services/aionx/aionx_scheduler.py`.
 
+**Voice/Calls — current scope:** no live telephony provider (Twilio, Vonage, ElevenLabs
+Conversational AI, etc.) is wired yet — "Voice" today is text-to-speech only, and "Calls"
+means a human manually logs a meeting via `POST /calls/schedule` with AI-generated prep
+notes, not an actual phone call placed or received. `pre_call_briefing_trigger` and
+`voice_analytics_daily` are real, working jobs, but they operate on whatever call/voice
+records exist — which is nothing until a real provider is connected and its webhooks feed
+`ClientCallIntelligence`/voice-interaction memory. Wire a provider and update this note
+before describing Voice/Calls as automated telephony to Captain or a client.
+
 **Scheduler leader election:** In multi-worker gunicorn deployments, exactly one
 worker runs APScheduler. Leader election uses `fcntl.flock(LOCK_EX|LOCK_NB)` on
 `/tmp/jarvis_scheduler.lock` in the FastAPI lifespan (`main.py`). The first worker
