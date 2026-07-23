@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -125,6 +125,22 @@ async def _eligible_leads(
     max_leads: int,
     min_score: float,
 ) -> list[dict]:
+    from datetime import timedelta
+
+    from app.models.outreach import OutreachLog
+
+    # ART-08 (NEXUS Constitution): no lead may receive more than 3 autonomous
+    # outreach emails in 7 days. Enforced here at lead selection, since the
+    # NEXUS brain's evaluate_action() only ever sees one cycle-level decision
+    # with no per-lead context to check this against.
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    over_cap_leads = (
+        select(OutreachLog.lead_id)
+        .where(OutreachLog.sent_at >= seven_days_ago, OutreachLog.lead_id.isnot(None))
+        .group_by(OutreachLog.lead_id)
+        .having(func.count() >= 3)
+    )
+
     q = (
         select(Lead)
         .where(
@@ -133,6 +149,7 @@ async def _eligible_leads(
                 Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE]),
                 Lead.score >= min_score,
                 Lead.email.isnot(None),
+                Lead.id.notin_(over_cap_leads),
             )
         )
         .order_by(Lead.score.desc())
@@ -317,25 +334,40 @@ async def approve_draft(tenant_id: str, draft_id: str) -> dict:
 
     async with AsyncSessionLocal() as db:
         from app.services.outreach.gmail import send_client_email
+        from app.services.outreach.compliance import outreach_compliance
+
+        # AUTOPILOT is a fully autonomous/bulk-approval sender — it must clear the
+        # same do-not-contact/daily-cap/pause gate as every other send path
+        # (GHOST's manual send, the automated sequence engine). Load the lead row
+        # up front so the gate can be checked before anything is sent.
+        lead_uuid = _to_uuid(draft["lead_id"])
+        row = None
+        if lead_uuid:
+            row = (await db.execute(select(Lead).where(Lead.id == lead_uuid))).scalar_one_or_none()
+
+        if row is not None:
+            tenant_uuid = row.tenant_id or _to_uuid(tenant_id)
+            safety = await outreach_compliance.safety_gate(db, tenant_uuid, row, to_email)
+            if not safety["allowed"]:
+                raise RuntimeError(f"Blocked by outreach compliance: {safety.get('reason', 'not_allowed')}")
+
+        body_text = outreach_compliance.append_footer(draft["body"], to_email)
         success, error, method = await send_client_email(
             db=db,
             to=to_email,
             subject=draft["subject"],
-            body=draft["body"],
+            body=body_text,
             to_name=draft.get("lead_contact") or "",
         )
         if not success:
             raise RuntimeError(f"Email send failed: {error}")
 
         # Update lead record
-        lead_uuid = _to_uuid(draft["lead_id"])
-        if lead_uuid:
-            row = (await db.execute(select(Lead).where(Lead.id == lead_uuid))).scalar_one_or_none()
-            if row:
-                row.outreach_count = (row.outreach_count or 0) + 1
-                if row.status == LeadStatus.NEW:
-                    row.status = LeadStatus.CONTACTED
-                row.last_contact = datetime.now(timezone.utc)
+        if row is not None:
+            row.outreach_count = (row.outreach_count or 0) + 1
+            if row.status == LeadStatus.NEW:
+                row.status = LeadStatus.CONTACTED
+            row.last_contact = datetime.now(timezone.utc)
         await db.commit()
 
     draft["status"] = "sent"

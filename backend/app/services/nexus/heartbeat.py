@@ -205,6 +205,8 @@ async def run_pulse(db: Any) -> dict:
             pulse["subsystems"]["redis"] = "healthy"
         except Exception as exc:
             pulse["subsystems"]["redis"] = f"error: {exc}"
+        finally:
+            await r.aclose()
     else:
         pulse["subsystems"]["redis"] = "unavailable"
 

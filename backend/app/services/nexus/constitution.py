@@ -140,9 +140,12 @@ def evaluate_action(action_type: str, payload: dict[str, Any]) -> ConstitutionVe
     if action_type in ("sign_contract", "send_invoice", "commit_payment"):
         violations.append("ART-02: Financial commitment action requires Captain approval — blocked.")
 
-    # ART-08 — outreach count
+    # ART-08 — outreach count. NEXUS brain decisions use action_type "send_outreach"
+    # (see brain.py's _BRAIN_SYSTEM_PROMPT), not "send_email". The real per-lead
+    # enforcement of this cap lives in autopilot/pipeline.py::_eligible_leads(),
+    # since this cycle-level payload has no per-lead outreach_count to check.
     outreach_count = int(payload.get("outreach_count", 0))
-    if outreach_count >= 3 and action_type == "send_email":
+    if outreach_count >= 3 and action_type in ("send_email", "send_outreach"):
         violations.append(f"ART-08: Lead has {outreach_count} emails sent — max 3 per cycle reached.")
 
     # ART-09 — cost cap (estimated)

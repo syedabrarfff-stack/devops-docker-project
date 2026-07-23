@@ -320,7 +320,7 @@ async def _call_google(model: str, prompt: str, max_tokens: int = 1024) -> str:
         raise RuntimeError("GOOGLE_API_KEY not configured")
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"maxOutputTokens": max_tokens},
