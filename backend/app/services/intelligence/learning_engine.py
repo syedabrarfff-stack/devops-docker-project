@@ -342,9 +342,10 @@ Return only valid JSON."""
             )
             avg_effort_accuracy = avg_acc_result.scalar()
 
-            recent_lessons = await db.execute(
+            recent_lessons_result = await db.execute(
                 select(DeliveryLesson).where(DeliveryLesson.tenant_id == tid).order_by(DeliveryLesson.created_at.desc()).limit(5)
             )
+            recent_lessons_rows = recent_lessons_result.scalars().all()
 
         return {
             "lessons_count": lessons_count,
@@ -360,7 +361,7 @@ Return only valid JSON."""
                     "effort_accuracy_pct": l.effort_accuracy_pct,
                     "created_at": l.created_at.isoformat() if l.created_at else None,
                 }
-                for l in recent_lessons.scalars().all()
+                for l in recent_lessons_rows
             ],
         }
 

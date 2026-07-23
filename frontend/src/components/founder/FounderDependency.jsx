@@ -56,8 +56,20 @@ export default function FounderDependency() {
   const score = quickScore?.score ?? report?.latest?.overall_dependency_score ?? 0
   const status = quickScore?.status ?? 'normal'
   const scoreColor = status === 'critical' ? 'text-rose-400' : status === 'high' ? 'text-amber-400' : status === 'target_met' ? 'text-emerald-400' : 'text-blue-400'
-  const sub = report?.latest?.sub_scores || {}
   const latest = report?.latest || {}
+  // NOTE: GET /founder/report (get_dependency_report) returns the five sub-scores
+  // flattened directly on `latest` (latest.approval_dependency, etc.) — it does NOT
+  // nest them under a `sub_scores` key. Only POST /founder/assess's response nests
+  // them that way, and this component never renders that response. Read the real
+  // flattened shape here instead of a `sub_scores` key that never exists.
+  const sub = {
+    approval_dependency: latest.approval_dependency,
+    revenue_dependency: latest.revenue_dependency,
+    client_dependency: latest.client_dependency,
+    decision_dependency: latest.decision_dependency,
+    operational_dependency: latest.operational_dependency,
+  }
+  const hasSubScores = latest.approval_dependency != null
 
   return (
     <div className="space-y-6 p-6">
@@ -80,7 +92,7 @@ export default function FounderDependency() {
       </div>
 
       {/* Sub Scores */}
-      {Object.keys(sub).length > 0 && (
+      {hasSubScores && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6">
           <h2 className="text-white font-semibold mb-4">Dependency Breakdown</h2>
           <SubScoreBar label="Approval Dependency" score={sub.approval_dependency} />

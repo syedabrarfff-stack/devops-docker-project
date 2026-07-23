@@ -288,25 +288,39 @@ class AIRouter:
         }
 
     def available_providers(self) -> List[str]:
-        return [name for name, p in self._providers.items() if p.is_available()]
+        available = []
+        for name, p in self._providers.items():
+            try:
+                if p.is_available():
+                    available.append(name)
+            except Exception:
+                pass
+        return available
 
     def operational_providers(self) -> List[str]:
         """Providers that are configured and whose circuit breaker allows traffic."""
-        return [
-            name
-            for name, provider in self._providers.items()
-            if provider.is_available() and health_monitor.is_available(name)
-        ]
+        operational = []
+        for name, provider in self._providers.items():
+            try:
+                if provider.is_available() and health_monitor.is_available(name):
+                    operational.append(name)
+            except Exception:
+                pass
+        return operational
 
     def get_provider_status(self) -> dict:
-        return {
-            name: {
-                "configured": p.is_available(),
-                "available": p.is_available() and health_monitor.is_available(name),
-                "models": list(p.models.keys()),
-            }
-            for name, p in self._providers.items()
-        }
+        status = {}
+        for name, p in self._providers.items():
+            try:
+                configured = p.is_available()
+                status[name] = {
+                    "configured": configured,
+                    "available": configured and health_monitor.is_available(name),
+                    "models": list(p.models.keys()),
+                }
+            except Exception as exc:
+                status[name] = {"configured": False, "available": False, "models": [], "error": str(exc)}
+        return status
 
     def _resolve_model(self, provider: BaseAIProvider, model_key: str) -> str:
         return provider.models.get(model_key, list(provider.models.values())[0])

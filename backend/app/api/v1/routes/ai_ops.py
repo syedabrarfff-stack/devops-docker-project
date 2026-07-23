@@ -1,6 +1,7 @@
 """
 AI Operations API — provider health, circuit breakers, cost tracking, credential audit, request log.
 """
+import logging
 import time
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request
@@ -18,36 +19,65 @@ from app.services.ai.cost_tracker import (
 from app.services.security.credential_validator import run_credential_audit
 
 router = APIRouter(prefix="/ai-ops", tags=["AI Operations"], dependencies=[Depends(get_current_captain)])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health")
 @limiter.limit("30/minute")
 async def provider_health(request: Request):
     """Circuit breaker state + latency stats for all AI providers."""
-    statuses = health_monitor.all_status()
-    if not statuses:
-        # Populate from known providers if monitor hasn't seen any traffic yet
-        for p in jarvis_router.available_providers():
-            health_monitor.get(p)
+    try:
         statuses = health_monitor.all_status()
-    operational = jarvis_router.operational_providers()
-    configured = jarvis_router.available_providers()
-    return {
-        "total_providers": len(jarvis_router._providers),
-        "configured": len(configured),
-        "available": len(operational),
-        "active_providers": operational,
-        "configured_providers": configured,
-        "circuit_healthy": len(operational),
-        "providers": jarvis_router.get_provider_status(),
-        "circuit_breakers": statuses,
-    }
+        if not statuses:
+            # Populate from known providers if monitor hasn't seen any traffic yet
+            for p in jarvis_router.available_providers():
+                health_monitor.get(p)
+            statuses = health_monitor.all_status()
+        operational = jarvis_router.operational_providers()
+        configured = jarvis_router.available_providers()
+        return {
+            "total_providers": len(jarvis_router._providers),
+            "configured": len(configured),
+            "available": len(operational),
+            "active_providers": operational,
+            "configured_providers": configured,
+            "circuit_healthy": len(operational),
+            "providers": jarvis_router.get_provider_status(),
+            "circuit_breakers": statuses,
+        }
+    except Exception as exc:
+        logger.error("AI Ops health check failed: %s", exc, exc_info=True)
+        return {
+            "total_providers": len(getattr(jarvis_router, "_providers", {})),
+            "configured": 0,
+            "available": 0,
+            "active_providers": [],
+            "configured_providers": [],
+            "circuit_healthy": 0,
+            "providers": {},
+            "circuit_breakers": [],
+            "error": str(exc),
+        }
 
 
 @router.get("/test-bedrock")
 @limiter.limit("5/minute")
 async def test_bedrock(request: Request):
     """Invoke Bedrock directly so configured vs. genuinely callable is clear."""
+    try:
+        return await _test_bedrock_impl()
+    except Exception as exc:
+        logger.error("test-bedrock failed: %s", exc, exc_info=True)
+        return {
+            "provider": "bedrock",
+            "configured": False,
+            "invoked": False,
+            "status": "error",
+            "error": str(exc),
+        }
+
+
+async def _test_bedrock_impl() -> dict:
     provider = jarvis_router._providers.get("bedrock")
     if provider is None:
         return {
