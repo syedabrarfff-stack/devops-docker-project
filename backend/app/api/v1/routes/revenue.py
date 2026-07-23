@@ -56,53 +56,43 @@ async def revenue_mrr_chart(
 @limiter.limit("30/minute")
 async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Annual Recurring Revenue = MRR × 12, plus derived projections."""
-    try:
-        tid = _resolve_tenant(request, tenant_id)
-        async with AsyncSessionLocal() as session:
-            async with session.begin():
-                await set_tenant_context(session, str(tid))
-                # Single GROUP BY replaces 3 sequential scalar queries
-                client_rows = (await session.execute(
-                    select(
-                        Client.status,
-                        func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
-                        func.count(Client.id).label("cnt"),
-                    )
-                    .where(Client.tenant_id == tid)
-                    .group_by(Client.status)
-                )).all()
+    tid = _resolve_tenant(request, tenant_id)
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            await set_tenant_context(session, str(tid))
+            # Single GROUP BY replaces 3 sequential scalar queries
+            client_rows = (await session.execute(
+                select(
+                    Client.status,
+                    func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
+                    func.count(Client.id).label("cnt"),
+                )
+                .where(Client.tenant_id == tid)
+                .group_by(Client.status)
+            )).all()
 
-        c_agg: dict = {}
-        for row in client_rows:
-            key = row.status.value if hasattr(row.status, "value") else str(row.status)
-            c_agg[key] = {"mrr": float(row.mrr or 0), "cnt": int(row.cnt or 0)}
+    c_agg: dict = {}
+    for row in client_rows:
+        key = row.status.value if hasattr(row.status, "value") else str(row.status)
+        c_agg[key] = {"mrr": float(row.mrr or 0), "cnt": int(row.cnt or 0)}
 
-        mrr = c_agg.get("ACTIVE", {}).get("mrr", 0.0)
-        active = c_agg.get("ACTIVE", {}).get("cnt", 0)
-        churned = c_agg.get("CHURNED", {}).get("cnt", 0)
-        total_clients = active + churned
-        churn_rate = (churned / total_clients * 100) if total_clients else 0.0
-        avg_mrr_per_client = (mrr / active) if active else 0.0
+    mrr = c_agg.get("ACTIVE", {}).get("mrr", 0.0)
+    active = c_agg.get("ACTIVE", {}).get("cnt", 0)
+    churned = c_agg.get("CHURNED", {}).get("cnt", 0)
+    total_clients = active + churned
+    churn_rate = (churned / total_clients * 100) if total_clients else 0.0
+    avg_mrr_per_client = (mrr / active) if active else 0.0
 
-        arr = mrr * 12
-        return {
-            "mrr_usd": round(mrr, 2),
-            "arr_usd": round(arr, 2),
-            "active_clients": active,
-            "avg_mrr_per_client": round(avg_mrr_per_client, 2),
-            "churn_rate_pct": round(churn_rate, 1),
-            "arr_target_usd": 1_000_000.0,
-            "arr_progress_pct": round(min(arr / 1_000_000.0 * 100, 100), 2),
-        }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # TEMPORARY diagnostic — Captain-only route, safe to reveal.
-        import traceback
-        raise HTTPException(
-            status_code=500,
-            detail={"debug_error": str(exc), "debug_type": type(exc).__name__, "debug_traceback": traceback.format_exc()},
-        ) from exc
+    arr = mrr * 12
+    return {
+        "mrr_usd": round(mrr, 2),
+        "arr_usd": round(arr, 2),
+        "active_clients": active,
+        "avg_mrr_per_client": round(avg_mrr_per_client, 2),
+        "churn_rate_pct": round(churn_rate, 1),
+        "arr_target_usd": 1_000_000.0,
+        "arr_progress_pct": round(min(arr / 1_000_000.0 * 100, 100), 2),
+    }
 
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -530,29 +520,18 @@ async def revenue_war_room(request: Request, tenant_id: Optional[uuid.UUID] = No
 def _resolve_tenant(request: Request, explicit_id: Optional[uuid.UUID]) -> uuid.UUID:
     from app.core.config import settings
 
+    tid = (
+        explicit_id
+        or getattr(request.state, "tenant_id", None)
+        or request.headers.get("X-Tenant-ID")
+        or settings.JARVIS_DEFAULT_TENANT_ID
+    )
+    if not tid:
+        raise HTTPException(status_code=400, detail="tenant_id is required")
     try:
-        tid = (
-            explicit_id
-            or getattr(request.state, "tenant_id", None)
-            or request.headers.get("X-Tenant-ID")
-            or settings.JARVIS_DEFAULT_TENANT_ID
-        )
-        if not tid:
-            raise HTTPException(status_code=400, detail="tenant_id is required")
-        try:
-            return uuid.UUID(str(tid))
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # TEMPORARY diagnostic — Captain-only route, safe to reveal. Remove once root
-        # cause of the "explicit tenant_id query param always 500s" bug is found.
-        import traceback
-        raise HTTPException(
-            status_code=500,
-            detail={"debug_error": str(exc), "debug_type": type(exc).__name__, "debug_traceback": traceback.format_exc()},
-        ) from exc
+        return uuid.UUID(str(tid))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="tenant_id must be a valid UUID") from exc
 
 
 async def _gather_war_room(tid: uuid.UUID):

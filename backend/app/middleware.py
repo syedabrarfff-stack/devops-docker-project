@@ -631,8 +631,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", "unknown")
     logger.exception("Unhandled exception req=%s: %s", request_id, exc)
+    body = _error_body(500, "Internal server error", request)
+    # TEMPORARY diagnostic — scoped narrowly to /api/v1/revenue (Captain-only,
+    # currently under active investigation for a 500 that in-function
+    # try/except doesn't catch, meaning it's happening before the route body
+    # runs). Remove once root cause is found and fixed.
+    if str(request.url.path).startswith("/api/v1/revenue"):
+        import traceback
+        body["debug_error"] = str(exc)
+        body["debug_type"] = type(exc).__name__
+        body["debug_traceback"] = traceback.format_exc()
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=_error_body(500, "Internal server error", request),
+        content=body,
         headers={"X-Request-ID": request_id},
     )
