@@ -165,32 +165,53 @@ async def _cmd_pipeline() -> dict:
         return {"text": f"Pipeline query failed: {exc}"}
 
 
-async def _cmd_approve(approval_id: str) -> dict:
+async def _set_approval_status(approval_id: str, status, captain_note: str | None = None) -> dict:
+    import uuid
+    from datetime import datetime
+    from sqlalchemy import select
     from app.core.database import AsyncSessionLocal
-    from sqlalchemy import text as sqla_text
+    from app.models.approval import ApprovalRequest, ApprovalStatus
+
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(sqla_text(
-                "UPDATE approval_requests SET status='approved', reviewed_at=NOW() "
-                "WHERE id=:id AND status='pending'"
-            ), {"id": int(approval_id)})
-            await session.commit()
-        return {"response_type": "in_channel", "text": f"✅ Approval #{approval_id} approved via Slack."}
+        approval_uuid = uuid.UUID(str(approval_id))
+    except ValueError:
+        return {"text": f"❓ Invalid approval ID: {approval_id}"}
+
+    async with AsyncSessionLocal() as session:
+        row = (await session.execute(
+            select(ApprovalRequest).where(ApprovalRequest.id == approval_uuid)
+        )).scalar_one_or_none()
+        if not row:
+            return {"text": f"❓ Approval {approval_id} not found."}
+        if row.status != ApprovalStatus.PENDING:
+            return {"text": f"ℹ️ Already {row.status.value}."}
+        row.status = status
+        row.approved_at = datetime.utcnow()
+        if captain_note:
+            row.captain_note = captain_note
+        title = row.title
+        await session.commit()
+    return {"title": title}
+
+
+async def _cmd_approve(approval_id: str) -> dict:
+    from app.models.approval import ApprovalStatus
+    try:
+        result = await _set_approval_status(approval_id, ApprovalStatus.APPROVED, "Via Slack")
+        if "text" in result:
+            return result
+        return {"response_type": "in_channel", "text": f"✅ *{result['title']}* approved via Slack."}
     except Exception as exc:
         return {"text": f"Approval failed: {exc}"}
 
 
 async def _cmd_reject(approval_id: str, reason: str) -> dict:
-    from app.core.database import AsyncSessionLocal
-    from sqlalchemy import text as sqla_text
+    from app.models.approval import ApprovalStatus
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(sqla_text(
-                "UPDATE approval_requests SET status='rejected', reviewed_at=NOW(), notes=:reason "
-                "WHERE id=:id AND status='pending'"
-            ), {"id": int(approval_id), "reason": reason or "Rejected via Slack"})
-            await session.commit()
-        return {"response_type": "in_channel", "text": f"❌ Approval #{approval_id} rejected."}
+        result = await _set_approval_status(approval_id, ApprovalStatus.REJECTED, reason or "Rejected via Slack")
+        if "text" in result:
+            return result
+        return {"response_type": "in_channel", "text": f"❌ *{result['title']}* rejected."}
     except Exception as exc:
         return {"text": f"Reject failed: {exc}"}
 

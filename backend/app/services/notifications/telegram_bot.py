@@ -111,17 +111,9 @@ async def handle_command(chat_id: str, cmd: str, args: list[str]) -> None:
         elif cmd == "scout":
             await _handle_scout(chat_id)
         elif cmd == "approve" and args:
-            try:
-                aid = int(args[0])
-                await _handle_approval_callback(chat_id, aid, "approve", db)
-            except (ValueError, IndexError):
-                await send_message(chat_id, "Usage: /approve <id>")
+            await _handle_approval_callback(chat_id, args[0], "approve", db)
         elif cmd == "reject" and args:
-            try:
-                aid = int(args[0])
-                await _handle_approval_callback(chat_id, aid, "reject", db)
-            except (ValueError, IndexError):
-                await send_message(chat_id, "Usage: /reject <id>")
+            await _handle_approval_callback(chat_id, args[0], "reject", db)
         else:
             await send_message(chat_id, "Unknown command. Try /help")
 
@@ -150,7 +142,7 @@ async def get_webhook_info() -> dict:
     return await _api("getWebhookInfo")
 
 
-def _approval_keyboard(approval_id: int) -> dict:
+def _approval_keyboard(approval_id: str) -> dict:
     return {
         "inline_keyboard": [[
             {"text": "✅ Approve", "callback_data": f"approve:{approval_id}"},
@@ -175,7 +167,7 @@ async def handle_update(update: dict, db) -> None:
             await _handle_autopilot_draft_action(cq_chat, draft_id, act)
         elif data.startswith("approve:") or data.startswith("reject:"):
             action, aid = data.split(":", 1)
-            await _handle_approval_callback(cq_chat, int(aid), action, db)
+            await _handle_approval_callback(cq_chat, aid, action, db)
         return
 
     # Text message
@@ -347,24 +339,32 @@ async def _handle_self_heal(chat_id: str) -> None:
         await send_message(chat_id, f"❌ Self-heal failed: {e}")
 
 
-async def _handle_approval_callback(chat_id: str, approval_id: int,
+async def _handle_approval_callback(chat_id: str, approval_id: str,
                                      action: str, db) -> None:
+    import uuid
     from sqlalchemy import select
-    from app.models.approval import ApprovalRequest
+    from app.models.approval import ApprovalRequest, ApprovalStatus
     from datetime import datetime
-    row = (await db.execute(select(ApprovalRequest).where(ApprovalRequest.id == approval_id))).scalar_one_or_none()
+
+    try:
+        approval_uuid = uuid.UUID(str(approval_id))
+    except ValueError:
+        await send_message(chat_id, f"❓ Invalid approval ID: {approval_id}")
+        return
+
+    row = (await db.execute(select(ApprovalRequest).where(ApprovalRequest.id == approval_uuid))).scalar_one_or_none()
     if not row:
-        await send_message(chat_id, f"❓ Approval #{approval_id} not found.")
+        await send_message(chat_id, f"❓ Approval {approval_id} not found.")
         return
-    if row.status != "pending":
-        await send_message(chat_id, f"ℹ️ Already {row.status}.")
+    if row.status != ApprovalStatus.PENDING:
+        await send_message(chat_id, f"ℹ️ Already {row.status.value}.")
         return
-    row.status = "approved" if action == "approve" else "rejected"
+    row.status = ApprovalStatus.APPROVED if action == "approve" else ApprovalStatus.REJECTED
     row.approved_at = datetime.utcnow()
-    row.captain_note = f"Via Telegram bot"
+    row.captain_note = "Via Telegram bot"
     await db.flush()
     icon = "✅" if action == "approve" else "❌"
-    await send_message(chat_id, f"{icon} *{row.status.upper()}*: {row.title}")
+    await send_message(chat_id, f"{icon} *{row.status.value}*: {row.title}")
 
 
 async def _handle_chat(chat_id: str, text: str, db) -> None:

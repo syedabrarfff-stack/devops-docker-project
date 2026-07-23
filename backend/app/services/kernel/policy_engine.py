@@ -178,9 +178,10 @@ class PolicyEngine:
         reason: str,
         details: dict | None,
     ) -> None:
-        """Fire-and-forget Captain notification via Telegram bridge."""
+        """Fire-and-forget Captain notification via Slack + Telegram."""
         try:
-            from app.services.captain import telegram_bridge
+            from app.services.notifications.slack import notify_slack
+            from app.services.notifications.telegram import notify_telegram
             msg = (
                 f"⚠️ *Captain Approval Required*\n\n"
                 f"*Operation:* `{operation}`\n"
@@ -189,7 +190,8 @@ class PolicyEngine:
                 f"*Details:* {details or {}}\n\n"
                 f"Reply with /approve or /reject followed by the operation name."
             )
-            await telegram_bridge.send_captain_alert(msg)
+            await notify_slack(msg)
+            await notify_telegram(msg)
         except Exception:
             # Notification failure must never block policy enforcement, but
             # a silent alert-delivery outage is exactly the kind of thing

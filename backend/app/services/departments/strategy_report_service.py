@@ -465,14 +465,14 @@ Return only valid JSON array."""
         )
 
         try:
-            from app.services.notifications.slack import send_slack_message
-            await send_slack_message(summary)
+            from app.services.notifications.slack import notify_slack
+            await notify_slack(summary)
         except Exception as exc:
             logger.warning("Slack strategy report notification failed: %s", exc)
 
         try:
-            from app.services.notifications.telegram_bot import send_telegram_message
-            await send_telegram_message(summary)
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(summary)
         except Exception as exc:
             logger.warning("Telegram strategy report notification failed: %s", exc)
 

@@ -160,11 +160,15 @@ async def _gateway_health_scores(db) -> dict[str, int]:
             .group_by(OutreachLog.status)
         )
         rows = dict(result.all())
-        sent = rows.get(OutreachStatus.SENT, 0)
-        failed = rows.get(OutreachStatus.FAILED, 0)
-        total = sent + failed
+        # Query already filters to sent_at IS NOT NULL, so every returned status
+        # represents an actual send attempt. BOUNCED is the only real hard-failure
+        # status (OutreachStatus has no FAILED member) — everything else (SENT,
+        # DELIVERED, OPENED, CLICKED, REPLIED) is a successful send.
+        failed = rows.get(OutreachStatus.BOUNCED, 0)
+        total = sum(rows.values())
+        succeeded = total - failed
         if total > 0:
-            scores["AXIOM_OUTREACH"] = round(60 + 40 * (sent / total))
+            scores["AXIOM_OUTREACH"] = round(60 + 40 * (succeeded / total))
         elif settings.SES_FROM_EMAIL:
             scores["AXIOM_OUTREACH"] = 75  # configured but quiet — not yet proven, not failing
         else:

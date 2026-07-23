@@ -223,9 +223,10 @@ class FailoverController:
         except Exception:
             log.exception("failover_controller: event bus publish failed")
 
-        # 2. Captain notification (Telegram)
+        # 2. Captain notification (Slack + Telegram)
         try:
-            from app.services.kernel.override_controller import _notify_captain  # type: ignore
+            from app.services.notifications.slack import notify_slack
+            from app.services.notifications.telegram import notify_telegram
             msg = (
                 f"🚨 *FAILOVER ALERT*\n"
                 f"Primary region has been CRITICAL for {event.critical_duration_s:.0f}s.\n"
@@ -233,7 +234,8 @@ class FailoverController:
                 f"Event ID: `{event.event_id}`\n"
                 f"Evidence: {list(event.evidence.get('engines', {}).keys())}"
             )
-            await _notify_captain(msg)
+            await notify_slack(msg)
+            await notify_telegram(msg)
         except Exception:
             log.exception("failover_controller: captain notification failed")
 
