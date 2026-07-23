@@ -32,6 +32,9 @@ class TestNarrateExecution:
         assert "Verified" in text
 
     def test_failed_run_explains_rollback(self):
+        # rollback() never runs `git reset --hard` — it only identifies which
+        # commits from this run still need reverting. The narration must say so
+        # honestly rather than claiming a revert happened.
         result = {
             "status": "FAILED",
             "failed_step": 1,
@@ -39,23 +42,34 @@ class TestNarrateExecution:
                 {"step": 0, "tool": "read_file", "outcome": {"ok": True}},
                 {"step": 1, "tool": "write_file", "outcome": {"ok": False, "error": "disk full"}},
             ],
-            "rollback": {"ok": True},
+            "rollback": {"ok": True, "to_commit": "abc123", "commits_needing_revert": ["deadbeef01"]},
         }
         text = narrate_execution("bug.fix", "nvidia/x", result)
         assert "1. read_file — done" in text
         assert "2. write_file — FAILED" in text
-        assert "Rolled back" in text
+        assert "NOT rolled back" in text
+        assert "deadbeef" in text
+
+    def test_failed_run_with_nothing_to_revert(self):
+        result = {
+            "status": "FAILED",
+            "failed_step": 1,
+            "steps": [{"step": 0, "tool": "read_file", "outcome": {"ok": True}}],
+            "rollback": {"ok": True, "note": "Nothing to roll back — no new commits were made."},
+        }
+        text = narrate_execution("bug.fix", "nvidia/x", result)
+        assert "nothing to roll back" in text.lower()
 
     def test_failed_test_stage_explains_reason(self):
         result = {
             "status": "FAILED",
             "reason": "post_execution_tests_failed",
             "steps": [{"step": 0, "tool": "write_file", "outcome": {"ok": True}}],
-            "rollback": {"ok": True},
+            "rollback": {"ok": True, "to_commit": "abc123", "commits_needing_revert": ["cafebabe02"]},
         }
         text = narrate_execution("bug.fix", "nvidia/x", result)
         assert "post_execution_tests_failed" in text
-        assert "Rolled back" in text
+        assert "NOT rolled back" in text
 
     def test_no_operation_still_produces_readable_text(self):
         result = {"status": "COMPLETED", "steps": [], "test_output": {"ok": True}}

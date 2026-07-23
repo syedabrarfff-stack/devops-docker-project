@@ -233,7 +233,7 @@ Return ONLY valid JSON:
         """Assemble lightweight pipeline context for AI prompts."""
         try:
             from app.models.lead import Lead  # noqa: PLC0415
-            from app.models.outreach import ReplyLog  # noqa: PLC0415
+            from app.models.outreach import OutreachLog, ReplyLog  # noqa: PLC0415
 
             now = datetime.now(UTC)
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -249,8 +249,8 @@ Return ONLY valid JSON:
 
                     outreach_today = await session.scalar(
                         select(func.count())
-                        .select_from(ReplyLog)
-                        .where(ReplyLog.tenant_id == tenant_uuid, ReplyLog.created_at >= today_start)
+                        .select_from(OutreachLog)
+                        .where(OutreachLog.tenant_id == tenant_uuid, OutreachLog.sent_at >= today_start)
                     ) or 0
 
                     stale_warm = await session.scalar(

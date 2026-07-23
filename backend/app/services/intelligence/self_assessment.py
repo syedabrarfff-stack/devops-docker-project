@@ -158,19 +158,27 @@ async def _assess_revenue_momentum(session: AsyncSession, tenant_id: UUID) -> di
 
 
 async def _assess_system_health(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    """Score based on the real AI request success rate over the last 7 days."""
+    """Score based on the real AI request success rate over the last 7 days.
+
+    Uses AICostLedger — the table the live AI call path (router.py's
+    _record_ai_metrics -> economics_service.log_ai_call) actually writes to.
+    AIRequestLog/cost_tracker.log_request looks parallel but nothing calls it;
+    it's permanently empty.
+    """
     try:
-        from app.models.ai_audit import AIRequestLog
+        from app.models.economics import AICostLedger
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         total = (await session.execute(
-            select(func.count()).select_from(AIRequestLog).where(
-                AIRequestLog.created_at >= cutoff,
+            select(func.count()).select_from(AICostLedger).where(
+                AICostLedger.tenant_id == tenant_id,
+                AICostLedger.created_at >= cutoff,
             )
         )).scalar() or 0
         failed = (await session.execute(
-            select(func.count()).select_from(AIRequestLog).where(
-                AIRequestLog.created_at >= cutoff,
-                AIRequestLog.success.is_(False),
+            select(func.count()).select_from(AICostLedger).where(
+                AICostLedger.tenant_id == tenant_id,
+                AICostLedger.created_at >= cutoff,
+                AICostLedger.success.is_(False),
             )
         )).scalar() or 0
         error_rate = (failed / total) if total > 0 else 0.0

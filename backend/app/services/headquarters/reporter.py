@@ -45,10 +45,19 @@ def narrate_execution(operation: str | None, driver_model: str | None, result: d
         reason = result.get("reason") or f"step {result.get('failed_step')} failed"
         lines.append(f"Stopped: {reason}.")
         rollback = result.get("rollback", {})
-        if rollback.get("ok"):
-            lines.append("Rolled back to the last known-good commit — nothing broken left in place.")
-        else:
+        if not rollback.get("ok"):
             lines.append(f"Rollback note: {rollback.get('error', 'see audit log')}.")
+        elif rollback.get("commits_needing_revert"):
+            # rollback() deliberately never runs `git reset --hard` (destructive to
+            # uncommitted work) — it only identifies what was committed during this
+            # run. Nothing has actually been reverted yet.
+            commits = ", ".join(c[:8] for c in rollback["commits_needing_revert"])
+            lines.append(
+                f"NOT rolled back — {len(rollback['commits_needing_revert'])} commit(s) "
+                f"from this run ({commits}) are still on HEAD and need manual revert."
+            )
+        else:
+            lines.append("Rollback: nothing to roll back — no new commits were made.")
 
     return "\n".join(lines)
 

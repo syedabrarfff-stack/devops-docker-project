@@ -8,7 +8,7 @@ from datetime import datetime, date
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.models.ai_audit import AIRequestLog
+from app.models.economics import AICostLedger
 
 logger = logging.getLogger(__name__)
 
@@ -63,35 +63,6 @@ def estimate_cost(provider: str, model_id: str, tokens: int) -> float:
     return round(tokens / 1000 * 0.001, 6)  # fallback: $0.001/1K
 
 
-async def log_request(
-    db: AsyncSession,
-    provider: str,
-    model: str,
-    task_type: str,
-    tokens_used: int,
-    latency_ms: int,
-    success: bool,
-    error_message: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> AIRequestLog:
-    cost = estimate_cost(provider, model, tokens_used)
-    entry = AIRequestLog(
-        tenant_id=_SYSTEM_TENANT,
-        provider=provider,
-        model=model,
-        task_type=task_type,
-        tokens_used=tokens_used,
-        latency_ms=latency_ms,
-        cost_estimate_usd=cost,
-        success=success,
-        error_message=error_message,
-        session_id=session_id,
-    )
-    db.add(entry)
-    await db.commit()
-    return entry
-
-
 async def get_daily_cost(db: AsyncSession, for_date: Optional[date] = None) -> dict:
     target = for_date or date.today()
     start = datetime.combine(target, datetime.min.time())
@@ -99,14 +70,14 @@ async def get_daily_cost(db: AsyncSession, for_date: Optional[date] = None) -> d
 
     result = await db.execute(
         select(
-            AIRequestLog.provider,
-            func.sum(AIRequestLog.cost_estimate_usd).label("total_cost"),
-            func.sum(AIRequestLog.tokens_used).label("total_tokens"),
+            AICostLedger.provider,
+            func.sum(AICostLedger.cost_usd).label("total_cost"),
+            func.sum(AICostLedger.tokens_total).label("total_tokens"),
             func.count().label("total_requests"),
-            func.avg(AIRequestLog.latency_ms).label("avg_latency"),
+            func.avg(AICostLedger.latency_ms).label("avg_latency"),
         )
-        .where(AIRequestLog.created_at.between(start, end))
-        .group_by(AIRequestLog.provider)
+        .where(AICostLedger.created_at.between(start, end))
+        .group_by(AICostLedger.provider)
     )
     rows = result.fetchall()
 
@@ -128,19 +99,19 @@ async def get_daily_cost(db: AsyncSession, for_date: Optional[date] = None) -> d
 
 
 async def get_audit_log(db: AsyncSession, limit: int = 100, provider: Optional[str] = None) -> list:
-    q = select(AIRequestLog).order_by(AIRequestLog.created_at.desc()).limit(limit)
+    q = select(AICostLedger).order_by(AICostLedger.created_at.desc()).limit(limit)
     if provider:
-        q = q.where(AIRequestLog.provider == provider)
+        q = q.where(AICostLedger.provider == provider)
     result = await db.execute(q)
     rows = result.scalars().all()
     return [{
-        "id": r.id,
+        "id": str(r.id),
         "provider": r.provider,
         "model": r.model,
         "task_type": r.task_type,
-        "tokens_used": r.tokens_used,
+        "tokens_used": r.tokens_total,
         "latency_ms": r.latency_ms,
-        "cost_estimate_usd": r.cost_estimate_usd,
+        "cost_estimate_usd": r.cost_usd,
         "success": r.success,
         "error_message": r.error_message,
         "created_at": r.created_at.isoformat(),
@@ -155,11 +126,11 @@ async def get_cost_summary(db: AsyncSession, days: int = 7) -> dict:
     window_start = datetime.combine(today - timedelta(days=days - 1), datetime.min.time())
     rows = (await db.execute(
         select(
-            cast(AIRequestLog.created_at, SADate).label("day"),
-            func.sum(AIRequestLog.cost_estimate_usd).label("cost"),
+            cast(AICostLedger.created_at, SADate).label("day"),
+            func.sum(AICostLedger.cost_usd).label("cost"),
         )
-        .where(AIRequestLog.created_at >= window_start)
-        .group_by(cast(AIRequestLog.created_at, SADate))
+        .where(AICostLedger.created_at >= window_start)
+        .group_by(cast(AICostLedger.created_at, SADate))
     )).all()
     cost_by_day = {str(r.day): round(float(r.cost or 0), 4) for r in rows}
     summaries = [

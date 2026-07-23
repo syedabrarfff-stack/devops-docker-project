@@ -105,7 +105,7 @@ async def handle_inbound_payment(payload: dict) -> dict[str, Any]:
         from sqlalchemy import text as sqla_text
         async with AsyncSessionLocal() as session:
             result = await session.execute(sqla_text(
-                "UPDATE invoices SET status='paid', paid_at=NOW(), "
+                "UPDATE invoices SET status='PAID', paid_at=NOW(), "
                 "notes=COALESCE(notes,'') || :note "
                 "WHERE invoice_number ILIKE :ref"
             ), {
@@ -133,20 +133,17 @@ async def handle_generic_trigger(source: str, event_type: str, payload: dict) ->
     logger.info("[Webhook] %s/%s received", source, event_type)
     try:
         from app.core.database import AsyncSessionLocal
-        from sqlalchemy import text as sqla_text
-        import uuid
-        system_tenant = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+        from app.services.memory.manager import store_memory
+
         async with AsyncSessionLocal() as session:
-            await session.execute(sqla_text(
-                "INSERT INTO memory (tenant_id, layer, key, value, confidence, version) "
-                "VALUES (:tid, 'episodic', :key, :val, 0.8, 1) "
-                "ON CONFLICT (tenant_id, key) DO UPDATE SET "
-                "value=EXCLUDED.value, updated_at=NOW()"
-            ), {
-                "tid": system_tenant,
-                "key": f"webhook.{source}.{event_type}.{datetime.now(UTC).date()}",
-                "val": str(payload)[:2000],
-            })
+            await store_memory(
+                session,
+                content=str(payload)[:2000],
+                memory_type="episodic",
+                key=f"webhook.{source}.{event_type}.{datetime.now(UTC).date()}",
+                importance=0.4,
+                tags=["webhook", source, event_type],
+            )
             await session.commit()
         return {"status": "logged", "source": source, "event": event_type}
     except Exception as exc:
