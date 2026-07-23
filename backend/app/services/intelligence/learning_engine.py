@@ -256,7 +256,7 @@ Return only valid JSON."""
                 result = await db.execute(
                     select(
                         func.count().label("total"),
-                        func.count(OutreachEmail.reply_received.is_(True)).label("replied"),
+                        func.count(OutreachEmail.replied_at).label("replied"),
                     ).where(OutreachEmail.tenant_id == tid)
                 )
                 row = result.first()

@@ -64,21 +64,21 @@ async def _assess_lead_generation(session: AsyncSession, tenant_id: UUID) -> dic
 
 
 async def _assess_outreach_effectiveness(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    from app.models.outreach import OutreachRecord  # type: ignore[attr-defined]
+    from app.models.outreach import OutreachLog, OutreachStatus
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     try:
         sent_result = await session.execute(
-            select(func.count()).select_from(OutreachRecord).where(
-                OutreachRecord.tenant_id == tenant_id,
-                OutreachRecord.created_at >= cutoff,
+            select(func.count()).select_from(OutreachLog).where(
+                OutreachLog.tenant_id == tenant_id,
+                OutreachLog.sent_at >= cutoff,
             )
         )
         sent = sent_result.scalar() or 0
         replied_result = await session.execute(
-            select(func.count()).select_from(OutreachRecord).where(
-                OutreachRecord.tenant_id == tenant_id,
-                OutreachRecord.created_at >= cutoff,
-                OutreachRecord.status.in_(["replied", "interested", "meeting_booked"]),
+            select(func.count()).select_from(OutreachLog).where(
+                OutreachLog.tenant_id == tenant_id,
+                OutreachLog.sent_at >= cutoff,
+                OutreachLog.status == OutreachStatus.REPLIED,
             )
         )
         replied = replied_result.scalar() or 0
@@ -158,27 +158,33 @@ async def _assess_revenue_momentum(session: AsyncSession, tenant_id: UUID) -> di
 
 
 async def _assess_system_health(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    """Score based on recent audit log error counts."""
+    """Score based on the real AI request success rate over the last 7 days."""
     try:
-        from app.models.ai_audit import AIAuditLog  # type: ignore[attr-defined]
+        from app.models.ai_audit import AIRequestLog
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         total = (await session.execute(
-            select(func.count()).select_from(AIAuditLog).where(
-                AIAuditLog.tenant_id == tenant_id,
-                AIAuditLog.created_at >= cutoff,
+            select(func.count()).select_from(AIRequestLog).where(
+                AIRequestLog.created_at >= cutoff,
             )
         )).scalar() or 0
-        # Use a simple heuristic: more activity = better health
-        score = min(100.0, 70.0 + min(total, 100) * 0.3)
+        failed = (await session.execute(
+            select(func.count()).select_from(AIRequestLog).where(
+                AIRequestLog.created_at >= cutoff,
+                AIRequestLog.success.is_(False),
+            )
+        )).scalar() or 0
+        error_rate = (failed / total) if total > 0 else 0.0
+        score = max(0.0, 100.0 - error_rate * 100.0 * 5.0)  # 20% error rate = 0
     except Exception:
+        total, failed, error_rate = 0, 0, 0.0
         score = 70.0
     return {
         "dimension": "system_health",
         "grade": _grade(score),
         "score": round(score, 2),
-        "raw_value": "operational",
+        "raw_value": {"requests_7d": total, "failed_7d": failed, "error_rate": round(error_rate, 3)},
         "target": "Zero critical failures, <1% error rate",
-        "gap": None,
+        "gap": f"AI error rate at {error_rate:.1%} — target is <1%" if error_rate > 0.01 else None,
         "action": "Review circuit-breaker logs and ensure all AI providers have healthy status",
     }
 
@@ -237,17 +243,14 @@ async def _assess_client_satisfaction(session: AsyncSession, tenant_id: UUID) ->
 
 async def _assess_autonomous_capability(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
     try:
-        from app.models.governance import GovernanceAction  # type: ignore[attr-defined]
+        from sqlalchemy import text
         total = (await session.execute(
-            select(func.count()).select_from(GovernanceAction).where(
-                GovernanceAction.tenant_id == tenant_id
-            )
+            text("SELECT COUNT(*) FROM autonomous_governance_log WHERE tenant_id = :tenant_id"),
+            {"tenant_id": str(tenant_id)},
         )).scalar() or 0
         autonomous = (await session.execute(
-            select(func.count()).select_from(GovernanceAction).where(
-                GovernanceAction.tenant_id == tenant_id,
-                GovernanceAction.tier == 1,
-            )
+            text("SELECT COUNT(*) FROM autonomous_governance_log WHERE tenant_id = :tenant_id AND tier = 1"),
+            {"tenant_id": str(tenant_id)},
         )).scalar() or 0
         ratio = (autonomous / total) if total > 0 else 0.5
     except Exception:

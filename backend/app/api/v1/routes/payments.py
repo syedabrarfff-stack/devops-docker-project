@@ -39,7 +39,7 @@ async def generate_payment_link(
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
     """Generate a Stripe Payment Link for an invoice and store the URL."""
-    from app.models.revenue import Invoice
+    from app.models.revenue import Invoice, InvoiceStatus
     from sqlalchemy import select
     import uuid
 
@@ -53,7 +53,7 @@ async def generate_payment_link(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    if inv.status == "paid":
+    if inv.status == InvoiceStatus.PAID:
         raise HTTPException(status_code=400, detail="Invoice already paid")
 
     link_data = await create_payment_link(

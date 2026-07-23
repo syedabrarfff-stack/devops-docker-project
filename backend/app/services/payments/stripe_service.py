@@ -193,38 +193,29 @@ async def _mark_invoice_paid(
                     return {"action": "not_found", "invoice_ref": invoice_ref}
                 invoice_id = inv.id
 
-        result = await invoice_engine.record_payment(
+        # invoice_engine.record_payment takes no `method` kwarg and already sends
+        # the Slack/Telegram/WebSocket "payment received" notification itself
+        # (_notify_payment_received) — only the n8n webhook below is additional.
+        invoice = await invoice_engine.record_payment(
             invoice_id=invoice_id,
             amount=amount,
-            method=method,
         )
         logger.info(
             "Invoice %s marked PAID via Stripe (event: %s, amount: $%.2f)",
             invoice_ref, stripe_event_id, amount
         )
 
-        # Notify Captain via Slack + Telegram + n8n
         try:
-            from app.services.notifications.slack import notify_captain
-            from app.services.notifications.telegram import notify_telegram
             from app.services.notifications.n8n import on_invoice_paid
-            await notify_captain(
-                title=f"💰 Payment received — ${amount:.2f}",
-                body=f"Invoice {invoice_ref} paid via Stripe. Amount: ${amount:.2f}",
-                level="info",
-            )
-            await notify_telegram(
-                f"💰 *Payment Received*\n\nInvoice: `{invoice_ref}`\nAmount: *${amount:.2f}*\nMethod: Stripe"
-            )
             await on_invoice_paid(
                 invoice_id=str(invoice_id),
                 invoice_number=invoice_ref,
-                client_name="",
+                client_name=invoice.client_company or invoice.client_name or "",
                 amount_usd=amount,
-                payment_method="stripe",
+                payment_method=method,
             )
         except Exception as exc:
-            logger.warning("Payment notification(s) failed for invoice %s: %s", invoice_ref, exc)
+            logger.warning("n8n invoice-paid webhook failed for invoice %s: %s", invoice_ref, exc)
 
         return {"action": "invoice_marked_paid", "invoice_ref": invoice_ref, "amount": amount}
 
