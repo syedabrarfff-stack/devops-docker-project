@@ -223,11 +223,19 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
 
         pipeline_data = await self._fetch_pipeline_metrics(tenant_uuid)
 
+        try:
+            from app.services.monitoring.emergency import check_system_health  # noqa: PLC0415
+            health = await check_system_health()
+            system_health = health.get("overall", "unknown").upper()
+        except Exception as exc:
+            logger.warning("System health check failed in situation report: %s", exc)
+            system_health = "UNKNOWN"
+
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "tenant_id": str(tenant_uuid),
             "pipeline": pipeline_data,
-            "system_health": "OPERATIONAL",
+            "system_health": system_health,
             "top_priority_action": pipeline_data.get("top_priority_action", "Review pipeline leads"),
             "alerts": pipeline_data.get("alerts", []),
         }
@@ -342,7 +350,7 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
         threats: list[dict] = []
 
         try:
-            from app.models.outreach import ReplyLog  # noqa: PLC0415
+            from app.models.outreach import OutreachLog, ReplyLog  # noqa: PLC0415
             from app.models.lead import Lead  # noqa: PLC0415
             from app.models.governance import Proposal  # noqa: PLC0415
 
@@ -358,10 +366,10 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                     # Threat: No outreach today
                     outreach_today = await session.scalar(
                         select(func.count())
-                        .select_from(ReplyLog)
+                        .select_from(OutreachLog)
                         .where(
-                            ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.created_at >= today_start,
+                            OutreachLog.tenant_id == tenant_uuid,
+                            OutreachLog.created_at >= today_start,
                         )
                     ) or 0
 

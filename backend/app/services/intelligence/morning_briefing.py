@@ -230,8 +230,19 @@ class MorningBriefingEngine:
             ],
             "pending_contract_count": len(pending_contracts),
             "briefs_this_week": int(briefs_this_week or 0),
-            "system_health_summary": "DB reachable, scheduler active, tenant context ready",
+            "system_health_summary": await self._system_health_summary(),
         }
+
+    async def _system_health_summary(self) -> str:
+        try:
+            from app.services.monitoring.emergency import check_system_health
+
+            health = await check_system_health()
+            subsystems = health.get("subsystems", {})
+            parts = [f"{name}: {info.get('status', 'unknown')}" for name, info in subsystems.items()]
+            return f"{health.get('overall', 'unknown').upper()} — " + ", ".join(parts)
+        except Exception as exc:
+            return f"Health check failed: {exc}"
 
     def _render(self, metrics: dict) -> str:
         approval_lines = "\n".join(

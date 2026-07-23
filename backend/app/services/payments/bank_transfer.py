@@ -20,18 +20,46 @@ async def create_bank_transfer_details(
     """
     Generate bank transfer details for an invoice.
     Returns wire instruction details that can be sent to client.
+
+    SECURITY: this used to return fabricated bank details ("****1234",
+    "JP Morgan Chase") unconditionally — fictitious wire information that
+    would have been sent to a real client if this endpoint were ever used.
+    Now sourced from real BANK_* settings; returns an honest "not
+    configured" status instead of fake data when they're unset.
     """
+    from datetime import datetime, timezone
+
     from app.core.config import settings
 
-    # Company bank details (would be in config in production)
-    bank_details = {
-        "account_name": "Aliyar Solutions Inc.",
-        "account_number": "****1234",  # Masked
-        "routing_number": "****5678",  # Masked
-        "swift_code": "CHUSUS33",
-        "beneficiary_bank": "JP Morgan Chase",
-        "description": f"Invoice {invoice_number}",
+    required = {
+        "account_name": settings.BANK_ACCOUNT_NAME,
+        "account_number": settings.BANK_ACCOUNT_NUMBER,
+        "routing_number": settings.BANK_ROUTING_NUMBER,
+        "swift_code": settings.BANK_SWIFT_CODE,
+        "beneficiary_bank": settings.BANK_BENEFICIARY_BANK,
     }
+    if not all(required.values()):
+        logger.warning(
+            "Bank transfer requested for invoice %s but BANK_* settings are not configured",
+            invoice_number,
+        )
+        return {
+            "method": "bank_transfer",
+            "invoice_id": invoice_id,
+            "invoice_number": invoice_number,
+            "amount_usd": amount_usd,
+            "currency": "USD",
+            "status": "not_configured",
+            "blocker_code": "bank_details_not_configured",
+            "human_message": "Company bank transfer details are not configured yet.",
+            "required_action": (
+                "Set BANK_ACCOUNT_NAME, BANK_ACCOUNT_NUMBER, BANK_ROUTING_NUMBER, "
+                "BANK_SWIFT_CODE, and BANK_BENEFICIARY_BANK before offering wire transfer "
+                "to clients."
+            ),
+        }
+
+    bank_details = {**required, "description": f"Invoice {invoice_number}"}
 
     logger.info("Bank transfer details generated for invoice %s (amount: $%.2f)", invoice_number, amount_usd)
 
@@ -56,5 +84,5 @@ Bank: {bank_details['beneficiary_bank']}
 Description: {bank_details['description']}
 """,
         "status": "pending_wire",
-        "created_at": __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }

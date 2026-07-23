@@ -160,6 +160,11 @@ class Settings(BaseSettings):
     WISE_API_KEY: Optional[str] = None
     PAYPAL_ENABLED: bool = False
     BANK_TRANSFER_ENABLED: bool = True
+    BANK_ACCOUNT_NAME: Optional[str] = None
+    BANK_ACCOUNT_NUMBER: Optional[str] = None
+    BANK_ROUTING_NUMBER: Optional[str] = None
+    BANK_SWIFT_CODE: Optional[str] = None
+    BANK_BENEFICIARY_BANK: Optional[str] = None
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
