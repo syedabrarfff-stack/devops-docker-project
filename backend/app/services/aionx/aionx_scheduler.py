@@ -292,21 +292,31 @@ async def _job_counterfactual_sync() -> None:
     logger.info("AIONX: counterfactual sync — simulate mature decisions")
     try:
         from app.core.database import AsyncSessionLocal
-        from app.services.aionx.counterfactual_engine import extract_learning
+        from app.services.aionx.counterfactual_engine import extract_learning, simulate_decision
         from sqlalchemy import select
-        from app.models.aionx_organs import DecisionObject
+        from app.models.aionx_organs import CounterfactualSimulation, DecisionObject
         from datetime import timedelta
 
         async with AsyncSessionLocal() as db:
-            # Simulate decisions older than 30 days
+            # Simulate decisions older than 30 days that haven't been simulated yet.
+            # Bounded to 5/run — each simulation makes an AI call, and this runs daily.
             thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30))
+            already_simulated = select(CounterfactualSimulation.decision_id)
             mature_decisions = (await db.execute(
-                select(DecisionObject).where(DecisionObject.created_at <= thirty_days_ago).limit(500)
+                select(DecisionObject)
+                .where(
+                    DecisionObject.created_at <= thirty_days_ago,
+                    DecisionObject.id.notin_(already_simulated),
+                )
+                .limit(5)
             )).scalars().all()
 
+            for decision in mature_decisions:
+                await simulate_decision(db, decision.id)
+
             learning = await extract_learning(db)
-            logger.info("AIONX Counterfactual: %d decisions reviewed, %.0f%% success",
-                       learning["decisions_reviewed"], learning["success_rate"] * 100)
+            logger.info("AIONX Counterfactual: %d newly simulated, %d decisions reviewed, %.0f%% success",
+                       len(mature_decisions), learning["decisions_reviewed"], learning["success_rate"] * 100)
     except Exception as exc:
         logger.warning("AIONX counterfactual sync failed: %s", exc)
 
@@ -384,6 +394,7 @@ async def _job_authority_recalibration() -> None:
     try:
         from app.core.database import AsyncSessionLocal
         from app.services.aionx.executive_accountability_engine import compute_authority_decay
+        from app.services.aionx.operational_persistence import record_event
         from sqlalchemy import select, distinct
         from app.models.aionx_organs import DecisionObject
 
@@ -395,12 +406,24 @@ async def _job_authority_recalibration() -> None:
 
             decayed = 0
             for maker in makers:
-                if maker:
-                    result = await compute_authority_decay(db, maker)
-                    if result.get("authority_decay", 0) > 0:
-                        decayed += 1
-                        logger.info("AIONX Accountability: %s authority decay %.1f pts",
-                                   maker, result["authority_decay"])
+                if not maker:
+                    continue
+                result = await compute_authority_decay(db, maker)
+                recommendations = result.get("recommendations") or []
+                if result.get("authority_decay", 0) > 0:
+                    decayed += 1
+                    logger.info("AIONX Accountability: %s authority decay %.1f pts",
+                               maker, result["authority_decay"])
+                requires_captain = any("Require Captain approval" in r for r in recommendations)
+                await record_event(
+                    db,
+                    event_type="authority_recalibration",
+                    source="aionx_authority_recalibration",
+                    payload=result,
+                    severity="WARNING" if requires_captain else "INFO",
+                    captain_approval_required=requires_captain,
+                )
+            await db.commit()
 
             logger.info("AIONX Accountability: recalibrated %d makers, %d with decay", len(makers), decayed)
     except Exception as exc:
@@ -549,10 +572,11 @@ async def _job_predictive_threat_scan() -> None:
     logger.info("AIONX Frontier: predictive threat scan")
     try:
         from app.core.database import AsyncSessionLocal
-        from app.services.aionx.frontier_intelligence import scan_threats
+        from app.services.aionx.frontier_intelligence import real_threat_signals, scan_threats
 
         async with AsyncSessionLocal() as db:
-            result = await scan_threats(db, {"signals": {}})
+            signals = await real_threat_signals(db)
+            result = await scan_threats(db, {"signals": signals})
             logger.info("AIONX Threat Scan: %s alerts created", result.get("alerts_created"))
     except Exception as exc:
         logger.warning("AIONX predictive threat scan failed: %s", exc)
@@ -576,18 +600,32 @@ async def _job_idle_intelligence_cycle() -> None:
     try:
         from app.core.database import AsyncSessionLocal
         from app.services.aionx.frontier_intelligence import create_knowledge_artifact
+        from sqlalchemy import text as _sql_text
 
         async with AsyncSessionLocal() as db:
+            existing = await db.execute(
+                _sql_text(
+                    "SELECT id FROM aionx_knowledge_artifacts "
+                    "WHERE artifact_type = 'idle_intelligence' AND created_at >= now() - interval '1 day' LIMIT 1"
+                )
+            )
+            if existing.first() is not None:
+                logger.info("AIONX Idle Intelligence: doctrine note already recorded today, skipping")
+                return
+
+            # No lead/service-concept/proposal-angle/risk-scan generation is wired to this
+            # job yet — it only records a scheduling doctrine note, once per day.
             artifact = await create_knowledge_artifact(
                 db,
                 {
                     "artifact_type": "idle_intelligence",
                     "content": (
-                        "Idle cycle doctrine: when no mission is active, generate leads, "
-                        "service concepts, proposal angles, and risk scans for Captain review."
+                        "Idle cycle doctrine note: when no mission is active, JARVIS should "
+                        "generate leads, service concepts, proposal angles, and risk scans for "
+                        "Captain review. No autonomous generation is wired to this job yet."
                     ),
-                    "tags": ["idle_engine", "dream_layer", "captain_review"],
-                    "importance_score": 0.8,
+                    "tags": ["idle_engine", "dream_layer", "captain_review", "placeholder"],
+                    "importance_score": 0.3,
                 },
             )
             logger.info("AIONX Idle Intelligence: artifact %s recorded", artifact.get("artifact_id"))

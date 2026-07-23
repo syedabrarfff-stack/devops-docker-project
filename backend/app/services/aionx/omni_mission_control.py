@@ -314,6 +314,10 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
 
     email = await email_delivery_status(db, validate_provider=False)
     redis_status = await _redis_ping()
+
+    from app.services.aionx.orchestration_cortex import compute_operational_iq
+    operational_iq = await compute_operational_iq(db)
+    operational_iq_score = float(operational_iq.get("operational_iq", 50.0))
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
@@ -341,7 +345,7 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
             "ai_spend_today_usd": "tracked_in_economics_layer",
             "pipeline": "tracked_in_crm_revenue_layer",
             "emails": "tracked_in_outreach_layer",
-            "operational_iq": "tracked_in_aionx_cortex",
+            "operational_iq": operational_iq_score,
         },
         "email_engine": email,
         "scheduler": {"total_jobs": len(jobs), "aionx_jobs": len(aionx_jobs), "aionx_expected": 24},
@@ -358,12 +362,13 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
                      scheduler_jobs, aionx_jobs, systems_total, systems_live, systems_governed,
                      alerts, snapshot)
                 VALUES
-                    (50, :backend, :database, :redis, :scheduler_jobs, :aionx_jobs,
+                    (:operational_iq, :backend, :database, :redis, :scheduler_jobs, :aionx_jobs,
                      :systems_total, :systems_live, :systems_governed,
                      CAST(:alerts AS jsonb), CAST(:snapshot AS jsonb))
                 """
             ),
             {
+                "operational_iq": operational_iq_score,
                 "backend": health["backend"],
                 "database": health["database"],
                 "redis": health["redis"],
