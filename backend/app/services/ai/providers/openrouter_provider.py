@@ -24,6 +24,8 @@ class OpenRouterProvider(BaseAIProvider):
         "claude-sonnet": "anthropic/claude-3.5-sonnet",
         "claude-haiku": "anthropic/claude-3.5-haiku",
         "claude-opus": "anthropic/claude-3-opus",
+        # Review/refine layer — Opus 4.8 is the system-wide second-pass reviewer
+        "claude-opus-4-8": "anthropic/claude-opus-4.8",
 
         # Llama models
         "llama-90b": "meta-llama/llama-3.1-405b-instruct",

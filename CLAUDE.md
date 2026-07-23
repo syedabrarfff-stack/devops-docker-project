@@ -239,15 +239,25 @@ Every department must seek optimization, reduce inefficiencies, and improve exec
 
 ## 11. AI Routing — Task Intelligence
 
-| Task Type | Primary Model | Fallback 1 | Fallback 2 |
-|---|---|---|---|
-| CODE | claude-sonnet | deepseek | gpt-4o |
-| REASONING | claude-opus | gpt-4o | gemini-pro |
-| STRATEGY | claude-opus | gpt-4o | claude-sonnet |
-| ANALYSIS | claude-opus | gpt-4o | gemini-pro |
-| RESEARCH | gemini-pro | gpt-4o | claude-sonnet |
-| FAST | deepseek-flash | llama-3-3 | gpt-4o-mini |
-| LONG_CONTEXT | gemini-pro | kimi-k2 | claude-sonnet |
+**Two-layer architecture** (`backend/app/services/ai/router.py`):
+
+- **Generation layer** — NVIDIA NIM (10 rotating keys: DeepSeek V4, Kimi K2.6,
+  Llama 4, Qwen Coder, Mistral) and Google Gemini draft every response, for
+  every task type (CODE, REASONING, STRATEGY, ANALYSIS, RESEARCH, FAST,
+  LONG_CONTEXT, SALES, GENERAL, MATH, MULTILINGUAL). This is where all the
+  volume happens, at effectively zero marginal cost. See `ROUTING_TABLE` for
+  the exact per-task-type provider order.
+- **Review layer** — every draft is automatically polished by OpenRouter
+  Claude Opus 4.8, falling back to direct Anthropic Claude Sonnet 4.6 if
+  OpenRouter is unavailable (`AIRouter._review_and_refine`, `chat(review=True)`
+  — the default for every caller system-wide, not opt-in per call site).
+  Review is best-effort and time-boxed (`_REVIEW_TIMEOUT`, 20s) — if both
+  reviewers fail or time out, the unreviewed draft ships rather than blocking.
+- Anthropic/Bedrock remain as the **last-resort generation fallback only** (if
+  every NIM/Gemini/OpenRouter option fails) — no longer a primary generator
+  anywhere in `ROUTING_TABLE`; that role belongs to the review layer.
+- A response's `AIResponse.reviewed_by` field records which reviewer (if any)
+  touched it; `draft_provider` records the original generator.
 
 Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 

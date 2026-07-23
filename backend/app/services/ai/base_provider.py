@@ -39,6 +39,10 @@ class AIResponse:
     cost_estimate_usd: float = 0.0
     demo: bool = False
     error: Optional[str] = None
+    # Set when a second-pass reviewer (OpenRouter Opus 4.8, falling back to direct
+    # Anthropic Sonnet 4.6) has polished/refined this response's content.
+    reviewed_by: Optional[str] = None
+    draft_provider: Optional[str] = None
 
 
 class BaseAIProvider(ABC):
