@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, ChevronRight, Loader2, Zap, Users, Mail, Plug, Target, Eye, Rocket } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Loader2, Zap, Users, Mail, Plug, Target, Eye, Rocket, Building2 } from 'lucide-react'
 import api from '../../services/api'
 
 const STEPS = [
@@ -26,7 +26,78 @@ const Input = ({ label, value, onChange, placeholder, type = 'text' }) => (
   </div>
 )
 
+function TenantPicker({ onSelect }) {
+  const [tenants, setTenants] = useState(null)
+  const [error, setError] = useState(null)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({ name: '', admin_email: '', admin_password: '' })
+
+  useEffect(() => {
+    api.get('/api/v1/admin/tenants').then(r => setTenants(r.data.tenants || []))
+      .catch(err => setError(err.response?.data?.detail || err.message))
+  }, [])
+
+  async function createTenant() {
+    setCreating(true); setError(null)
+    try {
+      const r = await api.post('/api/v1/admin/tenants', { ...form, plan_tier: 'STARTER' })
+      onSelect(r.data.tenant.tenant_id)
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message)
+    }
+    setCreating(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center p-6">
+      <div className="w-full max-w-lg">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-500/30 flex items-center justify-center mx-auto mb-4">
+            <Building2 size={22} className="text-blue-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Select an Organization</h1>
+          <p className="text-white/40 text-sm mt-1">Resume onboarding for an existing tenant, or create a new one.</p>
+        </div>
+
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
+          {error && <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-400">{error}</div>}
+
+          {tenants === null ? (
+            <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-white/30" /></div>
+          ) : tenants.length > 0 ? (
+            <div className="mb-6 space-y-2">
+              {tenants.map(t => (
+                <button key={t.id} onClick={() => onSelect(t.tenant_id)}
+                  className="w-full text-left bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-3 transition-all">
+                  <div className="text-sm text-white/90 font-medium">{t.name}</div>
+                  <div className="text-xs text-white/40 mt-0.5">{t.plan_tier} · {t.is_active ? 'active' : 'inactive'}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-white/40 text-sm mb-6">No tenants yet — create the first one below.</p>
+          )}
+
+          <div className="pt-4 border-t border-white/10">
+            <h2 className="text-white font-semibold mb-4 text-sm">Create New Organization</h2>
+            <Input label="Company Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Growth Agency Ltd" />
+            <Input label="Admin Email *" value={form.admin_email} onChange={v => setForm(f => ({ ...f, admin_email: v }))} placeholder="admin@youragency.com" />
+            <Input label="Admin Password *" type="password" value={form.admin_password} onChange={v => setForm(f => ({ ...f, admin_password: v }))} placeholder="12+ characters" />
+            <button onClick={createTenant} disabled={creating || !form.name || !form.admin_email || form.admin_password.length < 12}
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-blue-500/20 border border-blue-500/40 text-blue-400 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-500/30 transition-all disabled:opacity-50">
+              {creating ? <Loader2 size={14} className="animate-spin" /> : null}
+              Create & Continue
+              {!creating && <ChevronRight size={14} />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function OnboardingWizard({ tenantId, onComplete }) {
+  const [resolvedTenantId, setResolvedTenantId] = useState(tenantId || null)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
@@ -45,7 +116,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     setLoading(true); setError(null)
     try {
       let r
-      const base = `/api/v1/whitelabel/onboarding/${tenantId}`
+      const base = `/api/v1/whitelabel/onboarding/${resolvedTenantId}`
       if (step === 1) r = await api.post(`${base}/step1-branding`, branding)
       if (step === 2) r = await api.post(`${base}/step2-personas`, {
         personas, email_domain: emailDomain
@@ -78,6 +149,10 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
 
   const addPersona = () => setPersonas(p => [...p, { name: '', role: 'sales', title: '', is_primary_outreach: false }])
   const updatePersona = (i, field, val) => setPersonas(p => p.map((item, idx) => idx === i ? { ...item, [field]: val } : item))
+
+  if (!resolvedTenantId) {
+    return <TenantPicker onSelect={setResolvedTenantId} />
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center p-6">

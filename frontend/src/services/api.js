@@ -90,8 +90,8 @@ export { api }
 
 // Chat
 export const sendChat = (payload) => api.post('/api/v1/chat', payload).then((r) => r.data)
-export const getChatHistory = (sessionId) => api.get(`/api/v1/history/${sessionId}`).then((r) => r.data)
-export const getProviders = () => api.get('/api/v1/providers').then((r) => r.data)
+export const getChatHistory = (sessionId) => api.get(`/api/v1/chat/history/${sessionId}`).then((r) => r.data)
+export const getProviders = () => api.get('/api/v1/chat/providers').then((r) => r.data)
 
 // Briefing
 export const getMorningBriefing = (tenantId = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1') =>
@@ -521,7 +521,7 @@ export const signalStatus        = (params)   => api.get('/api/v1/signal/status'
 export const signalLeads         = (params)   => api.get('/api/v1/signal/leads', { params }).then(r => r.data)
 export const signalScanLead      = (leadId)   => `/api/v1/signal/scan/lead/${leadId}`  // SSE URL
 export const signalScanPipeline  = (payload)  => api.post('/api/v1/signal/scan/pipeline', payload, { timeout: 300000 }).then(r => r.data)
-export const signalBriefStream   = (payload)  => api.post('/api/v1/signal/brief', payload, { timeout: 120000 }).then(r => r.data)
+export const signalBriefStream   = (payload)  => api.post('/api/v1/signal/brief/stream', payload, { timeout: 120000 }).then(r => r.data)
 
 // NEXUS — Supreme Autonomous Intelligence Core
 export const nexusStatus         = ()         => api.get('/api/v1/nexus/status').then(r => r.data)
@@ -535,8 +535,8 @@ export const nexusTriggerPulse   = ()         => api.post('/api/v1/nexus/pulse/t
 export const nexusThink          = (state)    => api.post('/api/v1/nexus/think', { pipeline_state: state || null }, { timeout: 120000 }).then(r => r.data)
 
 // Revenue
-export const getRevenueSummary      = (params)      => api.get('/api/v1/revenue/summary', { params }).then(r => r.data)
-export const getRevenueInvoices     = (params)      => api.get('/api/v1/revenue/invoices', { params }).then(r => r.data)
+export const getRevenueSummary      = (tenantId)    => api.get('/api/v1/revenue/snapshot', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueInvoices     = (params)      => api.get('/api/v1/invoices/', { params }).then(r => r.data)
 export const getRevenueWarRoom      = (tenantId)    => api.get('/api/v1/revenue/war-room', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const getRevenueARR          = (tenantId)    => api.get('/api/v1/revenue/arr', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
 export const getRevenuePipeline     = (tenantId)    => api.get('/api/v1/revenue/pipeline', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)

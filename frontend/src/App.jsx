@@ -77,7 +77,6 @@ import AionxArchitecture from './components/aionx/AionxArchitecture'
 import CommunicationHub from './components/communication/CommunicationHub'
 import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
-import ApprovalQueue from './components/approvals/ApprovalQueue'
 import CalendarView from './components/calendar/CalendarView'
 import EvolutionDashboard from './components/evolution/EvolutionDashboard'
 import FrontierShell from './components/frontier/FrontierShell'
@@ -151,7 +150,6 @@ export const VIEWS = {
   aionxArchitecture: { path: controlPath('/aionx-architecture'), title: 'AIONX Architecture', Component: AionxArchitecture },
   agentOps:          { path: controlPath('/agent-ops'),          title: 'Agent Operations',  Component: AgentOpsCenter },
   aiOps:             { path: controlPath('/ai-ops'),             title: 'AI Operations',     Component: AIOpsDashboard },
-  approvalQueue:     { path: controlPath('/approval-queue'),     title: 'Approval Queue',    Component: ApprovalQueue },
   calendar:          { path: controlPath('/calendar'),           title: 'Calendar',          Component: CalendarView },
   evolution:         { path: controlPath('/evolution'),          title: 'System Evolution',  Component: EvolutionDashboard },
   frontierShell:     { path: controlPath('/frontier'),           title: 'Frontier Shell',    Component: FrontierShell },

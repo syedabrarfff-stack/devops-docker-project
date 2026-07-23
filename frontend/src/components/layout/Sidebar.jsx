@@ -8,7 +8,7 @@ import {
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
   TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
   Radio, Infinity, Scale, HardDrive, ShieldCheck, Workflow,
-  Bot, Sparkles, ClipboardCheck, Calendar, RefreshCw, Boxes, LineChart,
+  Bot, Sparkles, Calendar, RefreshCw, Boxes, LineChart,
   UsersRound, Tags, HeartHandshake,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
@@ -20,7 +20,6 @@ const NAV = [
   { id: 'briefing',       path: '/control-room/briefing', label: 'Briefings',     icon: Newspaper },
   { id: 'captainBridge',  path: '/control-room/captain-bridge', label: 'Captain Bridge', icon: UserCircle },
   { id: 'approvals',      path: '/control-room/approvals', label: 'Approvals',     icon: CheckSquare },
-  { id: 'approvalQueue',  path: '/control-room/approval-queue', label: 'Approval Queue', icon: ClipboardCheck },
   { id: 'warRoom',        path: '/control-room/war-room',    label: 'War Room',      icon: Shield },
   { id: 'warRoomHQ',     path: '/control-room/war-room-hq', label: 'War Room HQ',   icon: Crosshair },
   { id: 'systemHud',      path: '/control-room/system-hud', label: 'System HUD',    icon: Activity },
