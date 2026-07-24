@@ -12,6 +12,7 @@ One DIO per department. Each DIO:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -32,6 +33,8 @@ from app.services.ai.base_provider import Message, TaskType
 from app.services.ai.router import ai_router
 
 logger = logging.getLogger(__name__)
+
+SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
 # Complete DIO roster — one per department with full persona, KPIs, escalation rules
 DIO_DEFINITIONS = [
@@ -466,31 +469,107 @@ class DepartmentAgentService:
             return {"error": f"DIO not found for department: {department_code}"}
         return self._serialize_dio(dio)
 
+    async def _gather_real_telemetry(self, tenant_uuid: uuid.UUID) -> dict[str, Any]:
+        """Pull real, verifiable numbers to ground the metrics prompt in — job
+        success/failure counts, AI provider health, revenue, and the latest
+        engineering_org_cycle result. Replaces the prior "ask the model to
+        invent a health score from nothing" behavior."""
+        from sqlalchemy import func as sa_func
+        from app.models.approval import AuditLog
+        from app.models.scheduling import JobFailure, ScheduledJob
+
+        telemetry: dict[str, Any] = {}
+
+        try:
+            async with AsyncSessionLocal() as sys_db:
+                async with sys_db.begin():
+                    await set_tenant_context(sys_db, str(SYSTEM_TENANT_ID))
+
+                    status_rows = (
+                        await sys_db.execute(
+                            select(ScheduledJob.last_status, sa_func.count())
+                            .where(ScheduledJob.tenant_id == SYSTEM_TENANT_ID)
+                            .group_by(ScheduledJob.last_status)
+                        )
+                    ).all()
+                    telemetry["scheduled_jobs_by_last_status"] = {
+                        (status or "never_run"): count for status, count in status_rows
+                    }
+
+                    open_failures = await sys_db.scalar(
+                        select(sa_func.count()).select_from(JobFailure).where(
+                            JobFailure.tenant_id == SYSTEM_TENANT_ID,
+                            JobFailure.status.in_(("open", "retry_scheduled")),
+                        )
+                    )
+                    telemetry["open_job_failures"] = int(open_failures or 0)
+
+                    latest_eng_cycle = await sys_db.scalar(
+                        select(AuditLog)
+                        .where(
+                            AuditLog.tenant_id == SYSTEM_TENANT_ID,
+                            AuditLog.action.like("scheduler_engineering_org_cycle_%"),
+                        )
+                        .order_by(AuditLog.created_at.desc())
+                        .limit(1)
+                    )
+                    if latest_eng_cycle:
+                        telemetry["engineering_org_cycle_last_run"] = latest_eng_cycle.details
+        except Exception as exc:
+            logger.warning("Real telemetry gather (jobs) failed: %s", exc)
+
+        try:
+            telemetry["ai_providers_operational"] = len(ai_router.operational_providers())
+            telemetry["ai_providers_total"] = len(ai_router.available_providers())
+        except Exception as exc:
+            logger.warning("Real telemetry gather (AI providers) failed: %s", exc)
+
+        try:
+            from app.services.governance.invoice_engine import invoice_engine
+
+            snapshot = await invoice_engine.revenue_snapshot(tenant_uuid)
+            telemetry["revenue_snapshot"] = {
+                "mrr_usd": snapshot.get("mrr_usd"),
+                "total_revenue_usd": snapshot.get("total_revenue_usd"),
+                "active_clients": snapshot.get("active_clients"),
+            }
+        except Exception as exc:
+            logger.warning("Real telemetry gather (revenue) failed: %s", exc)
+
+        return telemetry
+
     async def collect_department_metrics(self, db: AsyncSession, tenant_id: str) -> dict[str, Any]:
-        """Collect current operational metrics across all departments."""
+        """Collect current operational metrics across all departments, grounded
+        in real system telemetry rather than an unconstrained model guess."""
         tenant_uuid = uuid.UUID(str(tenant_id))
 
         definitions = _canonical_dio_definitions()
+        telemetry = await self._gather_real_telemetry(tenant_uuid)
 
         metrics_prompt = f"""You are JARVIS, the operational intelligence core of Aliyar Solutions.
 
-Analyze the current operational state across all {len(definitions)} canonical AIONX departments and generate
-a comprehensive metrics snapshot for today: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}.
+Below is REAL, verified system telemetry for today ({datetime.now(timezone.utc).strftime('%Y-%m-%d')}) —
+not a hypothetical. Use it as the factual basis for your assessment. Where the telemetry doesn't
+directly cover a department, say so explicitly rather than inventing a number.
 
-For each department, assess:
-1. Current operational health score (0-100)
-2. Primary KPI status (on-track / at-risk / critical)
-3. Top achievement this period
-4. Most critical blocker or risk
-5. Recommended priority action
+REAL TELEMETRY:
+{json.dumps(telemetry, default=str, indent=2)}
 
-Departments to assess: {', '.join(d['department_name'] for d in definitions)}
+Using only this data as your factual grounding, assess each of the {len(definitions)} canonical
+AIONX departments: {', '.join(d['department_name'] for d in definitions)}.
+
+For each department, provide:
+1. health (0-100) — grounded in the telemetry above where it applies to that department,
+   otherwise "insufficient_data"
+2. kpi_status (on-track / at-risk / critical / insufficient_data)
+3. achievement — a real, telemetry-backed achievement if evidenced, else null
+4. blocker — a real, telemetry-backed blocker if evidenced (e.g. open_job_failures > 0), else null
+5. action — a concrete recommended action, only if grounded in the telemetry
 
 Return a JSON object with department_code as keys and metric objects as values.
 Each metric object: {{"health": 85, "kpi_status": "on-track", "achievement": "...", "blocker": "...", "action": "..."}}
 Return only valid JSON, no markdown."""
 
-        import json
         try:
             response, _ = await asyncio.wait_for(
                 ai_router.chat(
@@ -509,6 +588,7 @@ Return only valid JSON, no markdown."""
         return {
             "tenant_id": str(tenant_uuid),
             "collected_at": datetime.now(timezone.utc).isoformat(),
+            "real_telemetry": telemetry,
             "department_metrics": metrics,
             "departments_assessed": len(definitions),
         }
