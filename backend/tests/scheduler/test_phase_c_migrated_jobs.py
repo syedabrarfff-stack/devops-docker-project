@@ -175,15 +175,37 @@ class TestTechEvolutionScan:
 
 class TestDailyScoutNetwork:
     @pytest.mark.asyncio
-    async def test_delegates_to_scout_network(self):
-        fake_result = {"total_leads": 12, "scout_summary": {"a": 1, "b": 2}, "github_push": {"github": "ok"}}
+    async def test_delegates_to_scout_network_per_tenant_and_records_real_fields(self):
+        fake_result = {"scouts_run": 9, "successful": 8, "failed": 1, "companies_found": 20, "leads_inserted": 14}
         with (
+            patch("app.services.scheduler.scheduler._target_tenant_ids", new_callable=AsyncMock, return_value=["tenant-1"]),
             patch("app.services.leads.scout_network.scout_network.run_all_scouts", new_callable=AsyncMock, return_value=fake_result) as run_mock,
             patch("app.services.scheduler.scheduler._record_job_result", new_callable=AsyncMock) as record_mock,
         ):
             await scheduler.daily_scout_network()
-        run_mock.assert_awaited_once()
-        assert record_mock.call_args.args[2]["total_leads"] == 12
+        run_mock.assert_awaited_once_with("tenant-1")
+        payload = record_mock.call_args.args[2]
+        assert payload["tenants"] == 1
+        assert payload["companies_found"] == 20
+        assert payload["leads_inserted"] == 14
+        assert payload["scouts_run"] == 9
+
+    @pytest.mark.asyncio
+    async def test_sums_across_multiple_tenants(self):
+        results = [
+            {"scouts_run": 9, "companies_found": 10, "leads_inserted": 5},
+            {"scouts_run": 9, "companies_found": 6, "leads_inserted": 2},
+        ]
+        with (
+            patch("app.services.scheduler.scheduler._target_tenant_ids", new_callable=AsyncMock, return_value=["t1", "t2"]),
+            patch("app.services.leads.scout_network.scout_network.run_all_scouts", new_callable=AsyncMock, side_effect=results),
+            patch("app.services.scheduler.scheduler._record_job_result", new_callable=AsyncMock) as record_mock,
+        ):
+            await scheduler.daily_scout_network()
+        payload = record_mock.call_args.args[2]
+        assert payload["tenants"] == 2
+        assert payload["companies_found"] == 16
+        assert payload["leads_inserted"] == 7
 
 
 class TestLeadEmbeddingSweep:

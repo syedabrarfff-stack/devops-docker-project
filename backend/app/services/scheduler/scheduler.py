@@ -1754,17 +1754,22 @@ async def tech_evolution_scan() -> None:
 
 
 async def daily_scout_network() -> None:
-    """9 Scout Agents: discover leads in parallel, push to GitHub jarvis-data/ — 01:30 UTC."""
+    """9 Scout Agents: discover leads in parallel, insert as real ICP-scored
+    leads into the leads table (deduped) — 01:30 UTC."""
     from app.services.leads.scout_network import scout_network
 
-    result = await scout_network.run_all_scouts()
+    processed = []
+    for tenant_id in await _target_tenant_ids():
+        result = await scout_network.run_all_scouts(tenant_id)
+        processed.append(result)
     await _record_job_result(
         "daily_scout_network",
         "success",
         {
-            "total_leads": result.get("total_leads", 0),
-            "scouts": len(result.get("scout_summary", {})),
-            "github_push": result.get("github_push", {}).get("github", "unknown"),
+            "tenants": len(processed),
+            "companies_found": sum(r.get("companies_found", 0) for r in processed),
+            "leads_inserted": sum(r.get("leads_inserted", 0) for r in processed),
+            "scouts_run": sum(r.get("scouts_run", 0) for r in processed),
         },
     )
 
