@@ -424,7 +424,15 @@ async def _activate_signed_contract(db: AsyncSession, contract_id: int, tenant_i
         except Exception as exc:
             logger.warning("Telegram notification failed for contract %s signed: %s", contract_id, exc)
 
-        return {"client_id": str(client_id), "invoice": invoice}
+        delivery_task_graph_id = await _create_delivery_objective(
+            db, contract, contract_id, resolved_tenant
+        )
+
+        return {
+            "client_id": str(client_id),
+            "invoice": invoice,
+            "delivery_task_graph_id": delivery_task_graph_id,
+        }
 
     except Exception as exc:
         logger.error("Auto client/invoice creation failed for contract %s: %s", contract_id, exc)
@@ -437,6 +445,54 @@ async def _activate_signed_contract(db: AsyncSession, contract_id: int, tenant_i
         except Exception:
             pass
         return {}
+
+
+async def _create_delivery_objective(
+    db: AsyncSession, contract: dict, contract_id: int, resolved_tenant: UUID
+) -> Optional[str]:
+    """Best-effort: turn a signed contract's scope into a real Engineering
+    Organization objective, so `engineering_org_cycle` (scheduler.py) picks
+    it up and starts producing actual work packages for it. This is the
+    missing link between "contract signed" and "work gets built" — nothing
+    else in this codebase turns a signed contract into contracted work
+    actually getting done.
+
+    Never raises — a failure here must not affect the fact that the contract
+    was signed and the client/invoice were already created.
+    """
+    try:
+        from app.core.database import set_tenant_context
+        from app.services.engineering import mission_planner
+
+        service_type = contract.get("service_type") or "Services"
+        client_label = contract.get("client_company") or contract.get("client_name") or "the client"
+        scope_text = contract.get("scope") or "as described in the signed contract"
+        objective = (
+            f"Deliver contracted work for {client_label}: {service_type}. Scope: {scope_text}"
+        )
+
+        async with db.begin():
+            await set_tenant_context(db, str(resolved_tenant))
+            graph = await mission_planner.decompose_objective(
+                db,
+                objective=objective,
+                objective_type="feature",
+                context={"source": "contract_signed", "contract_id": contract_id},
+            )
+
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"🏗️ *Delivery objective created* for Contract `{contract_id}` "
+                f"— task graph `{graph.id}` is queued for the Engineering Organization."
+            )
+        except Exception:
+            pass
+
+        return str(graph.id)
+    except Exception as exc:
+        logger.warning("Failed to auto-create delivery objective for contract %s: %s", contract_id, exc)
+        return None
 
 
 # ── Autonomous Approval Stats ────────────────────────────────────────────────

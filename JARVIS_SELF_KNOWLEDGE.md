@@ -275,6 +275,8 @@ Honest scope boundary, unchanged by the scheduler wiring: `deployment_integratio
 
 Two Council implementations still exist unreconciled in this codebase (`app/services/ai/council.py::IntelligenceCouncil`, used by departments/milestones/call-intelligence/tech-evolution/strategy-reports; and `app/services/council/` + `CouncilSession.run()`, used by this Engineering Org's peer review and the Innovation Queue) — they don't share weights or history. Consolidating them is tracked as open work, not done.
 
+**Contract signing now creates a delivery objective.** `routes/governance.py::_create_delivery_objective()` (added 2026-07-24, called from `_activate_signed_contract` right after the Client/Invoice are created) turns the signed contract's `service_type` + `scope` into a real Mission Planner objective, so `engineering_org_cycle` picks it up on its next tick and starts producing actual work packages for it — closing the "no delivery engine" gap the audit found for the piece reachable without new external integrations. This is still bounded by the Engineering Org's own honest scope limits above (no autonomous PR/commit for general code work) and by decomposition quality (falls back to a generic heuristic split if the Fabric call fails) — it is the missing *link*, not a claim that arbitrary contracted work now ships itself end to end.
+
 ### Partial
 LinkedIn outreach (framework ready, needs activation) · voice systems (TTS + WhatsApp broadcast only — no live telephony provider wired; ElevenLabs Conversational AI agent *definitions* can be created via `call_intelligence_service.py` but are never linked to a phone number) · client digital twins (framework ready, calibration pending) · counterfactual simulations (models ready, optimization ongoing)
 
