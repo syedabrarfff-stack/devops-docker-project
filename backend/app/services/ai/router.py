@@ -162,49 +162,60 @@ OPERATIONAL CAPABILITIES
 # every NIM/Gemini/OpenRouter option fails) — they are no longer a primary
 # generator anywhere; that role now belongs to the review layer.
 # ──────────────────────────────────────────────────────────────────────────────
+# NOTE (2026-07-24): live-tested every NVIDIA NIM model slug below directly
+# against integrate.api.nvidia.com with a real key. Only "llama-4-maverick"
+# (meta/llama-4-maverick-17b-128e-instruct) returned 200 OK. "llama-4-scout",
+# "kimi-k2", and "mistral-medium" returned 404 (do not exist on NVIDIA's
+# current catalog); "qwen-coder" returned 410 Gone (removed). "deepseek-v4-pro"
+# and "llama-3-3" timed out; "deepseek-v4-flash" returned 500. Every task type
+# below now tries the confirmed-working model first so requests succeed
+# immediately instead of cascading through several dead/unreliable entries —
+# the others are left in place as fallback chain in case NVIDIA relists them
+# or a real key is added for another provider.
 ROUTING_TABLE: dict = {
     TaskType.CODE: [
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick via NIM — confirmed working
         ("nvidia", "deepseek-v4-pro"),     # DeepSeek V4 Pro via NIM — best for code
         ("nvidia", "qwen-coder"),           # Qwen 2.5 Coder via NIM
         ("google", "gemini-2.5"),           # Gemini 2.5 Flash
         ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash via NIM
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick via NIM
         ("anthropic", "claude-haiku"),      # last-resort fallback
         ("openai", "gpt-4o"),
     ],
     TaskType.RESEARCH: [
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — confirmed working
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — deep research
         ("google", "gemini-pro"),           # Gemini Pro — broad research synthesis
         ("nvidia", "kimi-k2"),              # Kimi K2.6 — long-context synthesis
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — broad intelligence
         ("nvidia", "deepseek-v4-flash"),    # Fast research fallback
         ("anthropic", "claude-sonnet"),     # last-resort fallback
     ],
     TaskType.REASONING: [
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — confirmed working
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — chain-of-thought
         ("google", "gemini-2.5"),           # Gemini 2.5 Flash — reasoning
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — reasoning
         ("nvidia", "kimi-k2"),              # Kimi — long reasoning chains
         ("anthropic", "claude-sonnet"),     # last-resort fallback
     ],
     TaskType.FAST: [
-        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — fastest NIM model
+        ("nvidia", "llama-4-maverick"),     # confirmed working — was last, now first
         ("google", "gemini-flash"),         # Gemini Flash — fast
         ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash — fast + smart
-        ("nvidia", "mistral-medium"),       # Mistral Medium — operational speed
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — 404 on NVIDIA's catalog currently
+        ("nvidia", "mistral-medium"),       # Mistral Medium — 404 on NVIDIA's catalog currently
         ("nvidia", "llama-3-3"),            # Llama 3.3 70B
         ("openai", "gpt-4o-mini"),
     ],
     TaskType.LONG_CONTEXT: [
+        ("nvidia", "llama-4-maverick"),     # confirmed working
         ("nvidia", "kimi-k2"),              # Kimi K2.6 — 1M context via NIM
         ("google", "gemini-pro"),           # Gemini Pro — large context
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — 128K context
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — 1M context
         ("anthropic", "claude-sonnet"),     # last-resort fallback
         ("openai", "gpt-4o"),
     ],
     TaskType.MULTILINGUAL: [
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — multilingual
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — multilingual, confirmed working
         ("google", "gemini-2.5"),           # Gemini — strong multilingual
         ("nvidia", "qwen-coder"),           # Qwen — strong CJK + structured
         ("nvidia", "mistral-medium"),       # Mistral — European languages
@@ -212,55 +223,56 @@ ROUTING_TABLE: dict = {
         ("openai", "gpt-4o"),
     ],
     TaskType.MATH: [
+        ("nvidia", "llama-4-maverick"),     # confirmed working
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — math SOTA
         ("google", "gemini-2.5"),           # Gemini 2.5 — math
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick
         ("nvidia", "deepseek-v4-flash"),
         ("openai", "gpt-4o"),
     ],
     TaskType.GENERAL: [
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — best general NIM
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — best general NIM, confirmed working
         ("google", "gemini-flash"),         # Gemini Flash — general
-        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — fast general
         ("nvidia", "llama-3-3"),            # Llama 3.3 70B
-        ("nvidia", "mistral-medium"),       # Mistral Medium
         ("nvidia", "deepseek-v4-flash"),
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — 404 on NVIDIA's catalog currently
+        ("nvidia", "mistral-medium"),       # Mistral Medium — 404 on NVIDIA's catalog currently
     ],
     TaskType.ANALYSIS: [
+        ("nvidia", "llama-4-maverick"),     # confirmed working
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro via NIM — analytical depth
         ("google", "gemini-pro"),           # Gemini Pro — deep analysis
         ("openrouter", "deepseek-v4-pro"),  # DeepSeek V4 Pro via OpenRouter
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick via NIM
         ("nvidia", "kimi-k2"),              # Kimi — document analysis
         ("anthropic", "claude-sonnet"),     # last-resort fallback
         ("openai", "gpt-4o"),
     ],
     TaskType.STRATEGY: [
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — strategic intel, confirmed working
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — strategic depth
         ("google", "gemini-pro"),           # Gemini Pro — strategic synthesis
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — strategic intel
         ("nvidia", "kimi-k2"),
         ("anthropic", "claude-sonnet"),     # last-resort fallback (was primary — see header note)
         ("bedrock", "claude-sonnet-4-6"),
     ],
     TaskType.SALES: [
-        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — outreach copy
+        ("nvidia", "llama-4-maverick"),     # Llama 4 Maverick — outreach copy, confirmed working
         ("google", "gemini-flash"),         # Gemini Flash — client communications
-        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — bulk outreach
         ("nvidia", "deepseek-v4-pro"),      # DeepSeek V4 Pro — proposal quality
-        ("nvidia", "mistral-medium"),       # Mistral — fast outreach
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — 404 on NVIDIA's catalog currently
+        ("nvidia", "mistral-medium"),       # Mistral — 404 on NVIDIA's catalog currently
         ("anthropic", "claude-sonnet"),     # last-resort fallback (was primary — see header note)
         ("bedrock", "claude-sonnet-4-6"),
     ],
     TaskType.MULTIMODAL: [
+        ("nvidia", "llama-4-maverick"),     # confirmed working
         ("openai", "gpt-4o"),
-        ("nvidia", "llama-4-maverick"),
         ("google", "gemini-pro"),
     ],
     TaskType.REALTIME: [
-        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — lowest latency NIM
+        ("nvidia", "llama-4-maverick"),     # confirmed working — was not in this chain at all before
         ("nvidia", "deepseek-v4-flash"),    # DeepSeek V4 Flash — fast + capable
-        ("nvidia", "mistral-medium"),       # Mistral — operational speed
+        ("nvidia", "llama-4-scout"),        # Llama 4 Scout — 404 on NVIDIA's catalog currently
+        ("nvidia", "mistral-medium"),       # Mistral — 404 on NVIDIA's catalog currently
         ("nvidia", "llama-3-3"),
     ],
 }
