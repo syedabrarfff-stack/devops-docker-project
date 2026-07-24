@@ -31,6 +31,28 @@ from app.services.outreach.compliance import outreach_compliance
 
 logger = logging.getLogger(__name__)
 
+
+async def _send_via_whatsapp(
+    session, tenant_id: uuid.UUID, phone: str, message: str, lead_id: uuid.UUID | None = None
+) -> tuple[bool, str]:
+    """Send message via WhatsApp (Evolution API)."""
+    try:
+        from app.services.communication.whatsapp_transport import send_text
+        result = await send_text(
+            session,
+            tenant_id=tenant_id,
+            number=phone,
+            text=message,
+            lead_id=lead_id,
+            context={"source": "outreach_engine"},
+        )
+        if result.get("sent"):
+            return True, result.get("event_id", "")
+        return False, "evolution_send_failed"
+    except Exception as e:
+        logger.warning("WhatsApp send failed to %s: %s", phone, e)
+        return False, str(e)[:200]
+
 EMAIL_FORMAT_VERSION = "concise_5_sentence_v1"
 
 PERSONAS = {
@@ -67,6 +89,79 @@ class OutreachEngine:
             )
             for step in steps
         ]
+
+    async def send_whatsapp_to_lead(self, lead_id, tenant_id, message: str | None = None) -> dict[str, Any]:
+        """Send a single WhatsApp outreach message to a lead, gated by the same
+        compliance checks (do-not-contact, daily cap) as email outreach."""
+        tenant_uuid = uuid.UUID(str(tenant_id))
+        lead_uuid = uuid.UUID(str(lead_id))
+        now = datetime.now(UTC)
+
+        async with AsyncSessionLocal() as session:
+            async with session.begin():
+                await set_tenant_context(session, str(tenant_uuid))
+                lead = await self._get_lead(session, tenant_uuid, lead_uuid)
+
+                phone = (lead.phone or "").strip()
+                if not phone:
+                    return {"success": False, "error": "phone_not_set"}
+
+                if await outreach_compliance.is_outreach_paused(session, tenant_uuid):
+                    return {"success": False, "error": "outreach_paused"}
+                lead_email = lead.email or lead.contact_email
+                if lead_email and await outreach_compliance.is_do_not_contact(session, tenant_uuid, lead_email):
+                    return {"success": False, "error": "do_not_contact"}
+
+                body = (message or "").strip()
+                if not body:
+                    steps = await self._generate_steps_with_ai(lead)
+                    if not steps:
+                        steps = _fallback_steps(lead)
+                    body = steps[0]["body"] if steps else (
+                        f"Hi {lead.contact_name or 'there'}, this is Darren from Aliyar Solutions. "
+                        f"We help companies like {lead.company_name or lead.company or 'yours'} scale with "
+                        "AI-driven operations. Worth a quick chat?"
+                    )
+                body = body[:4000]
+
+                success, result = await _send_via_whatsapp(session, tenant_uuid, phone, body, lead_id=lead.id)
+
+                outreach = OutreachLog(
+                    tenant_id=tenant_uuid,
+                    lead_id=lead.id,
+                    channel=OutreachChannel.WHATSAPP,
+                    body_text=body,
+                    sent_from_persona=PERSONAS["darren_mitchell"]["name"],
+                    sent_at=now if success else None,
+                    status=OutreachStatus.SENT if success else OutreachStatus.BOUNCED,
+                    sequence_step=1,
+                )
+                session.add(outreach)
+                await session.flush()
+
+                if success:
+                    lead.status = LeadStatus.CONTACTED
+                    lead.outreach_sent = True
+                    lead.outreach_count = (lead.outreach_count or 0) + 1
+                    lead.last_contact = now
+                    lead.last_contacted = now
+
+                await self._audit(
+                    session,
+                    tenant_uuid,
+                    "outreach_whatsapp_sent" if success else "outreach_whatsapp_failed",
+                    lead.id,
+                    {"phone": phone, "message": body[:200], "error": "" if success else result},
+                )
+
+                return {
+                    "success": success,
+                    "channel": "whatsapp",
+                    "phone": phone,
+                    "message_id": result if success else "",
+                    "error": "" if success else result,
+                    "outreach_id": str(outreach.id),
+                }
 
     async def queue_sequence(self, lead_id, tenant_id) -> None:
         tenant_uuid = uuid.UUID(str(tenant_id))
@@ -271,11 +366,14 @@ class OutreachEngine:
                 from app.services.outreach.gmail import email_delivery_status
 
                 email_status = await email_delivery_status(session, validate_provider=True)
-                if email_status.get("send_mode") != "live":
+                email_live = email_status.get("send_mode") == "live"
+                if not email_live:
+                    # Email being down (sandbox/unverified/etc.) must not block WhatsApp-only
+                    # leads — only the per-lead email send path checks this below.
                     await self._audit(
                         session,
                         tenant_uuid,
-                        "outreach_execute_blocked_email_not_live",
+                        "outreach_email_not_live_whatsapp_only_mode",
                         None,
                         {
                             "send_mode": email_status.get("send_mode"),
@@ -283,7 +381,6 @@ class OutreachEngine:
                             "required_action": email_status.get("required_action"),
                         },
                     )
-                    return 0
 
                 due_items = (
                     await session.execute(
@@ -345,18 +442,68 @@ class OutreachEngine:
                         continue
 
                     if not lead.email and not lead.contact_email:
-                        item.status = FollowUpStatus.FAILED
+                        phone = (lead.phone or "").strip()
+                        if not phone:
+                            item.status = FollowUpStatus.FAILED
+                            item.executed_at = now
+                            await self._audit(
+                                session,
+                                tenant_uuid,
+                                "outreach_missing_email",
+                                lead.id,
+                                {"sequence_step": item.sequence_step},
+                            )
+                            continue
+
+                        wa_success, wa_result = await _send_via_whatsapp(
+                            session, tenant_uuid, phone, email["body"][:4000], lead_id=lead.id
+                        )
+                        outreach = OutreachLog(
+                            tenant_id=tenant_uuid,
+                            lead_id=lead.id,
+                            channel=OutreachChannel.WHATSAPP,
+                            body_text=email["body"][:4000],
+                            sent_from_persona=PERSONAS["darren_mitchell"]["name"],
+                            sent_at=now if wa_success else None,
+                            status=OutreachStatus.SENT if wa_success else OutreachStatus.BOUNCED,
+                            sequence_step=item.sequence_step,
+                        )
+                        session.add(outreach)
+                        item.status = FollowUpStatus.EXECUTED if wa_success else FollowUpStatus.FAILED
                         item.executed_at = now
+                        if wa_success:
+                            lead.status = LeadStatus.CONTACTED
+                            lead.outreach_sent = True
+                            lead.outreach_count = (lead.outreach_count or 0) + 1
+                            lead.last_contact = now
+                            lead.last_contacted = now
+                            sent += 1
                         await self._audit(
                             session,
                             tenant_uuid,
-                            "outreach_missing_email",
+                            "outreach_whatsapp_fallback_sent" if wa_success else "outreach_whatsapp_fallback_failed",
                             lead.id,
-                            {"sequence_step": item.sequence_step},
+                            {"sequence_step": item.sequence_step, "phone": phone, "error": "" if wa_success else wa_result},
                         )
                         continue
 
                     to_email = lead.email or lead.contact_email
+                    if not email_live:
+                        item.status = FollowUpStatus.PENDING
+                        await self._audit(
+                            session,
+                            tenant_uuid,
+                            "outreach_execute_blocked_email_not_live",
+                            lead.id,
+                            {
+                                "sequence_step": item.sequence_step,
+                                "send_mode": email_status.get("send_mode"),
+                                "blocker_code": email_status.get("blocker_code"),
+                                "required_action": email_status.get("required_action"),
+                            },
+                        )
+                        continue
+
                     safety = await outreach_compliance.safety_gate(session, tenant_uuid, lead, to_email, now=now)
                     if not safety["allowed"]:
                         reschedule_at = safety.get("reschedule_at")

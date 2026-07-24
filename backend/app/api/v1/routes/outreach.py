@@ -900,6 +900,24 @@ async def _email_delivery_status_for_dashboard(db: AsyncSession) -> dict:
         }
 
 
+class SendWhatsAppIn(BaseModel):
+    message: Optional[str] = Field(default=None, max_length=4000)
+    tenant_id: Optional[UUID] = None
+
+
+@router.post("/send/whatsapp/{lead_id}")
+@limiter.limit("10/minute")
+async def send_whatsapp_message(
+    lead_id: UUID,
+    request: Request,
+    body: SendWhatsAppIn = Body(default_factory=SendWhatsAppIn),
+):
+    """Send a single WhatsApp outreach message to a lead (requires lead.phone)."""
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    result = await outreach_engine.send_whatsapp_to_lead(lead_id, resolved_tenant_id, message=body.message)
+    return result
+
+
 _TRANSPARENT_GIF = (
     b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00"
     b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
