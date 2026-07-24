@@ -1005,20 +1005,47 @@ else:
     # Production's schema was created outside alembic's knowledge, so the
     # tracking table was never initialized — every `alembic upgrade head` was
     # a no-op because alembic had no starting point to migrate FROM.
-    # Strategy: if alembic_version is absent, stamp at the revision just before
-    # the current head (0042_engineering_org_tables), then upgrade to head.
-    # This runs ONLY migration 0043_reassert_aionx_tables, which creates the 3
-    # missing AIONX tables using IF NOT EXISTS — safe on any environment.
+    #
+    # Strategy: if alembic_version is absent, stamp at 0041_headquarters_action_requests
+    # (the revision immediately BEFORE 0042), then upgrade to head. This was
+    # previously stamped at 0042 itself on the (wrong) assumption that 0042's
+    # tables were already part of the pre-alembic baseline schema — they
+    # weren't, so every deploy silently skipped creating
+    # engineering_task_graphs/engineering_work_packages, and the Engineering
+    # Organization scheduler job (engineering_org_cycle) has been failing with
+    # UndefinedTableError on every run since it was added. Stamping one
+    # revision earlier means `alembic upgrade head` actually runs 0042 (and
+    # 0043+) for real. All of 0042/0043 use CREATE TABLE IF NOT EXISTS, so this
+    # is safe to (re-)run on any environment, including ones where the tables
+    # already exist by coincidence.
     HAS_ALEMBIC_VERSION=$(docker exec jarvis_postgres psql -U jarvis -d jarvis \
       -tA -c "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='alembic_version');" 2>/dev/null | tr -d '[:space:]')
     echo "  alembic_version table present: $HAS_ALEMBIC_VERSION"
     if [ "$HAS_ALEMBIC_VERSION" = "f" ] || [ -z "$HAS_ALEMBIC_VERSION" ]; then
-      echo "  alembic_version not found — stamping at 0042_engineering_org_tables"
-      echo "  (tells alembic all migrations up to 0042 are applied; upgrade will run 0043 only)"
-      docker exec jarvis_backend alembic stamp 0042_engineering_org_tables 2>&1
+      echo "  alembic_version not found — stamping at 0041_headquarters_action_requests"
+      echo "  (tells alembic everything up to 0041 is applied; upgrade will run 0042 onward for real)"
+      docker exec jarvis_backend alembic stamp 0041_headquarters_action_requests 2>&1
       echo "  stamp exit: $?"
     else
       echo "  alembic_version exists — no stamp needed"
+    fi
+
+    # Repair case: alembic_version already exists (this deploy script already
+    # ran the bootstrap above at least once) but was previously stamped AT
+    # 0042 itself rather than before it, so 0042's tables were never actually
+    # created despite alembic believing they were. Detect that specific gap
+    # directly — if the table is missing but alembic's current revision is
+    # already at/past 0042 — and re-stamp one revision earlier so the upgrade
+    # below actually creates it this time.
+    HAS_ENG_TABLE=$(docker exec jarvis_postgres psql -U jarvis -d jarvis \
+      -tA -c "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='engineering_task_graphs');" 2>/dev/null | tr -d '[:space:]')
+    if [ "$HAS_ENG_TABLE" = "f" ]; then
+      CURRENT_REV=$(docker exec jarvis_backend alembic current 2>/dev/null | grep -oE '^[0-9]{4}_[a-zA-Z0-9_]+' | head -1)
+      if [ -n "$CURRENT_REV" ] && [ "$CURRENT_REV" != "0041_headquarters_action_requests" ]; then
+        echo "  engineering_task_graphs missing but alembic is at $CURRENT_REV — repairing stamp to 0041"
+        docker exec jarvis_backend alembic stamp 0041_headquarters_action_requests 2>&1
+        echo "  repair stamp exit: $?"
+      fi
     fi
     # Use bash PIPESTATUS to detect real alembic exit code (pipe to tail masks it).
     echo "  --- alembic current (DB-tracked revision) vs heads (code-defined) ---"
