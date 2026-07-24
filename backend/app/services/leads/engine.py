@@ -217,6 +217,7 @@ async def lead_stats(db: AsyncSession, tenant_id: Optional[UUID] = None) -> dict
         select(func.count()).select_from(Lead).where(*_t, Lead.outreach_eligible == True)
     ) or 0
     contacted          = await db.scalar(select(func.count()).select_from(Lead).where(*_t, Lead.outreach_sent == True)) or 0
+    unscored           = await db.scalar(select(func.count()).select_from(Lead).where(*_t, Lead.score == 0)) or 0
     avg_score          = await db.scalar(select(func.avg(Lead.score)).where(*_t, Lead.score > 0)) or 0
     by_status: dict[str, int] = {}
     for status_val in ["NEW", "CONTACTED", "REPLIED", "DEMO", "PROPOSAL", "WON", "LOST"]:
@@ -229,6 +230,7 @@ async def lead_stats(db: AsyncSession, tenant_id: Optional[UUID] = None) -> dict
         "high_score": high_score,
         "outreach_eligible": outreach_eligible,
         "contacted": contacted,
+        "unscored": unscored,
         "avg_score": round(float(avg_score), 1),
         "conversion_rate": round(qualified / total * 100, 1) if total else 0,
         "by_status": by_status,

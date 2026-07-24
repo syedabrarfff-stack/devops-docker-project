@@ -1162,11 +1162,11 @@ export default function LeadsDashboard() {
           </button>
           <button
             onClick={scoreAll}
-            disabled={bulkScoring}
+            disabled={bulkScoring || !stats.unscored}
             className="px-4 py-2 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 rounded-lg text-sm transition-colors disabled:opacity-50"
-            title="Score all leads (up to 50) using full AI scoring"
+            title={stats.unscored ? `Score the ${stats.unscored} lead(s) that haven't been scored yet` : "Every lead already has a score — nothing to do"}
           >
-            {bulkScoring ? "Scoring..." : "Score All (50)"}
+            {bulkScoring ? "Scoring..." : stats.unscored ? `Score All (${stats.unscored} unscored)` : "All Scored ✓"}
           </button>
           <button
             onClick={bulkDiscover}
