@@ -15,6 +15,7 @@ from app.core.database import AsyncSessionLocal, set_tenant_context
 from app.models.approval import AuditLog
 from app.models.lead import Lead, LeadStatus
 from app.services.leads.scoring import lead_scoring_engine
+from app.services.revenue_activation.osm_discovery import osm_local_business_discovery
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ class FreeDiscoveryEngine:
             discovered.extend(await self._hn_whos_hiring(client, limit=20))
             discovered.extend(await self._clearbit_queries(client, DEFAULT_CLEARBIT_QUERIES, limit=30))
             discovered.extend(await self._github_trending_orgs(client, limit=25))
+        try:
+            discovered.extend(await osm_local_business_discovery.run(limit=40))
+        except Exception as exc:
+            logger.warning("OSM local business discovery failed: %s", exc)
 
         inserted = await self._insert_leads(tenant_uuid, discovered[: max(1, min(limit, 200))])
         enriched = await self.enrich_manual_leads(tenant_uuid, limit=25)
@@ -41,6 +46,7 @@ class FreeDiscoveryEngine:
                 "hacker_news_whos_hiring": sum(1 for row in discovered if row.get("source") == "hn_whos_hiring"),
                 "clearbit_autocomplete": sum(1 for row in discovered if row.get("source") == "clearbit_autocomplete"),
                 "github_active_repos": sum(1 for row in discovered if row.get("source") == "github_active_repos"),
+                "osm_local_business": sum(1 for row in discovered if row.get("source") == "osm_local_business"),
             },
             "discovered": len(discovered),
             "inserted": inserted,
@@ -232,6 +238,8 @@ class FreeDiscoveryEngine:
                         website=row.get("website"),
                         company_website=row.get("website"),
                         notes=row.get("notes"),
+                        email=row.get("email"),
+                        phone=row.get("phone"),
                     )
                     session.add(lead)
                     await session.flush()
