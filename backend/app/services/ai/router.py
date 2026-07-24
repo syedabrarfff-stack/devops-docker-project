@@ -787,6 +787,10 @@ class _LazyFabricBridge:
     def get_provider_status(self):
         return self._fallback.get_provider_status()
 
+    @property
+    def _providers(self):
+        return self._fallback._providers
+
 
 # Singleton instance — wrapped with the Fabric bridge so all call sites
 # transparently flow through the AI Fabric (§4.1: no direct LLM calls).

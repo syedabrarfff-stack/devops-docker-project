@@ -144,6 +144,18 @@ class TestBridgeDelegation:
         bridge.get_provider_status()
         fallback.get_provider_status.assert_called_once()
 
+    def test_providers_property_delegates_to_fallback(self):
+        """Regression: ai-ops/health accessed ai_router._providers directly and
+        crashed with AttributeError, since the bridge (not the real AIRouter)
+        is what's actually exported as the module-level `ai_router` singleton.
+        _providers must forward to the wrapped real router, same as every
+        other attribute on this shim."""
+        fallback = _make_fallback()
+        fallback._providers = {"openai": object(), "anthropic": object()}
+        bridge = _LazyFabricBridge(fallback)
+        assert bridge._providers is fallback._providers
+        assert len(bridge._providers) == 2
+
 
 class TestBridgeLazyLoad:
     def test_fabric_is_lazy(self):
