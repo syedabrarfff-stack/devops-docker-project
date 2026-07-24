@@ -12,8 +12,6 @@ These routes expose JARVIS's highest-order intelligence systems:
 
 All endpoints require Captain authentication.
 """
-from __future__ import annotations
-
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request

@@ -3,8 +3,6 @@
 Captain Glass Wall, Council operations, Digital Twins, Wisdom Index,
 Sentinel observations, Mission Autopsy, and Self-Modification registry.
 """
-from __future__ import annotations
-
 import uuid
 from typing import Any
 

@@ -11,8 +11,6 @@ POST /autopilot/approve-all         — bulk approve all pending
 PATCH /autopilot/draft/{draft_id}   — edit subject/body before sending
 DELETE /autopilot/clear             — clear all non-pending drafts
 """
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID

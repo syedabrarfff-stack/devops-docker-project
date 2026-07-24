@@ -7,8 +7,6 @@
 /departments/calls         — Client Call Intelligence
 /departments/strategy      — Strategy Oversight Reports
 """
-from __future__ import annotations
-
 import logging
 from datetime import datetime
 from typing import Optional

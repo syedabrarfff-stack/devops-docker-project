@@ -1,6 +1,4 @@
 """AIONX Batch 1 client pipeline API."""
-from __future__ import annotations
-
 import uuid
 from typing import Any
 

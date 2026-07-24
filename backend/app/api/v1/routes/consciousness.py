@@ -6,8 +6,6 @@ JARVIS's inner operating system: emotional state, competitive obsession,
 leadership frameworks, values, prospect psychology, horizon intelligence,
 offer construction, self-evolution, and Captain intelligence.
 """
-from __future__ import annotations
-
 from typing import Any, Optional
 from uuid import UUID
 

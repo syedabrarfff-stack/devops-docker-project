@@ -1,6 +1,4 @@
 """Layer 18 — Financial Intelligence Engine API routes (Virtual CFO)."""
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID

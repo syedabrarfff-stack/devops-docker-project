@@ -6,8 +6,6 @@ These routes power:
 2. The 7-step onboarding wizard
 3. Agency admin panel (config review, usage stats)
 """
-from __future__ import annotations
-
 from typing import Optional
 from uuid import UUID
 

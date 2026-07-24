@@ -8,8 +8,6 @@ POST /signal/brief/stream          — SSE: generate intelligence brief from sca
 POST /signal/brief                 — one-shot brief from cached/provided signals
 GET  /signal/leads                 — return leads formatted for signal UI
 """
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID

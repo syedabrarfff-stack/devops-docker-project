@@ -8,8 +8,6 @@ Endpoints:
   GET  /ghost/personas        — List all available personas
   POST /ghost/send            — Compose + send email immediately via Gmail
 """
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

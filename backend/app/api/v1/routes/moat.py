@@ -1,6 +1,4 @@
 """Layer 18 — Competitive Moat Engine API routes."""
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID

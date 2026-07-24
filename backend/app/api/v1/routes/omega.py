@@ -5,8 +5,6 @@ POST /omega/ignite          — fire global swarm, stream SSE
 GET  /omega/members         — list all 16 swarm members with origin / status
 GET  /omega/pulse           — quick system capability overview
 """
-from __future__ import annotations
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from app.api.v1.routes.auth import get_current_captain

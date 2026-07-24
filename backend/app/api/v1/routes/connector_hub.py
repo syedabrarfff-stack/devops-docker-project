@@ -7,8 +7,6 @@ GET  /connector-hub/status           Get today's ingestion status
 GET  /connector-hub/outputs          Get JARVIS outputs for today
 POST /connector-hub/council-review   Send content to AI Council for quality gate
 """
-from __future__ import annotations
-
 import logging
 import uuid
 from datetime import UTC, date, datetime

@@ -10,8 +10,6 @@ POST /nexus/heal          — trigger heal on specific subsystem
 POST /nexus/cycle         — SSE: run full autonomous cycle
 POST /nexus/think         — SSE: brain reasoning only (no action)
 """
-from __future__ import annotations
-
 import logging
 from typing import Optional
 

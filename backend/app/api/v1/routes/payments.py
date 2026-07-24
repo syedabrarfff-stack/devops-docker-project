@@ -1,8 +1,6 @@
 """
 Payment routes — Stripe payment link generation and webhook handler.
 """
-from __future__ import annotations
-
 import logging
 from typing import Any
 

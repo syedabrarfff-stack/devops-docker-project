@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Optional
