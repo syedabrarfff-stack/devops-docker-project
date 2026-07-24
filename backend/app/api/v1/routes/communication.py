@@ -19,7 +19,9 @@ from app.services.communication.whatsapp_transport import (
     connect_qr,
     create_instance,
     evolution_status,
+    logout_instance,
     process_inbound_webhook,
+    restart_instance,
     send_media,
     send_text,
 )
@@ -135,6 +137,21 @@ async def whatsapp_status(
 @communication_router.get("/whatsapp/qr")
 async def whatsapp_qr(number: Optional[str] = Query(None)) -> dict[str, Any]:
     return await connect_qr(number)
+
+
+@communication_router.post("/whatsapp/instance/reset")
+async def reset_whatsapp_instance() -> dict[str, Any]:
+    """Log out and restart the Evolution instance to clear a stuck
+    connectionState (e.g. hung in "connecting" from a half-completed QR
+    handshake) so the next QR/pairing attempt starts from a clean slate."""
+    logout_result = await logout_instance()
+    restart_result = await restart_instance()
+    return {
+        "instance": settings.WHATSAPP_INSTANCE_NAME,
+        "logout": logout_result,
+        "restart": restart_result,
+        "next_action": "Wait ~10 seconds, then request a fresh QR code or pairing code.",
+    }
 
 
 @communication_router.post("/whatsapp/webhook/configure")

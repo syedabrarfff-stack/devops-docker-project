@@ -206,6 +206,20 @@ async def create_instance() -> dict[str, Any]:
     return result
 
 
+async def logout_instance() -> dict[str, Any]:
+    """Cleanly log out the Baileys session so a fresh QR/pairing attempt can
+    start from a clean slate, instead of hanging in a stale "connecting"
+    state left over from a half-completed handshake."""
+    return await evolution_request("DELETE", f"/instance/logout/{_instance()}")
+
+
+async def restart_instance() -> dict[str, Any]:
+    """Restart the Evolution instance process. Use after logout_instance()
+    when the connectionState stays stuck (e.g. "connecting") even after
+    logout, to force Baileys to drop the socket and re-initialize."""
+    return await evolution_request("PUT", f"/instance/restart/{_instance()}")
+
+
 async def connect_qr(number: str | None = None) -> dict[str, Any]:
     query = ""
     normalized_number = _normalize_number(number)
