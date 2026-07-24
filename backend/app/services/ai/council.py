@@ -25,17 +25,19 @@ from app.services.memory.human_intelligence import human_intelligence_context
 logger = logging.getLogger(__name__)
 
 COUNCIL_MEMBERS = [
-    {"id": "strategist", "provider": "anthropic", "model": "claude-opus-4-8", "weight": 0.25, "specialty": "strategy"},
-    {"id": "engineer", "provider": "bedrock", "model": "claude-sonnet-4-6", "weight": 0.25, "specialty": "architecture"},
-    {"id": "analyst", "provider": "openai", "model": "gpt-4o", "weight": 0.15, "specialty": "analysis"},
-    {"id": "scout", "provider": "google", "model": "gemini-1.5-pro", "weight": 0.10, "specialty": "research"},
-    {"id": "speedster", "provider": "groq", "model": "llama-3.3-70b", "weight": 0.08, "specialty": "fast"},
-    {"id": "contrarian", "provider": "mistral", "model": "mistral-large", "weight": 0.07, "specialty": "critique"},
-    {"id": "economist", "provider": "zhipuai", "model": "glm-4", "weight": 0.05, "specialty": "economics"},
-    {"id": "innovator", "provider": "minimax", "model": "abab6.5s", "weight": 0.05, "specialty": "creative"},
+    {"id": "executor", "provider": "nvidia", "model": "llama-4-maverick", "weight": 0.30, "specialty": "execution"},
+    {"id": "strategist", "provider": "anthropic", "model": "claude-opus-4-8", "weight": 0.20, "specialty": "strategy"},
+    {"id": "engineer", "provider": "bedrock", "model": "claude-sonnet-4-6", "weight": 0.20, "specialty": "architecture"},
+    {"id": "analyst", "provider": "openai", "model": "gpt-4o", "weight": 0.10, "specialty": "analysis"},
+    {"id": "scout", "provider": "google", "model": "gemini-1.5-pro", "weight": 0.08, "specialty": "research"},
+    {"id": "speedster", "provider": "groq", "model": "llama-3.3-70b", "weight": 0.06, "specialty": "fast"},
+    {"id": "contrarian", "provider": "mistral", "model": "mistral-large", "weight": 0.03, "specialty": "critique"},
+    {"id": "economist", "provider": "zhipuai", "model": "glm-4", "weight": 0.02, "specialty": "economics"},
+    {"id": "innovator", "provider": "minimax", "model": "abab6.5s", "weight": 0.01, "specialty": "creative"},
 ]
 
 MODEL_CALL_OVERRIDES = {
+    ("nvidia", "llama-4-maverick"): "meta/llama-4-maverick-17b-128e-instruct",
     ("anthropic", "claude-opus-4-8"): "claude-opus-4-7",
     ("bedrock", "claude-sonnet-4-6"): "global.anthropic.claude-sonnet-4-6",
     ("google", "gemini-1.5-pro"): "gemini-pro-latest",
