@@ -144,6 +144,7 @@ PRODUCTION_JOB_IDS = (
     "pre_call_briefing_trigger",
     "nexus_heartbeat",
     "nightly_signal_scan",
+    "engineering_org_cycle",
 )
 
 AIONX_JOB_IDS = (
@@ -413,6 +414,12 @@ def _production_job_specs() -> list[dict[str, Any]]:
         # nightly_signal_scan is the sole proposal-generation pipeline —
         # overnight_proposal_engine was retired, not migrated (see docstring).
         {"job_id": "nightly_signal_scan", "func": nightly_signal_scan, "hour": 2, "minute": 0},
+        # Engineering Organization cycle — every 10 minutes — drains the
+        # Phase 7 mission_planner -> dispatcher -> department_agent ->
+        # peer_review -> deployment_integration pipeline. Previously this
+        # code existed and was tested but nothing in production ever called
+        # it past dispatch; a submitted objective sat forever.
+        {"job_id": "engineering_org_cycle", "func": engineering_org_cycle, "kind": "interval", "minutes": 10},
     ]
 
 
@@ -1020,6 +1027,119 @@ async def daily_opportunity_radar() -> None:
             logger.error("Opportunity radar failed for tenant %s: %s", tenant_id, exc)
 
     await _record_job_result("daily_opportunity_radar", "success", {"opportunities_found": reports})
+
+
+async def engineering_org_cycle() -> None:
+    """E7-10: drains the Engineering Organization pipeline end to end.
+
+    Phase 7 (mission_planner/dispatcher/department_agent/peer_review/
+    deployment_integration) shipped fully tested but nothing in production
+    ever called run_one_cycle/review_work_package/integrate_work_package
+    outside unit tests — a submitted objective got decomposed and enqueued,
+    then sat forever. This job is that missing caller: for every task graph
+    still IN_PROGRESS, dispatch ready work packages, drain a bounded number
+    of department drafts, peer-review anything freshly drafted, and integrate
+    anything peer-review approved (auto-deploying the narrow safe actions,
+    otherwise leaving a PR-ready summary for a human/Claude session — see
+    deployment_integration.py's own documented scope boundary).
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models.engineering import (
+        EngineeringTaskGraph,
+        EngineeringWorkPackage,
+        TaskGraphStatus,
+        WorkPackageStatus,
+    )
+    from app.services.engineering import department_agent, deployment_integration, dispatcher, peer_review
+
+    MAX_DRAFT_CYCLES_PER_TICK = 20
+
+    drafted = 0
+    reviewed = 0
+    integrated = 0
+    pending_manual_integration = []
+    errors = 0
+
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            graph_ids = (
+                await db.execute(
+                    select(EngineeringTaskGraph.id).where(
+                        EngineeringTaskGraph.status == TaskGraphStatus.IN_PROGRESS
+                    )
+                )
+            ).scalars().all()
+
+            for graph_id in graph_ids:
+                await dispatcher.dispatch_ready_packages(db, graph_id)
+
+            for _ in range(MAX_DRAFT_CYCLES_PER_TICK):
+                wp = await department_agent.run_one_cycle(db)
+                if wp is None:
+                    break
+                drafted += 1
+
+            in_review = (
+                await db.execute(
+                    select(EngineeringWorkPackage).where(
+                        EngineeringWorkPackage.status == WorkPackageStatus.IN_REVIEW
+                    )
+                )
+            ).scalars().all()
+            for wp in in_review:
+                try:
+                    await peer_review.review_work_package(db, wp)
+                    reviewed += 1
+                except Exception:
+                    logger.exception("engineering_org_cycle: peer review failed for work package %s", wp.id)
+                    errors += 1
+
+            approved = (
+                await db.execute(
+                    select(EngineeringWorkPackage).where(
+                        EngineeringWorkPackage.status == WorkPackageStatus.APPROVED,
+                        EngineeringWorkPackage.deploy_result.is_(None),
+                    )
+                )
+            ).scalars().all()
+            for wp in approved:
+                try:
+                    result = await deployment_integration.integrate_work_package(db, wp)
+                    integrated += 1
+                    if result.get("mode") == "pending_manual_integration":
+                        pending_manual_integration.append(str(wp.id))
+                except Exception:
+                    logger.exception("engineering_org_cycle: integration failed for work package %s", wp.id)
+                    errors += 1
+
+            for graph_id in graph_ids:
+                await dispatcher.refresh_graph_status(db, graph_id)
+
+    if pending_manual_integration:
+        try:
+            from app.services.notifications import notify_business_event
+            await notify_business_event(
+                "engineering_work_package_ready",
+                "Engineering Organization: work ready for integration",
+                f"{len(pending_manual_integration)} approved work package(s) have a PR-ready "
+                "summary waiting for a human/Claude session to commit — see "
+                "/api/v1/engineering/dashboard.",
+            )
+        except Exception as exc:
+            logger.warning("engineering_org_cycle: ready-for-integration notify failed: %s", exc)
+
+    await _record_job_result(
+        "engineering_org_cycle",
+        "success",
+        {
+            "task_graphs_scanned": len(graph_ids),
+            "drafted": drafted,
+            "reviewed": reviewed,
+            "integrated": integrated,
+            "pending_manual_integration": pending_manual_integration,
+            "errors": errors,
+        },
+    )
 
 
 async def _sync_job_metadata() -> None:

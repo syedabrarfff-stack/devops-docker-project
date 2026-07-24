@@ -266,8 +266,17 @@ NEXUS autonomous outreach (Redis-locked, hourly heartbeat) · Semantic lead sear
 
 **Production Hardening:** All compose secrets use `:?` mandatory syntax · Redis password-protected · OIDC role ARN in GitHub Secret · Workers raised to 3 · AI budget $50/$1.00 · Comprehensive `.env.example` template
 
+### Phase 7 — Headquarters Engineering Organization (`backend/app/services/engineering/`)
+Not previously documented here — added 2026-07-24 after a full-system audit found it missing from this file entirely.
+
+Mission Planner (`mission_planner.py`) decomposes a Captain-submitted objective (`POST /api/v1/engineering/objectives`) into department-owned `EngineeringWorkPackage` rows with a dependency graph and an Authority Matrix tier per package. The Dispatcher (`dispatcher.py`) enqueues ready packages onto the Kernel Task Queue, refusing to auto-enqueue anything above AUTO tier. The scheduler job `engineering_org_cycle` (every 10 min, added 2026-07-24) is what actually drains this end to end in production — for every IN_PROGRESS task graph it dispatches ready packages, drafts up to 20 work packages per tick via `department_agent.run_one_cycle()` (Fabric/LLM draft + `ast.parse` syntax self-test), peer-reviews every freshly-drafted package via the real Council (`peer_review.review_work_package()`), and integrates every approved package via `deployment_integration.integrate_work_package()`. Before this job existed, all five of those functions were fully built and unit-tested but never called by anything in production — a submitted objective would sit forever after being planned.
+
+Honest scope boundary, unchanged by the scheduler wiring: `deployment_integration.py` only auto-deploys the narrow set of pre-approved, non-mutating verification actions directly through the existing HQ `run_deploy()` path. For general code-writing work packages it does **not** fabricate a PR — it emits an event and leaves a structured PR-ready summary (title/body/diff) on the work package for a human or Claude session to actually commit and push, exactly like the rest of this repo's Merge Protocol. There is still no autonomous git-commit/PR-creation capability anywhere in the codebase — that remains a separate, larger undertaking.
+
+Two Council implementations still exist unreconciled in this codebase (`app/services/ai/council.py::IntelligenceCouncil`, used by departments/milestones/call-intelligence/tech-evolution/strategy-reports; and `app/services/council/` + `CouncilSession.run()`, used by this Engineering Org's peer review and the Innovation Queue) — they don't share weights or history. Consolidating them is tracked as open work, not done.
+
 ### Partial
-LinkedIn outreach (framework ready, needs activation) · voice systems (Evolution API integrated, prompting pending) · client digital twins (framework ready, calibration pending) · counterfactual simulations (models ready, optimization ongoing)
+LinkedIn outreach (framework ready, needs activation) · voice systems (TTS + WhatsApp broadcast only — no live telephony provider wired; ElevenLabs Conversational AI agent *definitions* can be created via `call_intelligence_service.py` but are never linked to a phone number) · client digital twins (framework ready, calibration pending) · counterfactual simulations (models ready, optimization ongoing)
 
 ### Not Yet Built
 White-label licensing · real-time speech-to-text · video generation · mobile app · Slack integration · Zapier/Make.com connectors
