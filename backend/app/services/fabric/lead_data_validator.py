@@ -22,7 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead
-from app.models.opportunity import Opportunity
+from app.models.crm import Deal
+from app.models.governance import Proposal
 
 log = logging.getLogger(__name__)
 
@@ -163,23 +164,41 @@ async def _fetch_real_lead_data(
     except Exception as e:
         log.warning("Lead query failed: %s", e)
 
-    # Try to match opportunities
+    # Try to match deals
     try:
-        stmt = select(Opportunity).where(Opportunity.tenant_id == tenant_id).limit(20)
+        stmt = select(Deal).where(Deal.tenant_id == tenant_id).limit(20)
         result = await db.execute(stmt)
-        opps = result.scalars().all()
+        deals = result.scalars().all()
 
-        for opp in opps:
+        for deal in deals:
             results.append({
-                "type": "opportunity",
-                "title": opp.title,
-                "lead_id": str(opp.lead_id) if opp.lead_id else None,
-                "value": opp.value,
-                "stage": opp.stage,
-                "created_at": opp.created_at.isoformat() if opp.created_at else None,
+                "type": "deal",
+                "title": deal.title,
+                "lead_id": str(deal.lead_id) if deal.lead_id else None,
+                "value": deal.value,
+                "stage": deal.stage,
+                "created_at": deal.created_at.isoformat() if deal.created_at else None,
             })
     except Exception as e:
-        log.warning("Opportunity query failed: %s", e)
+        log.warning("Deal query failed: %s", e)
+
+    # Try to match proposals
+    try:
+        stmt = select(Proposal).where(Proposal.tenant_id == tenant_id).limit(20)
+        result = await db.execute(stmt)
+        proposals = result.scalars().all()
+
+        for proposal in proposals:
+            results.append({
+                "type": "proposal",
+                "title": proposal.title,
+                "lead_id": str(proposal.lead_id) if proposal.lead_id else None,
+                "value": proposal.value,
+                "status": proposal.status,
+                "created_at": proposal.created_at.isoformat() if proposal.created_at else None,
+            })
+    except Exception as e:
+        log.warning("Proposal query failed: %s", e)
 
     return results
 
@@ -195,9 +214,13 @@ def _format_real_leads(data: list[dict]) -> str:
             lines.append(
                 f"• {item['name']} (email: {item['email']}, score: {item['score']}, source: {item['source']})"
             )
-        elif item["type"] == "opportunity":
+        elif item["type"] == "deal":
             lines.append(
-                f"• Opportunity: {item['title']} (value: ${item['value'] or 'TBD'}, stage: {item['stage']})"
+                f"• Deal: {item['title']} (value: ${item['value'] or 'TBD'}, stage: {item['stage']})"
+            )
+        elif item["type"] == "proposal":
+            lines.append(
+                f"• Proposal: {item['title']} (value: ${item['value'] or 'TBD'}, status: {item['status']})"
             )
 
     return "\n".join(lines)
