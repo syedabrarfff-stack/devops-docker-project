@@ -1,5 +1,5 @@
 """
-Aliyar Solutions Service Catalog API - canonical 25 AIONX capability modules.
+Aliyar Solutions Service Catalog API - canonical 10 AIONX capability modules.
 """
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -59,7 +59,7 @@ async def catalog_stats(db: AsyncSession = Depends(get_db)):
 
 @router.get("/capability-modules")
 async def capability_modules():
-    """Canonical AIONX service catalog: 25 capability modules with HIA ownership."""
+    """Canonical AIONX service catalog: 10 capability modules with HIA ownership."""
     return get_capability_modules()
 
 
@@ -73,7 +73,7 @@ async def trigger_seed(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/sync-canonical", dependencies=[Depends(get_current_captain)])
 @limiter.limit("3/minute")
 async def trigger_canonical_sync(request: Request, db: AsyncSession = Depends(get_db)):
-    """Delete legacy catalog rows and repopulate the finalized 25 capability modules."""
+    """Delete legacy catalog rows and repopulate the finalized 10 capability modules."""
     return await sync_canonical_catalog(db)
 
 

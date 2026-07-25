@@ -56,7 +56,7 @@ OPERATIONAL_INTEGRITY_TEAMS: list[dict[str, Any]] = [
     {
         "code": "DEPARTMENT_HEALTH",
         "name": "Department Health Monitoring Team",
-        "purpose": "Continuously score the 25 capability modules across execution, quality, response, collaboration, utilization, and trend.",
+        "purpose": "Continuously score the 10 capability modules across execution, quality, response, collaboration, utilization, and trend.",
         "outputs": ["weekly_health_reports", "red_flag_reviews", "department_scorecards"],
         "escalation": "60-74 Council review; 40-59 JARVIS intervention; below 40 Captain notification.",
         "sla": "15-minute pulse plus weekly Council report.",
@@ -83,8 +83,8 @@ OPERATIONAL_INTEGRITY_TEAMS: list[dict[str, Any]] = [
 FULL_AIONX_PIPELINE: list[dict[str, Any]] = [
     {"stage": 1, "name": "World Scan", "owner": "SCOUT", "output": "leads table populated"},
     {"stage": 2, "name": "Lead Enrichment", "owner": "SCOUT", "output": "contact, company, stack, and pain signals"},
-    {"stage": 3, "name": "Lead Scoring", "owner": "ORACLE-S", "output": "0-100 score and qualified flag"},
-    {"stage": 4, "name": "Business Diagnosis", "owner": "MARKET", "output": "capability gap profile"},
+    {"stage": 3, "name": "Lead Scoring", "owner": "SCOUT", "output": "0-100 score and qualified flag"},
+    {"stage": 4, "name": "Business Diagnosis", "owner": "NEXUS-R", "output": "capability gap profile"},
     {"stage": 5, "name": "Case Study Matching", "owner": "QUILL", "output": "most relevant proof narrative"},
     {"stage": 6, "name": "Council Outreach Review", "owner": "AXIOM COUNCIL", "output": "improvement report"},
     {"stage": 7, "name": "Outreach Draft and Optimization", "owner": "HERALD", "output": "sequence ready"},
@@ -226,7 +226,7 @@ OPERATIONAL_INTEGRITY_TABLE_PLAN: list[dict[str, str]] = [
     {"table": "quality_certificates", "purpose": "QA pass/fail certificates with test criteria."},
     {"table": "repair_instructions", "purpose": "Defects, root causes, required fixes, verification steps."},
     {"table": "fallback_assignments", "purpose": "Primary and backup ownership across agents, jobs, APIs, and departments."},
-    {"table": "department_health_snapshots", "purpose": "15-minute and weekly health scores for 25 modules."},
+    {"table": "department_health_snapshots", "purpose": "15-minute and weekly health scores for 10 modules."},
     {"table": "knowledge_synthesis_records", "purpose": "Post-milestone learnings and institutional memory updates."},
     {"table": "hia_profiles", "purpose": "Certified client-facing personas, voice standards, and backups."},
     {"table": "hia_certification_records", "purpose": "Certification scores, renewal status, and failure actions."},

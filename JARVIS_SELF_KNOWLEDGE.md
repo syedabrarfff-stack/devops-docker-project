@@ -232,7 +232,7 @@ All registered in: `backend/app/api/v1/__init__.py`
 
 1. Database tables created (SQLAlchemy)
 2. Master tenant bootstrapped
-3. Service catalog seeded (25 modules)
+3. Service catalog seeded (10 modules)
 4. Team registry seeded (8 personas)
 5. JARVIS authority instructions stored in memory
 6. Task queue initialized + worker started

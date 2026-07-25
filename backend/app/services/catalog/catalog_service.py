@@ -96,7 +96,7 @@ CAPABILITY_MODULES = [
         "code": "QUILL",
         "name": "Executive Briefings",
         "division": "Intelligence & Data",
-        "human_interface_executive": "Sophia Reynolds",
+        "human_interface_executive": "Olivia Bennett",
         "agent_layer": ["briefing synthesis", "meeting packs", "strategic narrative"],
         "kpi_targets": ["briefing quality", "prep time saved", "context completeness"],
         "description": "Packages complex operational context into clear Captain, client, and council briefings.",

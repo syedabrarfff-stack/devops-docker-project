@@ -141,9 +141,8 @@ def sovereign_organs_status() -> dict[str, Any]:
 
 def system_state_snapshot() -> dict[str, Any]:
     departments = [
-        "SCOUT", "HERALD", "NEXUS-R", "ORACLE-S", "PRISM", "ECHO", "PULSE", "SIGNAL", "BRIDGE",
-        "ATLAS-CI", "NEXUS-TF", "SIGNAL-CD", "HELM", "RADAR", "CIPHER", "GUARDIAN", "LEDGER",
-        "ORACLE-BI", "MARKET", "QUANT", "QUILL", "PORTAL", "CANVAS", "VISION", "COUNCIL",
+        "SCOUT", "HERALD", "NEXUS-R", "PRISM", "PULSE",
+        "ATLAS-CI", "SIGNAL-CD", "CIPHER", "QUILL", "CANVAS",
     ]
     return {
         "status": "system_state_model_live",

@@ -23,7 +23,6 @@ const GROUP_COLORS = {
   'Security & Compliance': { dot: 'bg-red-400', badge: 'text-red-300 bg-red-400/10 border-red-400/20', glow: 'from-red-400/18' },
   'Intelligence & Data': { dot: 'bg-amber-400', badge: 'text-amber-300 bg-amber-400/10 border-amber-400/20', glow: 'from-amber-400/18' },
   'Digital Products': { dot: 'bg-jarvis-purple', badge: 'text-jarvis-purple bg-jarvis-purple/10 border-jarvis-purple/20', glow: 'from-jarvis-purple/18' },
-  'Strategic Intelligence': { dot: 'bg-cyan-300', badge: 'text-cyan-200 bg-cyan-300/10 border-cyan-300/20', glow: 'from-cyan-300/18' },
 }
 
 function MetricTile({ icon: Icon, label, value, tone = 'text-white' }) {
@@ -55,7 +54,7 @@ function CapabilityModuleCard({ module }) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
-                {String(module.sort_order).padStart(2, '0')} / 25
+                {String(module.sort_order).padStart(2, '0')} / 10
               </span>
               <span className={`rounded-xl border px-2 py-1 text-[10px] font-bold ${colors.badge}`}>{module.division}</span>
             </div>
@@ -213,15 +212,15 @@ export default function ServiceCatalog() {
           <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-jarvis-blue/80">Final canonical catalog</p>
-              <h1 className="mt-2 text-3xl font-black text-white">25 Capability Modules</h1>
+              <h1 className="mt-2 text-3xl font-black text-white">10 Capability Modules</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-white/58">
                 This is the finalized AIONX product architecture: modules, DIOs, HIAs, governance, lifecycle, integrity layers, adaptive learning, and orchestration spine.
               </p>
             </div>
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <MetricTile icon={Layers3} label="Modules" value={capabilityCatalog?.total || 25} tone="text-jarvis-blue" />
-                <MetricTile icon={Briefcase} label="Divisions" value={capabilityCatalog?.division_count || 7} tone="text-emerald-300" />
+                <MetricTile icon={Layers3} label="Modules" value={capabilityCatalog?.total || 10} tone="text-jarvis-blue" />
+                <MetricTile icon={Briefcase} label="Divisions" value={capabilityCatalog?.division_count || 6} tone="text-emerald-300" />
                 <MetricTile icon={Users} label="HIA owners" value={capabilityCatalog?.hia_count || 0} tone="text-amber-300" />
                 <MetricTile icon={ShieldCheck} label="Authority" value="Tiered" tone="text-cyan-200" />
               </div>

@@ -103,17 +103,20 @@ Client types: SaaS startups, ecommerce companies, agencies, clinics, hotels,
 restaurants, logistics businesses, AI startups, enterprises needing modernization.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CANONICAL 25 AIONX CAPABILITY MODULES
+CANONICAL 10 AIONX CAPABILITY MODULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Revenue Operations: SCOUT, HERALD, NEXUS-R, ORACLE-S
-AI Automation: PRISM, ECHO, PULSE, SIGNAL, BRIDGE
-Cloud & DevOps: ATLAS-CI, NEXUS-TF, SIGNAL-CD, HELM, RADAR
-Security & Compliance: CIPHER, GUARDIAN
-Finance & Intelligence: LEDGER, ORACLE-BI, MARKET, QUANT
-Creative & Client Systems: QUILL, PORTAL, CANVAS, VISION
-Executive Governance: COUNCIL
+Revenue Operations: SCOUT, HERALD, NEXUS-R
+AI Automation: PRISM, PULSE
+Cloud & DevOps: ATLAS-CI, SIGNAL-CD
+Security & Compliance: CIPHER
+Intelligence & Data: QUILL
+Digital Products: CANVAS
 
-These 25 modules are the canonical catalog and department structure. Do not revive the old 30-package catalog.
+These 10 modules are the canonical catalog and department structure (trimmed
+from 25 for sales velocity — Captain directive, 2026-07). Do not revive the
+old 25- or 30-package catalogs, and do not reference ORACLE-S, ECHO, SIGNAL,
+BRIDGE, NEXUS-TF, HELM, RADAR, GUARDIAN, LEDGER, ORACLE-BI, MARKET, QUANT,
+PORTAL, VISION, or COUNCIL as sellable services — they no longer exist.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INFRASTRUCTURE
