@@ -9,6 +9,7 @@ from app.core.rate_limit import limiter
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.ai.router import ai_router, JARVIS_SYSTEM_PROMPT
 from app.services.ai.base_provider import Message, TaskType
+from app.services.fabric.lead_data_validator import validate_lead_response
 from app.models.conversation import Conversation
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,22 @@ async def chat(request: Request, req: ChatRequest, db: AsyncSession = Depends(ge
         response_text = "JARVIS is momentarily unavailable. All systems reconnecting."
         response = type("_R", (), {"model": "unavailable", "provider": "unavailable", "task_type": None, "tokens_used": 0})()
         task_type = str(requested_task_type) if requested_task_type else "GENERAL"
+    else:
+        # CRITICAL: Validate lead responses — ensure no fabricated data
+        if tenant_id and response_text:
+            try:
+                validated_response, violations = await validate_lead_response(
+                    user_query=req.message,
+                    ai_response=response_text,
+                    tenant_id=str(tenant_id),
+                    db=db,
+                )
+                if violations:
+                    for violation in violations:
+                        logger.warning("Lead data violation detected: %s", violation)
+                response_text = validated_response
+            except Exception as exc:
+                logger.warning("Lead validation failed: %s (using unvalidated response)", exc)
 
     # Persist to DB
     if tenant_id:
