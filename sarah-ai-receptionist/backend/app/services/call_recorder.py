@@ -4,6 +4,8 @@ Persists call transcripts to the database and (in production) recordings to S3.
 
 import logging
 from datetime import datetime, timezone
+from arq import create_pool
+from arq.connections import RedisSettings
 from app.core.database import get_db_context
 from app.models.call_log import CallLog
 from app.services.appointment_service import book_appointment_from_action
@@ -39,11 +41,14 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         )
         db.add(call_log)
         await db.flush()
+        call_log_id = call_log.id
 
         if outcome == "BOOK":
             appointment = await book_appointment_from_action(db, clinic_id, action_params)
             call_log.patient_id = appointment.patient_id
             await db.flush()
+
+    await _enqueue_summary(call_log_id)
 
     if outcome == "BOOK" and action_params.get("phone"):
         clinic_name = (clinic_config or {}).get("name", "our clinic")
@@ -55,6 +60,15 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         )
 
     logger.info(f"Saved call log for {call_sid} (clinic {clinic_id}, outcome={outcome})")
+
+
+async def _enqueue_summary(call_log_id: str) -> None:
+    try:
+        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        await redis.enqueue_job("summarize_call", call_log_id)
+        await redis.close()
+    except Exception as e:
+        logger.warning(f"Failed to enqueue call summary job for {call_log_id}: {e}")
 
 
 async def upload_recording_to_s3(call_sid: str, audio_bytes: bytes, clinic_id: str) -> str | None:

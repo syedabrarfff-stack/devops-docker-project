@@ -1,0 +1,58 @@
+name: PR Checks
+
+on:
+  pull_request:
+    paths:
+      - "sarah-ai-receptionist/**"
+
+env:
+  WORKDIR: sarah-ai-receptionist
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: pip install pytest pytest-asyncio ruff bandit mypy
+      - name: Lint
+        run: ruff check app
+      - name: Type check
+        run: mypy app --ignore-missing-imports || true
+      - name: Security scan (Bandit)
+        run: bandit -r app -ll
+      - name: Unit tests
+        run: pytest tests/ -v
+        working-directory: ${{ env.WORKDIR }}
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run lint || true
+      - run: npm run build
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/infra/terraform/environments/prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - run: terraform fmt -check -recursive ../../
