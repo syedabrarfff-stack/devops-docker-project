@@ -6,3 +6,5 @@ output "ecs_voice_service_name" { value = aws_ecs_service.voice.name }
 output "api_service_name" { value = aws_ecs_service.api.name }
 output "ecs_api_service_name" { value = aws_ecs_service.api.name }
 output "ecs_worker_service_name" { value = aws_ecs_service.worker.name }
+output "ecr_repository_url_voice" { value = aws_ecr_repository.voice.repository_url }
+output "ecr_repository_url_api" { value = aws_ecr_repository.api.repository_url }

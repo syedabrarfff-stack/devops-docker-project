@@ -1,3 +1,46 @@
+# ECR repos previously didn't exist anywhere in Terraform — deploy.yml
+# assumed them, but nothing created them, so the very first apply/deploy
+# would have had nowhere to push to.
+resource "aws_ecr_repository" "voice" {
+  name                 = "${var.project_name}-voice"
+  image_tag_mutability = "IMMUTABLE"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "api" {
+  name                 = "${var.project_name}-api"
+  image_tag_mutability = "IMMUTABLE"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "voice" {
+  repository = aws_ecr_repository.voice.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep last 20 images"
+      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 20 }
+      action       = { type = "expire" }
+    }]
+  })
+}
+
+resource "aws_ecr_lifecycle_policy" "api" {
+  repository = aws_ecr_repository.api.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep last 20 images"
+      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 20 }
+      action       = { type = "expire" }
+    }]
+  })
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-${var.environment}"
   setting {
@@ -7,6 +50,12 @@ resource "aws_ecs_cluster" "main" {
 }
 
 locals {
+  # CI/CD injects a real tagged image on every deploy; before the first image
+  # is ever pushed, fall back to the ECR repo itself at :latest so task
+  # definitions can register (an empty string is rejected by ECS outright).
+  image_voice = var.container_image_voice != "" ? var.container_image_voice : "${aws_ecr_repository.voice.repository_url}:latest"
+  image_api   = var.container_image_api != "" ? var.container_image_api : "${aws_ecr_repository.api.repository_url}:latest"
+
   common_env = [
     { name = "APP_ENV", value = var.environment },
     { name = "S3_BUCKET_RECORDINGS", value = var.recordings_bucket_name },
@@ -59,7 +108,7 @@ resource "aws_ecs_task_definition" "voice" {
 
   container_definitions = jsonencode([{
     name         = "voice-service"
-    image        = var.container_image_voice
+    image        = local.image_voice
     essential    = true
     portMappings = [{ containerPort = 8000, protocol = "tcp" }]
     environment  = local.common_env
@@ -114,7 +163,7 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([{
     name         = "api-service"
-    image        = var.container_image_api
+    image        = local.image_api
     essential    = true
     portMappings = [{ containerPort = 8000, protocol = "tcp" }]
     environment  = local.common_env
@@ -169,7 +218,7 @@ resource "aws_ecs_task_definition" "worker" {
 
   container_definitions = jsonencode([{
     name        = "worker-service"
-    image       = var.container_image_api
+    image       = local.image_api
     essential   = true
     command     = ["arq", "app.workers.worker.WorkerSettings"]
     environment = local.common_env
