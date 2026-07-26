@@ -1,0 +1,10 @@
+variable "project_name" { type = string }
+variable "environment" { type = string }
+variable "app_domain" { type = string }
+variable "admin_domain" { type = string }
+variable "app_zone_id" { type = string }
+variable "admin_zone_id" { type = string }
+variable "cdn_certificate_arn" { type = string }
+variable "frontend_bucket_name" { type = string }
+variable "frontend_bucket_arn" { type = string }
+variable "frontend_bucket_regional_domain_name" { type = string }
