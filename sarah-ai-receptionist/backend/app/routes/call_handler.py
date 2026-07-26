@@ -2,6 +2,7 @@
 Twilio webhook + WebSocket handler — entry point for every phone call.
 """
 
+import asyncio
 import json
 import logging
 from xml.sax.saxutils import escape as xml_escape
@@ -117,6 +118,7 @@ async def media_stream(websocket: WebSocket):
     call_sid: str | None = None
     called_number: str | None = None
     clinic_config: dict | None = None
+    call_task: asyncio.Task | None = None
 
     try:
         while True:
@@ -141,8 +143,7 @@ async def media_stream(websocket: WebSocket):
                 call_manager = CallManager(call_sid, stream_sid, clinic_config)
                 _active_calls[call_sid] = call_manager
 
-                import asyncio
-                asyncio.create_task(_run_call(call_manager, websocket))
+                call_task = asyncio.create_task(_run_call(call_manager, websocket))
 
             elif call_manager:
                 await call_manager.handle_twilio_message(message)
@@ -153,6 +154,18 @@ async def media_stream(websocket: WebSocket):
         logger.info(f"Twilio WebSocket disconnected for call {call_sid}")
     finally:
         if call_manager and call_sid:
+            # If the call ends before call_manager.start()'s own setup (STT
+            # connect + greeting) has finished, that background task must be
+            # cancelled here — otherwise it keeps running after end_call()
+            # has already torn down the STT/TTS clients and closed the
+            # websocket, and ends up erroring against already-closed
+            # resources (confirmed by a real fast-hangup test).
+            if call_task and not call_task.done():
+                call_task.cancel()
+                try:
+                    await call_task
+                except (asyncio.CancelledError, Exception):
+                    pass
             result = await call_manager.end_call()
             await save_call_transcript(call_sid, clinic_config, result)
             _active_calls.pop(call_sid, None)
