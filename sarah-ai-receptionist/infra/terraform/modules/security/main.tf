@@ -81,19 +81,31 @@ resource "aws_iam_role_policy" "ecs_secrets_access" {
   role = aws_iam_role.ecs_task_execution.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = ["secretsmanager:GetSecretValue"]
-      # Prefix-matched rather than enumerated: the database-url secret is
-      # created at the root module (it needs the DB module's address output,
-      # which would otherwise cycle back through this module's kms_key_arn).
-      # Every secret under this project/environment shares the same name
-      # prefix, so a wildcard here covers app-secrets, db-credentials, and
-      # database-url without that dependency.
-      Resource = [
-        "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}-${var.environment}/*"
-      ]
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        # Prefix-matched rather than enumerated: the database-url secret is
+        # created at the root module (it needs the DB module's address output,
+        # which would otherwise cycle back through this module's kms_key_arn).
+        # Every secret under this project/environment shares the same name
+        # prefix, so a wildcard here covers app-secrets, db-credentials, and
+        # database-url without that dependency.
+        Resource = [
+          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}-${var.environment}/*"
+        ]
+      },
+      {
+        # secretsmanager:GetSecretValue alone isn't enough for secrets encrypted
+        # with a customer-managed KMS key — Secrets Manager still calls
+        # kms:Decrypt on the caller's behalf, and that's checked separately.
+        # Confirmed by a real ECS task failing with
+        # "AccessDeniedException: Access to KMS is not allowed" without this.
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = [aws_kms_key.main.arn]
+      }
+    ]
   })
 }
 
