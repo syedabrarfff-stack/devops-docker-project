@@ -449,6 +449,7 @@ function LeadProfilePanel({ leadId, onClose, onGenerateProposal, onCallBrief }) 
   const [proposalTier, setProposalTier] = useState('GROWTH')
   const [proposalResult, setProposalResult] = useState(null)
   const [proposalErr, setProposalErr] = useState(null)
+  const [researching, setResearching] = useState(false)
 
   useEffect(() => {
     setLoading(true); setErr(null); setProfile(null)
@@ -457,6 +458,17 @@ function LeadProfilePanel({ leadId, onClose, onGenerateProposal, onCallBrief }) 
       .catch(e => setErr(e?.response?.data?.detail || 'Failed to load lead profile'))
       .finally(() => setLoading(false))
   }, [leadId])
+
+  async function runResearch() {
+    setResearching(true)
+    try {
+      const r = await api.post(`/api/v1/leads/${leadId}/research`)
+      setProfile(p => p ? { ...p, lead: { ...p.lead, ai_analysis: r.data.ai_analysis } } : p)
+    } catch (e) {
+      setErr(e?.response?.data?.detail || 'Research failed')
+    }
+    setResearching(false)
+  }
 
   async function handleGenerateProposal() {
     if (!profile) return
@@ -566,6 +578,25 @@ function LeadProfilePanel({ leadId, onClose, onGenerateProposal, onCallBrief }) 
                   {lead.industry && <span>{lead.industry}</span>}
                   {lead.country && <span>{lead.country}</span>}
                 </div>
+              </div>
+
+              {/* Company Research */}
+              <div className="rounded-xl bg-cyan-500/5 border border-cyan-500/20 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] text-cyan-300 uppercase tracking-widest">Company Research</p>
+                  <button
+                    onClick={runResearch}
+                    disabled={researching}
+                    className="text-[10px] px-2 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
+                  >
+                    {researching ? 'Researching…' : lead.ai_analysis ? 'Re-research' : 'Research this company'}
+                  </button>
+                </div>
+                {lead.ai_analysis ? (
+                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{lead.ai_analysis}</p>
+                ) : (
+                  <p className="text-xs text-gray-500">No research generated yet. Runs automatically after import, or click above to run it now.</p>
+                )}
               </div>
 
               {/* Trust Brief */}

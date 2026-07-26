@@ -538,6 +538,8 @@ async def import_leads_csv(
 
     if auto_score and inserted > 0 and bg is not None:
         bg.add_task(_score_newly_imported, resolved_tenant_id, min(inserted, 50))
+    if inserted > 0 and bg is not None:
+        bg.add_task(_research_newly_imported, resolved_tenant_id, min(inserted, 50))
 
     msg = f"Imported {inserted} lead{'s' if inserted != 1 else ''}"
     if skipped:
@@ -546,6 +548,8 @@ async def import_leads_csv(
         msg += f", {errors} row error{'s' if errors != 1 else ''}"
     if auto_score and inserted > 0:
         msg += ". AI scoring running in background."
+    if inserted > 0:
+        msg += " Company research briefings generating in background."
 
     return {
         "inserted": inserted,
@@ -578,6 +582,50 @@ async def _score_newly_imported(tenant_id: UUID, limit: int) -> None:
             await db.commit()
     except Exception as exc:
         logger.warning("Background CSV scoring failed: %s", exc)
+
+
+async def _research_newly_imported(tenant_id: UUID, limit: int) -> None:
+    """Generate a company research briefing for freshly imported leads that don't have one yet."""
+    from app.core.database import AsyncSessionLocal
+    from app.models.lead import Lead
+    from app.services.leads.research import research_lead_company
+    from sqlalchemy import select
+    try:
+        async with AsyncSessionLocal() as db:
+            unresearched = await db.scalars(
+                select(Lead)
+                .where(Lead.tenant_id == tenant_id, Lead.ai_analysis.is_(None))
+                .order_by(Lead.created_at.desc())
+                .limit(limit)
+            )
+            for lead in unresearched.all():
+                try:
+                    lead.ai_analysis = await research_lead_company(lead)
+                except Exception as exc:
+                    logger.warning("Background research failed for lead %s: %s", lead.id, exc)
+            await db.commit()
+    except Exception as exc:
+        logger.warning("Background CSV research failed: %s", exc)
+
+
+@router.post("/{lead_id}/research")
+@limiter.limit("20/minute")
+async def trigger_lead_research(
+    lead_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate (or regenerate) the company research briefing for one lead, synchronously."""
+    from app.models.lead import Lead
+    from app.services.leads.research import research_lead_company
+
+    lead = await db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    lead.ai_analysis = await research_lead_company(lead)
+    await db.commit()
+    return {"lead_id": str(lead_id), "ai_analysis": lead.ai_analysis}
 
 
 def _aliyar_discovery_targets(total_limit: int) -> list[dict]:
