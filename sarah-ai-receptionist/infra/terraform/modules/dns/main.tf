@@ -47,10 +47,10 @@ resource "aws_acm_certificate_validation" "api" {
 
 # ── ACM certificate for CloudFront (must be us-east-1) — covers app + admin ─
 resource "aws_acm_certificate" "cdn" {
-  provider                 = aws.us_east_1
+  provider                  = aws.us_east_1
   domain_name               = "${var.app_subdomain}.${var.root_domain}"
   subject_alternative_names = ["${var.admin_subdomain}.${var.root_domain}"]
-  validation_method          = "DNS"
+  validation_method         = "DNS"
   lifecycle { create_before_destroy = true }
 }
 
@@ -71,7 +71,7 @@ resource "aws_route53_record" "cdn_cert_validation" {
 }
 
 resource "aws_acm_certificate_validation" "cdn" {
-  provider                 = aws.us_east_1
-  certificate_arn           = aws_acm_certificate.cdn.arn
-  validation_record_fqdns   = [for r in aws_route53_record.cdn_cert_validation : r.fqdn]
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.cdn.arn
+  validation_record_fqdns = [for r in aws_route53_record.cdn_cert_validation : r.fqdn]
 }

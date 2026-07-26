@@ -28,6 +28,7 @@ export const dashboardApi = {
   getStats: () => api.get("/dashboard/stats"),
   getCalls: (params) => api.get("/dashboard/calls", { params }),
   getCallDetail: (id) => api.get(`/dashboard/calls/${id}`),
+  getRecordingUrl: (id) => api.get(`/dashboard/calls/${id}/recording-url`),
   getSettings: () => api.get("/dashboard/settings"),
   updateSettings: (payload) => api.patch("/dashboard/settings", payload),
 };

@@ -20,3 +20,6 @@ container_image_api   = "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sarah-recept
 
 # Receives CloudWatch alarm emails (ALB 5xx, unhealthy targets, ECS task loss, RDS health)
 alarm_email = "ops@aliyarsolutions.com"
+
+# RDS backups are cross-region-copied here for disaster recovery
+dr_region = "us-west-2"

@@ -105,6 +105,12 @@ variable "container_image_api" {
   default     = ""
 }
 
+variable "dr_region" {
+  description = "Secondary AWS region that RDS backups are cross-region-copied to for disaster recovery"
+  type        = string
+  default     = "us-west-2"
+}
+
 variable "alarm_email" {
   description = "Email address that receives CloudWatch alarm notifications (ALB 5xx, unhealthy targets, ECS task loss, RDS CPU/storage/memory)"
   type        = string

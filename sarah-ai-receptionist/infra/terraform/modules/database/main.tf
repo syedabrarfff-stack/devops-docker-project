@@ -14,12 +14,8 @@ resource "aws_security_group" "rds" {
     security_groups = [var.ecs_security_group_id]
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # No egress rule — a database has no legitimate reason to initiate outbound
+  # connections. Previously allowed all traffic to 0.0.0.0/0.
 }
 
 resource "aws_db_instance" "main" {
@@ -41,8 +37,8 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  multi_az                    = true
-  backup_retention_period     = 14
+  multi_az                     = true
+  backup_retention_period      = 14
   backup_window                = "03:00-04:00"
   maintenance_window           = "mon:04:30-mon:05:30"
   deletion_protection          = true
@@ -75,30 +71,25 @@ resource "aws_security_group" "redis" {
     security_groups = [var.ecs_security_group_id]
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # No egress rule — same reasoning as the RDS security group above.
 }
 
 resource "aws_elasticache_replication_group" "main" {
   replication_group_id = "${var.project_name}-${var.environment}-redis"
-  description           = "Sarah call session cache"
+  description          = "Sarah call session cache"
 
-  node_type            = var.redis_node_type
-  num_cache_clusters    = 2
-  engine                = "redis"
-  engine_version        = "7.1"
-  port                  = 6379
+  node_type                  = var.redis_node_type
+  num_cache_clusters         = 2
+  engine                     = "redis"
+  engine_version             = "7.1"
+  port                       = 6379
   automatic_failover_enabled = true
 
-  subnet_group_name = aws_elasticache_subnet_group.main.name
+  subnet_group_name  = aws_elasticache_subnet_group.main.name
   security_group_ids = [aws_security_group.redis.id]
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
-  auth_token                  = random_password.redis_auth_token.result
-  kms_key_id                  = var.kms_key_arn
+  auth_token                 = random_password.redis_auth_token.result
+  kms_key_id                 = var.kms_key_arn
 }

@@ -140,11 +140,13 @@ async def erase_patient(
     current_user: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """GDPR/right-to-erasure: removes a patient's PII record and redacts the
-    identifying fields left on their appointments. Call transcripts may still
-    contain the patient's spoken name/details inline — full transcript
-    redaction is a larger follow-up, not covered by this endpoint."""
+    """GDPR/right-to-erasure: removes a patient's PII record, redacts the
+    identifying fields left on their appointments, and scrubs their name/phone
+    out of any linked call transcripts. This is a best-effort text scrub (exact
+    name/phone matches) — it won't catch every way a caller's identity might
+    appear in free-form transcript text, but it's real redaction, not a no-op."""
     from app.models.appointment import Appointment
+    from app.models.call_log import CallLog
     from app.models.patient import Patient
 
     result = await db.execute(
@@ -154,6 +156,10 @@ async def erase_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    identifiers = [
+        v for v in (patient.phone, patient.first_name, patient.last_name, patient.email) if v
+    ]
+
     appt_result = await db.execute(
         select(Appointment).where(Appointment.patient_id == patient_id, Appointment.clinic_id == clinic_id)
     )
@@ -161,6 +167,22 @@ async def erase_patient(
         appt.patient_name = "[erased]"
         appt.patient_phone = None
         appt.patient_email = None
+
+    call_result = await db.execute(
+        select(CallLog).where(CallLog.patient_id == patient_id, CallLog.clinic_id == clinic_id)
+    )
+    for call_log in call_result.scalars().all():
+        redacted_transcript = []
+        for turn in call_log.transcript or []:
+            content = turn.get("content", "")
+            for identifier in identifiers:
+                content = content.replace(identifier, "[redacted]")
+            redacted_transcript.append({**turn, "content": content})
+        call_log.transcript = redacted_transcript
+        if call_log.ai_summary:
+            for identifier in identifiers:
+                call_log.ai_summary = call_log.ai_summary.replace(identifier, "[redacted]")
+        call_log.patient_id = None
 
     await db.delete(patient)
     await db.flush()

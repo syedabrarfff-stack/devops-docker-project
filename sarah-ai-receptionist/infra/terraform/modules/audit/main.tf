@@ -31,6 +31,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "trail" {
   rule {
     id     = "expire-old-trail-logs"
     status = "Enabled"
+    filter {}
     expiration {
       days = 400
     }

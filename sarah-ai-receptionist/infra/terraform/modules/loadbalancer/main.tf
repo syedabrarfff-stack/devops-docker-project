@@ -31,9 +31,9 @@ resource "aws_security_group" "ecs_tasks" {
 
   ingress {
     from_port       = 8000
-    to_port          = 8000
-    protocol         = "tcp"
-    security_groups  = [aws_security_group.alb.id]
+    to_port         = 8000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
   }
   egress {
     from_port   = 0
@@ -51,7 +51,7 @@ resource "aws_lb" "main" {
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = true
-  idle_timeout                = 3600 # long-lived WebSocket connections for Twilio Media Streams
+  idle_timeout               = 3600 # long-lived WebSocket connections for Twilio Media Streams
 }
 
 resource "aws_lb_target_group" "voice" {

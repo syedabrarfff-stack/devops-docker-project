@@ -20,15 +20,15 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
   # Populated out-of-band via `aws secretsmanager put-secret-value` or the AWS console —
   # never store real key values in Terraform state or version control.
   secret_string = jsonencode({
-    openrouter_api_key   = "REPLACE_ME"
-    twilio_account_sid   = "REPLACE_ME"
-    twilio_auth_token    = "REPLACE_ME"
-    twilio_phone_number  = "REPLACE_ME"
-    deepgram_api_key     = "REPLACE_ME"
-    elevenlabs_api_key   = "REPLACE_ME"
-    elevenlabs_voice_id  = "REPLACE_ME"
-    jwt_secret_key       = "REPLACE_ME"
-    stripe_secret_key    = "REPLACE_ME"
+    openrouter_api_key    = "REPLACE_ME"
+    twilio_account_sid    = "REPLACE_ME"
+    twilio_auth_token     = "REPLACE_ME"
+    twilio_phone_number   = "REPLACE_ME"
+    deepgram_api_key      = "REPLACE_ME"
+    elevenlabs_api_key    = "REPLACE_ME"
+    elevenlabs_voice_id   = "REPLACE_ME"
+    jwt_secret_key        = "REPLACE_ME"
+    stripe_secret_key     = "REPLACE_ME"
     stripe_webhook_secret = "REPLACE_ME"
   })
 

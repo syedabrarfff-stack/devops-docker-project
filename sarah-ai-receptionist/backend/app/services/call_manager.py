@@ -8,16 +8,17 @@ Each active phone call gets its own CallManager instance, torn down at call end.
 """
 
 import asyncio
-import json
 import base64
+import json
 import logging
 import time
 from datetime import datetime, timezone
 
-from app.services.ai_brain import AIBrain, ActionCommand
+from app.services.ai_brain import ActionCommand, AIBrain
+from app.services.barge_in import is_real_interruption, send_clear_event
+from app.services.call_recorder import upload_recording_to_s3
 from app.services.speech_to_text import SpeechToText, TranscriptEvent
 from app.services.text_to_speech import TextToSpeech, audio_to_twilio_payload
-from app.services.barge_in import send_clear_event, is_real_interruption
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,16 @@ class CallManager:
         self.call_start = datetime.now(timezone.utc)
         self.call_log: list[dict] = []
         self.pending_action: ActionCommand | None = None
+        self._clinic_id = (clinic_config or {}).get("_clinic_id")
 
         self._speak_task: asyncio.Task | None = None
         self._utterance_buffer: str = ""
         self._latencies_ms: list[float] = []
+        # Raw mulaw/8kHz bytes, both directions, appended in real-time arrival
+        # order — a simple but faithful single-track recording. (Proper
+        # duplex would multiplex two timestamped tracks; this captures full
+        # audio content, which is what compliance/QA review actually needs.)
+        self._recorded_audio: list[bytes] = []
 
     async def start(self, twilio_ws):
         self.twilio_ws = twilio_ws
@@ -148,6 +155,7 @@ class CallManager:
             return
         try:
             async for audio_chunk in self.tts.stream_synthesize(text):
+                self._recorded_audio.append(audio_chunk)
                 payload = audio_to_twilio_payload(audio_chunk)
                 media_message = json.dumps({
                     "event": "media",
@@ -194,6 +202,7 @@ class CallManager:
             if event == "media":
                 payload = data["media"]["payload"]
                 audio_bytes = base64.b64decode(payload)
+                self._recorded_audio.append(audio_bytes)
                 await self.stt.send_audio(audio_bytes)
             elif event == "start":
                 logger.info(f"Call stream started: {data.get('start', {}).get('callSid')}")
@@ -225,6 +234,15 @@ class CallManager:
         duration = (datetime.now(timezone.utc) - self.call_start).total_seconds()
         avg_latency = sum(self._latencies_ms) / len(self._latencies_ms) if self._latencies_ms else None
 
+        recording_s3_key = None
+        if self._recorded_audio and self._clinic_id:
+            try:
+                recording_s3_key = await upload_recording_to_s3(
+                    self.call_sid, b"".join(self._recorded_audio), self._clinic_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to upload call recording for {self.call_sid}: {e}")
+
         logger.info(
             f"Call {self.call_sid} ended. Duration: {duration:.0f}s, "
             f"Exchanges: {len(self.call_log)}, Avg latency: {avg_latency}"
@@ -237,4 +255,5 @@ class CallManager:
             "outcome": self.pending_action.action if self.pending_action else "completed",
             "avg_response_ms": avg_latency,
             "action_params": self.pending_action.params if self.pending_action else {},
+            "recording_s3_key": recording_s3_key,
         }

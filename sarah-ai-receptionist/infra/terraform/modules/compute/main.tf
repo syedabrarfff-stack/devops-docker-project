@@ -55,15 +55,15 @@ resource "aws_ecs_task_definition" "voice" {
   cpu                      = var.ecs_voice_cpu
   memory                   = var.ecs_voice_memory
   execution_role_arn       = var.ecs_task_execution_role_arn
-  task_role_arn             = var.ecs_task_role_arn
+  task_role_arn            = var.ecs_task_role_arn
 
   container_definitions = jsonencode([{
-    name      = "voice-service"
-    image     = var.container_image_voice
-    essential = true
+    name         = "voice-service"
+    image        = var.container_image_voice
+    essential    = true
     portMappings = [{ containerPort = 8000, protocol = "tcp" }]
-    environment = local.common_env
-    secrets     = local.common_secrets
+    environment  = local.common_env
+    secrets      = local.common_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -89,8 +89,8 @@ resource "aws_ecs_service" "voice" {
 
   load_balancer {
     target_group_arn = var.voice_target_group_arn
-    container_name    = "voice-service"
-    container_port    = 8000
+    container_name   = "voice-service"
+    container_port   = 8000
   }
 
   deployment_maximum_percent         = 200
@@ -110,15 +110,15 @@ resource "aws_ecs_task_definition" "api" {
   cpu                      = var.ecs_api_cpu
   memory                   = var.ecs_api_memory
   execution_role_arn       = var.ecs_task_execution_role_arn
-  task_role_arn             = var.ecs_task_role_arn
+  task_role_arn            = var.ecs_task_role_arn
 
   container_definitions = jsonencode([{
-    name      = "api-service"
-    image     = var.container_image_api
-    essential = true
+    name         = "api-service"
+    image        = var.container_image_api
+    essential    = true
     portMappings = [{ containerPort = 8000, protocol = "tcp" }]
-    environment = local.common_env
-    secrets     = local.common_secrets
+    environment  = local.common_env
+    secrets      = local.common_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -144,8 +144,8 @@ resource "aws_ecs_service" "api" {
 
   load_balancer {
     target_group_arn = var.api_target_group_arn
-    container_name    = "api-service"
-    container_port    = 8000
+    container_name   = "api-service"
+    container_port   = 8000
   }
 
   deployment_maximum_percent         = 200
@@ -165,13 +165,13 @@ resource "aws_ecs_task_definition" "worker" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = var.ecs_task_execution_role_arn
-  task_role_arn             = var.ecs_task_role_arn
+  task_role_arn            = var.ecs_task_role_arn
 
   container_definitions = jsonencode([{
-    name      = "worker-service"
-    image     = var.container_image_api
-    essential = true
-    command   = ["arq", "app.workers.worker.WorkerSettings"]
+    name        = "worker-service"
+    image       = var.container_image_api
+    essential   = true
+    command     = ["arq", "app.workers.worker.WorkerSettings"]
     environment = local.common_env
     secrets     = local.common_secrets
     # arq has no HTTP surface, so liveness is "the process that imported the

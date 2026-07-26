@@ -11,14 +11,24 @@ const OUTCOME_STYLES = {
 export default function CallLog() {
   const [calls, setCalls] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [recordingUrl, setRecordingUrl] = useState(null);
 
   useEffect(() => {
     dashboardApi.getCalls({ limit: 50 }).then(({ data }) => setCalls(data));
   }, []);
 
   async function openCall(id) {
+    setRecordingUrl(null);
     const { data } = await dashboardApi.getCallDetail(id);
     setSelected(data);
+    if (data.recording_s3_key) {
+      try {
+        const { data: rec } = await dashboardApi.getRecordingUrl(id);
+        setRecordingUrl(rec.url);
+      } catch {
+        setRecordingUrl(null);
+      }
+    }
   }
 
   return (
@@ -39,7 +49,20 @@ export default function CallLog() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {calls.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openCall(c.id)}>
+              <tr
+                key={c.id}
+                className="hover:bg-slate-50 cursor-pointer focus:outline-none focus:bg-slate-50"
+                tabIndex={0}
+                role="button"
+                aria-label={`View call from ${format(new Date(c.started_at), "MMM d, h:mm a")}`}
+                onClick={() => openCall(c.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openCall(c.id);
+                  }
+                }}
+              >
                 <td className="px-4 py-3">{format(new Date(c.started_at), "MMM d, h:mm a")}</td>
                 <td className="px-4 py-3">{c.duration_seconds ? `${Math.round(c.duration_seconds)}s` : "—"}</td>
                 <td className="px-4 py-3">{c.exchange_count ?? "—"}</td>
@@ -67,8 +90,19 @@ export default function CallLog() {
           <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <h2 className="font-semibold text-lg">Call Transcript</h2>
-              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button
+                onClick={() => setSelected(null)}
+                aria-label="Close call transcript"
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
             </div>
+            {recordingUrl && (
+              <audio controls src={recordingUrl} className="w-full mb-4" preload="none">
+                Your browser does not support inline audio playback.
+              </audio>
+            )}
             <div className="space-y-3">
               {selected.transcript.map((turn, i) => (
                 <div key={i} className={turn.role === "caller" ? "text-slate-800" : "text-brand-700"}>

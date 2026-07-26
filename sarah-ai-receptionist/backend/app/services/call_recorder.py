@@ -40,6 +40,7 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             appointment_booked=outcome == "BOOK",
             transcript=result.get("transcript", []),
             avg_response_ms=result.get("avg_response_ms"),
+            recording_s3_key=result.get("recording_s3_key"),
             # The consent disclosure is unconditionally spoken before the media
             # stream connects (call_handler.CONSENT_DISCLOSURE) — every call
             # that reaches persistence has had it played.
@@ -77,23 +78,50 @@ async def _enqueue_summary(call_log_id: str) -> None:
         logger.warning(f"Failed to enqueue call summary job for {call_log_id}: {e}")
 
 
+def _wrap_mulaw_in_wav(mulaw_bytes: bytes, sample_rate: int = 8000) -> bytes:
+    """Wraps raw G.711 mulaw samples in a minimal WAV container (format tag 7)
+    so the result is a real, browser-playable file — Python's `wave` module
+    only supports PCM, so this builds the 44-byte RIFF/WAVE header by hand."""
+    import struct
+
+    data_size = len(mulaw_bytes)
+    byte_rate = sample_rate  # 1 byte/sample, mono, mulaw
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", 36 + data_size, b"WAVE",
+        b"fmt ", 16, 7, 1, sample_rate, byte_rate, 1, 8,
+        b"data", data_size,
+    )
+    return header + mulaw_bytes
+
+
 async def upload_recording_to_s3(call_sid: str, audio_bytes: bytes, clinic_id: str) -> str | None:
-    """Uploads a call recording to S3, KMS-encrypted. Returns the S3 key."""
-    if not settings.aws_access_key_id:
-        return None
+    """Uploads a call recording to S3, KMS-encrypted. Returns the S3 key.
+
+    On ECS, credentials come from the task's IAM role, not static keys — the
+    previous version only ever ran when AWS_ACCESS_KEY_ID was explicitly set,
+    which is never true in production, so this silently never uploaded
+    anything there. boto3's default credential chain (env vars if present,
+    otherwise the task/instance role) is used instead.
+    """
+    import asyncio
 
     import boto3
-    s3 = boto3.client(
-        "s3",
-        region_name=settings.aws_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
+
+    client_kwargs = {"region_name": settings.aws_region}
+    if settings.aws_access_key_id:
+        client_kwargs["aws_access_key_id"] = settings.aws_access_key_id
+        client_kwargs["aws_secret_access_key"] = settings.aws_secret_access_key
+
+    s3 = boto3.client("s3", **client_kwargs)
     key = f"recordings/{clinic_id}/{call_sid}.wav"
-    s3.put_object(
+    wav_bytes = _wrap_mulaw_in_wav(audio_bytes)
+
+    await asyncio.to_thread(
+        s3.put_object,
         Bucket=settings.s3_bucket_recordings,
         Key=key,
-        Body=audio_bytes,
+        Body=wav_bytes,
         ServerSideEncryption="aws:kms",
         ContentType="audio/wav",
     )

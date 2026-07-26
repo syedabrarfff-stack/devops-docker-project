@@ -19,12 +19,39 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
 }
 
 # CloudFront + its ACM certificate must be provisioned from us-east-1 regardless of primary region
 provider "aws" {
   alias  = "us_east_1"
   region = "us-east-1"
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
+# Disaster-recovery region for cross-region RDS backup copies
+provider "aws" {
+  alias  = "dr"
+  region = var.dr_region
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
 }
 
 module "networking" {
@@ -37,8 +64,8 @@ module "networking" {
 module "dns" {
   source = "../../modules/dns"
   providers = {
-    aws            = aws
-    aws.us_east_1  = aws.us_east_1
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
   }
   root_domain     = var.root_domain
   api_subdomain   = var.api_subdomain
@@ -75,7 +102,10 @@ module "loadbalancer" {
 
 module "cdn" {
   source = "../../modules/cdn"
-  providers = { aws = aws }
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
 
   project_name                         = var.project_name
   environment                          = var.environment
@@ -90,18 +120,18 @@ module "cdn" {
 }
 
 module "database" {
-  source                 = "../../modules/database"
-  project_name           = var.project_name
-  environment            = var.environment
-  vpc_id                 = module.networking.vpc_id
-  private_subnet_ids     = module.networking.private_subnet_ids
-  ecs_security_group_id  = module.loadbalancer.ecs_security_group_id
-  kms_key_arn            = module.security.kms_key_arn
-  db_instance_class      = var.db_instance_class
-  db_name                = var.db_name
-  db_username            = var.db_username
-  db_password            = module.security.db_password
-  redis_node_type        = var.redis_node_type
+  source                = "../../modules/database"
+  project_name          = var.project_name
+  environment           = var.environment
+  vpc_id                = module.networking.vpc_id
+  private_subnet_ids    = module.networking.private_subnet_ids
+  ecs_security_group_id = module.loadbalancer.ecs_security_group_id
+  kms_key_arn           = module.security.kms_key_arn
+  db_instance_class     = var.db_instance_class
+  db_name               = var.db_name
+  db_username           = var.db_username
+  db_password           = module.security.db_password
+  redis_node_type       = var.redis_node_type
 }
 
 # The full DATABASE_URL — including the password — is a secret in its own
@@ -116,7 +146,7 @@ resource "aws_secretsmanager_secret" "database_url" {
 }
 
 resource "aws_secretsmanager_secret_version" "database_url" {
-  secret_id = aws_secretsmanager_secret.database_url.id
+  secret_id     = aws_secretsmanager_secret.database_url.id
   secret_string = "postgresql+asyncpg://${var.db_username}:${module.security.db_password}@${module.database.db_address}:5432/${var.db_name}"
 }
 
@@ -148,12 +178,12 @@ module "compute" {
   ecs_task_execution_role_arn = module.security.ecs_task_execution_role_arn
   ecs_task_role_arn           = module.security.ecs_task_role_arn
 
-  ecs_voice_cpu            = var.ecs_voice_cpu
-  ecs_voice_memory         = var.ecs_voice_memory
-  ecs_voice_desired_count  = var.ecs_voice_desired_count
-  ecs_api_cpu              = var.ecs_api_cpu
-  ecs_api_memory           = var.ecs_api_memory
-  ecs_api_desired_count    = var.ecs_api_desired_count
+  ecs_voice_cpu           = var.ecs_voice_cpu
+  ecs_voice_memory        = var.ecs_voice_memory
+  ecs_voice_desired_count = var.ecs_voice_desired_count
+  ecs_api_cpu             = var.ecs_api_cpu
+  ecs_api_memory          = var.ecs_api_memory
+  ecs_api_desired_count   = var.ecs_api_desired_count
 
   container_image_voice = var.container_image_voice
   container_image_api   = var.container_image_api
@@ -162,8 +192,8 @@ module "compute" {
   redis_url_secret_arn    = aws_secretsmanager_secret.redis_url.arn
 
   recordings_bucket_name = module.storage.recordings_bucket_name
-  app_secrets_arn         = module.security.app_secrets_arn
-  api_domain              = "${var.api_subdomain}.${var.root_domain}"
+  app_secrets_arn        = module.security.app_secrets_arn
+  api_domain             = "${var.api_subdomain}.${var.root_domain}"
 }
 
 # All CloudWatch alarms/SNS live downstream of compute/loadbalancer/database —
@@ -171,21 +201,33 @@ module "compute" {
 module "alerting" {
   source = "../../modules/alerting"
 
-  project_name         = var.project_name
-  environment          = var.environment
-  alarm_email          = var.alarm_email
-  alb_arn_suffix       = module.loadbalancer.alb_arn_suffix
-  voice_tg_arn_suffix  = module.loadbalancer.voice_target_group_arn_suffix
-  api_tg_arn_suffix    = module.loadbalancer.api_target_group_arn_suffix
-  ecs_cluster_name     = module.compute.ecs_cluster_name
+  project_name            = var.project_name
+  environment             = var.environment
+  alarm_email             = var.alarm_email
+  alb_arn_suffix          = module.loadbalancer.alb_arn_suffix
+  voice_tg_arn_suffix     = module.loadbalancer.voice_target_group_arn_suffix
+  api_tg_arn_suffix       = module.loadbalancer.api_target_group_arn_suffix
+  ecs_cluster_name        = module.compute.ecs_cluster_name
   ecs_voice_service_name  = module.compute.ecs_voice_service_name
   ecs_api_service_name    = module.compute.ecs_api_service_name
   ecs_worker_service_name = module.compute.ecs_worker_service_name
-  rds_instance_id      = module.database.db_instance_id
+  rds_instance_id         = module.database.db_instance_id
 }
 
 module "audit" {
   source       = "../../modules/audit"
   project_name = var.project_name
   environment  = var.environment
+}
+
+module "backup" {
+  source = "../../modules/backup"
+  providers = {
+    aws    = aws
+    aws.dr = aws.dr
+  }
+  project_name     = var.project_name
+  environment      = var.environment
+  rds_instance_arn = module.database.db_instance_arn
+  kms_key_arn      = module.security.kms_key_arn
 }

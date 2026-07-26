@@ -125,6 +125,53 @@ async def get_call_detail(
     return call_log
 
 
+@router.get("/calls/{call_log_id}/recording-url")
+async def get_call_recording_url(
+    call_log_id: str,
+    request: Request,
+    clinic_id: str = Depends(get_current_clinic_id),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Short-lived presigned S3 URL for the call's audio — never a public link."""
+    import asyncio
+
+    import boto3
+
+    from app.config.settings import get_settings
+
+    settings = get_settings()
+
+    result = await db.execute(
+        select(CallLog).where(CallLog.id == call_log_id, CallLog.clinic_id == clinic_id)
+    )
+    call_log = result.scalar_one_or_none()
+    if not call_log:
+        raise HTTPException(status_code=404, detail="Call not found")
+    if not call_log.recording_s3_key:
+        raise HTTPException(status_code=404, detail="No recording available for this call")
+
+    s3 = boto3.client("s3", region_name=settings.aws_region)
+    url = await asyncio.to_thread(
+        s3.generate_presigned_url,
+        "get_object",
+        Params={"Bucket": settings.s3_bucket_recordings, "Key": call_log.recording_s3_key},
+        ExpiresIn=300,
+    )
+
+    await write_audit_log(
+        db,
+        clinic_id=clinic_id,
+        actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"),
+        action="view_call_recording",
+        resource_type="call_log",
+        resource_id=call_log_id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return {"url": url, "expires_in": 300}
+
+
 @router.get("/settings")
 async def get_clinic_settings(
     clinic_id: str = Depends(get_current_clinic_id), db: AsyncSession = Depends(get_db)
