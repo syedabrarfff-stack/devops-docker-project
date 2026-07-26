@@ -132,6 +132,66 @@ resource "aws_lb_listener" "http_redirect" {
   }
 }
 
+# ── WAF — rate limiting + AWS managed rules in front of the ALB ────────────
+resource "aws_wafv2_web_acl" "alb" {
+  name        = "${var.project_name}-${var.environment}-alb-waf"
+  description = "Rate limiting and managed protections for the voice/API ALB"
+  scope       = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "rate-limit"
+    priority = 1
+    action {
+      block {}
+    }
+    statement {
+      rate_based_statement {
+        limit              = 3000 # requests per 5-minute window per IP
+        aggregate_key_type = "IP"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-rate-limit"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "aws-managed-common"
+    priority = 2
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-common-rules"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project_name}-${var.environment}-alb-waf"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "alb" {
+  resource_arn = aws_lb.main.arn
+  web_acl_arn  = aws_wafv2_web_acl.alb.arn
+}
+
 resource "aws_route53_record" "api_alias" {
   zone_id = var.api_zone_id
   name    = "" # apex of the delegated subdomain zone (sarah.aliyarsolutions.com)

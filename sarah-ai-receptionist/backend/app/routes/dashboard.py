@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select, func, and_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
-from app.core.security import get_current_clinic_id
-from app.models.call_log import CallLog
+from app.core.security import get_current_clinic_id, get_current_user
 from app.models.appointment import Appointment
+from app.models.call_log import CallLog
 from app.models.clinic import Clinic
+from app.services.audit import write_audit_log
 
 router = APIRouter(tags=["dashboard"])
 
@@ -59,7 +62,7 @@ async def get_stats(clinic_id: str = Depends(get_current_clinic_id), db: AsyncSe
     )
     transfers_today = await db.scalar(
         select(func.count(CallLog.id)).where(
-            CallLog.clinic_id == clinic_id, CallLog.started_at >= today_start, CallLog.transferred == True  # noqa: E712
+            CallLog.clinic_id == clinic_id, CallLog.started_at >= today_start, CallLog.transferred == True
         )
     )
     avg_latency = await db.scalar(
@@ -96,7 +99,11 @@ async def list_calls(
 
 @router.get("/calls/{call_log_id}", response_model=CallLogDetailOut)
 async def get_call_detail(
-    call_log_id: str, clinic_id: str = Depends(get_current_clinic_id), db: AsyncSession = Depends(get_db)
+    call_log_id: str,
+    request: Request,
+    clinic_id: str = Depends(get_current_clinic_id),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(CallLog).where(CallLog.id == call_log_id, CallLog.clinic_id == clinic_id)
@@ -104,6 +111,17 @@ async def get_call_detail(
     call_log = result.scalar_one_or_none()
     if not call_log:
         raise HTTPException(status_code=404, detail="Call not found")
+
+    await write_audit_log(
+        db,
+        clinic_id=clinic_id,
+        actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"),
+        action="view_call_transcript",
+        resource_type="call_log",
+        resource_id=call_log_id,
+        ip_address=request.client.host if request.client else None,
+    )
     return call_log
 
 
@@ -129,7 +147,11 @@ async def get_clinic_settings(
 
 @router.patch("/settings")
 async def update_clinic_settings(
-    payload: dict, clinic_id: str = Depends(get_current_clinic_id), db: AsyncSession = Depends(get_db)
+    payload: dict,
+    request: Request,
+    clinic_id: str = Depends(get_current_clinic_id),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Clinic).where(Clinic.id == clinic_id))
     clinic = result.scalar_one_or_none()
@@ -137,9 +159,23 @@ async def update_clinic_settings(
         raise HTTPException(status_code=404, detail="Clinic not found")
 
     allowed_fields = {"name", "address", "city", "state", "timezone", "sarah_name", "clinic_config"}
+    changed_fields = []
     for field, value in payload.items():
         if field in allowed_fields:
             setattr(clinic, field, value)
+            changed_fields.append(field)
 
     await db.flush()
+
+    await write_audit_log(
+        db,
+        clinic_id=clinic_id,
+        actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"),
+        action="update_clinic_settings",
+        resource_type="clinic",
+        resource_id=clinic_id,
+        ip_address=request.client.host if request.client else None,
+        details={"changed_fields": changed_fields},
+    )
     return {"status": "updated"}

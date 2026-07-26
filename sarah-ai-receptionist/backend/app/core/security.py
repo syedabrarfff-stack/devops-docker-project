@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
+
 from app.config.settings import get_settings
 
 settings = get_settings()
@@ -47,6 +49,6 @@ async def get_current_clinic_id(current_user: dict = Depends(get_current_user)) 
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    if current_user.get("role") != "admin":
+    if current_user.get("role") != "platform_admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user

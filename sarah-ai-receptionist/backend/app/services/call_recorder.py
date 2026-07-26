@@ -4,13 +4,15 @@ Persists call transcripts to the database and (in production) recordings to S3.
 
 import logging
 from datetime import datetime, timezone
+
 from arq import create_pool
 from arq.connections import RedisSettings
+
+from app.config.settings import get_settings
 from app.core.database import get_db_context
 from app.models.call_log import CallLog
 from app.services.appointment_service import book_appointment_from_action
 from app.services.notification_service import send_appointment_confirmation
-from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -38,13 +40,17 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             appointment_booked=outcome == "BOOK",
             transcript=result.get("transcript", []),
             avg_response_ms=result.get("avg_response_ms"),
+            # The consent disclosure is unconditionally spoken before the media
+            # stream connects (call_handler.CONSENT_DISCLOSURE) — every call
+            # that reaches persistence has had it played.
+            consent_disclosed=True,
         )
         db.add(call_log)
         await db.flush()
         call_log_id = call_log.id
 
         if outcome == "BOOK":
-            appointment = await book_appointment_from_action(db, clinic_id, action_params)
+            appointment = await book_appointment_from_action(db, clinic_id, action_params, call_log_id=call_log_id)
             call_log.patient_id = appointment.patient_id
             await db.flush()
 

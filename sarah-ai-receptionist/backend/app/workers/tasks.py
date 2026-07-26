@@ -5,10 +5,12 @@ appointment reminders. Queued from the API/voice services via Redis.
 
 import logging
 from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import select
+
 from app.core.database import get_db_context
-from app.models.call_log import CallLog
 from app.models.appointment import Appointment
+from app.models.call_log import CallLog
 from app.models.clinic import Clinic
 from app.services.ai_brain import AIBrain
 from app.services.notification_service import send_appointment_reminder
@@ -43,6 +45,32 @@ async def summarize_call(ctx, call_log_id: str):
     logger.info(f"Summarized call {call_log_id}")
 
 
+async def enforce_call_retention(ctx):
+    """Redacts transcript/summary/recording data on calls past the configured
+    retention window. The CallLog row itself (outcome, timing, latency stats)
+    is kept for aggregate reporting — only the PHI-bearing fields are cleared."""
+    from app.config.settings import get_settings
+
+    settings = get_settings()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.call_transcript_retention_days)
+
+    async with get_db_context() as db:
+        result = await db.execute(
+            select(CallLog).where(
+                CallLog.started_at < cutoff,
+                CallLog.transcript != [],
+            )
+        )
+        expired = result.scalars().all()
+        for call_log in expired:
+            call_log.transcript = []
+            call_log.ai_summary = None
+            call_log.recording_s3_key = None
+        await db.flush()
+
+    logger.info(f"Redacted {len(expired)} call transcripts past the {settings.call_transcript_retention_days}-day retention window")
+
+
 async def send_reminders(ctx):
     """Runs periodically: sends SMS reminders for appointments happening in ~24h."""
     window_start = datetime.now(timezone.utc) + timedelta(hours=23)
@@ -55,7 +83,7 @@ async def send_reminders(ctx):
             .where(
                 Appointment.appointment_datetime >= window_start,
                 Appointment.appointment_datetime <= window_end,
-                Appointment.reminder_sent == False,  # noqa: E712
+                Appointment.reminder_sent == False,
                 Appointment.status == "scheduled",
             )
         )

@@ -71,6 +71,22 @@ cd backend
 alembic upgrade head
 ```
 
+## First-run setup
+
+`/api/v1/admin/*` (clinic onboarding) is gated behind the `platform_admin` role,
+and nothing in the app itself can create that first account — bootstrap it
+directly against the database once, after migrations:
+
+```bash
+python scripts/create_platform_admin.py --email you@aliyarsolutions.com --name "Syed Abrar"
+```
+
+Billing (Stripe) requires `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to be
+set before onboarding clinics — without them, subscriptions are still created
+and tracked locally in `trialing` status, but nothing is actually billed.
+Point a Stripe webhook at `POST /api/v1/billing/webhook` for
+`customer.subscription.*` and `invoice.payment_failed` events.
+
 ## Production Deployment
 
 Infrastructure is Terraform-managed. DNS uses **subdomain delegation** — the root domain

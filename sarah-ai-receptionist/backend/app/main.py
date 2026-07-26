@@ -1,10 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config.settings import get_settings
-from app.routes import call_handler, appointments, dashboard, auth, admin
+from app.routes import admin, appointments, auth, billing, call_handler, dashboard
 
 settings = get_settings()
 
@@ -47,6 +49,7 @@ app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(appointments.router, prefix="/api/v1/appointments")
 app.include_router(dashboard.router, prefix="/api/v1/dashboard")
 app.include_router(admin.router, prefix="/api/v1/admin")
+app.include_router(billing.router, prefix="/api/v1/billing")
 
 
 @app.get("/health")
@@ -59,15 +62,32 @@ async def health():
 async def readyz():
     """Deep readiness probe — verifies DB connectivity."""
     from sqlalchemy import text
+
     from app.core.database import get_db_context
+
+    checks = {"database": False, "redis": False}
 
     try:
         async with get_db_context() as db:
             await db.execute(text("SELECT 1"))
-        return {"status": "ready"}
+        checks["database"] = True
     except Exception as e:
-        logger.error(f"Readiness check failed: {e}")
-        return {"status": "not_ready", "error": str(e)}
+        logger.error(f"Readiness check failed (database): {e}")
+
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+
+        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        await redis.ping()
+        await redis.close()
+        checks["redis"] = True
+    except Exception as e:
+        logger.error(f"Readiness check failed (redis): {e}")
+
+    if all(checks.values()):
+        return {"status": "ready", "checks": checks}
+    return JSONResponse(status_code=503, content={"status": "not_ready", "checks": checks})
 
 
 @app.get("/")

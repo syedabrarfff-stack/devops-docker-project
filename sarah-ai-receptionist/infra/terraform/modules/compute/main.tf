@@ -9,14 +9,16 @@ resource "aws_ecs_cluster" "main" {
 locals {
   common_env = [
     { name = "APP_ENV", value = var.environment },
-    { name = "DATABASE_URL", value = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${var.db_address}:5432/${var.db_name}" },
-    { name = "REDIS_URL", value = "redis://${var.redis_endpoint}:6379/0" },
     { name = "S3_BUCKET_RECORDINGS", value = var.recordings_bucket_name },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "APP_BASE_URL", value = "https://${var.api_domain}" },
   ]
 
   common_secrets = [
+    # DATABASE_URL/REDIS_URL are whole-string secrets (not JSON), so valueFrom
+    # is the bare secret ARN with no `:key::` JSON-key suffix.
+    { name = "DATABASE_URL", valueFrom = var.database_url_secret_arn },
+    { name = "REDIS_URL", valueFrom = var.redis_url_secret_arn },
     { name = "OPENROUTER_API_KEY", valueFrom = "${var.app_secrets_arn}:openrouter_api_key::" },
     { name = "TWILIO_ACCOUNT_SID", valueFrom = "${var.app_secrets_arn}:twilio_account_sid::" },
     { name = "TWILIO_AUTH_TOKEN", valueFrom = "${var.app_secrets_arn}:twilio_auth_token::" },
@@ -172,6 +174,16 @@ resource "aws_ecs_task_definition" "worker" {
     command   = ["arq", "app.workers.worker.WorkerSettings"]
     environment = local.common_env
     secrets     = local.common_secrets
+    # arq has no HTTP surface, so liveness is "the process that imported the
+    # worker settings and can still touch Python" — cheap, catches a crashed
+    # interpreter/import error without needing a real endpoint.
+    healthCheck = {
+      command     = ["CMD-SHELL", "python -c 'import app.workers.worker' || exit 1"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 10
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -187,12 +199,17 @@ resource "aws_ecs_service" "worker" {
   name            = "${var.project_name}-${var.environment}-worker"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.worker.arn
-  desired_count   = 1
+  desired_count   = var.ecs_worker_desired_count # >1 for redundancy — a hung worker previously had no backup
   launch_type     = "FARGATE"
 
   network_configuration {
     subnets         = var.private_subnet_ids
     security_groups = [var.ecs_security_group_id]
+  }
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 }
 
@@ -211,6 +228,32 @@ resource "aws_appautoscaling_policy" "voice_cpu" {
   resource_id        = aws_appautoscaling_target.voice.resource_id
   scalable_dimension = aws_appautoscaling_target.voice.scalable_dimension
   service_namespace  = aws_appautoscaling_target.voice.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value       = 65
+    scale_in_cooldown  = 120
+    scale_out_cooldown = 60
+  }
+}
+
+# ── Autoscaling — api-service was previously fixed capacity ────────────────
+resource "aws_appautoscaling_target" "api" {
+  max_capacity       = 6
+  min_capacity       = var.ecs_api_desired_count
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.api.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "api_cpu" {
+  name               = "${var.project_name}-${var.environment}-api-cpu-scaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.api.resource_id
+  scalable_dimension = aws_appautoscaling_target.api.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.api.service_namespace
 
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {

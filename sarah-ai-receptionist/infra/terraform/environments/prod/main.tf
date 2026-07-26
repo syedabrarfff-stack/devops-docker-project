@@ -104,6 +104,35 @@ module "database" {
   redis_node_type        = var.redis_node_type
 }
 
+# The full DATABASE_URL — including the password — is a secret in its own
+# right, created here (not inside a module) because it needs module.database's
+# address output and module.security's password output together. Storing it
+# as a Secrets Manager value and injecting it via ECS `secrets` (not
+# `environment`) keeps the password out of the task definition, the console,
+# and Terraform's own plan output for anyone who can read the ECS API.
+resource "aws_secretsmanager_secret" "database_url" {
+  name       = "${var.project_name}-${var.environment}/database-url"
+  kms_key_id = module.security.kms_key_arn
+}
+
+resource "aws_secretsmanager_secret_version" "database_url" {
+  secret_id = aws_secretsmanager_secret.database_url.id
+  secret_string = "postgresql+asyncpg://${var.db_username}:${module.security.db_password}@${module.database.db_address}:5432/${var.db_name}"
+}
+
+# Same treatment for REDIS_URL — now that Redis requires an AUTH token, the
+# connection string is a credential too and gets the same Secrets Manager
+# treatment as DATABASE_URL, not a plain ECS environment variable.
+resource "aws_secretsmanager_secret" "redis_url" {
+  name       = "${var.project_name}-${var.environment}/redis-url"
+  kms_key_id = module.security.kms_key_arn
+}
+
+resource "aws_secretsmanager_secret_version" "redis_url" {
+  secret_id     = aws_secretsmanager_secret.redis_url.id
+  secret_string = "rediss://:${module.database.redis_auth_token}@${module.database.redis_primary_endpoint}:6379/0"
+}
+
 module "compute" {
   source = "../../modules/compute"
 
@@ -129,13 +158,34 @@ module "compute" {
   container_image_voice = var.container_image_voice
   container_image_api   = var.container_image_api
 
-  db_username    = var.db_username
-  db_password    = module.security.db_password
-  db_address     = module.database.db_address
-  db_name        = var.db_name
-  redis_endpoint = module.database.redis_primary_endpoint
+  database_url_secret_arn = aws_secretsmanager_secret.database_url.arn
+  redis_url_secret_arn    = aws_secretsmanager_secret.redis_url.arn
 
   recordings_bucket_name = module.storage.recordings_bucket_name
   app_secrets_arn         = module.security.app_secrets_arn
   api_domain              = "${var.api_subdomain}.${var.root_domain}"
+}
+
+# All CloudWatch alarms/SNS live downstream of compute/loadbalancer/database —
+# alerting depends on them, never the reverse, so this can't form a cycle.
+module "alerting" {
+  source = "../../modules/alerting"
+
+  project_name         = var.project_name
+  environment          = var.environment
+  alarm_email          = var.alarm_email
+  alb_arn_suffix       = module.loadbalancer.alb_arn_suffix
+  voice_tg_arn_suffix  = module.loadbalancer.voice_target_group_arn_suffix
+  api_tg_arn_suffix    = module.loadbalancer.api_target_group_arn_suffix
+  ecs_cluster_name     = module.compute.ecs_cluster_name
+  ecs_voice_service_name  = module.compute.ecs_voice_service_name
+  ecs_api_service_name    = module.compute.ecs_api_service_name
+  ecs_worker_service_name = module.compute.ecs_worker_service_name
+  rds_instance_id      = module.database.db_instance_id
+}
+
+module "audit" {
+  source       = "../../modules/audit"
+  project_name = var.project_name
+  environment  = var.environment
 }

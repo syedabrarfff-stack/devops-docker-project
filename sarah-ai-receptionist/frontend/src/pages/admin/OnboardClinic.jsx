@@ -8,6 +8,7 @@ const EMPTY = {
   address: "",
   city: "",
   state: "",
+  country: "US",
   timezone: "America/New_York",
   admin_email: "",
   admin_password: "",
@@ -57,21 +58,36 @@ export default function OnboardClinic() {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 p-6 max-w-2xl space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Organization Name" value={form.organization_name} onChange={(v) => set("organization_name", v)} required />
           <Field label="Clinic Name" value={form.clinic_name} onChange={(v) => set("clinic_name", v)} required />
         </div>
         <Field label="Clinic Slug (URL-safe)" value={form.clinic_slug} onChange={(v) => set("clinic_slug", v)} required />
         <Field label="Address" value={form.address} onChange={(v) => set("address", v)} />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Field label="City" value={form.city} onChange={(v) => set("city", v)} />
-          <Field label="State" value={form.state} onChange={(v) => set("state", v)} />
+          <Field label="State / Region" value={form.state} onChange={(v) => set("state", v)} />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+            <select
+              value={form.country}
+              onChange={(e) => set("country", e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <option value="US">United States</option>
+              <option value="GB">United Kingdom</option>
+              <option value="CA">Canada</option>
+              <option value="AU">Australia</option>
+              <option value="AE">United Arab Emirates</option>
+              <option value="SA">Saudi Arabia</option>
+            </select>
+          </div>
           <Field label="Timezone" value={form.timezone} onChange={(v) => set("timezone", v)} />
         </div>
 
         <div className="pt-2 border-t border-slate-100" />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Admin Full Name" value={form.admin_full_name} onChange={(v) => set("admin_full_name", v)} required />
           <Field label="Admin Email" type="email" value={form.admin_email} onChange={(v) => set("admin_email", v)} required />
         </div>

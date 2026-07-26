@@ -1,4 +1,5 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,8 +25,9 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str
     elevenlabs_model: str = "eleven_turbo_v2_5"
 
-    # Database
-    database_url: str = "postgresql+asyncpg://sarah:sarah@localhost:5432/sarah_receptionist"
+    # Database — required, no default. A missing env var must fail startup,
+    # not silently fall back to a weak local credential.
+    database_url: str
     database_pool_size: int = 20
     database_max_overflow: int = 40
 
@@ -53,6 +55,10 @@ class Settings(BaseSettings):
     # Stripe
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+
+    # Data retention (HIPAA/GDPR) — days a call transcript/recording is kept
+    # before it's redacted. Override per clinic-contract requirements.
+    call_transcript_retention_days: int = 365
 
     @property
     def is_production(self) -> bool:

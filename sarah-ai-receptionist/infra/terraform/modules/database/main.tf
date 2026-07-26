@@ -54,6 +54,11 @@ resource "aws_db_instance" "main" {
 }
 
 # ── Redis (ElastiCache) — active call session state, config cache ─────────
+resource "random_password" "redis_auth_token" {
+  length  = 32
+  special = false # ElastiCache AUTH tokens reject most special characters
+}
+
 resource "aws_elasticache_subnet_group" "main" {
   name       = "${var.project_name}-${var.environment}-redis-subnets"
   subnet_ids = var.private_subnet_ids
@@ -94,5 +99,6 @@ resource "aws_elasticache_replication_group" "main" {
 
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
+  auth_token                  = random_password.redis_auth_token.result
   kms_key_id                  = var.kms_key_arn
 }

@@ -73,15 +73,26 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role_policy" "ecs_secrets_access" {
   name = "${var.project_name}-${var.environment}-secrets-access"
   role = aws_iam_role.ecs_task_execution.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = [aws_secretsmanager_secret.app_secrets.arn, aws_secretsmanager_secret.db_credentials.arn]
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      # Prefix-matched rather than enumerated: the database-url secret is
+      # created at the root module (it needs the DB module's address output,
+      # which would otherwise cycle back through this module's kms_key_arn).
+      # Every secret under this project/environment shares the same name
+      # prefix, so a wildcard here covers app-secrets, db-credentials, and
+      # database-url without that dependency.
+      Resource = [
+        "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project_name}-${var.environment}/*"
+      ]
     }]
   })
 }

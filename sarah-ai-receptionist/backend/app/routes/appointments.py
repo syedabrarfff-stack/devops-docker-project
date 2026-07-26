@@ -1,11 +1,14 @@
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_db
-from app.core.security import get_current_clinic_id
+from app.core.security import get_current_clinic_id, get_current_user
 from app.models.appointment import Appointment
+from app.services.audit import write_audit_log
 
 router = APIRouter(tags=["appointments"])
 
@@ -38,7 +41,7 @@ async def list_appointments(
 ):
     filters = [Appointment.clinic_id == clinic_id]
     if upcoming_only:
-        filters.append(Appointment.appointment_datetime >= datetime.utcnow())
+        filters.append(Appointment.appointment_datetime >= datetime.now(timezone.utc))
 
     result = await db.execute(
         select(Appointment).where(and_(*filters)).order_by(Appointment.appointment_datetime)
@@ -50,7 +53,9 @@ async def list_appointments(
 async def update_appointment(
     appointment_id: str,
     payload: AppointmentUpdate,
+    request: Request,
     clinic_id: str = Depends(get_current_clinic_id),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -60,8 +65,21 @@ async def update_appointment(
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
+    changed_fields = list(payload.model_dump(exclude_unset=True).keys())
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(appointment, field, value)
 
     await db.flush()
+
+    await write_audit_log(
+        db,
+        clinic_id=clinic_id,
+        actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"),
+        action="update_appointment",
+        resource_type="appointment",
+        resource_id=appointment_id,
+        ip_address=request.client.host if request.client else None,
+        details={"changed_fields": changed_fields},
+    )
     return appointment

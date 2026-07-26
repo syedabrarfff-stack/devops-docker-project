@@ -17,3 +17,6 @@ redis_node_type   = "cache.t4g.small"
 # Filled in by the CI/CD pipeline after each image build (see .github/workflows/deploy.yml)
 container_image_voice = "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sarah-receptionist-voice:latest"
 container_image_api   = "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sarah-receptionist-api:latest"
+
+# Receives CloudWatch alarm emails (ALB 5xx, unhealthy targets, ECS task loss, RDS health)
+alarm_email = "ops@aliyarsolutions.com"

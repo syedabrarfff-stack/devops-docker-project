@@ -20,14 +20,19 @@ variable "ecs_api_desired_count" { type = number }
 variable "container_image_voice" { type = string }
 variable "container_image_api" { type = string }
 
-variable "db_username" { type = string }
-variable "db_password" {
-  type      = string
-  sensitive = true
+variable "database_url_secret_arn" {
+  description = "Secrets Manager ARN of the full DATABASE_URL (includes credentials) — injected via ECS `secrets`, never a plain environment variable"
+  type        = string
 }
-variable "db_address" { type = string }
-variable "db_name" { type = string }
-variable "redis_endpoint" { type = string }
+variable "redis_url_secret_arn" {
+  description = "Secrets Manager ARN of the full REDIS_URL (includes the AUTH token)"
+  type        = string
+}
+
+variable "ecs_worker_desired_count" {
+  type    = number
+  default = 2
+}
 
 variable "recordings_bucket_name" { type = string }
 variable "app_secrets_arn" { type = string }

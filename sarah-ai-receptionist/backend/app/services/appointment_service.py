@@ -5,16 +5,21 @@ looks up/creates the patient, and triggers an SMS confirmation.
 
 import logging
 from datetime import datetime, timezone
+
 from dateutil import parser as dateparser
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.patient import Patient
+
 from app.models.appointment import Appointment
+from app.models.patient import Patient
 
 logger = logging.getLogger(__name__)
 
 
-async def book_appointment_from_action(db: AsyncSession, clinic_id: str, params: dict) -> Appointment:
+async def book_appointment_from_action(
+    db: AsyncSession, clinic_id: str, params: dict, call_log_id: str | None = None
+) -> Appointment:
     phone = params.get("phone", "").strip()
     name = params.get("name", "Unknown Caller").strip()
     service = params.get("service", "General checkup").strip()
@@ -43,12 +48,25 @@ async def book_appointment_from_action(db: AsyncSession, clinic_id: str, params:
             phone=phone,
             is_new_patient=True,
         )
-        db.add(patient)
-        await db.flush()
+        try:
+            # A savepoint, not a full rollback — save_call_transcript already
+            # flushed the CallLog row in this same transaction; a bare
+            # session.rollback() here would discard that too.
+            async with db.begin_nested():
+                db.add(patient)
+                await db.flush()
+        except IntegrityError:
+            # A concurrent call for the same number won the race — the unique
+            # (clinic_id, phone) constraint caught it. Use their row instead.
+            result = await db.execute(
+                select(Patient).where(Patient.clinic_id == clinic_id, Patient.phone == phone)
+            )
+            patient = result.scalar_one_or_none()
 
     appointment = Appointment(
         clinic_id=clinic_id,
         patient_id=patient.id if patient else None,
+        call_log_id=call_log_id,
         appointment_datetime=appt_dt,
         service_type=service,
         patient_name=name,

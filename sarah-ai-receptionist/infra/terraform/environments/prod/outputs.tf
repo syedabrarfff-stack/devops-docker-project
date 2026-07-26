@@ -36,3 +36,12 @@ output "frontend_bucket_name" {
 output "ecs_cluster_name" {
   value = module.compute.cluster_name
 }
+
+output "alarm_sns_topic_arn" {
+  description = "Subscribe additional endpoints (Slack, PagerDuty) to this topic if email alone isn't enough"
+  value       = module.alerting.sns_topic_arn
+}
+
+output "cloudtrail_arn" {
+  value = module.audit.trail_arn
+}

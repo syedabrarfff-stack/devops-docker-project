@@ -104,3 +104,8 @@ variable "container_image_api" {
   type        = string
   default     = ""
 }
+
+variable "alarm_email" {
+  description = "Email address that receives CloudWatch alarm notifications (ALB 5xx, unhealthy targets, ECS task loss, RDS CPU/storage/memory)"
+  type        = string
+}

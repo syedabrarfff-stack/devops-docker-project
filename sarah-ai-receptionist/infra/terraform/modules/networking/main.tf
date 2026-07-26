@@ -31,15 +31,21 @@ resource "aws_subnet" "private" {
   tags = { Name = "${var.project_name}-${var.environment}-private-${count.index}" }
 }
 
+# One NAT Gateway per AZ — a single shared NAT Gateway was a cross-AZ single
+# point of failure: if its AZ had an issue, every private-subnet task in the
+# *other* AZ lost all outbound internet (Deepgram/ElevenLabs/OpenRouter/Twilio),
+# even though ECS/RDS/Redis are themselves Multi-AZ.
 resource "aws_eip" "nat" {
+  count  = 2
   domain = "vpc"
-  tags   = { Name = "${var.project_name}-${var.environment}-nat-eip" }
+  tags   = { Name = "${var.project_name}-${var.environment}-nat-eip-${count.index}" }
 }
 
 resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
-  tags          = { Name = "${var.project_name}-${var.environment}-nat" }
+  count         = 2
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+  tags          = { Name = "${var.project_name}-${var.environment}-nat-${count.index}" }
   depends_on    = [aws_internet_gateway.main]
 }
 
@@ -52,13 +58,16 @@ resource "aws_route_table" "public" {
   tags = { Name = "${var.project_name}-${var.environment}-public-rt" }
 }
 
+# One private route table per AZ, each routing through its own AZ's NAT
+# Gateway — not a shared table pointing at a single NAT.
 resource "aws_route_table" "private" {
+  count  = 2
   vpc_id = aws_vpc.main.id
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+    nat_gateway_id = aws_nat_gateway.main[count.index].id
   }
-  tags = { Name = "${var.project_name}-${var.environment}-private-rt" }
+  tags = { Name = "${var.project_name}-${var.environment}-private-rt-${count.index}" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -70,5 +79,5 @@ resource "aws_route_table_association" "public" {
 resource "aws_route_table_association" "private" {
   count          = 2
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
+  route_table_id = aws_route_table.private[count.index].id
 }

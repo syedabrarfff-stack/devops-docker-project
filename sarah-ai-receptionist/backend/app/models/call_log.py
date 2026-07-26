@@ -1,7 +1,9 @@
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Text, Float, Integer, JSON, Boolean
+
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.models.base import Base, UUIDMixin, TimestampMixin
+
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class CallLog(Base, UUIDMixin, TimestampMixin):
@@ -26,6 +28,11 @@ class CallLog(Base, UUIDMixin, TimestampMixin):
     outcome: Mapped[str] = mapped_column(String(50), nullable=True)
     transferred: Mapped[bool] = mapped_column(Boolean, default=False)
     appointment_booked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Recording consent — set once the mandatory disclosure has played (see
+    # call_handler.CONSENT_DISCLOSURE). Required before recording in
+    # two-party-consent states.
+    consent_disclosed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Transcript (encrypted at rest via RDS encryption)
     transcript: Mapped[list] = mapped_column(JSON, default=list)
