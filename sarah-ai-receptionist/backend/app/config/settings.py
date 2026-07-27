@@ -62,7 +62,11 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        return self.app_env == "production"
+        # Terraform sets APP_ENV to var.environment ("prod"), not the literal
+        # word "production" — this mismatch silently forced wss:// media
+        # streams to fall back to ws://, which Twilio's <Stream> verb rejects
+        # outright, breaking every real call while /health still reported OK.
+        return self.app_env in ("production", "prod")
 
 
 @lru_cache
