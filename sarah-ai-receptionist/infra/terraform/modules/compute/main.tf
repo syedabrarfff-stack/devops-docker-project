@@ -211,8 +211,8 @@ resource "aws_ecs_task_definition" "worker" {
   family                   = "${var.project_name}-${var.environment}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = 512
+  memory                   = 1024
   execution_role_arn       = var.ecs_task_execution_role_arn
   task_role_arn            = var.ecs_task_role_arn
 
@@ -226,12 +226,18 @@ resource "aws_ecs_task_definition" "worker" {
     # arq has no HTTP surface, so liveness is "the process that imported the
     # worker settings and can still touch Python" — cheap, catches a crashed
     # interpreter/import error without needing a real endpoint.
+    # startPeriod/timeout were originally 10s/5s and too tight for a cold
+    # interpreter importing SQLAlchemy+boto3+arq under 256 CPU units — the
+    # container got killed as "unhealthy" before it ever finished starting,
+    # in an infinite replace loop. Confirmed via CloudWatch logs showing the
+    # worker connecting to Redis fine each time, then SIGTERM ~90s later
+    # with 0 jobs processed — an ECS health-check kill, not an app crash.
     healthCheck = {
       command     = ["CMD-SHELL", "python -c 'import app.workers.worker' || exit 1"]
       interval    = 30
-      timeout     = 5
+      timeout     = 10
       retries     = 3
-      startPeriod = 10
+      startPeriod = 45
     }
     logConfiguration = {
       logDriver = "awslogs"
