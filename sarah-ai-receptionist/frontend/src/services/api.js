@@ -1,7 +1,12 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
-const api = axios.create({ baseURL: "/api/v1" });
+// The dashboard/admin frontend is served from app./admin.aliyarsolutions.com
+// via CloudFront+S3, which has no origin for the backend — a relative path
+// here would hit CloudFront itself, not the API. The API runs behind the
+// ALB on sarah.aliyarsolutions.com (CORS there already allows both origins).
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://sarah.aliyarsolutions.com/api/v1";
+const api = axios.create({ baseURL: API_BASE_URL });
 
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
