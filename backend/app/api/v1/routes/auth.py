@@ -2,7 +2,7 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, field_validator
 from jose import JWTError, jwt
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.outreach.email_transport import get_outbound_email_status
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -49,7 +50,8 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-async def captain_login(req: LoginRequest):
+@limiter.limit("5/minute")
+async def captain_login(request: Request, req: LoginRequest):
     """Authenticate Captain and return a signed JWT for subsequent API calls."""
     username_ok = secrets.compare_digest(
         req.username.strip().lower(), settings.CAPTAIN_USERNAME.lower()
@@ -104,7 +106,8 @@ async def gmail_callback():
 
 
 @router.post("/gmail/revoke")
-async def gmail_revoke():
+@limiter.limit("5/minute")
+async def gmail_revoke(request: Request):
     return {"revoked": False, "message": "Legacy mailbox OAuth is retired. No tokens are stored."}
 
 

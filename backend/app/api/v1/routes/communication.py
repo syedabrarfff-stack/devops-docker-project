@@ -6,6 +6,7 @@ import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,13 +19,15 @@ from app.services.communication.whatsapp_transport import (
     connect_qr,
     create_instance,
     evolution_status,
+    logout_instance,
     process_inbound_webhook,
+    restart_instance,
     send_media,
     send_text,
 )
 from app.services.outreach import gmail as email_service
 
-router = APIRouter(tags=["Communication"])
+router = APIRouter(tags=["Communication"], dependencies=[Depends(get_current_captain)])
 communication_router = APIRouter(prefix="/communication", tags=["Communication"])
 webhook_router = APIRouter(prefix="/webhooks", tags=["Communication Webhooks"])
 logger = logging.getLogger(__name__)
@@ -134,6 +137,21 @@ async def whatsapp_status(
 @communication_router.get("/whatsapp/qr")
 async def whatsapp_qr(number: Optional[str] = Query(None)) -> dict[str, Any]:
     return await connect_qr(number)
+
+
+@communication_router.post("/whatsapp/instance/reset")
+async def reset_whatsapp_instance() -> dict[str, Any]:
+    """Log out and restart the Evolution instance to clear a stuck
+    connectionState (e.g. hung in "connecting" from a half-completed QR
+    handshake) so the next QR/pairing attempt starts from a clean slate."""
+    logout_result = await logout_instance()
+    restart_result = await restart_instance()
+    return {
+        "instance": settings.WHATSAPP_INSTANCE_NAME,
+        "logout": logout_result,
+        "restart": restart_result,
+        "next_action": "Wait ~10 seconds, then request a fresh QR code or pairing code.",
+    }
 
 
 @communication_router.post("/whatsapp/webhook/configure")
@@ -276,4 +294,23 @@ async def _whatsapp_status_with_timeout(
 
 
 router.include_router(communication_router)
-router.include_router(webhook_router)
+# webhook_router is registered separately in app/api/v1/__init__.py, deliberately
+# NOT nested under this module's `router` — that has
+# dependencies=[Depends(get_current_captain)], and FastAPI merges a parent
+# router's constructor-level dependencies into every route added via
+# include_router, even nested ones. Evolution API's inbound webhook call
+# (EVOLUTION_WEBHOOK_URL in docker-compose.yml) sends no auth headers at all,
+# so nesting it here meant every real inbound WhatsApp message was being
+# rejected with 401 — the endpoint was unreachable by its only legitimate
+# caller.
+#
+# This endpoint has NO application-level auth of its own. It is only safe
+# because nginx.conf explicitly blocks public access to this exact path
+# (`location = /api/v1/webhooks/whatsapp { return 404; }`, ahead of the
+# general /api/v1/webhooks/ proxy block) — an earlier version of this
+# comment claimed nginx "never" proxied this path externally, which turned
+# out to be false once nginx.conf grew a general webhook passthrough for
+# Stripe/SES. Evolution reaches this route directly, container-to-container
+# (http://backend:8000/...), never through nginx, so the block costs nothing.
+# If that nginx location is ever removed, this endpoint MUST get real
+# verification (shared secret header, IP allowlist, etc.) before that happens.

@@ -5,14 +5,16 @@ All financial and client-facing actions require Captain approval before executio
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/governance", tags=["governance"])
+router = APIRouter(prefix="/governance", tags=["governance"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -32,6 +34,7 @@ class CreateInvoiceRequest(BaseModel):
     currency: str = Field(default="USD", max_length=10)
     notes: str = Field(default="", max_length=5_000)
     due_days: int = Field(default=14, ge=1, le=365)
+    tenant_id: Optional[UUID] = None
 
 class ProposalRequest(BaseModel):
     client_name: str = Field(..., min_length=1, max_length=200)
@@ -41,6 +44,7 @@ class ProposalRequest(BaseModel):
     context: str = Field(default="", max_length=10_000)
     style: str = Field(default="standard", max_length=50)
     pricing: dict = {}
+    tenant_id: Optional[UUID] = None
 
 class AgentPermissionRequest(BaseModel):
     agent_name: str = Field(..., max_length=100)
@@ -76,7 +80,8 @@ async def list_invoices(
 
 
 @router.post("/invoices")
-async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def create_invoice(request: Request, req: CreateInvoiceRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import create_invoice as _create, update_invoice_status
     from app.services.governance.auto_approval import should_auto_approve_invoice
     from app.core.config import settings
@@ -92,6 +97,7 @@ async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: Asy
             currency=req.currency,
             notes=req.notes,
             due_days=req.due_days,
+            tenant_id=req.tenant_id,
         )
 
     # Check if invoice qualifies for auto-approval
@@ -114,7 +120,8 @@ async def create_invoice(req: CreateInvoiceRequest, bg: BackgroundTasks, db: Asy
 
 
 @router.post("/invoices/{invoice_id}/status")
-async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def update_invoice_status(request: Request, invoice_id: UUID, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import update_invoice_status as _update
     async with db.begin():
         ok = await _update(db, invoice_id, req.status)
@@ -132,13 +139,18 @@ async def update_invoice_status(invoice_id: UUID, req: StatusUpdate, db: AsyncSe
 # ── Proposals ─────────────────────────────────────────────────────────────────
 
 @router.get("/proposals")
-async def list_proposals(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_proposals(
+    status: Optional[str] = None,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import get_proposals
-    return {"proposals": await get_proposals(db, status=status)}
+    return {"proposals": await get_proposals(db, status=status, tenant_id=tenant_id)}
 
 
 @router.post("/proposals/generate")
-async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def generate_proposal(request: Request, req: ProposalRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import generate_proposal as _gen, update_proposal_status
     from app.services.governance.auto_approval import should_auto_approve_proposal
     from app.core.config import settings
@@ -153,6 +165,7 @@ async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: Async
             context=req.context,
             pricing=req.pricing,
             style=req.style,
+            tenant_id=req.tenant_id,
         )
 
     # Check if proposal qualifies for auto-approval
@@ -175,17 +188,35 @@ async def generate_proposal(req: ProposalRequest, bg: BackgroundTasks, db: Async
 
 
 @router.post("/proposals/{proposal_id}/status")
-async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def update_proposal_status(
+    request: Request,
+    proposal_id: int,
+    req: StatusUpdate,
+    bg: BackgroundTasks,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import update_proposal_status as _update, get_proposals, generate_contract
     async with db.begin():
-        ok = await _update(db, proposal_id, req.status)
+        ok = await _update(db, proposal_id, req.status, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(404, "Proposal not found")
     if req.status in ("accepted", "won"):
         try:
             from app.services.notifications.telegram import notify_telegram
-            proposals = await get_proposals(db)
-            p = next((x for x in proposals if x.get("id") == proposal_id), {})
+            from app.models.governance import Proposal as _Proposal
+            from sqlalchemy import select as _select
+            _q = _select(_Proposal).where(_Proposal.id == proposal_id)
+            if tenant_id is not None:
+                _q = _q.where(_Proposal.tenant_id == tenant_id)
+            _p_row = (await db.execute(_q)).scalar_one_or_none()
+            p = {
+                "id": _p_row.id, "client_name": _p_row.client_name,
+                "client_email": _p_row.client_email, "client_company": _p_row.client_company,
+                "service_type": _p_row.service_type, "content": _p_row.content,
+                "pricing": _p_row.pricing,
+            } if _p_row else {}
             company = p.get("client_company") or p.get("client_name") or "Client"
             mrr = p.get("pricing", {}).get("monthly_retainer", 0) or 0
             mrr_text = f"\n💰 *MRR:* ${mrr:,.0f}/mo" if mrr else ""
@@ -215,17 +246,27 @@ async def update_proposal_status(proposal_id: int, req: StatusUpdate, bg: Backgr
 # ── Contracts ─────────────────────────────────────────────────────────────────
 
 @router.get("/contracts")
-async def list_contracts(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_contracts(
+    status: Optional[str] = None,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import get_contracts
-    return {"contracts": await get_contracts(db, status=status)}
+    return {"contracts": await get_contracts(db, status=status, tenant_id=tenant_id)}
 
 
 @router.get("/contracts/{contract_id}")
-async def get_contract(contract_id: int, db: AsyncSession = Depends(get_db)):
-    from app.services.governance.document_gen import get_contracts
+async def get_contract(
+    contract_id: int,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from sqlalchemy import select
     from app.models.governance import Contract
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    q = select(Contract).where(Contract.id == contract_id)
+    if tenant_id is not None:
+        q = q.where(Contract.tenant_id == tenant_id)
+    result = await db.execute(q)
     contract = result.scalar_one_or_none()
     if not contract:
         raise HTTPException(404, "Contract not found")
@@ -234,7 +275,8 @@ async def get_contract(contract_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/contracts")
-async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def create_contract(request: Request, req: ContractRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import generate_contract
     async with db.begin():
         contract = await generate_contract(
@@ -253,7 +295,8 @@ async def create_contract(req: ContractRequest, bg: BackgroundTasks, db: AsyncSe
 
 
 @router.post("/contracts/{contract_id}/send-email")
-async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def send_contract_email(request: Request, contract_id: int, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     from app.services.governance.document_gen import get_contract as _get, update_contract_status as _update
 
     contract = await _get(db, contract_id)
@@ -270,27 +313,194 @@ async def send_contract_email(contract_id: int, bg: BackgroundTasks, db: AsyncSe
 
 
 @router.post("/contracts/{contract_id}/status")
-async def update_contract_status(contract_id: int, req: StatusUpdate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def update_contract_status(
+    request: Request,
+    contract_id: int,
+    req: StatusUpdate,
+    tenant_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.governance.document_gen import update_contract_status as _update
     async with db.begin():
-        ok = await _update(db, contract_id, req.status)
+        ok = await _update(db, contract_id, req.status, tenant_id=tenant_id)
     if not ok:
         raise HTTPException(404, "Contract not found")
+
+    result: dict = {"id": contract_id, "status": req.status}
     if req.status == "signed":
+        result.update(await _activate_signed_contract(db, contract_id, tenant_id))
+    return result
+
+
+async def _activate_signed_contract(db: AsyncSession, contract_id: int, tenant_id: Optional[UUID]) -> dict:
+    """Best-effort: turn a signed contract into a Client record + draft invoice.
+
+    Runs after the contract status update has already committed, so a failure here
+    never masks the fact that the signature itself was recorded.
+    """
+    from datetime import datetime, timezone
+    import uuid as uuid_module
+    from sqlalchemy import select
+    from app.core.config import settings
+    from app.core.database import set_tenant_context
+    from app.models.revenue import Client, ClientStatus
+    from app.services.governance.document_gen import get_contract, create_invoice
+
+    try:
+        contract = await get_contract(db, contract_id)
+        if not contract:
+            return {}
+
+        resolved_tenant = tenant_id or uuid_module.UUID(
+            settings.JARVIS_DEFAULT_TENANT_ID or "00000000-0000-0000-0000-000000000000"
+        )
+        pricing = contract.get("pricing") or {}
+        setup_fee = float(pricing.get("setup_fee") or 0.0)
+        monthly = float(pricing.get("monthly_retainer") or pricing.get("monthly_fee") or 0.0)
+        service_type = contract.get("service_type") or "Services"
+
+        client_id = None
+        async with db.begin():
+            await set_tenant_context(db, str(resolved_tenant))
+
+            client = None
+            if contract.get("client_email"):
+                existing = await db.execute(
+                    select(Client).where(
+                        Client.tenant_id == resolved_tenant,
+                        Client.email == contract["client_email"],
+                    )
+                )
+                client = existing.scalar_one_or_none()
+            if client is None:
+                client = Client(
+                    tenant_id=resolved_tenant,
+                    company_name=contract.get("client_company") or contract.get("client_name"),
+                    contact_name=contract.get("client_name"),
+                    email=contract.get("client_email") or None,
+                    package_tier=service_type,
+                    mrr_usd=monthly,
+                    status=ClientStatus.ACTIVE,
+                    started_at=datetime.now(timezone.utc),
+                )
+                db.add(client)
+                await db.flush()
+            client_id = client.id
+
+            items = []
+            if setup_fee:
+                items.append({
+                    "description": f"{service_type} — one-time setup", "qty": 1,
+                    "unit_price": setup_fee, "amount": setup_fee,
+                })
+            if monthly:
+                items.append({
+                    "description": f"{service_type} — monthly retainer", "qty": 1,
+                    "unit_price": monthly, "amount": monthly,
+                })
+            if not items:
+                # No pricing captured on the contract — still create a draft so
+                # Captain has something to review rather than nothing at all.
+                items.append({"description": service_type, "qty": 1, "unit_price": 0.0, "amount": 0.0})
+
+            invoice = await create_invoice(
+                db,
+                client_name=contract.get("client_name") or "",
+                client_email=contract.get("client_email") or "",
+                client_company=contract.get("client_company") or "",
+                items=items,
+                notes=f"Auto-generated on signature of contract #{contract_id}.",
+                tenant_id=resolved_tenant,
+            )
+
         try:
             from app.services.notifications.telegram import notify_telegram
             await notify_telegram(
-                f"✍️ *Contract Signed*\nContract `{contract_id}` has been marked as signed. Create client record and issue first invoice."
+                f"✍️ *Contract Signed* — Contract `{contract_id}`\n"
+                f"✅ Client record ready, draft invoice `{invoice['invoice_number']}` created "
+                f"(${invoice['total']:,.2f}).\nReview & send from Governance → Invoices."
             )
         except Exception as exc:
             logger.warning("Telegram notification failed for contract %s signed: %s", contract_id, exc)
-    return {"id": contract_id, "status": req.status}
+
+        delivery_task_graph_id = await _create_delivery_objective(
+            db, contract, contract_id, resolved_tenant
+        )
+
+        return {
+            "client_id": str(client_id),
+            "invoice": invoice,
+            "delivery_task_graph_id": delivery_task_graph_id,
+        }
+
+    except Exception as exc:
+        logger.error("Auto client/invoice creation failed for contract %s: %s", contract_id, exc)
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"⚠️ *Contract Signed* — Contract `{contract_id}` marked signed, but automatic "
+                f"client/invoice creation failed: {exc}. Create the client record and invoice manually."
+            )
+        except Exception:
+            pass
+        return {}
+
+
+async def _create_delivery_objective(
+    db: AsyncSession, contract: dict, contract_id: int, resolved_tenant: UUID
+) -> Optional[str]:
+    """Best-effort: turn a signed contract's scope into a real Engineering
+    Organization objective, so `engineering_org_cycle` (scheduler.py) picks
+    it up and starts producing actual work packages for it. This is the
+    missing link between "contract signed" and "work gets built" — nothing
+    else in this codebase turns a signed contract into contracted work
+    actually getting done.
+
+    Never raises — a failure here must not affect the fact that the contract
+    was signed and the client/invoice were already created.
+    """
+    try:
+        from app.core.database import set_tenant_context
+        from app.services.engineering import mission_planner
+
+        service_type = contract.get("service_type") or "Services"
+        client_label = contract.get("client_company") or contract.get("client_name") or "the client"
+        scope_text = contract.get("scope") or "as described in the signed contract"
+        objective = (
+            f"Deliver contracted work for {client_label}: {service_type}. Scope: {scope_text}"
+        )
+
+        async with db.begin():
+            await set_tenant_context(db, str(resolved_tenant))
+            graph = await mission_planner.decompose_objective(
+                db,
+                objective=objective,
+                objective_type="feature",
+                context={"source": "contract_signed", "contract_id": contract_id},
+            )
+
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"🏗️ *Delivery objective created* for Contract `{contract_id}` "
+                f"— task graph `{graph.id}` is queued for the Engineering Organization."
+            )
+        except Exception:
+            pass
+
+        return str(graph.id)
+    except Exception as exc:
+        logger.warning("Failed to auto-create delivery objective for contract %s: %s", contract_id, exc)
+        return None
 
 
 # ── Autonomous Approval Stats ────────────────────────────────────────────────
 
 @router.post("/test-workflow")
+@limiter.limit("3/minute")
 async def run_test_workflow(
+    request: Request,
     prospect_name: str = "Test Prospect Inc",
     prospect_email: str = "test@prospect.com",
     deal_value: float = 3500,
@@ -313,26 +523,40 @@ async def run_test_workflow(
 @router.get("/auto-approval-stats")
 async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
-    from app.models.governance import Invoice, Proposal
+    import uuid as _uuid
+    from app.models.revenue import Invoice, InvoiceStatus
+    from app.models.governance import Proposal
     from app.core.config import settings
 
-    # Count auto-approved invoices (sent immediately upon creation, no draft -> sent manual step)
+    _tid = None
+    if settings.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+
+    _inv_filter = [Invoice.status == InvoiceStatus.SENT]
+    if _tid:
+        _inv_filter.append(Invoice.tenant_id == _tid)
+
+    # Count auto-approved invoices — use amount_usd (Invoice has no .total column)
     invoices_result = await db.execute(
         select(
             func.count(Invoice.id).label("total"),
-            func.sum(Invoice.total).label("total_value"),
-        ).where(Invoice.status == "sent")
+            func.sum(Invoice.amount_usd).label("total_value"),
+        ).where(*_inv_filter)
     )
     inv_row = invoices_result.first()
 
-    # Count auto-approved proposals
-    proposals_result = await db.execute(
-        select(
-            func.count(Proposal.id).label("total"),
-            func.sum(Proposal.value).label("total_value"),
-        ).where(Proposal.status == "sent")
-    )
-    prop_row = proposals_result.first()
+    # Proposal.value doesn't exist — pricing is a JSON dict; sum monthly_retainer in Python
+    _prop_filter = [Proposal.status == "sent"]
+    if _tid:
+        _prop_filter.append(Proposal.tenant_id == _tid)
+    prop_rows = (await db.execute(
+        select(Proposal.pricing).where(*_prop_filter).limit(500)
+    )).scalars().all()
+    prop_count = len(prop_rows)
+    prop_value = sum(float((p or {}).get("monthly_retainer", 0) or 0) for p in prop_rows)
 
     return {
         "thresholds": {
@@ -345,8 +569,8 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
             "total_value": float(inv_row[1] or 0),
         },
         "auto_approved_proposals": {
-            "count": prop_row[0] or 0,
-            "total_value": float(prop_row[1] or 0),
+            "count": prop_count,
+            "total_value": prop_value,
         },
         "system_status": "autonomous_governance_enabled"
     }
@@ -355,7 +579,8 @@ async def auto_approval_stats(db: AsyncSession = Depends(get_db)):
 # ── Settings & Configuration ────────────────────────────────────────────────
 
 @router.post("/settings")
-async def update_governance_settings(req: dict, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def update_governance_settings(request: Request, req: dict, db: AsyncSession = Depends(get_db)):
     """Update governance settings (auto-approval thresholds, etc.)"""
     from app.core.config import settings
     # Note: in production, these would be stored in DB and loaded at startup
@@ -372,7 +597,8 @@ async def update_governance_settings(req: dict, db: AsyncSession = Depends(get_d
 
 
 @router.post("/outreach-settings")
-async def update_outreach_settings(req: dict, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def update_outreach_settings(request: Request, req: dict, db: AsyncSession = Depends(get_db)):
     """Update outreach settings (daily cap, domain age, etc.)"""
     from app.core.config import settings
     return {
@@ -424,7 +650,8 @@ async def list_permissions(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/permissions")
-async def grant_permission(req: AgentPermissionRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def grant_permission(request: Request, req: AgentPermissionRequest, db: AsyncSession = Depends(get_db)):
     from app.models.governance import AgentPermission
     from datetime import datetime, timezone, timedelta
     expires = None
@@ -445,7 +672,8 @@ async def grant_permission(req: AgentPermissionRequest, db: AsyncSession = Depen
 
 
 @router.post("/permissions/{perm_id}/revoke")
-async def revoke_permission(perm_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def revoke_permission(request: Request, perm_id: int, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
     from app.models.governance import AgentPermission
     from datetime import datetime, timezone
@@ -462,18 +690,20 @@ async def revoke_permission(perm_id: int, db: AsyncSession = Depends(get_db)):
 # ── Governance Stats ─────────────────────────────────────────────────────────
 
 @router.get("/stats")
-async def governance_stats(db: AsyncSession = Depends(get_db)):
+async def governance_stats(request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
     from app.models.governance import Invoice, Proposal, AgentPermission, IncidentReport
 
+    _tid = _resolve_tenant_id(request, None)
+
     total_invoiced = (await db.execute(
-        select(func.sum(Invoice.total)).where(Invoice.status != "cancelled")
+        select(func.sum(Invoice.total)).where(Invoice.status != "cancelled", Invoice.tenant_id == _tid)
     )).scalar() or 0
     paid = (await db.execute(
-        select(func.sum(Invoice.total)).where(Invoice.status == "paid")
+        select(func.sum(Invoice.total)).where(Invoice.status == "paid", Invoice.tenant_id == _tid)
     )).scalar() or 0
     draft_proposals = (await db.execute(
-        select(func.count()).select_from(Proposal).where(Proposal.status == "draft")
+        select(func.count()).select_from(Proposal).where(Proposal.status == "draft", Proposal.tenant_id == _tid)
     )).scalar() or 0
     active_perms = (await db.execute(
         select(func.count()).select_from(AgentPermission).where(AgentPermission.is_active == True)

@@ -142,7 +142,7 @@ class ResilienceEngine:
                 select(ResilienceEvent).where(
                     ResilienceEvent.tenant_id == tid,
                     ResilienceEvent.status != "resolved",
-                ).order_by(ResilienceEvent.detected_at.desc())
+                ).order_by(ResilienceEvent.detected_at.desc()).limit(200)
             )
             events = result.scalars().all()
             return [
@@ -169,7 +169,7 @@ class ResilienceEngine:
                 select(ResilienceEvent).where(
                     ResilienceEvent.tenant_id == tid,
                     ResilienceEvent.status != "resolved",
-                )
+                ).limit(200)
             )
             active = active_result.scalars().all()
 

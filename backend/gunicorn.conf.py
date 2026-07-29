@@ -34,3 +34,10 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s %(D)sus'
 
 # ── Process naming ────────────────────────────────────────────────────────────
 proc_name = "jarvis"
+
+# ── Scheduler isolation ───────────────────────────────────────────────────────
+# Scheduler leader election is handled via file lock in the FastAPI lifespan
+# (main.py). The previous post_fork/env-var approach was broken: gunicorn's
+# worker.age starts at 1 (never 0), so `if worker.age > 0` disabled the
+# scheduler on ALL workers, and the monotonically increasing counter also
+# broke after worker recycling (max_requests).

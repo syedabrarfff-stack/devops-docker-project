@@ -1,0 +1,18 @@
+[Unit]
+Description=JARVIS stable Docker runtime
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/jarvis/infrastructure
+ExecStartPre=/bin/sh /opt/jarvis/monitoring/render-alertmanager-config.sh
+ExecStart=/usr/bin/docker compose -p jarvis up -d
+ExecStop=/usr/bin/docker compose -p jarvis down
+RemainAfterExit=yes
+TimeoutStartSec=0
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

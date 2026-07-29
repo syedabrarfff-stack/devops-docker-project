@@ -25,17 +25,19 @@ from app.services.memory.human_intelligence import human_intelligence_context
 logger = logging.getLogger(__name__)
 
 COUNCIL_MEMBERS = [
-    {"id": "strategist", "provider": "anthropic", "model": "claude-opus-4-8", "weight": 0.25, "specialty": "strategy"},
-    {"id": "engineer", "provider": "bedrock", "model": "claude-sonnet-4-6", "weight": 0.25, "specialty": "architecture"},
-    {"id": "analyst", "provider": "openai", "model": "gpt-4o", "weight": 0.15, "specialty": "analysis"},
-    {"id": "scout", "provider": "google", "model": "gemini-1.5-pro", "weight": 0.10, "specialty": "research"},
-    {"id": "speedster", "provider": "groq", "model": "llama-3.3-70b", "weight": 0.08, "specialty": "fast"},
-    {"id": "contrarian", "provider": "mistral", "model": "mistral-large", "weight": 0.07, "specialty": "critique"},
-    {"id": "economist", "provider": "zhipuai", "model": "glm-4", "weight": 0.05, "specialty": "economics"},
-    {"id": "innovator", "provider": "minimax", "model": "abab6.5s", "weight": 0.05, "specialty": "creative"},
+    {"id": "executor", "provider": "nvidia", "model": "llama-4-maverick", "weight": 0.30, "specialty": "execution"},
+    {"id": "strategist", "provider": "anthropic", "model": "claude-opus-4-8", "weight": 0.20, "specialty": "strategy"},
+    {"id": "engineer", "provider": "bedrock", "model": "claude-sonnet-4-6", "weight": 0.20, "specialty": "architecture"},
+    {"id": "analyst", "provider": "openai", "model": "gpt-4o", "weight": 0.10, "specialty": "analysis"},
+    {"id": "scout", "provider": "google", "model": "gemini-1.5-pro", "weight": 0.08, "specialty": "research"},
+    {"id": "speedster", "provider": "groq", "model": "llama-3.3-70b", "weight": 0.06, "specialty": "fast"},
+    {"id": "contrarian", "provider": "mistral", "model": "mistral-large", "weight": 0.03, "specialty": "critique"},
+    {"id": "economist", "provider": "zhipuai", "model": "glm-4", "weight": 0.02, "specialty": "economics"},
+    {"id": "innovator", "provider": "minimax", "model": "abab6.5s", "weight": 0.01, "specialty": "creative"},
 ]
 
 MODEL_CALL_OVERRIDES = {
+    ("nvidia", "llama-4-maverick"): "meta/llama-4-maverick-17b-128e-instruct",
     ("anthropic", "claude-opus-4-8"): "claude-opus-4-7",
     ("bedrock", "claude-sonnet-4-6"): "global.anthropic.claude-sonnet-4-6",
     ("google", "gemini-1.5-pro"): "gemini-pro-latest",
@@ -79,7 +81,11 @@ class IntelligenceCouncil:
             )
             for member in COUNCIL_MEMBERS
         ]
-        member_votes = await asyncio.gather(*tasks)
+        raw_votes = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw_votes:
+            if isinstance(_v, BaseException):
+                logger.warning("Council member task raised unexpectedly: %s", _v)
+        member_votes = [v for v in raw_votes if isinstance(v, dict)]
 
         responses = [vote for vote in member_votes if vote.get("responded")]
         responses_count = len(responses)
@@ -173,6 +179,118 @@ class IntelligenceCouncil:
             cost_estimate_usd=cost_estimate_usd,
         )
 
+    async def convene_streaming(
+        self,
+        question: str,
+        context: dict,
+        council_type: str = "standard",
+        tenant_id=None,
+        on_vote=None,
+    ) -> CouncilResult:
+        """
+        Like convene() but fires on_vote(vote, done_count, total) after each member responds.
+        Used for SSE streaming endpoints so the browser sees votes arriving live.
+        """
+        tenant_uuid = _tenant_uuid(tenant_id)
+        started = time.monotonic()
+        weights = await self._ensure_member_weights(tenant_uuid)
+        total = len(COUNCIL_MEMBERS)
+        counter: dict[str, int] = {"n": 0}
+
+        async def _ask_and_notify(member: dict) -> dict:
+            vote = await self._ask_member(
+                member=member,
+                weight=weights.get(member["id"], float(member["weight"])),
+                question=question,
+                context=context or {},
+                council_type=council_type or "standard",
+            )
+            counter["n"] += 1
+            if on_vote:
+                try:
+                    await on_vote(vote, counter["n"], total)
+                except Exception as exc:
+                    logger.warning("Council on_vote callback error: %s", exc)
+            return vote
+
+        raw_votes = await asyncio.gather(*[_ask_and_notify(m) for m in COUNCIL_MEMBERS], return_exceptions=True)
+        for _v in raw_votes:
+            if isinstance(_v, BaseException):
+                logger.warning("Council streaming member task raised unexpectedly: %s", _v)
+        member_votes = [v for v in raw_votes if isinstance(v, dict)]
+
+        responses = [vote for vote in member_votes if vote.get("responded")]
+        responses_count = len(responses)
+        quorum_met = responses_count >= 5
+        score = round(
+            sum(float(v.get("weight_used", 0.0)) * float(v.get("vote_score", 0.0)) for v in member_votes), 2
+        )
+
+        if not quorum_met:
+            decision = "CAPTAIN_REVIEW"
+        elif score >= 80:
+            decision = "APPROVE"
+        elif score >= 60:
+            decision = "CAPTAIN_REVIEW"
+        else:
+            decision = "REJECT"
+
+        reasoning = _aggregate_reasoning(member_votes, quorum_met)
+        winner_model = _winner_model(member_votes)
+        cost_estimate_usd = round(sum(float(v.get("cost_estimate_usd", 0.0)) for v in member_votes), 6)
+        duration_ms = int((time.monotonic() - started) * 1000)
+
+        session_id = "streaming"
+        try:
+            async with AsyncSessionLocal() as db:
+                async with db.begin():
+                    await set_tenant_context(db, str(tenant_uuid))
+                    council_session = AICouncilSession(
+                        tenant_id=tenant_uuid,
+                        question=question,
+                        context_json=context or {},
+                        council_type=council_type or "standard",
+                        votes_json=member_votes,
+                        result=decision,
+                        consensus_score=score,
+                        winner_model=winner_model,
+                        reasoning=reasoning,
+                        quorum_met=quorum_met,
+                        responses_count=responses_count,
+                        duration_ms=duration_ms,
+                        cost_estimate_usd=cost_estimate_usd,
+                    )
+                    db.add(council_session)
+                    await db.flush()
+                    db.add(AuditLog(
+                        tenant_id=tenant_uuid,
+                        action="ai_council_convened",
+                        entity_type="ai_council_session",
+                        entity_id=council_session.id,
+                        actor="IntelligenceCouncil",
+                        after_json={"question": question, "decision": decision, "score": score,
+                                    "responses_count": responses_count, "quorum_met": quorum_met},
+                        details={"council_session_id": str(council_session.id), "decision": decision},
+                    ))
+                    await db.refresh(council_session)
+                    session_id = str(council_session.id)
+        except Exception as exc:
+            logger.error("Council DB persistence failed for streaming session: %s", exc)
+
+        record_council_session(decision)
+        return CouncilResult(
+            decision=decision,
+            score=score,
+            reasoning=reasoning,
+            member_votes=member_votes,
+            session_id=session_id,
+            quorum_met=quorum_met,
+            responses_count=responses_count,
+            duration_ms=duration_ms,
+            winner_model=winner_model,
+            cost_estimate_usd=cost_estimate_usd,
+        )
+
     async def adjust_weights_monthly(self, tenant_id=None) -> None:
         tenant_uuid = _tenant_uuid(tenant_id)
         cutoff = datetime.now(UTC) - timedelta(days=35)
@@ -187,11 +305,13 @@ class IntelligenceCouncil:
                         select(AICouncilSession)
                         .where(AICouncilSession.tenant_id == tenant_uuid, AICouncilSession.created_at >= cutoff)
                         .order_by(AICouncilSession.created_at.desc())
+                        .limit(100)
                     )
                 ).scalars().all()
                 audit_rows = (
                     await session.execute(
                         select(AuditLog).where(AuditLog.tenant_id == tenant_uuid, AuditLog.created_at >= cutoff)
+                        .limit(1000)
                     )
                 ).scalars().all()
                 outcomes = _extract_outcomes(audit_rows)
@@ -294,7 +414,7 @@ class IntelligenceCouncil:
         return list(
             (
                 await session.execute(
-                    select(AICouncilMemberWeight).where(AICouncilMemberWeight.tenant_id == tenant_id)
+                    select(AICouncilMemberWeight).where(AICouncilMemberWeight.tenant_id == tenant_id).limit(100)
                 )
             ).scalars().all()
         )
@@ -363,7 +483,7 @@ class IntelligenceCouncil:
             "vote_score": vote_score,
             "confidence": _bounded_float(parsed.get("confidence"), default=70),
             "recommendation": str(parsed.get("recommendation") or _recommendation_from_score(vote_score)).upper(),
-            "reasoning": str(parsed.get("reasoning") or response.content).strip()[:4000],
+            "reasoning": str(parsed.get("reasoning") or response.content or "").strip()[:4000],
             "risks": _as_string_list(parsed.get("risks")),
             "evidence": _as_string_list(parsed.get("evidence")),
             "responded": True,

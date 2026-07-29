@@ -21,6 +21,7 @@ Post-call:
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -141,7 +142,8 @@ class CallIntelligenceService:
                 call.status = CallStatus.COUNCIL_REVIEW.value
                 await db.commit()
 
-        logger.info("Pre-call briefing generated: %s | %s", call.client_name, call.client_company)
+        if call:
+            logger.info("Pre-call briefing generated: %s | %s", call.client_name, call.client_company)
         return {
             "call_id": call_id,
             "briefing_pdf_url": f"/pdfs/briefings/{call_id}_briefing.pdf",
@@ -401,11 +403,16 @@ Never mention AI, automation, or JARVIS. Always refer to 'our team' and 'Aliyar 
 Return only valid JSON, no markdown."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
-            data = json.loads(response.content.strip())
+            if response.error:
+                raise ValueError(response.error)
+            data = json.loads((response.content or "").strip())
             return data
         except Exception as exc:
             logger.warning("Briefing content generation failed: %s", exc)
@@ -572,12 +579,18 @@ Generate a post-call debrief. Return JSON:
 Return only valid JSON."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                ),
+                timeout=60.0,
             )
-            return json.loads(response.content.strip())
-        except Exception:
+            if response.error:
+                raise ValueError(response.error)
+            return json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Post-call debrief generation failed: %s", exc)
             return {
                 "debrief": f"Post-call analysis for {outcome} outcome with {call.client_company}.",
                 "improvements": ["Follow up within 24 hours", "Send proposal if requested"],
@@ -588,12 +601,18 @@ Return only valid JSON."""
 Return as JSON array of strings. Only valid JSON.
 Analysis: {reasoning[:1500]}"""
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)], task_type=TaskType.FAST
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)], task_type=TaskType.FAST
+                ),
+                timeout=60.0,
             )
-            items = json.loads(response.content.strip())
+            if response.error:
+                raise ValueError(response.error)
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("Council refinement extraction failed: %s", exc)
             return [reasoning[:200]]
 
     def _build_elevenlabs_system_prompt(self, call: ClientCallIntelligence) -> str:

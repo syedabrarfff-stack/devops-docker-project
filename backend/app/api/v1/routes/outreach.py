@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 from typing import Optional
@@ -9,6 +7,7 @@ from datetime import UTC, datetime
 from urllib.parse import unquote
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request, Response
+from app.api.v1.routes.auth import get_current_captain
 from app.core.rate_limit import limiter
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
@@ -20,7 +19,7 @@ from app.services.outreach import sequences as seq_service
 from app.services.outreach.engine import outreach_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/outreach", tags=["Outreach"])
+router = APIRouter(prefix="/outreach", tags=["Outreach"], dependencies=[Depends(get_current_captain)])
 EMAIL_STATUS_TIMEOUT_SECONDS = 4.0
 
 
@@ -51,18 +50,18 @@ class ExecuteOutreachIn(BaseModel):
 
 class RegeneratePendingIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 100
+    limit: int = Field(default=100, ge=1, le=500)
 
 
 class PrepareCampaignIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 25
-    min_score: float = 80
+    limit: int = Field(default=25, ge=1, le=200)
+    min_score: float = Field(default=80, ge=0.0, le=100.0)
 
 
 class SpeedToLeadTriggerIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    lookback_minutes: int = 5
+    lookback_minutes: int = Field(default=5, ge=1, le=60)
 
 
 class ResumeOutreachIn(BaseModel):
@@ -72,7 +71,7 @@ class ResumeOutreachIn(BaseModel):
 
 class QualificationApplyIn(BaseModel):
     tenant_id: Optional[UUID] = None
-    limit: int = 500
+    limit: int = Field(default=500, ge=1, le=2000)
 
 
 class LinkedInSendIn(BaseModel):
@@ -82,7 +81,9 @@ class LinkedInSendIn(BaseModel):
 
 
 @router.post("/sequences")
+@limiter.limit("10/minute")
 async def create_sequence(
+    request: Request,
     body: SequenceIn,
     background_tasks: BackgroundTasks,
     ai_generate: bool = False,
@@ -115,9 +116,11 @@ async def enroll_contacts(
     request: Request,
     sequence_id: int,
     body: EnrollIn,
+    tenant_id: Optional[UUID] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    emails = await seq_service.enroll_contacts(db, sequence_id, body.contact_ids)
+    resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
+    emails = await seq_service.enroll_contacts(db, sequence_id, body.contact_ids, tenant_id=str(resolved_tenant_id))
     await db.commit()
     return {"enrolled": len(emails), "sequence_id": sequence_id}
 
@@ -128,6 +131,7 @@ async def sequence_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/queue/{lead_id}")
+@limiter.limit("30/minute")
 async def queue_lead_outreach(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     await outreach_engine.queue_sequence(lead_id, resolved_tenant_id)
@@ -234,6 +238,7 @@ async def outreach_engine_status(request: Request, tenant_id: Optional[UUID] = N
 
 
 @router.post("/regenerate-pending")
+@limiter.limit("5/minute")
 async def regenerate_pending_outreach(
     request: Request,
     body: RegeneratePendingIn = Body(default_factory=RegeneratePendingIn),
@@ -247,6 +252,7 @@ async def regenerate_pending_outreach(
 
 
 @router.post("/prepare-campaign")
+@limiter.limit("5/minute")
 async def prepare_campaign(
     request: Request,
     body: PrepareCampaignIn = Body(default_factory=PrepareCampaignIn),
@@ -275,19 +281,24 @@ async def prepare_campaign(
         )
     ).scalars().all()
 
+    # Batch-check which leads already have a pending queue entry (avoids N+1)
+    lead_ids = [lead.id for lead in rows]
+    already_pending: set = set()
+    if lead_ids:
+        pending_rows = (await db.execute(
+            select(FollowUpQueue.lead_id)
+            .where(
+                FollowUpQueue.tenant_id == resolved_tenant_id,
+                FollowUpQueue.lead_id.in_(lead_ids),
+                FollowUpQueue.status == FollowUpStatus.PENDING,
+            )
+        )).scalars().all()
+        already_pending = set(pending_rows)
+
     queued = 0
     skipped: list[dict] = []
     for lead in rows:
-        existing = await db.scalar(
-            select(FollowUpQueue.id)
-            .where(
-                FollowUpQueue.tenant_id == resolved_tenant_id,
-                FollowUpQueue.lead_id == lead.id,
-                FollowUpQueue.status == FollowUpStatus.PENDING,
-            )
-            .limit(1)
-        )
-        if existing:
+        if lead.id in already_pending:
             skipped.append({"lead_id": str(lead.id), "company": lead.company_name or lead.company, "reason": "already_pending"})
             continue
         try:
@@ -324,6 +335,7 @@ async def prepare_campaign(
 
 
 @router.post("/speed-to-lead/trigger")
+@limiter.limit("10/minute")
 async def trigger_speed_to_lead(
     request: Request,
     body: SpeedToLeadTriggerIn = Body(default_factory=SpeedToLeadTriggerIn),
@@ -342,16 +354,19 @@ async def track_email_open(outreach_id: UUID, db: AsyncSession = Depends(get_db)
     from sqlalchemy import select
     from app.models.outreach import EmailTracking, OutreachLog, OutreachStatus
 
-    now = datetime.now(UTC)
-    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
-    if outreach:
-        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
-        if not tracking:
-            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
-            db.add(tracking)
-        tracking.opened_at = tracking.opened_at or now
-        if outreach.status not in (OutreachStatus.REPLIED, OutreachStatus.CLICKED):
-            outreach.status = OutreachStatus.OPENED
+    try:
+        now = datetime.now(UTC)
+        outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+        if outreach:
+            tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+            if not tracking:
+                tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+                db.add(tracking)
+            tracking.opened_at = tracking.opened_at or now
+            if outreach.status not in (OutreachStatus.REPLIED, OutreachStatus.CLICKED):
+                outreach.status = OutreachStatus.OPENED
+    except Exception as exc:
+        logger.warning("Email open tracking failed for %s: %s", outreach_id, exc)
     return Response(content=_TRANSPARENT_GIF, media_type="image/gif")
 
 
@@ -367,7 +382,10 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
     if not destination.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid redirect URL")
 
-    # SSRF guard — block AWS metadata, private/loopback addresses
+    # SSRF/redirect guard — block AWS metadata, private/loopback addresses.
+    # Checking the literal host isn't enough: a hostname that itself resolves
+    # to a private/metadata IP (DNS rebinding) would sail through untouched,
+    # so any non-IP host also gets resolved and every returned address checked.
     _BLOCKED_HOSTS = {"169.254.169.254", "metadata.google.internal", "localhost"}
     try:
         parsed = urlparse(destination)
@@ -379,22 +397,37 @@ async def track_email_click(outreach_id: UUID, url: str = Query(...), db: AsyncS
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
                 raise HTTPException(status_code=400, detail="Redirect target not allowed")
         except ValueError:
-            pass  # hostname string, not IP — allow
+            # Hostname, not a literal IP — resolve it and check every address
+            # returned, since attacker-controlled DNS can point anywhere.
+            import asyncio
+            import socket
+
+            try:
+                addrinfo = await asyncio.to_thread(socket.getaddrinfo, host, None)
+            except socket.gaierror:
+                raise HTTPException(status_code=400, detail="Redirect target not allowed")
+            for family, _type, _proto, _canon, sockaddr in addrinfo:
+                resolved_ip = ipaddress.ip_address(sockaddr[0])
+                if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local or resolved_ip.is_reserved:
+                    raise HTTPException(status_code=400, detail="Redirect target not allowed")
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid redirect URL")
 
-    now = datetime.now(UTC)
-    outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
-    if outreach:
-        tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
-        if not tracking:
-            tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
-            db.add(tracking)
-        tracking.clicked_at = tracking.clicked_at or now
-        if outreach.status != OutreachStatus.REPLIED:
-            outreach.status = OutreachStatus.CLICKED
+    try:
+        now = datetime.now(UTC)
+        outreach = await db.scalar(select(OutreachLog).where(OutreachLog.id == outreach_id))
+        if outreach:
+            tracking = await db.scalar(select(EmailTracking).where(EmailTracking.outreach_id == outreach.id))
+            if not tracking:
+                tracking = EmailTracking(tenant_id=outreach.tenant_id, outreach_id=outreach.id)
+                db.add(tracking)
+            tracking.clicked_at = tracking.clicked_at or now
+            if outreach.status != OutreachStatus.REPLIED:
+                outreach.status = OutreachStatus.CLICKED
+    except Exception as exc:
+        logger.warning("Email click tracking failed for %s: %s", outreach_id, exc)
     return RedirectResponse(destination, status_code=302)
 
 
@@ -424,6 +457,7 @@ async def unsubscribe_from_outreach(token: str, request: Request, db: AsyncSessi
 
 
 @router.post("/resume")
+@limiter.limit("5/minute")
 async def resume_outreach(request: Request, body: ResumeOutreachIn = Body(default_factory=ResumeOutreachIn), db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
@@ -456,6 +490,7 @@ async def outreach_compliance_status(request: Request, tenant_id: Optional[UUID]
 
 
 @router.post("/compliance/review")
+@limiter.limit("3/minute")
 async def run_outreach_safety_review(request: Request, tenant_id: Optional[UUID] = None, db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
@@ -467,6 +502,7 @@ async def run_outreach_safety_review(request: Request, tenant_id: Optional[UUID]
 
 
 @router.post("/qualification/apply")
+@limiter.limit("5/minute")
 async def apply_qualification_thresholds(
     request: Request,
     body: QualificationApplyIn = Body(default_factory=QualificationApplyIn),
@@ -496,6 +532,7 @@ async def apply_qualification_thresholds(
 
 
 @router.post("/linkedin/send")
+@limiter.limit("10/minute")
 async def prepare_linkedin_outreach(request: Request, body: LinkedInSendIn):
     from app.services.outreach.linkedin import linkedin_outreach_service
 
@@ -569,14 +606,16 @@ async def outreach_stats(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/emails/{email_id}/send")
-async def send_queued_email(email_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def send_queued_email(request: Request, email_id: int, db: AsyncSession = Depends(get_db)):
     success = await gmail_service.send_outreach_email(db, email_id)
     await db.commit()
     return {"sent": success, "email_id": email_id}
 
 
 @router.post("/emails/send-direct")
-async def send_direct_email(body: SendEmailIn, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def send_direct_email(request: Request, body: SendEmailIn, db: AsyncSession = Depends(get_db)):
     from app.core.database import set_tenant_context
     from app.services.outreach.compliance import outreach_compliance
 
@@ -664,7 +703,9 @@ async def list_pending_emails(
 
 
 @router.post("/emails/process-due")
+@limiter.limit("5/minute")
 async def process_due_emails(
+    request: Request,
     limit: int = Query(10, ge=1, le=50),
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
@@ -798,10 +839,14 @@ async def _generate_briefs_background(
                 lead = await db.scalar(select(Lead).where(Lead.id == lead_id))
                 if not lead:
                     continue
+                # Capture scalar values before session closes to avoid DetachedInstanceError
+                company = lead.company_name or lead.company or ""
+                industry = lead.industry or ""
+                pain_points = lead.pain_points or []
             await brief_generator.generate(
-                company_name=lead.company_name or lead.company or "",
-                industry=lead.industry or "",
-                pain_points=lead.pain_points or [],
+                company_name=company,
+                industry=industry,
+                pain_points=pain_points,
                 lead_id=lead_id,
                 tenant_id=tenant_id,
             )
@@ -853,6 +898,24 @@ async def _email_delivery_status_for_dashboard(db: AsyncSession) -> dict:
                 "client_language_sanitizer": True,
             },
         }
+
+
+class SendWhatsAppIn(BaseModel):
+    message: Optional[str] = Field(default=None, max_length=4000)
+    tenant_id: Optional[UUID] = None
+
+
+@router.post("/send/whatsapp/{lead_id}")
+@limiter.limit("10/minute")
+async def send_whatsapp_message(
+    lead_id: UUID,
+    request: Request,
+    body: SendWhatsAppIn = Body(default_factory=SendWhatsAppIn),
+):
+    """Send a single WhatsApp outreach message to a lead (requires lead.phone)."""
+    resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
+    result = await outreach_engine.send_whatsapp_to_lead(lead_id, resolved_tenant_id, message=body.message)
+    return result
 
 
 _TRANSPARENT_GIF = (

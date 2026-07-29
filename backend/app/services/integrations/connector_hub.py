@@ -483,18 +483,21 @@ class ConnectorHub:
                 tenant_id=tenant_id,
             )
 
-            # Parse verdict from council decision
+            # IntelligenceCouncil.convene() returns decision as one of
+            # "APPROVE"|"CAPTAIN_REVIEW"|"REJECT" (never "REVISE") and score on a
+            # 0-100 scale (see council.py) — normalize both to this function's
+            # documented APPROVE|REVISE|REJECT / 0.0-1.0 contract.
             decision_text = (result.decision or "").upper()
             if "REJECT" in decision_text:
                 verdict = "REJECT"
-            elif "REVISE" in decision_text:
+            elif "CAPTAIN_REVIEW" in decision_text:
                 verdict = "REVISE"
             else:
                 verdict = "APPROVE"
 
             return {
                 "verdict": verdict,
-                "confidence": float(result.score or 0.0),
+                "confidence": float(result.score or 0.0) / 100.0,
                 "improvements": [],
                 "final_content": content,
                 "council_session_id": result.session_id,

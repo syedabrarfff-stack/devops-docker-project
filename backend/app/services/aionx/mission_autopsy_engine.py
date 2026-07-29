@@ -91,7 +91,7 @@ async def extract_failure_patterns(db: AsyncSession) -> dict[str, Any]:
     ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
 
     autopsies = (await db.execute(
-        select(MissionAutopsy).where(MissionAutopsy.created_at >= ninety_days_ago)
+        select(MissionAutopsy).where(MissionAutopsy.created_at >= ninety_days_ago).limit(200)
     )).scalars().all()
 
     if not autopsies:

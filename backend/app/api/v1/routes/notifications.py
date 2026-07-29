@@ -2,13 +2,15 @@
 Notification management — persistent log, read/unread, broadcast.
 """
 import uuid
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, update
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.models.notifications import NotificationLog
 from app.api.v1.routes.ws import broadcast_notification
 
@@ -16,7 +18,7 @@ from app.api.v1.routes.ws import broadcast_notification
 def _system_tenant_id() -> uuid.UUID:
     return uuid.UUID(settings.JARVIS_DEFAULT_TENANT_ID) if settings.JARVIS_DEFAULT_TENANT_ID else uuid.UUID("00000000-0000-0000-0000-000000000000")
 
-router = APIRouter(prefix="/notifications", tags=["Notifications"])
+router = APIRouter(prefix="/notifications", tags=["Notifications"], dependencies=[Depends(get_current_captain)])
 
 
 class NotifyIn(BaseModel):
@@ -60,7 +62,8 @@ async def unread_count(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{notification_id}/read")
-async def mark_read(notification_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def mark_read(request: Request, notification_id: int, db: AsyncSession = Depends(get_db)):
     await db.execute(
         update(NotificationLog)
         .where(NotificationLog.id == notification_id)
@@ -71,14 +74,16 @@ async def mark_read(notification_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/read-all")
-async def mark_all_read(db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def mark_all_read(request: Request, db: AsyncSession = Depends(get_db)):
     await db.execute(update(NotificationLog).values(read=True))
     await db.commit()
     return {"marked": True}
 
 
 @router.post("/broadcast")
-async def send_notification(body: NotifyIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def send_notification(request: Request, body: NotifyIn, db: AsyncSession = Depends(get_db)):
     """Send notification across all specified channels."""
     channels = body.channels or ["websocket"]
     sent = {}
@@ -109,7 +114,8 @@ async def send_notification(body: NotifyIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/clear")
-async def clear_old(days: int = Query(30, ge=1), db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def clear_old(request: Request, days: int = Query(30, ge=1), db: AsyncSession = Depends(get_db)):
     from sqlalchemy import delete
     from datetime import datetime, timezone, timedelta
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)

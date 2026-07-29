@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from typing import Any, Optional
 from uuid import UUID
@@ -7,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 _captain_dep = [Depends(get_current_captain)]
@@ -84,6 +83,7 @@ async def captain_decision_load(request: Request, tenant_id: Optional[UUID] = No
 # ─────────────────────────── BRIDGE ENDPOINTS ──────────────────────────────── #
 
 @router.post("/bring-lead")
+@limiter.limit("20/minute")
 async def bring_lead(body: LeadIntakeBody, request: Request):
     """Parse any raw text Captain types into a structured lead."""
     from app.services.captain.bridge import captain_bridge
@@ -99,6 +99,7 @@ async def bring_lead(body: LeadIntakeBody, request: Request):
 
 
 @router.post("/brain-dump")
+@limiter.limit("10/minute")
 async def brain_dump(body: BrainDumpBody, request: Request):
     """Parse a wall of Captain's notes into structured action items and insights."""
     from app.services.captain.bridge import captain_bridge
@@ -114,6 +115,7 @@ async def brain_dump(body: BrainDumpBody, request: Request):
 
 
 @router.post("/email-import")
+@limiter.limit("10/minute")
 async def email_import(body: EmailImportBody, request: Request):
     """Extract commercial intelligence from a raw email thread."""
     from app.services.captain.bridge import captain_bridge
@@ -193,6 +195,7 @@ async def war_room_brief(request: Request, tenant_id: Optional[UUID] = None):
 # ────────────────────────── PUSHBACK ENDPOINTS ─────────────────────────────── #
 
 @router.post("/evaluate-decision")
+@limiter.limit("5/minute")
 async def evaluate_decision(body: EvaluateDecisionBody, request: Request):
     """Evaluate a Captain decision — returns APPROVE / CAUTION / PUSHBACK."""
     from app.services.captain.pushback import jarvis_pushback
@@ -268,6 +271,7 @@ async def captain_mirror_profile(request: Request, tenant_id: Optional[UUID] = N
 
 
 @router.post("/mirror/record")
+@limiter.limit("30/minute")
 async def record_captain_decision(body: MirrorDecisionBody, request: Request):
     """Record a Captain decision for pattern learning and mirror profile refinement."""
     import uuid as _uuid
@@ -288,6 +292,7 @@ async def record_captain_decision(body: MirrorDecisionBody, request: Request):
 
 
 @router.post("/seed-demo")
+@limiter.limit("3/minute")
 async def seed_demo_data(request: Request, tenant_id: Optional[UUID] = None):
     """
     Populate the tenant with realistic demo data — clients, invoices, leads,

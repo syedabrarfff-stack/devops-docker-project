@@ -4,6 +4,7 @@ Simulates hostile competitor analysis and identifies strategic vulnerabilities.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -59,7 +60,7 @@ Output structured JSON only."""
 def _parse_json_response(content: str) -> dict:
     """Extract JSON from AI response."""
     try:
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -78,13 +79,18 @@ async def _analyze_attack_vector(vector: dict) -> dict[str, Any]:
         f"time_to_exploit_months (integer)."
     )
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.REASONING,
-            system_prompt=RED_TEAM_SYSTEM,
-            max_tokens=600,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.REASONING,
+                system_prompt=RED_TEAM_SYSTEM,
+                max_tokens=600,
+            ),
+            timeout=60.0,
         )
-        parsed = _parse_json_response(response.content)
+        if response.error:
+            raise ValueError(response.error)
+        parsed = _parse_json_response(response.content or "")
         return {
             "vector_id": vector["id"],
             "vector_name": vector["name"],
@@ -115,8 +121,11 @@ class RedTeamEngine:
         import asyncio
 
         tasks = [_analyze_attack_vector(v) for v in ATTACK_VECTORS]
-        attack_results = await asyncio.gather(*tasks)
-        attack_results = list(attack_results)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Red team vector task raised: %s", _v)
+        attack_results = [v for v in raw if isinstance(v, dict)]
 
         # Calculate overall risk score
         severities = [r["severity"] for r in attack_results]
@@ -190,13 +199,18 @@ class RedTeamEngine:
         )
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                system_prompt=RED_TEAM_SYSTEM,
-                max_tokens=900,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    system_prompt=RED_TEAM_SYSTEM,
+                    max_tokens=900,
+                ),
+                timeout=60.0,
             )
-            parsed = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            parsed = _parse_json_response(response.content or "")
             return {
                 "tenant_id": str(tenant_id),
                 "competitor": competitor_name,

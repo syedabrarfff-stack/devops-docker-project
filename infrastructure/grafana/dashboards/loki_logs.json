@@ -1,0 +1,149 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "{container_name=~\"jarvis_backend|jarvis_frontend|jarvis_nginx\"}",
+          "refId": "A"
+        }
+      ],
+      "type": "logs",
+      "title": "JARVIS System Logs",
+      "options": {
+        "showLabels": "auto",
+        "showTime": true,
+        "wrapLogMessage": false,
+        "sortOrder": 1,
+        "dedupStrategy": "none",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "{container_name=\"jarvis_backend\"} | json | level != \"DEBUG\" | line_format \"{{.message}}\"",
+          "refId": "A"
+        }
+      ],
+      "type": "logs",
+      "title": "Backend Logs",
+      "options": {
+        "showLabels": "auto",
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": 1,
+        "dedupStrategy": "none",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "{container_name=\"jarvis_nginx\"}",
+          "refId": "A"
+        }
+      ],
+      "type": "logs",
+      "title": "Nginx Logs",
+      "options": {
+        "showLabels": "auto",
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": 1,
+        "dedupStrategy": "none",
+        "enableLogDetails": true
+      }
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "{container_name=~\"jarvis_.*\"} | json | level=~\"ERROR|CRITICAL|FATAL\"",
+          "refId": "A"
+        }
+      ],
+      "type": "logs",
+      "title": "Errors & Warnings",
+      "options": {
+        "showLabels": "auto",
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": 1,
+        "dedupStrategy": "none",
+        "enableLogDetails": true
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "JARVIS",
+    "Loki",
+    "Logs"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "JARVIS Loki Logs",
+  "uid": "loki-logs",
+  "version": 1
+}

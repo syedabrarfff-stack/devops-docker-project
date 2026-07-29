@@ -36,7 +36,7 @@ ADAPTIVE_CYCLES: list[dict[str, Any]] = [
         "code": "SELF_OBSERVE",
         "name": "Self Observe",
         "cadence": "every_15_minutes",
-        "purpose": "Scan 25 department health, revenue velocity, conversion, cost burn, client signals, reliability, and memory growth.",
+        "purpose": "Scan 10 department health, revenue velocity, conversion, cost burn, client signals, reliability, and memory growth.",
         "outputs": ["health_scorecards", "threshold_alerts", "cortex_events"],
         "authority": "tier_1_measurement",
         "status": "doctrine_live_pending_metric_backbone",
@@ -100,8 +100,8 @@ TECH_EXPLORATION_SOURCES: list[dict[str, Any]] = [
 TWELVE_STAGE_REVENUE_PIPELINE: list[dict[str, Any]] = [
     {"stage": 1, "name": "World Scan", "owner": "SCOUT", "output": "new target companies"},
     {"stage": 2, "name": "Lead Discovery", "owner": "SCOUT", "output": "enriched lead records"},
-    {"stage": 3, "name": "Lead Scoring", "owner": "ORACLE-S", "output": "ranked lead queue"},
-    {"stage": 4, "name": "Business Analysis", "owner": "MARKET", "output": "pain and opportunity profile"},
+    {"stage": 3, "name": "Lead Scoring", "owner": "SCOUT", "output": "ranked lead queue"},
+    {"stage": 4, "name": "Business Analysis", "owner": "NEXUS-R", "output": "pain and opportunity profile"},
     {"stage": 5, "name": "Case Study Match", "owner": "QUILL", "output": "proof narrative"},
     {"stage": 6, "name": "Outreach Draft", "owner": "HERALD", "output": "personalized email"},
     {"stage": 7, "name": "Council Review", "owner": "AXIOM COUNCIL", "output": "risk and quality decision"},
@@ -113,31 +113,22 @@ TWELVE_STAGE_REVENUE_PIPELINE: list[dict[str, Any]] = [
 ]
 
 
+# Trimmed to the 10 surviving capability modules (Captain directive, 2026-07).
+# Dependency edges to deleted modules removed; ATLAS-CI now activates SIGNAL-CD
+# directly (the Terraform hop between them was removed), and PULSE/QUILL/CANVAS
+# now depend on NEXUS-R directly (their removed upstream modules — BRIDGE,
+# ORACLE-BI, MARKET — no longer exist).
 MODULE_DEPENDENCIES: dict[str, dict[str, Any]] = {
-    "SCOUT": {"depends_on": [], "pauses_if": [], "activates": ["HERALD", "ORACLE-S"]},
+    "SCOUT": {"depends_on": [], "pauses_if": [], "activates": ["HERALD"]},
     "HERALD": {"depends_on": ["SCOUT"], "pauses_if": ["SCOUT"], "activates": ["NEXUS-R"]},
-    "NEXUS-R": {"depends_on": ["HERALD"], "pauses_if": [], "activates": ["ORACLE-S", "BRIDGE"]},
-    "ORACLE-S": {"depends_on": ["SCOUT", "NEXUS-R"], "pauses_if": [], "activates": ["QUANT"]},
-    "PRISM": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": ["ECHO", "SIGNAL"]},
-    "ECHO": {"depends_on": ["PRISM"], "pauses_if": ["PRISM"], "activates": ["RADAR"]},
-    "PULSE": {"depends_on": ["BRIDGE"], "pauses_if": [], "activates": ["QUILL"]},
-    "SIGNAL": {"depends_on": ["PRISM"], "pauses_if": [], "activates": ["BRIDGE"]},
-    "BRIDGE": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": ["PULSE"]},
-    "ATLAS-CI": {"depends_on": [], "pauses_if": [], "activates": ["NEXUS-TF", "RADAR", "CIPHER"]},
-    "NEXUS-TF": {"depends_on": ["ATLAS-CI"], "pauses_if": ["ATLAS-CI"], "activates": ["SIGNAL-CD"]},
-    "SIGNAL-CD": {"depends_on": ["NEXUS-TF"], "pauses_if": [], "activates": ["HELM", "RADAR"]},
-    "HELM": {"depends_on": ["SIGNAL-CD"], "pauses_if": [], "activates": ["RADAR"]},
-    "RADAR": {"depends_on": ["ATLAS-CI"], "pauses_if": [], "activates": ["CIPHER", "GUARDIAN"]},
-    "CIPHER": {"depends_on": ["RADAR"], "pauses_if": [], "activates": ["GUARDIAN", "LEDGER"]},
-    "GUARDIAN": {"depends_on": ["CIPHER"], "pauses_if": [], "activates": ["LEDGER"]},
-    "LEDGER": {"depends_on": ["CIPHER"], "pauses_if": [], "activates": []},
-    "ORACLE-BI": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": ["MARKET", "QUANT"]},
-    "MARKET": {"depends_on": [], "pauses_if": [], "activates": ["QUILL"]},
-    "QUANT": {"depends_on": ["ORACLE-BI"], "pauses_if": [], "activates": ["QUILL"]},
-    "QUILL": {"depends_on": ["ORACLE-BI", "MARKET"], "pauses_if": [], "activates": []},
-    "PORTAL": {"depends_on": ["CANVAS"], "pauses_if": [], "activates": ["VISION"]},
-    "CANVAS": {"depends_on": ["ORACLE-BI"], "pauses_if": [], "activates": ["PORTAL", "VISION"]},
-    "VISION": {"depends_on": ["CANVAS"], "pauses_if": [], "activates": []},
+    "NEXUS-R": {"depends_on": ["HERALD"], "pauses_if": [], "activates": ["QUILL", "CANVAS"]},
+    "PRISM": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": []},
+    "PULSE": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": ["QUILL"]},
+    "ATLAS-CI": {"depends_on": [], "pauses_if": [], "activates": ["CIPHER", "SIGNAL-CD"]},
+    "SIGNAL-CD": {"depends_on": ["ATLAS-CI"], "pauses_if": [], "activates": []},
+    "CIPHER": {"depends_on": ["ATLAS-CI"], "pauses_if": [], "activates": []},
+    "QUILL": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": []},
+    "CANVAS": {"depends_on": ["NEXUS-R"], "pauses_if": [], "activates": []},
     "AXIOM COUNCIL": {"depends_on": [], "pauses_if": [], "activates": ["all_governed_recommendations"]},
 }
 
@@ -151,7 +142,7 @@ METRIC_BACKBONE: list[dict[str, str]] = [
     {"metric": "wisdom_score", "unit": "index", "source": "wisdom snapshots", "owner": "Wisdom Index"},
     {"metric": "operational_iq", "unit": "0_100", "source": "Cortex", "owner": "JARVIS"},
     {"metric": "client_trust", "unit": "0_100", "source": "digital twins", "owner": "Client Trust Index"},
-    {"metric": "system_reliability", "unit": "percent", "source": "health checks", "owner": "RADAR"},
+    {"metric": "system_reliability", "unit": "percent", "source": "health checks", "owner": "ATLAS-CI"},
     {"metric": "decision_debt", "unit": "usd", "source": "decision debt", "owner": "Council"},
 ]
 
@@ -276,7 +267,7 @@ async def captain_interface_status(db: AsyncSession | None = None) -> dict[str, 
     return {
         "status": "captain_operating_boundary_defined",
         "daily_mode": "120-word morning briefing plus one decision if needed.",
-        "weekly_mode": "Council intelligence report, 25 department health scores, revenue trajectory, three recommendations.",
+        "weekly_mode": "Council intelligence report, 10 department health scores, revenue trajectory, three recommendations.",
         "quarterly_mode": "Captain sets strategic constraints; JARVIS reconfigures modules accordingly.",
         "visible_to_captain": ["Tier 3 approvals", "strategic reports", "health exceptions", "contracts/payments/go-live decisions"],
         "hidden_from_captain": ["routine lead scoring", "CRM hygiene", "Tier 1 outreach", "routine learning", "internal prompt tuning"],

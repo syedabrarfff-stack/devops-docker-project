@@ -2,14 +2,16 @@
 JARVIS Intelligence API — Tech Radar, Self-Optimization, Research Division.
 Phase 5: Autonomous learning and continuous self-improvement.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/intelligence", tags=["intelligence"])
+router = APIRouter(prefix="/intelligence", tags=["intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
@@ -44,7 +46,9 @@ async def get_tech_radar(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/radar/scan")
+@limiter.limit("3/minute")
 async def trigger_tech_scan(
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
@@ -72,7 +76,9 @@ async def get_recommendations(
 
 
 @router.post("/recommendations/analyze")
+@limiter.limit("3/minute")
 async def trigger_analysis(
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
@@ -89,7 +95,8 @@ async def trigger_analysis(
 
 
 @router.post("/recommendations/{rec_id}/approve")
-async def approve_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def approve_recommendation(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "approved")
@@ -99,7 +106,8 @@ async def approve_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/recommendations/{rec_id}/dismiss")
-async def dismiss_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def dismiss_recommendation(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "dismissed")
@@ -109,7 +117,8 @@ async def dismiss_recommendation(rec_id: int, db: AsyncSession = Depends(get_db)
 
 
 @router.post("/recommendations/{rec_id}/implement")
-async def mark_implemented(rec_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def mark_implemented(request: Request, rec_id: int, db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.optimizer import update_recommendation_status
     async with db.begin():
         ok = await update_recommendation_status(db, rec_id, "implemented")
@@ -121,13 +130,15 @@ async def mark_implemented(rec_id: int, db: AsyncSession = Depends(get_db)):
 # ── Research Reports ──────────────────────────────────────────────────────────
 
 @router.get("/reports")
-async def get_reports(limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def get_reports(limit: int = Query(default=20, ge=1, le=100), db: AsyncSession = Depends(get_db)):
     from app.services.intelligence.research import get_reports
     return {"reports": await get_reports(db, limit=limit)}
 
 
 @router.post("/reports/generate")
+@limiter.limit("5/minute")
 async def generate_report(
+    request: Request,
     req: ReportRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -191,6 +202,7 @@ async def get_competitors(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/competitors/seed")
+@limiter.limit("5/minute")
 async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
     from app.services.intelligence.competitor_intel import (
         list_competitor_profiles,
@@ -207,8 +219,8 @@ async def seed_competitors(request: Request, tenant_id: Optional[UUID] = None):
 async def get_outreach_learnings(
     request: Request,
     tenant_id: Optional[UUID] = None,
-    category: Optional[str] = None,
-    limit: int = 50,
+    category: Optional[str] = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
 ):
     from app.services.revenue_activation.teaching_engine import teaching_engine
 
@@ -221,6 +233,7 @@ async def get_outreach_learnings(
 
 
 @router.post("/teach")
+@limiter.limit("10/minute")
 async def teach_jarvis(request: Request, body: TeachRequest):
     from app.services.revenue_activation.teaching_engine import teaching_engine
 
@@ -267,6 +280,7 @@ class GovernanceEvaluateRequest(BaseModel):
 
 
 @router.post("/prospect-psychology")
+@limiter.limit("20/minute")
 async def prospect_psychology(
     req: ProspectPsychologyRequest,
     request: Request,
@@ -306,7 +320,8 @@ async def prospect_psychology(
 
 
 @router.post("/revenue-forecast")
-async def revenue_forecast(req: RevenueForecastRequest, request: Request):
+@limiter.limit("5/minute")
+async def revenue_forecast(request: Request, req: RevenueForecastRequest):
     from app.services.intelligence.revenue_forecaster import revenue_forecaster
 
     tenant_id = _resolve_tenant_id(request, req.tenant_id)
@@ -328,9 +343,10 @@ async def self_assessment(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.post("/dynamic-pricing")
+@limiter.limit("5/minute")
 async def dynamic_pricing(
-    req: DynamicPricingRequest,
     request: Request,
+    req: DynamicPricingRequest,
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.intelligence.dynamic_pricing import dynamic_pricing_engine
@@ -369,7 +385,8 @@ async def dynamic_pricing(
 
 
 @router.post("/governance/evaluate")
-async def governance_evaluate(req: GovernanceEvaluateRequest, request: Request):
+@limiter.limit("5/minute")
+async def governance_evaluate(request: Request, req: GovernanceEvaluateRequest):
     from app.services.governance.autonomous_governance import autonomous_governance
 
     tenant_id = _resolve_tenant_id(request, req.tenant_id)
@@ -435,6 +452,7 @@ class CialdiniSequenceRequest(BaseModel):
 
 
 @router.post("/expert-council")
+@limiter.limit("3/minute")
 async def expert_council(req: ExpertCouncilRequest, request: Request):
     """Convene 5-agent (or quick 3-agent) expert council on a strategic question."""
     from app.services.intelligence.expert_council import expert_council_engine
@@ -448,7 +466,7 @@ async def expert_council(req: ExpertCouncilRequest, request: Request):
 
 
 @router.get("/expert-council/sessions")
-async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = None, limit: int = 10):
+async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = None, limit: int = Query(default=10, ge=1, le=50)):
     """Get recent expert council sessions."""
     from app.services.intelligence.expert_council import expert_council_engine
 
@@ -458,6 +476,7 @@ async def expert_council_sessions(request: Request, tenant_id: Optional[UUID] = 
 
 
 @router.post("/red-team/run")
+@limiter.limit("2/minute")
 async def red_team_run(req: RedTeamRequest, request: Request, background_tasks=None):
     """Run full adversarial red team analysis against current business strategy."""
     from app.services.intelligence.red_team import red_team_engine
@@ -468,6 +487,7 @@ async def red_team_run(req: RedTeamRequest, request: Request, background_tasks=N
 
 
 @router.post("/red-team/competitor")
+@limiter.limit("5/minute")
 async def red_team_competitor(
     request: Request,
     competitor_name: str = "generic AI agency",
@@ -510,6 +530,7 @@ async def get_flywheel_projection(
 
 
 @router.post("/cialdini/enhance")
+@limiter.limit("10/minute")
 async def cialdini_enhance(req: CialdiniEnhanceRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Enhance an email draft using Cialdini's 6 persuasion principles."""
     from app.services.intelligence.cialdini import cialdini_engine
@@ -539,6 +560,7 @@ async def cialdini_enhance(req: CialdiniEnhanceRequest, request: Request, db: As
 
 
 @router.post("/cialdini/sequence")
+@limiter.limit("10/minute")
 async def cialdini_sequence(req: CialdiniSequenceRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Generate a 3-email Cialdini-engineered outreach sequence for a lead."""
     from app.services.intelligence.cialdini import cialdini_engine
@@ -583,6 +605,7 @@ async def conscience_audit(request: Request, tenant_id: Optional[UUID] = None, d
 
 
 @router.post("/conscience/evaluate")
+@limiter.limit("10/minute")
 async def conscience_evaluate(
     request: Request,
     action_type: str,
@@ -593,6 +616,55 @@ async def conscience_evaluate(
     from app.services.intelligence.conscience import conscience_layer
 
     result = conscience_layer.evaluate_action_ethics(action_type, payload)
+    return result
+
+
+# ── Semantic Lead Search ──────────────────────────────────────────────────────
+
+@router.get("/semantic-search")
+@limiter.limit("30/minute")
+async def semantic_search_leads(
+    request: Request,
+    q: str = Query(..., min_length=1, max_length=1_000),
+    limit: int = Query(default=10, ge=1, le=50),
+    min_similarity: float = Query(default=0.3, ge=0.0, le=1.0),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Semantic similarity search across all leads.
+    Returns leads ranked by cosine similarity to the natural-language query.
+
+    Requires OPENAI_API_KEY. Leads are vectorized nightly by the
+    lead_embedding_sweep scheduler job (daily 03:15).
+    """
+    from app.services.intelligence.lead_embeddings import semantic_search_leads as _search
+    if not q or len(q.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Query must be at least 3 characters")
+    results = await _search(q.strip(), db, limit=min(limit, 50), min_similarity=min_similarity)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+    }
+
+
+@router.post("/semantic-search/embed/{lead_id}")
+@limiter.limit("10/minute")
+async def embed_single_lead(request: Request, lead_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Immediately generate and store an embedding for a specific lead."""
+    from app.services.intelligence.lead_embeddings import embed_lead
+    success = await embed_lead(str(lead_id), db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Lead not found or embedding failed (check OPENAI_API_KEY)")
+    return {"lead_id": str(lead_id), "embedded": True}
+
+
+@router.post("/semantic-search/embed-batch")
+@limiter.limit("2/minute")
+async def embed_batch_leads(request: Request, limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """Manually trigger embedding sweep for leads without vectors."""
+    from app.services.intelligence.lead_embeddings import embed_pending_leads
+    result = await embed_pending_leads(db, limit=min(limit, 200))
     return result
 
 

@@ -33,12 +33,43 @@ const VIEW_PATHS = {
   scheduler: '/control-room/scheduler',
   notifications: '/control-room/notifications',
   gmail: '/control-room/email',
+  gmailLegacy: '/control-room/gmail',
   voice: '/control-room/voice',
   knowledge: '/control-room/knowledge',
   research: '/control-room/research',
   governance: '/control-room/governance',
   catalog: '/control-room/catalog',
   settings: '/control-room/settings',
+  trust: '/control-room/trust',
+  agentOps: '/control-room/agent-ops',
+  aiOps: '/control-room/ai-ops',
+  calendar: '/control-room/calendar',
+  evolution: '/control-room/evolution',
+  frontierShell: '/control-room/frontier',
+  intelligenceDash: '/control-room/intelligence',
+  sync: '/control-room/sync',
+  team: '/control-room/team',
+  whitelabel: '/control-room/whitelabel',
+  // Layer 18 — Truth, Validation & Resilience
+  truthEngine: '/control-room/truth-engine',
+  resilienceEngine: '/control-room/resilience',
+  financialIntel: '/control-room/financial-intel',
+  learningEngine: '/control-room/learning-engine',
+  founderDependency: '/control-room/founder-dependency',
+  moatEngine: '/control-room/moat-engine',
+  // OMEGA / GHOST / AUTOPILOT / SIGNAL / NEXUS / Supreme Intelligence
+  omega: '/control-room/omega',
+  ghost: '/control-room/ghost',
+  autopilot: '/control-room/autopilot',
+  signal: '/control-room/signal',
+  nexus: '/control-room/nexus',
+  supreme: '/control-room/supreme',
+  // Monitoring / Kernel / Revenue Activation / Headquarters / Engineering Org
+  monitoring: '/control-room/monitoring',
+  kernel: '/control-room/kernel',
+  revenueActivation: '/control-room/revenue-activation',
+  headquarters: '/control-room/headquarters',
+  engineeringOrg: '/control-room/engineering',
 }
 
 function syncBrowserPath(view) {
@@ -91,6 +122,14 @@ const useJarvisStore = create((set, get) => ({
   systemHealth: null,
   setSystemHealth: (systemHealth) => set({ systemHealth }),
 
+  // NEXUS pulse (real-time from WebSocket)
+  nexusPulse: null,
+  setNexusPulse: (pulse) => set({ nexusPulse: pulse }),
+
+  // Autopilot draft count (live)
+  pendingDrafts: 0,
+  setPendingDrafts: (n) => set({ pendingDrafts: n }),
+
   // AI providers
   providers: {},
   setProviders: (p) => set({ providers: p }),
@@ -117,7 +156,12 @@ const useJarvisStore = create((set, get) => ({
     const host = import.meta.env.DEV
       ? `${window.location.hostname}:8000`
       : window.location.host
-    const url = `${protocol}//${host}/api/v1/ws/captain`
+    let token = ''
+    try {
+      const raw = localStorage.getItem('jarvis_auth')
+      if (raw) token = JSON.parse(raw).token || ''
+    } catch (_) {}
+    const url = `${protocol}//${host}/api/v1/ws/captain${token ? `?token=${encodeURIComponent(token)}` : ''}`
 
     const ws = new WebSocket(url)
 
@@ -144,6 +188,44 @@ const useJarvisStore = create((set, get) => ({
         if (msg.type === 'approval_decided') {
           get().setPendingApprovals(Math.max(0, get().pendingApprovals - 1))
           get().addNotification({ type: 'info', message: `Approval ${msg.data.status}: ${msg.data.title}`, level: 'info' })
+        }
+        if (msg.type === 'nexus_pulse') {
+          get().setNexusPulse(msg.data)
+          if (typeof msg.data?.pending_drafts === 'number') {
+            get().setPendingDrafts(msg.data.pending_drafts)
+          }
+        }
+        if (msg.type === 'autopilot_draft_sent') {
+          get().setPendingDrafts(Math.max(0, get().pendingDrafts - 1))
+          get().addNotification({
+            type: 'success',
+            message: `Email sent to ${msg.data.lead_company || msg.data.to}`,
+            level: 'success',
+          })
+        }
+        if (msg.type === 'autopilot_draft_rejected') {
+          get().setPendingDrafts(Math.max(0, get().pendingDrafts - 1))
+        }
+        if (msg.type === 'lead_reply') {
+          get().addNotification({
+            type: 'lead',
+            message: `${msg.data.company || msg.data.from_email} replied to your outreach`,
+            level: 'warning',
+          })
+        }
+        if (msg.type === 'notification') {
+          get().addNotification({
+            type: msg.data.category || 'info',
+            message: msg.data.body || msg.data.title,
+            level: msg.data.level || 'info',
+          })
+        }
+        if (msg.type === 'task_completed') {
+          get().addNotification({
+            type: 'task',
+            message: `Task completed: ${msg.data.task_type || msg.data.id}`,
+            level: 'info',
+          })
         }
       } catch {}
     }

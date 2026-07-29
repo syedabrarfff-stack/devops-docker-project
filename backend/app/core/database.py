@@ -26,7 +26,17 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=not _is_sqlite,
-    **({} if _is_sqlite else {"pool_size": 20, "max_overflow": 30}),
+    **({} if _is_sqlite else {
+        # pool_size=5 + max_overflow=10 = 15 connections max per worker.
+        # With 3 gunicorn workers: 45 total — well under PostgreSQL's default 100 limit.
+        "pool_size": 5,
+        "max_overflow": 10,
+        # Recycle connections every hour to avoid "server closed the connection" from
+        # RDS / ALB idle-connection resets.
+        "pool_recycle": 3600,
+        # Don't hold a checkout indefinitely if the pool is exhausted — fail fast.
+        "pool_timeout": 30,
+    }),
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -45,6 +55,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             tenant_id = get_current_tenant_id()
             if tenant_id:
                 await set_tenant_context(session, tenant_id)
+            if not _is_sqlite:
+                await session.execute(text("SET LOCAL statement_timeout = '30s'"))
             yield session
             await session.commit()
         except Exception:
@@ -57,20 +69,27 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(JarvisBase.metadata.create_all)
-        if not _is_sqlite:
-            await conn.execute(
-                text(
-                    """
-                    CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid uuid)
-                    RETURNS void AS $$
-                    BEGIN
-                        PERFORM set_config('app.current_tenant_id', tenant_uuid::text, true);
-                    END;
-                    $$ LANGUAGE plpgsql;
-                    """
+
+    if not _is_sqlite:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        """
+                        CREATE OR REPLACE FUNCTION set_tenant_context(tenant_uuid uuid)
+                        RETURNS void AS $$
+                        BEGIN
+                            PERFORM set_config('app.current_tenant_id', tenant_uuid::text, true);
+                        END;
+                        $$ LANGUAGE plpgsql;
+                        """
+                    )
                 )
-            )
-            try:
+        except Exception as exc:
+            logger.warning("set_tenant_context function creation skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 for table_name in (
                     "memories",
@@ -85,9 +104,11 @@ async def create_tables() -> None:
                             "ADD COLUMN IF NOT EXISTS embedding_vector vector(1536)"
                         )
                     )
-            except Exception as exc:
-                logger.warning("pgvector startup schema step skipped: %s", exc)
-            try:
+        except Exception as exc:
+            logger.warning("pgvector startup schema step skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS timezone VARCHAR(80)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS qualification_status VARCHAR(40)"))
                 await conn.execute(text("ALTER TABLE leads ADD COLUMN IF NOT EXISTS loss_reason VARCHAR(80)"))
@@ -100,14 +121,16 @@ async def create_tables() -> None:
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_loss_reason ON leads (loss_reason)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_outreach_eligible ON leads (outreach_eligible)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_leads_review_queue ON leads (review_queue)"))
-            except Exception as exc:
-                logger.warning("lead safety column startup schema step skipped: %s", exc)
-            try:
+        except Exception as exc:
+            logger.warning("lead safety column startup schema step skipped: %s", exc)
+
+        try:
+            async with engine.begin() as conn:
                 await conn.execute(text("ALTER TYPE outreach_status ADD VALUE IF NOT EXISTS 'SKIPPED'"))
                 await conn.execute(text("ALTER TABLE outreach_log ADD COLUMN IF NOT EXISTS skip_reason VARCHAR(160)"))
                 await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_outreach_log_skip_reason ON outreach_log (skip_reason)"))
-            except Exception as exc:
-                logger.warning("outreach status startup schema step skipped: %s", exc)
+        except Exception as exc:
+            logger.warning("outreach status startup schema step skipped: %s", exc)
 
 
 async def init_db() -> None:

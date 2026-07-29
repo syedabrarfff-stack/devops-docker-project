@@ -1,12 +1,12 @@
 """Frontier intelligence API routes for the advanced JARVIS systems."""
-from __future__ import annotations
+from typing import Any, Optional
 
-from typing import Any
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.aionx.frontier_intelligence import (
     agent_capacity,
     approve_agent_proposal,
@@ -35,7 +35,7 @@ from app.services.aionx.frontier_intelligence import (
     what_worked,
 )
 
-router = APIRouter(tags=["Frontier Intelligence"])
+router = APIRouter(tags=["Frontier Intelligence"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/frontier/status")
@@ -49,12 +49,14 @@ async def get_captain_mirror_profile(db: AsyncSession = Depends(get_db)) -> dict
 
 
 @router.post("/captain/mirror/record")
-async def post_captain_decision(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def post_captain_decision(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await record_captain_decision(db, payload)
 
 
 @router.post("/captain/mirror/predict")
-async def post_captain_prediction(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_captain_prediction(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await predict_captain_decision(db, payload)
 
 
@@ -69,17 +71,20 @@ async def get_experiments(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.post("/experiments")
-async def post_experiment(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def post_experiment(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await create_experiment(db, payload)
 
 
 @router.post("/experiments/{experiment_id}/assign")
-async def post_assign_variant(experiment_id: str, payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("30/minute")
+async def post_assign_variant(experiment_id: str, payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await assign_variant(db, experiment_id, str(payload.get("prospect_id", "unknown")))
 
 
 @router.post("/experiments/{experiment_id}/outcome")
-async def post_experiment_outcome(experiment_id: str, payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("30/minute")
+async def post_experiment_outcome(experiment_id: str, payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await record_experiment_outcome(db, experiment_id, payload)
 
 
@@ -89,7 +94,8 @@ async def get_winner(experiment_id: str, promote: bool = False, db: AsyncSession
 
 
 @router.post("/experiments/{experiment_id}/promote")
-async def post_promote_winner(experiment_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_promote_winner(experiment_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await get_experiment_winner(db, experiment_id, promote=True)
 
 
@@ -99,12 +105,14 @@ async def get_service_concepts(db: AsyncSession = Depends(get_db)) -> dict[str, 
 
 
 @router.post("/services/concepts/generate")
-async def post_service_concept(payload: dict[str, Any] | None = None, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def post_service_concept(request: Request, payload: dict[str, Any] | None = None, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await generate_service_concept(db, payload)
 
 
 @router.post("/services/concepts/{concept_id}/approve")
-async def post_approve_service(concept_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_approve_service(concept_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await approve_service_concept(db, concept_id)
 
 
@@ -114,12 +122,14 @@ async def get_lead_psychology(lead_id: str, db: AsyncSession = Depends(get_db)) 
 
 
 @router.post("/leads/{lead_id}/psychology")
-async def post_lead_psychology(lead_id: str, payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_lead_psychology(lead_id: str, payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await build_psychology_profile(db, lead_id, payload)
 
 
 @router.post("/leads/{lead_id}/personalize-message")
-async def post_personalize_message(lead_id: str, payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_personalize_message(lead_id: str, payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await personalize_message(db, lead_id, payload)
 
 
@@ -134,12 +144,14 @@ async def get_threat_history(db: AsyncSession = Depends(get_db)) -> dict[str, An
 
 
 @router.post("/threats/scan")
-async def post_threat_scan(payload: dict[str, Any] | None = None, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def post_threat_scan(request: Request, payload: dict[str, Any] | None = None, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await scan_threats(db, payload)
 
 
 @router.post("/threats/{threat_id}/resolve")
-async def post_resolve_threat(threat_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def post_resolve_threat(threat_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await resolve_threat(db, threat_id)
 
 
@@ -149,29 +161,31 @@ async def get_cascade_events(db: AsyncSession = Depends(get_db)) -> dict[str, An
 
 
 @router.post("/intelligence/cascade/trigger")
-async def post_cascade_event(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("5/minute")
+async def post_cascade_event(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await cascade_intelligence(db, payload)
 
 
 @router.get("/brain/recall")
-async def get_brain_recall(q: str = Query("what worked"), db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def get_brain_recall(q: str = Query("what worked", max_length=500), db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await recall_knowledge(db, q)
 
 
 @router.post("/brain/artifacts")
-async def post_brain_artifact(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def post_brain_artifact(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await create_knowledge_artifact(db, payload)
 
 
 @router.get("/brain/artifacts")
-async def get_brain_artifacts(q: str = Query(""), db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+async def get_brain_artifacts(q: str = Query("", max_length=500), db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await recall_knowledge(db, q or "lesson")
 
 
 @router.get("/brain/what-worked")
 async def get_what_worked(
-    industry: str | None = None,
-    service_type: str | None = None,
+    industry: str | None = Query(default=None, max_length=100),
+    service_type: str | None = Query(default=None, max_length=100),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     return await what_worked(db, industry=industry, service_type=service_type)
@@ -183,7 +197,8 @@ async def get_agents_capacity(db: AsyncSession = Depends(get_db)) -> dict[str, A
 
 
 @router.post("/agents/capacity/check")
-async def post_agents_capacity(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("20/minute")
+async def post_agents_capacity(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await agent_capacity(db, payload)
 
 
@@ -193,7 +208,8 @@ async def get_agents_proposals(db: AsyncSession = Depends(get_db)) -> dict[str, 
 
 
 @router.post("/agents/proposals/{proposal_id}/approve")
-async def post_approve_agent(proposal_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+@limiter.limit("10/minute")
+async def post_approve_agent(proposal_id: str, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     return await approve_agent_proposal(db, proposal_id)
 
 

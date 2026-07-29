@@ -9,7 +9,7 @@ import uuid
 import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse, unquote
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
@@ -119,6 +119,32 @@ PRODUCTION_JOB_IDS = (
     "daily_connector_hub_ingestion",
     "daily_market_intelligence",
     "self_healer",
+    "daily_opportunity_radar",
+    "daily_truth_reality_check",
+    "weekly_financial_health",
+    "weekly_founder_dependency",
+    "weekly_moat_scan",
+    "weekly_cashflow_forecast",
+    "weekly_learning_optimization",
+    "weekly_competitor_monitoring",
+    "routing_optimizer_sweep",
+    "linkedin_outreach_sweep",
+    "voice_analytics_daily",
+    "captain_dashboard_briefing",
+    "weekly_performance_briefing",
+    "daily_self_learning",
+    "drift_auditor",
+    "daily_strategy_report",
+    "weekly_strategy_review",
+    "milestone_bulk_review",
+    "dio_health_check",
+    "tech_evolution_scan",
+    "daily_scout_network",
+    "lead_embedding_sweep",
+    "pre_call_briefing_trigger",
+    "nexus_heartbeat",
+    "nightly_signal_scan",
+    "engineering_org_cycle",
 )
 
 AIONX_JOB_IDS = (
@@ -146,6 +172,8 @@ AIONX_JOB_IDS = (
     "aionx_agent_capacity_check",
     "aionx_idle_intelligence_cycle",
     "aionx_mission_control_snapshot",
+    "aionx_execute_due_outreach",
+    "aionx_speed_to_lead_check",
 )
 
 JOB_LOCK_TTLS = {
@@ -154,6 +182,7 @@ JOB_LOCK_TTLS = {
     "weekly_market_scan": 2400,
     "daily_db_backup": 2400,
     "daily_outreach_safety_review": 900,
+    "linkedin_outreach_sweep": 3600,
 }
 
 
@@ -243,12 +272,27 @@ async def start_scheduler() -> None:
     scheduler = get_scheduler()
     if not scheduler.running:
         scheduler.start()
-        register_production_jobs()
+        aionx_error = register_production_jobs()
         try:
             await _sync_job_metadata()
         except Exception as exc:
             logger.warning("Scheduler metadata sync skipped: %s", exc)
         logger.info("JARVIS production scheduler started")
+
+        if aionx_error:
+            # All 26 AIONX organ jobs failed to register — that's the whole
+            # intelligence layer silently absent, not something to leave as
+            # a log line nobody watches.
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    "🚨 *AIONX scheduler registration failed on startup*\n"
+                    f"Error: {aionx_error}\n\n"
+                    "All 26 AIONX organ jobs are absent from the scheduler — core "
+                    "production jobs are running normally, only the AIONX layer is affected."
+                )
+            except Exception as exc:
+                logger.warning("AIONX registration-failure alert failed: %s", exc)
 
 
 def stop_scheduler() -> None:
@@ -258,7 +302,10 @@ def stop_scheduler() -> None:
         logger.info("JARVIS production scheduler stopped")
 
 
-def register_production_jobs() -> None:
+def register_production_jobs() -> Optional[str]:
+    """Registers all production + AIONX jobs. Returns an error string if AIONX
+    registration failed (all 26 organ jobs would be silently absent otherwise),
+    or None on success."""
     _remove_deprecated_jobs()
     existing_job_ids = {job.id for job in get_scheduler().get_jobs()}
     specs = _production_job_specs()
@@ -279,6 +326,7 @@ def register_production_jobs() -> None:
         if not already_persisted:
             seeded += 1
 
+    aionx_error: Optional[str] = None
     try:
         from app.services.aionx.aionx_scheduler import register_aionx_jobs
 
@@ -286,6 +334,7 @@ def register_production_jobs() -> None:
         aionx_seeded = len([job_id for job_id in AIONX_JOB_IDS if job_id not in existing_job_ids])
     except Exception as exc:
         logger.warning("AIONX scheduler heartbeat registration skipped: %s", exc)
+        aionx_error = str(exc)
 
     loaded = len(PRODUCTION_JOB_IDS) - seeded
     logger.info(
@@ -295,6 +344,7 @@ def register_production_jobs() -> None:
         seeded,
         aionx_seeded,
     )
+    return aionx_error
 
 
 def _production_job_specs() -> list[dict[str, Any]]:
@@ -331,15 +381,87 @@ def _production_job_specs() -> list[dict[str, Any]]:
         {"job_id": "weekly_moat_scan", "func": weekly_moat_scan, "hour": 8, "minute": 0, "day_of_week": "mon"},
         {"job_id": "weekly_cashflow_forecast", "func": weekly_cashflow_forecast, "hour": 8, "minute": 30, "day_of_week": "mon"},
         {"job_id": "weekly_learning_optimization", "func": weekly_learning_optimization, "hour": 9, "minute": 0, "day_of_week": "mon"},
+        # ── Migrated from engine.py (Task #23 Phase B) ───────────────────────
+        # Competitor Monitoring — Monday 09:00 UTC — restored per Captain's
+        # decision that competitor intelligence must never silently disappear.
+        {"job_id": "weekly_competitor_monitoring", "func": weekly_competitor_monitoring, "hour": 9, "minute": 0, "day_of_week": "mon"},
+        # Routing Optimizer — 1st of each month @ 03:00 UTC — AI provider
+        # routing weight learning. Never ran in production (dead engine.py
+        # registrar); implementation was production-quality, only the wiring
+        # was broken.
+        {"job_id": "routing_optimizer_sweep", "func": routing_optimizer_sweep, "hour": 3, "minute": 0, "day": 1},
+        # LinkedIn Outreach Sweep — every 2h — enrich HOT leads via Proxycurl
+        # and generate first-connection messages. Never ran (dead registrar
+        # that referenced a non-existent `scheduler` attribute in engine.py).
+        {"job_id": "linkedin_outreach_sweep", "func": linkedin_outreach_sweep_job, "kind": "interval", "hours": 2},
+        # Voice Analytics — 04:30 UTC daily — voice interaction metrics.
+        # Never ran (same broken-attribute registrar bug as LinkedIn above).
+        {"job_id": "voice_analytics_daily", "func": voice_analytics_daily, "hour": 4, "minute": 30},
+        # ── Migrated from engine.py (Task #23 Phase C) ───────────────────────
+        {"job_id": "captain_dashboard_briefing", "func": captain_dashboard_briefing, "hour": 6, "minute": 55},
+        {"job_id": "weekly_performance_briefing", "func": weekly_performance_briefing, "hour": 19, "minute": 0, "day_of_week": "sat"},
+        {"job_id": "daily_self_learning", "func": daily_self_learning, "hour": 0, "minute": 5},
+        {"job_id": "drift_auditor", "func": drift_auditor, "hour": 5, "minute": 30},
+        {"job_id": "daily_strategy_report", "func": daily_strategy_report, "hour": 23, "minute": 0},
+        {"job_id": "weekly_strategy_review", "func": weekly_strategy_review, "hour": 7, "minute": 0, "day_of_week": "sun"},
+        {"job_id": "milestone_bulk_review", "func": milestone_bulk_review, "hour": 10, "minute": 0},
+        {"job_id": "dio_health_check", "func": dio_health_check, "hour": 6, "minute": 30},
+        {"job_id": "tech_evolution_scan", "func": tech_evolution_scan, "kind": "interval", "hours": 6},
+        {"job_id": "daily_scout_network", "func": daily_scout_network, "hour": 1, "minute": 30},
+        {"job_id": "lead_embedding_sweep", "func": lead_embedding_sweep, "hour": 3, "minute": 15},
+        {"job_id": "pre_call_briefing_trigger", "func": pre_call_briefing_trigger, "kind": "interval", "minutes": 30},
+        {"job_id": "nexus_heartbeat", "func": nexus_heartbeat, "kind": "interval", "hours": 1},
+        # nightly_signal_scan is the sole proposal-generation pipeline —
+        # overnight_proposal_engine was retired, not migrated (see docstring).
+        {"job_id": "nightly_signal_scan", "func": nightly_signal_scan, "hour": 2, "minute": 0},
+        # Engineering Organization cycle — every 10 minutes — drains the
+        # Phase 7 mission_planner -> dispatcher -> department_agent ->
+        # peer_review -> deployment_integration pipeline. Previously this
+        # code existed and was tested but nothing in production ever called
+        # it past dispatch; a submitted objective sat forever.
+        {"job_id": "engineering_org_cycle", "func": engineering_org_cycle, "kind": "interval", "minutes": 10},
     ]
 
 
 async def _job_self_healer() -> None:
     try:
         from app.services.monitoring.self_healer import run_self_healing_cycle
-        await run_self_healing_cycle()
+        report = await run_self_healing_cycle()
+        await _report_self_heal_to_headquarters(report)
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+
+
+async def _report_self_heal_to_headquarters(report: dict) -> None:
+    """Surface self-heal cycles that actually did something into the same
+    Headquarters conversation Captain uses — no separate dashboard, per the
+    single-front-door principle. Silent no-op cycles are not logged.
+    """
+    if not isinstance(report, dict):
+        return
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Self-heal cycle ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} action(s) taken:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} alert(s) — could not self-recover:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="self_healer", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Self-healer -> Headquarters reporting failed: %s", exc)
 
 
 def _remove_deprecated_jobs() -> None:
@@ -528,11 +650,30 @@ async def daily_lead_scoring() -> None:
 
 async def daily_lead_discovery() -> None:
     from app.services.leads.discovery import lead_discovery_engine
+    from app.core.config import settings
 
     discovered = 0
     for tenant_id in await _target_tenant_ids():
         discovered += await lead_discovery_engine.run_daily_discovery(tenant_id, DAILY_DISCOVERY_TARGETS)
-    await _record_job_result("daily_lead_discovery", "success", {"discovered": discovered})
+
+    result_payload = {"discovered": discovered}
+    if not settings.APOLLO_API_KEY and not settings.GOOGLE_MAPS_API_KEY:
+        # Without either key this job (and the free-tier fallback) can still create
+        # leads, but none carry an email address — outreach silently never fires
+        # for them. Surface that loudly instead of leaving it to be discovered later.
+        result_payload["warning"] = "no_email_capable_discovery_source_configured"
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                "⚠️ *Lead Discovery* — APOLLO_API_KEY and GOOGLE_MAPS_API_KEY are both unset.\n"
+                f"{discovered} lead(s) discovered today via free sources only — none carry an "
+                "email address, so automated outreach cannot fire for them. Add an Apollo API "
+                "key to production `.env` to unlock email-capable discovery."
+            )
+        except Exception as exc:
+            logger.warning("Lead discovery config-gap notification failed: %s", exc)
+
+    await _record_job_result("daily_lead_discovery", "success", result_payload)
 
 
 async def daily_follow_up_check() -> None:
@@ -820,6 +961,57 @@ async def daily_market_intelligence() -> None:
     )
 
 
+async def weekly_competitor_monitoring() -> None:
+    """Weekly competitor intelligence scan (Monday 09:00 UTC) — restored per
+    Task #23 Phase B: competitor intelligence is a core strategic capability
+    and must always exist as a scheduled job, not silently disappear.
+    """
+    from app.services.intelligence.market_intel import MarketIntelligenceEngine
+
+    engine = MarketIntelligenceEngine()
+    changes = 0
+    for tenant_id in await _target_tenant_ids():
+        try:
+            changes += len(await engine.monitor_competitors(tenant_id))
+        except Exception as exc:
+            logger.error("Competitor monitoring failed for tenant %s: %s", tenant_id, exc)
+    await _record_job_result("weekly_competitor_monitoring", "success", {"changes_detected": changes})
+
+
+async def routing_optimizer_sweep() -> None:
+    """Monthly AI routing weight optimization (1st of month, 03:00 UTC) —
+    migrated from the dead engine.py registrar per Task #23 Phase B.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.services.fabric.routing_optimizer import run_routing_optimizer
+
+    async with AsyncSessionLocal() as db:
+        result = await run_routing_optimizer(db)
+    await _record_job_result("routing_optimizer_sweep", "success", result)
+
+
+async def linkedin_outreach_sweep_job() -> None:
+    """LinkedIn outreach enrichment + message generation sweep (every 2h) —
+    migrated from the dead engine.py registrar per Task #23 Phase B. The
+    business logic (Proxycurl enrichment, AI message generation) was already
+    production-quality; only the scheduler wiring was broken.
+    """
+    from app.services.outreach.linkedin_outreach import linkedin_outreach_sweep
+
+    result = await linkedin_outreach_sweep()
+    await _record_job_result("linkedin_outreach_sweep", "success", result)
+
+
+async def voice_analytics_daily() -> None:
+    """Daily voice interaction analytics (04:30 UTC) — migrated from the dead
+    engine.py registrar per Task #23 Phase B.
+    """
+    from app.services.voice.analytics import run_voice_analytics_job
+
+    result = await run_voice_analytics_job()
+    await _record_job_result("voice_analytics_daily", "success", result)
+
+
 async def daily_opportunity_radar() -> None:
     """Scan for hot leads that have gone idle and surface them to Captain."""
     from app.services.intelligence.opportunity_radar import run_opportunity_radar
@@ -835,6 +1027,119 @@ async def daily_opportunity_radar() -> None:
             logger.error("Opportunity radar failed for tenant %s: %s", tenant_id, exc)
 
     await _record_job_result("daily_opportunity_radar", "success", {"opportunities_found": reports})
+
+
+async def engineering_org_cycle() -> None:
+    """E7-10: drains the Engineering Organization pipeline end to end.
+
+    Phase 7 (mission_planner/dispatcher/department_agent/peer_review/
+    deployment_integration) shipped fully tested but nothing in production
+    ever called run_one_cycle/review_work_package/integrate_work_package
+    outside unit tests — a submitted objective got decomposed and enqueued,
+    then sat forever. This job is that missing caller: for every task graph
+    still IN_PROGRESS, dispatch ready work packages, drain a bounded number
+    of department drafts, peer-review anything freshly drafted, and integrate
+    anything peer-review approved (auto-deploying the narrow safe actions,
+    otherwise leaving a PR-ready summary for a human/Claude session — see
+    deployment_integration.py's own documented scope boundary).
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models.engineering import (
+        EngineeringTaskGraph,
+        EngineeringWorkPackage,
+        TaskGraphStatus,
+        WorkPackageStatus,
+    )
+    from app.services.engineering import department_agent, deployment_integration, dispatcher, peer_review
+
+    MAX_DRAFT_CYCLES_PER_TICK = 20
+
+    drafted = 0
+    reviewed = 0
+    integrated = 0
+    pending_manual_integration = []
+    errors = 0
+
+    async with AsyncSessionLocal() as db:
+        async with db.begin():
+            graph_ids = (
+                await db.execute(
+                    select(EngineeringTaskGraph.id).where(
+                        EngineeringTaskGraph.status == TaskGraphStatus.IN_PROGRESS
+                    )
+                )
+            ).scalars().all()
+
+            for graph_id in graph_ids:
+                await dispatcher.dispatch_ready_packages(db, graph_id)
+
+            for _ in range(MAX_DRAFT_CYCLES_PER_TICK):
+                wp = await department_agent.run_one_cycle(db)
+                if wp is None:
+                    break
+                drafted += 1
+
+            in_review = (
+                await db.execute(
+                    select(EngineeringWorkPackage).where(
+                        EngineeringWorkPackage.status == WorkPackageStatus.IN_REVIEW
+                    )
+                )
+            ).scalars().all()
+            for wp in in_review:
+                try:
+                    await peer_review.review_work_package(db, wp)
+                    reviewed += 1
+                except Exception:
+                    logger.exception("engineering_org_cycle: peer review failed for work package %s", wp.id)
+                    errors += 1
+
+            approved = (
+                await db.execute(
+                    select(EngineeringWorkPackage).where(
+                        EngineeringWorkPackage.status == WorkPackageStatus.APPROVED,
+                        EngineeringWorkPackage.deploy_result.is_(None),
+                    )
+                )
+            ).scalars().all()
+            for wp in approved:
+                try:
+                    result = await deployment_integration.integrate_work_package(db, wp)
+                    integrated += 1
+                    if result.get("mode") == "pending_manual_integration":
+                        pending_manual_integration.append(str(wp.id))
+                except Exception:
+                    logger.exception("engineering_org_cycle: integration failed for work package %s", wp.id)
+                    errors += 1
+
+            for graph_id in graph_ids:
+                await dispatcher.refresh_graph_status(db, graph_id)
+
+    if pending_manual_integration:
+        try:
+            from app.services.notifications import notify_business_event
+            await notify_business_event(
+                "engineering_work_package_ready",
+                "Engineering Organization: work ready for integration",
+                f"{len(pending_manual_integration)} approved work package(s) have a PR-ready "
+                "summary waiting for a human/Claude session to commit — see "
+                "/api/v1/engineering/dashboard.",
+            )
+        except Exception as exc:
+            logger.warning("engineering_org_cycle: ready-for-integration notify failed: %s", exc)
+
+    await _record_job_result(
+        "engineering_org_cycle",
+        "success",
+        {
+            "task_graphs_scanned": len(graph_ids),
+            "drafted": drafted,
+            "reviewed": reviewed,
+            "integrated": integrated,
+            "pending_manual_integration": pending_manual_integration,
+            "errors": errors,
+        },
+    )
 
 
 async def _sync_job_metadata() -> None:
@@ -908,7 +1213,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
                             JobFailure.tenant_id == SYSTEM_TENANT_ID,
                             JobFailure.job_name == job_id,
                             JobFailure.status.in_(("open", "retry_scheduled", "failed")),
-                        )
+                        ).limit(100)
                     )
                 ).scalars().all()
                 for failure in failures:
@@ -1008,6 +1313,7 @@ async def _target_tenant_ids() -> list[str]:
             select(Tenant.id)
             .where(Tenant.is_active.is_(True))
             .order_by(Tenant.created_at)
+            .limit(200)
         )
         return [str(row[0]) for row in result.all()]
 
@@ -1182,10 +1488,12 @@ def _task_type_for_job(job_id: str) -> str:
         return "connector_hub"
     if "market_intelligence" in job_id:
         return "intelligence"
-    if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id:
+    if "market_scan" in job_id or "radar" in job_id or "research" in job_id or "optimization" in job_id or "innovation" in job_id or "competitor" in job_id:
         return "intelligence"
-    if "weight" in job_id:
+    if "weight" in job_id or "routing_optimizer" in job_id:
         return "ai_council"
+    if "voice_analytics" in job_id:
+        return "voice"
     return "system"
 
 
@@ -1280,3 +1588,441 @@ async def weekly_learning_optimization() -> None:
         except Exception as exc:
             logger.warning("Learning optimization failed for tenant %s: %s", tenant_id, exc)
     await _record_job_result("weekly_learning_optimization", "success", {"tenants": optimized})
+
+
+# ── Migrated from engine.py (Task #23 Phase C) ───────────────────────────────
+# Everything below was ported from the dead engine.py module per the
+# migration matrix (docs/architecture/SCHEDULER_MIGRATION_MATRIX.md).
+
+async def captain_dashboard_briefing() -> None:
+    """Captain morning dashboard — 06:55 daily. Real pipeline stats via Telegram."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.notifications.telegram_bot import notify_captain_morning_briefing
+
+    async with AsyncSessionLocal() as db:
+        await notify_captain_morning_briefing(db)
+    await _record_job_result("captain_dashboard_briefing", "success", {})
+
+
+async def weekly_performance_briefing() -> None:
+    """Weekly Saturday 19:00 UTC — full 7-day performance summary via Telegram."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.notifications.telegram_bot import notify_weekly_performance_briefing
+
+    async with AsyncSessionLocal() as db:
+        await notify_weekly_performance_briefing(db)
+    await _record_job_result("weekly_performance_briefing", "success", {})
+
+
+async def daily_self_learning() -> None:
+    """Midnight UTC (00:05) — JARVIS daily self-evolution/learning cycle."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.intelligence.jarvis_self_learning import run_daily_learning_cycle
+
+    async with AsyncSessionLocal() as db:
+        result = await run_daily_learning_cycle(db)
+    await _record_job_result("daily_self_learning", "success", result)
+
+
+async def drift_auditor() -> None:
+    """Daily 05:30 UTC — permanent architectural rule: continuously check the
+    repo and running infrastructure for duplicate config, stale files, and
+    conflicting definitions before they cause an outage.
+    """
+    from app.services.monitoring.drift_auditor import run_drift_audit
+
+    report = await run_drift_audit()
+    await _report_drift_audit_to_headquarters(report)
+    await _record_job_result("drift_auditor", "success", report)
+
+
+async def _report_drift_audit_to_headquarters(report: dict) -> None:
+    if not isinstance(report, dict):
+        return
+    actions = report.get("actions", [])
+    alerts = report.get("alerts", [])
+    if not actions and not alerts:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.headquarters.reporter import log_autonomous_operation
+
+        lines = [f"Drift audit ({report.get('duration_ms', 0)}ms):"]
+        if actions:
+            lines.append(f"{len(actions)} auto-fix(es) applied:")
+            lines += [f"  - {a}" for a in actions]
+        if alerts:
+            lines.append(f"{len(alerts)} issue(s) found — needs a decision, not auto-fixed:")
+            lines += [f"  - {a}" for a in alerts]
+
+        async with AsyncSessionLocal() as db:
+            await log_autonomous_operation(
+                db, source="drift_auditor", summary="\n".join(lines),
+                details=report, had_action=True,
+            )
+    except Exception as exc:
+        logger.warning("Drift auditor -> Headquarters reporting failed: %s", exc)
+
+    if alerts:
+        # Issues that couldn't be auto-fixed need a decision — surface them as a
+        # real incident (Slack + Telegram + WebSocket), not just a Headquarters
+        # chat log entry Captain has to go looking for.
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.monitoring.emergency import declare_emergency
+
+            async with AsyncSessionLocal() as db:
+                async with db.begin():
+                    await declare_emergency(
+                        db,
+                        title="Drift auditor found issues requiring a decision",
+                        severity="medium",
+                        category="infrastructure",
+                        description="\n".join(f"- {a}" for a in alerts),
+                        affected_systems=["drift_auditor"],
+                        auto_detected=True,
+                    )
+        except Exception as exc:
+            logger.warning("Drift auditor incident creation failed: %s", exc)
+
+
+async def daily_strategy_report() -> None:
+    """Layer 6: Daily strategy report — collect all dept data → Council → cascade → Captain."""
+    from app.services.departments.strategy_report_service import strategy_report_service
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await strategy_report_service.generate_daily_strategy_report(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "score": result.get("council_score", 0),
+            "directives": result.get("directives_issued", 0),
+        })
+    await _record_job_result("daily_strategy_report", "success", {"tenants": results})
+
+
+async def weekly_strategy_review() -> None:
+    """Layer 6: Full weekly strategic review with 30/60/90 day horizon — Sunday 07:00 UTC."""
+    from app.services.departments.strategy_report_service import strategy_report_service
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await strategy_report_service.generate_weekly_strategy_report(tenant_id)
+        results.append({"tenant_id": tenant_id, "score": result.get("council_score", 0)})
+    await _record_job_result("weekly_strategy_review", "success", {"tenants": results})
+
+
+async def milestone_bulk_review() -> None:
+    """Layer 2: Process all pending milestones through the Council Intelligence Loop — 10:00 UTC."""
+    from app.services.departments.milestone_engine import milestone_engine
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await milestone_engine.run_bulk_milestone_review(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "processed": result.get("processed", 0),
+            "failed": result.get("failed", 0),
+        })
+    await _record_job_result("milestone_bulk_review", "success", {"tenants": results})
+
+
+async def dio_health_check() -> None:
+    """Layer 1: Ensure all Department Intelligence Officers are initialized — 06:30 UTC."""
+    from app.services.departments.department_agent_service import department_agent_service
+
+    checked = 0
+    for tenant_id in await _target_tenant_ids():
+        await department_agent_service.initialize_all_dios(tenant_id)
+        checked += 1
+    await _record_job_result("dio_health_check", "success", {"tenants_checked": checked})
+
+
+async def tech_evolution_scan() -> None:
+    """Layer 4: 24/7 technology discovery and evaluation cycle — every 6 hours."""
+    from app.services.departments.tech_evolution_engine import tech_evolution_engine
+
+    results = []
+    for tenant_id in await _target_tenant_ids():
+        result = await tech_evolution_engine.run_discovery_cycle(tenant_id)
+        results.append({
+            "tenant_id": tenant_id,
+            "new": result.get("new_saved", 0),
+            "high_priority": result.get("high_priority_count", 0),
+        })
+    await _record_job_result("tech_evolution_scan", "success", {"tenants": results})
+
+
+async def daily_scout_network() -> None:
+    """9 Scout Agents: discover leads in parallel, insert as real ICP-scored
+    leads into the leads table (deduped) — 01:30 UTC."""
+    from app.services.leads.scout_network import scout_network
+
+    processed = []
+    for tenant_id in await _target_tenant_ids():
+        result = await scout_network.run_all_scouts(tenant_id)
+        processed.append(result)
+    await _record_job_result(
+        "daily_scout_network",
+        "success",
+        {
+            "tenants": len(processed),
+            "companies_found": sum(r.get("companies_found", 0) for r in processed),
+            "leads_inserted": sum(r.get("leads_inserted", 0) for r in processed),
+            "scouts_run": sum(r.get("scouts_run", 0) for r in processed),
+        },
+    )
+
+
+async def lead_embedding_sweep() -> None:
+    """Nightly 03:15 UTC — semantic embedding sweep for leads without embeddings."""
+    from app.core.database import AsyncSessionLocal
+    from app.services.intelligence.lead_embeddings import embed_pending_leads
+
+    async with AsyncSessionLocal() as db:
+        result = await embed_pending_leads(db, limit=100)
+    await _record_job_result("lead_embedding_sweep", "success", result)
+
+
+async def pre_call_briefing_trigger() -> None:
+    """Layer 5: Generate pre-call briefings for calls scheduled in the next 90 minutes — every 30 min."""
+    from datetime import timedelta
+    from sqlalchemy import and_
+    from app.core.database import AsyncSessionLocal
+    from app.models.department_intelligence import ClientCallIntelligence, CallStatus
+    from app.services.departments.call_intelligence_service import call_intelligence_service
+
+    now = datetime.now(UTC)
+    window_end = now + timedelta(minutes=90)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(ClientCallIntelligence).where(
+                and_(
+                    ClientCallIntelligence.scheduled_at >= now,
+                    ClientCallIntelligence.scheduled_at <= window_end,
+                    ClientCallIntelligence.status == CallStatus.SCHEDULED.value,
+                    ClientCallIntelligence.briefing_pdf_url.is_(None),
+                )
+            ).limit(50)
+        )
+        calls = result.scalars().all()
+        call_pairs = [(str(c.tenant_id), str(c.id)) for c in calls]
+
+    generated = 0
+    for tenant_id, call_id in call_pairs:
+        try:
+            await call_intelligence_service.generate_pre_call_briefing(tenant_id, call_id)
+            generated += 1
+        except Exception as exc:
+            logger.warning("Pre-call briefing failed: call=%s | %s", call_id, exc)
+
+    await _record_job_result(
+        "pre_call_briefing_trigger",
+        "success",
+        {"briefings_generated": generated, "calls_found": len(call_pairs)},
+    )
+
+
+async def nexus_heartbeat() -> None:
+    """
+    NEXUS heartbeat — hourly. Pulses pipeline state. If action_signal is
+    OUTREACH_READY and no drafts are pending, autonomously triggers AUTOPILOT
+    (max 5 leads, min_score 75).
+
+    Locking note (Task #23): this job's own 4-hour Redis lock is a
+    business-logic throttle on the autonomous-outreach *action* — it is
+    deliberately separate from run_registered_production_job's
+    _acquire_job_lock/_release_job_lock, which only guards against this
+    *job* running twice concurrently. Conflating the two would mean a
+    concurrency-safety mechanism silently gained business-logic meaning
+    (or vice versa) — kept distinct on purpose.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.services.nexus.heartbeat import run_pulse
+    from app.services.autopilot.pipeline import get_pending_drafts, run_autopilot_cycle
+
+    async with AsyncSessionLocal() as db:
+        pulse = await run_pulse(db)
+
+    action = pulse.get("action_signal", "MONITOR")
+    pending = await get_pending_drafts(None)
+
+    if pending:
+        try:
+            from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
+            await notify_autopilot_drafts_pending(pending)
+        except Exception as exc:
+            logger.warning("NEXUS: autopilot draft notification failed: %s", exc)
+
+    autonomous_triggered = False
+    if action == "OUTREACH_READY" and not pending:
+        lock_acquired = False
+        try:
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.REDIS_URL or "redis://localhost:6379")
+            lock_acquired = await r.set(
+                "nexus:auto_outreach:lock", "1",
+                nx=True, ex=14400,  # 4-hour business-logic throttle
+            )
+            await r.aclose()
+        except Exception as exc:
+            logger.warning("NEXUS: Redis lock unavailable, skipping autonomous outreach: %s", exc)
+            lock_acquired = False
+
+        if lock_acquired:
+            logger.info("NEXUS AUTONOMOUS: OUTREACH_READY — triggering AUTOPILOT (max 5 leads)")
+            try:
+                result = await run_autopilot_cycle(max_leads=5, min_score=75.0)
+                autonomous_triggered = True
+                from app.services.nexus.heartbeat import log_decision
+                await log_decision({
+                    "action": "auto_outreach_triggered",
+                    "composed": result.get("composed", 0),
+                    "source": "nexus_heartbeat",
+                })
+            except Exception as exc:
+                logger.warning("NEXUS autonomous outreach failed: %s", exc)
+
+    try:
+        from app.api.v1.routes.ws import broadcast
+        await broadcast("nexus_pulse", {
+            "action_signal": pulse.get("action_signal", "MONITOR"),
+            "hot_leads": pulse.get("pipeline", {}).get("hot_leads", 0),
+            "pending_drafts": len(pending),
+            "ai_available": pulse.get("ai_available", False),
+        })
+    except Exception as exc:
+        logger.warning("NEXUS: WebSocket broadcast failed: %s", exc)
+
+    await _record_job_result(
+        "nexus_heartbeat",
+        "success",
+        {"action_signal": action, "pending_drafts": len(pending), "autonomous_triggered": autonomous_triggered},
+    )
+
+
+async def nightly_signal_scan() -> None:
+    """Nightly 02:00 UTC — scan active pipeline leads for buying-intent
+    signals, brief Captain on high signals, and auto-queue proposals for the
+    highest-confidence HOT leads.
+
+    This is the ONE proposal-generation pipeline (Task #23 architectural
+    decision): overnight_proposal_engine was retired rather than migrated
+    separately, because this job's auto-proposal path already uses the real
+    governance/proposals system (auto_generate_proposal_for_lead, which
+    creates an actual Proposal record) with proper confidence gates —
+    overnight_proposal_engine only stored a memory blob and flipped lead
+    status, a cruder duplicate of the same intent. Do not add a second
+    proposal-drafting job; extend this one if requirements change.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.models.lead import Lead, LeadStatus
+    from sqlalchemy import and_
+
+    signals_found = 0
+    proposals_queued = 0
+
+    for tenant_id in await _target_tenant_ids():
+        tenant_uuid = _coerce_tenant_id(tenant_id)
+        async with AsyncSessionLocal() as db:
+            await _safe_set_tenant_context(db, tenant_uuid)
+            rows = (await db.execute(
+                select(Lead)
+                .where(
+                    and_(
+                        Lead.tenant_id == tenant_uuid,
+                        Lead.score >= 45,
+                        Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE, LeadStatus.CONTACTED]),
+                    )
+                )
+                .order_by(Lead.score.desc())
+                .limit(30)
+            )).scalars().all()
+
+        if not rows:
+            continue
+
+        from app.services.signal.scanner import scan_lead
+        signals = []
+        for lead in rows:
+            try:
+                lead_dict = {
+                    "id": str(lead.id),
+                    "company_name": lead.company_name or "",
+                    "company": lead.company or "",
+                    "industry": lead.industry or "",
+                    "score": lead.score,
+                    "status": lead.status.value if lead.status else "NEW",
+                    "pain_points": lead.pain_points or "",
+                    "contact_name": lead.contact_name or "",
+                    "email": lead.email or "",
+                    "country": lead.country or "",
+                    "notes": lead.notes or "",
+                    "outreach_count": lead.outreach_count or 0,
+                }
+                result = await scan_lead(lead_dict)
+                if result.get("intent_tier") in ("HOT", "WARM"):
+                    signals.append(result)
+            except Exception as exc:
+                logger.warning("Signal scan failed for lead %s: %s", lead.id, exc)
+
+        signals_found += len(signals)
+
+        if signals:
+            from app.services.notifications.telegram import notify_telegram
+            lines = [f"📡 *Nightly Signal Scan — {len(signals)} high-signal lead(s)*\n"]
+            for s in signals[:5]:
+                company = s.get("lead_company", "?")
+                tier = s.get("intent_tier", "?")
+                why_now = (s.get("why_now") or "")[:80]
+                lines.append(f"• *{company}* [{tier}] — {why_now}")
+            if len(signals) > 5:
+                lines.append(f"\n_...and {len(signals) - 5} more. Review in /control-room/signal_")
+            await notify_telegram("\n".join(lines))
+
+        hot_candidates = [
+            s for s in signals
+            if s.get("intent_tier") == "HOT"
+            and int(s.get("confidence", 0) or 0) >= 85
+            and int(s.get("lead_score", 0) or 0) >= 75
+        ]
+        for sig in hot_candidates[:2]:
+            if proposals_queued >= 2:
+                break
+            lead_id_str = sig.get("lead_id")
+            if not lead_id_str:
+                continue
+            try:
+                from app.services.governance.auto_proposal import auto_generate_proposal_for_lead
+                lead_score = float(sig.get("lead_score", 75))
+                estimated_value = max(3000.0, lead_score * 60)
+                result = await auto_generate_proposal_for_lead(
+                    lead_id=uuid.UUID(lead_id_str),
+                    lead_name=sig.get("lead_contact") or "Decision Maker",
+                    lead_email=sig.get("lead_email") or "",
+                    lead_company=sig.get("lead_company") or "Unknown",
+                    estimated_deal_value=estimated_value,
+                    lead_context=f"HOT signal — {sig.get('why_now', '')}",
+                )
+                if result.get("proposal_id"):
+                    proposals_queued += 1
+            except Exception as exc:
+                logger.warning("Auto-proposal failed for lead %s: %s", lead_id_str, exc)
+
+    if proposals_queued:
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(
+                f"📋 *Auto-Proposals Queued*\n"
+                f"{proposals_queued} proposal(s) drafted for your highest-confidence HOT leads.\n"
+                f"Review at /control-room/proposals"
+            )
+        except Exception as exc:
+            logger.warning("Auto-proposal Telegram notify failed: %s", exc)
+
+    await _record_job_result(
+        "nightly_signal_scan",
+        "success",
+        {"signals_found": signals_found, "proposals_queued": proposals_queued},
+    )

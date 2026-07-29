@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getLearningDashboard, getLearningRecommendations, extractDeliveryLessons, applyRecommendation, optimizeProposal, optimizeOutreach } from '../../services/api'
 
 const PRIORITY_COLORS = { critical: 'bg-rose-500/20 text-rose-400', high: 'bg-amber-500/20 text-amber-400', medium: 'bg-blue-500/20 text-blue-400', low: 'bg-gray-500/20 text-gray-400' }
 const REC_TYPES = ['All','sop','proposal','outreach','delivery','institutional_wisdom']
@@ -17,10 +18,9 @@ export default function LearningEngine() {
   const load = async () => {
     setLoading(true)
     try {
-      const url = filter !== 'All' ? `/api/v1/learning/recommendations?recommendation_type=${filter}` : '/api/v1/learning/recommendations'
       const [d, r] = await Promise.all([
-        fetch('/api/v1/learning/dashboard', { credentials: 'include' }).then(r => r.json()),
-        fetch(url, { credentials: 'include' }).then(r => r.json()),
+        getLearningDashboard(),
+        getLearningRecommendations(filter !== 'All' ? filter : null),
       ])
       setDashboard(d); setRecs(Array.isArray(r) ? r : [])
     } catch (e) { setError(e.message) }
@@ -32,12 +32,7 @@ export default function LearningEngine() {
   const extractLessons = async () => {
     setSubmitting('extract')
     try {
-      const res = await fetch('/api/v1/learning/extract-lessons', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_type: form.project_type, client_industry: form.client_industry || null, delivery_data: { what_worked: form.what_worked, what_failed: form.what_failed, estimated_days: form.estimated_days ? parseFloat(form.estimated_days) : null, actual_days: form.actual_days ? parseFloat(form.actual_days) : null, client_feedback: form.client_feedback } }),
-      })
-      const data = await res.json()
+      const data = await extractDeliveryLessons({ project_type: form.project_type, client_industry: form.client_industry || null, delivery_data: { what_worked: form.what_worked, what_failed: form.what_failed, estimated_days: form.estimated_days ? parseFloat(form.estimated_days) : null, actual_days: form.actual_days ? parseFloat(form.actual_days) : null, client_feedback: form.client_feedback } })
       setMsg(`Extracted: ${data.lessons_created} lessons, ${data.recommendations_created} recommendations`)
       setShowForm(false); load()
     } catch (e) { setMsg(`Error: ${e.message}`) }
@@ -47,18 +42,17 @@ export default function LearningEngine() {
   const applyRec = async (id) => {
     setSubmitting(id)
     try {
-      await fetch(`/api/v1/learning/recommendations/${id}/apply`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ applied_by: 'Captain' }) })
+      await applyRecommendation(id, { applied_by: 'Captain' })
       setMsg('Recommendation applied.')
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }
     setSubmitting(null)
   }
 
-  const quickAction = async (endpoint) => {
-    setSubmitting(endpoint)
+  const quickAction = async (apiFn, key) => {
+    setSubmitting(key)
     try {
-      const res = await fetch(endpoint, { method: 'POST', credentials: 'include' })
-      const data = await res.json()
+      const data = await apiFn()
       setMsg(data.title || 'Done')
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }
@@ -143,8 +137,8 @@ export default function LearningEngine() {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <button onClick={() => setShowForm(!showForm)} className="bg-purple-600 hover:bg-purple-700 text-white text-sm py-2 rounded-lg">Extract Lessons</button>
-        <button onClick={() => quickAction('/api/v1/learning/optimize-proposal')} disabled={submitting === '/api/v1/learning/optimize-proposal'} className="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting === '/api/v1/learning/optimize-proposal' ? '...' : 'Optimize Proposal'}</button>
-        <button onClick={() => quickAction('/api/v1/learning/optimize-outreach')} disabled={submitting === '/api/v1/learning/optimize-outreach'} className="bg-amber-600 hover:bg-amber-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting === '/api/v1/learning/optimize-outreach' ? '...' : 'Optimize Outreach'}</button>
+        <button onClick={() => quickAction(optimizeProposal, 'optimize-proposal')} disabled={submitting === 'optimize-proposal'} className="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting === 'optimize-proposal' ? '...' : 'Optimize Proposal'}</button>
+        <button onClick={() => quickAction(optimizeOutreach, 'optimize-outreach')} disabled={submitting === 'optimize-outreach'} className="bg-amber-600 hover:bg-amber-700 text-white text-sm py-2 rounded-lg disabled:opacity-50">{submitting === 'optimize-outreach' ? '...' : 'Optimize Outreach'}</button>
       </div>
 
       {/* Extract Form */}

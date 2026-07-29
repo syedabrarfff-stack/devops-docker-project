@@ -3,7 +3,7 @@
 
 *This is the master reference for every JARVIS session. All decisions, outputs, and communications must align with this directive. Captain has final authority. JARVIS has full operational autonomy within these boundaries.*
 
-**MANDATORY ON EVERY SESSION START:** Read `JARVIS_SELF_KNOWLEDGE.md` in the root directory. That file contains complete system architecture, all 35 database tables, all 25 scheduler jobs, authority matrix, team registry, AI routing map, council setup, and current completion status. Read it before doing anything else.
+**MANDATORY ON EVERY SESSION START:** Read `JARVIS_SELF_KNOWLEDGE.md` in the root directory. That file contains complete system architecture, all 35 database tables, all 64 scheduler jobs, authority matrix, team registry, AI routing map, council setup, and current completion status. Read it before doing anything else.
 
 ---
 
@@ -122,7 +122,7 @@ All client communications are attributed to named team members. These are the fa
 | Lucas Reed | Process Integration Specialist | Automation operations, API integration |
 | Olivia Bennett | Account Coordinator | Client success, retention, reporting |
 
-JARVIS routes every proposal, email, and outreach to the correct team member based on service category. The 36-key routing map is defined in `backend/app/services/team/team_service.py`.
+JARVIS routes every proposal, email, and outreach to the correct team member based on service category. The 137-key routing map (`CATEGORY_PRIORITY_MAP`) is defined in `backend/app/services/team/team_service.py`.
 
 ---
 
@@ -239,15 +239,25 @@ Every department must seek optimization, reduce inefficiencies, and improve exec
 
 ## 11. AI Routing — Task Intelligence
 
-| Task Type | Primary Model | Fallback 1 | Fallback 2 |
-|---|---|---|---|
-| CODE | claude-sonnet | deepseek | gpt-4o |
-| REASONING | claude-opus | gpt-4o | gemini-pro |
-| STRATEGY | claude-opus | gpt-4o | claude-sonnet |
-| ANALYSIS | claude-opus | gpt-4o | gemini-pro |
-| RESEARCH | gemini-pro | gpt-4o | claude-sonnet |
-| FAST | deepseek-flash | llama-3-3 | gpt-4o-mini |
-| LONG_CONTEXT | gemini-pro | kimi-k2 | claude-sonnet |
+**Two-layer architecture** (`backend/app/services/ai/router.py`):
+
+- **Generation layer** — NVIDIA NIM (10 rotating keys: DeepSeek V4, Kimi K2.6,
+  Llama 4, Qwen Coder, Mistral) and Google Gemini draft every response, for
+  every task type (CODE, REASONING, STRATEGY, ANALYSIS, RESEARCH, FAST,
+  LONG_CONTEXT, SALES, GENERAL, MATH, MULTILINGUAL). This is where all the
+  volume happens, at effectively zero marginal cost. See `ROUTING_TABLE` for
+  the exact per-task-type provider order.
+- **Review layer** — every draft is automatically polished by OpenRouter
+  Claude Opus 4.8, falling back to direct Anthropic Claude Sonnet 4.6 if
+  OpenRouter is unavailable (`AIRouter._review_and_refine`, `chat(review=True)`
+  — the default for every caller system-wide, not opt-in per call site).
+  Review is best-effort and time-boxed (`_REVIEW_TIMEOUT`, 20s) — if both
+  reviewers fail or time out, the unreviewed draft ships rather than blocking.
+- Anthropic/Bedrock remain as the **last-resort generation fallback only** (if
+  every NIM/Gemini/OpenRouter option fails) — no longer a primary generator
+  anywhere in `ROUTING_TABLE`; that role belongs to the review layer.
+- A response's `AIResponse.reviewed_by` field records which reviewer (if any)
+  touched it; `draft_provider` records the original generator.
 
 Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 
@@ -255,15 +265,119 @@ Circuit breakers active on all providers. Auto-failover. Cost tracked per call.
 
 ## 12. Operational Intelligence (Scheduled Jobs)
 
+**71 total jobs** — 45 core production jobs + 26 AIONX organ jobs, all registered
+in a single canonical scheduler. Full list in `backend/app/services/scheduler/scheduler.py`'s
+`_production_job_specs()` and `backend/app/services/aionx/aionx_scheduler.py`.
+
+**Voice/Calls — current scope:** no live telephony provider (Twilio, Vonage, ElevenLabs
+Conversational AI, etc.) is wired yet — "Voice" today is text-to-speech only, and "Calls"
+means a human manually logs a meeting via `POST /calls/schedule` with AI-generated prep
+notes, not an actual phone call placed or received. `pre_call_briefing_trigger` and
+`voice_analytics_daily` are real, working jobs, but they operate on whatever call/voice
+records exist — which is nothing until a real provider is connected and its webhooks feed
+`ClientCallIntelligence`/voice-interaction memory. Wire a provider and update this note
+before describing Voice/Calls as automated telephony to Captain or a client.
+
+**Scheduler leader election:** In multi-worker gunicorn deployments, exactly one
+worker runs APScheduler. Leader election uses `fcntl.flock(LOCK_EX|LOCK_NB)` on
+`/tmp/jarvis_scheduler.lock` in the FastAPI lifespan (`main.py`). The first worker
+to acquire the exclusive lock starts APScheduler; others skip gracefully. The OS
+auto-releases the lock on worker death, enabling seamless leadership transfer during
+worker recycling (`max_requests`) or graceful reload (`SIGHUP`). The previous
+`post_fork`/`worker.age`-based approach was broken and removed — see
+`gunicorn.conf.py` and `tests/scheduler/test_leader_election.py` for details.
+
+(As of Task #23: the former `engine.py` module — an entire second, never-started
+scheduler implementation — was retired. If you see any reference to `engine.py`
+in older docs or code, it is stale; the canonical scheduler has always been
+`scheduler.py`, confirmed by `scheduler/__init__.py`'s own re-exports.)
+
+**Core Production Jobs (45):**
+
 | Job | Schedule | Purpose |
 |---|---|---|
-| daily_morning_briefing | 07:00 daily | Captain briefing — pipeline, alerts, priorities |
-| daily_lead_score | 02:00 daily | Score and rank all new leads |
-| weekly_outreach_stats | Monday 08:00 | Outreach performance review |
-| weekly_pipeline_health | Sunday 20:00 | CRM pipeline and revenue forecast |
-| weekly_tech_radar_scan | Monday 06:00 | Emerging technology classification |
-| daily_optimization_review | 23:00 daily | System performance recommendations |
-| biweekly_research_report | Sunday 07:00 | Market intelligence generation |
+| daily_morning_briefing | 01:30 UTC daily | Data-driven morning briefing (MorningBriefingEngine) |
+| daily_lead_scoring | 20:30 UTC daily | ICP-score yesterday's new leads, promote top 20 |
+| daily_lead_discovery | 22:00 UTC daily | Discover new leads across 25 targeted geo/industry searches |
+| daily_follow_up_check | 04:30 UTC daily | Send due outreach follow-ups |
+| daily_outreach_safety_review | 04:45 UTC daily | Auto-pause outreach on bad reply rate |
+| daily_memory_consolidate | 19:00 UTC daily | Working → operational → strategic memory promotion (all in one) |
+| daily_optimization_review | 17:30 UTC daily | System performance recommendations, per tenant |
+| weekly_outreach_stats | Mon 02:30 UTC | Weekly outreach stats notification |
+| weekly_pipeline_health | Sun 14:30 UTC | Pipeline health summary + notification |
+| weekly_tech_radar | Mon 00:30 UTC | Emerging technology classification |
+| weekly_innovation_review | Mon 03:30 UTC | Council review of innovation queue |
+| biweekly_research_report | Sun 01:30 UTC | Deep research report generation (alternate weeks) |
+| monthly_weight_adjust | 1st-of-month 18:30 UTC | AI Council monthly weight adjustment |
+| daily_db_backup | 01:00 UTC daily | pg_dump → gzip → S3 (or local if unconfigured) |
+| speed_to_lead_5min | every 5min | Speed-to-lead response trigger |
+| daily_free_lead_discovery | 03:30 UTC daily | Free-tier lead discovery engine |
+| weekly_market_scan | Mon 05:00 UTC | Market awareness weekly scan |
+| daily_connector_hub_ingestion | 14:30 UTC daily | Pull jarvis-data/, score leads from connectors |
+| daily_market_intelligence | 04:00 UTC daily | Feed next-day intelligence pipeline |
+| self_healer | every 15min | Autonomous system self-repair, reports to Headquarters |
+| daily_opportunity_radar | 06:00 UTC daily | Surface idle hot leads before workday |
+| daily_truth_reality_check | 23:30 UTC daily | Truth engine reality checks (5 prediction types) |
+| weekly_financial_health | Mon 07:00 UTC | Financial health snapshot + CFO briefing |
+| weekly_founder_dependency | Mon 07:30 UTC | Founder dependency score assessment |
+| weekly_moat_scan | Mon 08:00 UTC | Competitive moat scan |
+| weekly_cashflow_forecast | Mon 08:30 UTC | 30/60/90-day cashflow forecast |
+| weekly_learning_optimization | Mon 09:00 UTC | Outreach + proposal optimization recommendations |
+| weekly_competitor_monitoring | Mon 09:00 UTC | Competitive landscape monitoring |
+| routing_optimizer_sweep | 1st-of-month 03:00 UTC | Learn AI provider routing weights from 30d metrics |
+| linkedin_outreach_sweep | every 2h | Enrich HOT leads via Proxycurl, generate connection messages |
+| voice_analytics_daily | 04:30 UTC daily | Voice interaction metrics, persist + Slack alert |
+| captain_dashboard_briefing | 06:55 UTC daily | Real pipeline-stats dashboard snapshot for Captain |
+| weekly_performance_briefing | Sat 19:00 UTC | Weekly performance metrics briefing |
+| daily_self_learning | 00:05 UTC daily | JARVIS self-evolution cycle |
+| drift_auditor | 05:30 UTC daily | Repo/infra drift detection, reports to Headquarters |
+| daily_strategy_report | 23:00 UTC daily | 6-Layer strategy cascade to all departments |
+| weekly_strategy_review | Sun 07:00 UTC | Full strategic review, 30/60/90-day horizon |
+| milestone_bulk_review | 10:00 UTC daily | Council review of all pending milestones |
+| dio_health_check | 06:30 UTC daily | DIO initialization and health verification |
+| tech_evolution_scan | every 6h | 24/7 technology discovery cycle |
+| daily_scout_network | 01:30 UTC daily | 9-agent scout network → jarvis-data/ on GitHub |
+| lead_embedding_sweep | 03:15 UTC daily | Semantic embeddings for all unembedded leads |
+| pre_call_briefing_trigger | every 30min | Generate briefings 90min before scheduled calls |
+| nexus_heartbeat | every 1h | NEXUS pulse; autonomous outreach trigger (4h Redis throttle) |
+| nightly_signal_scan | 02:00 UTC daily | Signal scan + the ONE proposal-generation pipeline |
+
+`contact_sync` (Apollo sync) is intentionally manual-only — reachable via
+`POST /sync/apollo`, not scheduled. `reply_handler_scan` and the old
+`overnight_freelance_bids`/`overnight_proposal_engine` jobs were retired
+permanently (dead/duplicate logic — see `docs/architecture/SCHEDULER_MIGRATION_MATRIX.md`
+for the full reconciliation against the previous job list).
+
+**AIONX Organ Jobs (26) — registered via `register_aionx_jobs()`:**
+
+| Job | Schedule | Purpose |
+|---|---|---|
+| aionx_sentinel_sweep | every 2h | Sentinel threat + anomaly monitoring |
+| aionx_escalation_processor | every 30min | Process all pending escalations |
+| aionx_operational_iq | every 1h | Operational IQ score update |
+| aionx_system_state_snapshot | every 5min | Rapid system state capture |
+| aionx_preventive_monitoring_snapshot | every 15min | Preventive health monitoring |
+| aionx_mission_control_snapshot | every 10min | Mission control telemetry |
+| aionx_execute_due_outreach | every 30min | Execute scheduled outreach actions |
+| aionx_speed_to_lead_check | every 5min | Speed-to-lead response compliance |
+| aionx_governed_integrity_cycle | every 1h | Constitutional compliance sweep |
+| aionx_predictive_threat_scan | every 2h | Predictive threat intelligence |
+| aionx_agent_capacity_check | every 4h | AI agent capacity planning |
+| aionx_idle_intelligence_cycle | every 6h | Background intelligence generation when idle |
+| aionx_retro_30d | 22:00 UTC daily | 30-day retrospective analysis |
+| aionx_retro_90d | 22:15 UTC daily | 90-day retrospective analysis |
+| aionx_twin_predictions | 03:00 UTC daily | Digital twin prediction refresh |
+| aionx_counterfactual_sync | 01:00 UTC daily | Counterfactual scenario sync |
+| aionx_debt_assessment | 02:00 UTC daily | Technical + operational debt assessment |
+| aionx_trust_erosion_check | 03:30 UTC daily | Client trust score erosion detection |
+| aionx_external_scan_record | 04:15 UTC daily | External market scan record |
+| aionx_founder_mirror_analysis | 01:00 UTC daily | Founder mirror alignment analysis |
+| aionx_wisdom_weekly | Sun 19:00 UTC | Weekly wisdom synthesis |
+| aionx_decision_retrospective | Sun 19:30 UTC | Weekly decision quality retrospective |
+| aionx_authority_recalibration | Sun 20:00 UTC | Authority matrix recalibration |
+| aionx_supreme_meta_learning | Sun 21:00 UTC | Supreme meta-learning synthesis |
+| aionx_parallel_universe_analysis | Mon 08:00 UTC | Parallel scenario universe analysis |
+| aionx_service_innovation_scan | Sun 10:00 UTC | Service innovation opportunity scan |
 
 ---
 

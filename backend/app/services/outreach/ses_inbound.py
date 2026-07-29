@@ -22,10 +22,13 @@ import base64
 import email as email_lib
 import json
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from email.header import decode_header
+from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse as _urlparse
 
 import httpx
 from sqlalchemy import select
@@ -43,6 +46,88 @@ from app.services.outreach.reply_handler import reply_handler
 logger = logging.getLogger(__name__)
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+
+_SNS_CERT_HOST_PATTERN = re.compile(r"^sns\.[a-z0-9-]+\.amazonaws\.com$")
+
+# SNS fields included in the canonical string for each message type (order matters)
+_SNS_SIGN_FIELDS: dict[str, list[str]] = {
+    "Notification": ["Message", "MessageId", "Subject", "Timestamp", "TopicArn", "Type"],
+    "SubscriptionConfirmation": ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+    "UnsubscribeConfirmation": ["Message", "MessageId", "SubscribeURL", "Timestamp", "Token", "TopicArn", "Type"],
+}
+
+
+@lru_cache(maxsize=16)
+def _get_sns_cert_pem_cached(cert_url: str) -> bytes | None:
+    """Download and cache an SNS signing certificate (sync, for lru_cache compatibility)."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(cert_url, timeout=5) as resp:  # noqa: S310
+            return resp.read()
+    except Exception as exc:
+        logger.warning("SNS cert fetch failed for %s: %s", cert_url, exc)
+        return None
+
+
+def _verify_sns_signature(body: dict) -> bool:
+    """Verify AWS SNS message signature. Returns True if valid or if verification cannot run.
+
+    On signature mismatch returns False. On missing cryptography library or cert
+    fetch failure, logs a warning and returns True (fail-open to avoid blocking
+    legitimate notifications during cold-start or transient cert download issues).
+    """
+    cert_url = body.get("SigningCertURL", "")
+    signature_b64 = body.get("Signature", "")
+    msg_type = body.get("Type", "")
+
+    if msg_type not in _SNS_SIGN_FIELDS:
+        # Not a message type SNS signs at all — nothing to verify against.
+        return True
+
+    if not cert_url or not signature_b64:
+        # A genuine SNS message of a type we know how to sign always carries both
+        # fields — their absence means a forged payload, not an edge case. Fail closed.
+        logger.warning(
+            "SNS signature rejected: %s message missing cert/signature fields", msg_type
+        )
+        return False
+
+    # Validate cert URL origin before fetching (prevent SSRF to forged certs)
+    try:
+        parsed = _urlparse(cert_url)
+        if parsed.scheme != "https" or not _SNS_CERT_HOST_PATTERN.match(parsed.hostname or ""):
+            logger.warning("SNS signature rejected: cert URL origin invalid: %s", cert_url)
+            return False
+    except Exception:
+        return True
+
+    pem = _get_sns_cert_pem_cached(cert_url)
+    if not pem:
+        logger.warning("SNS signature skipped: cert unavailable for %s", cert_url)
+        return True  # Fail-open on transient cert fetch issues
+
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography import x509
+
+        cert = x509.load_pem_x509_certificate(pem)
+        pub_key = cert.public_key()
+
+        # Build canonical string
+        fields = _SNS_SIGN_FIELDS[msg_type]
+        parts = []
+        for field in fields:
+            if field in body:
+                parts.append(f"{field}\n{body[field]}\n")
+        canonical = "".join(parts).encode("utf-8")
+
+        sig_bytes = base64.b64decode(signature_b64)
+        pub_key.verify(sig_bytes, canonical, padding.PKCS1v15(), hashes.SHA1())  # SNS uses SHA1
+        return True
+    except Exception as exc:
+        logger.warning("SNS signature verification failed: %s", exc)
+        return False
 
 
 def _default_tenant() -> uuid.UUID:
@@ -117,7 +202,7 @@ def _extract_reply_text(plain: str, html: str) -> str:
 async def _confirm_sns_subscription(subscribe_url: str) -> None:
     from urllib.parse import urlparse as _urlparse
     parsed = _urlparse(subscribe_url)
-    if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".amazonaws.com"):
+    if parsed.scheme != "https" or not _SNS_CERT_HOST_PATTERN.match(parsed.hostname or ""):
         logger.warning("Rejected SNS SubscribeURL with unexpected origin: %s", parsed.hostname)
         return
     try:
@@ -165,6 +250,11 @@ async def process_ses_sns_notification(raw_body: bytes) -> dict[str, Any]:
         return {"accepted": False, "error": "invalid_json"}
 
     msg_type = body.get("Type", "")
+
+    # Verify SNS message signature before processing
+    if not _verify_sns_signature(body):
+        logger.warning("SNS notification rejected: invalid signature (type=%s)", msg_type)
+        return {"accepted": False, "error": "invalid_signature"}
 
     # SNS subscription confirmation — auto-confirm
     if msg_type == "SubscriptionConfirmation":
@@ -307,6 +397,38 @@ async def process_ses_sns_notification(raw_body: bytes) -> dict[str, Any]:
                         "confidence": reply_result.get("confidence_score", 0.7),
                     },
                 )
+
+        # ── Immediate Captain Telegram alert ─────────────────────────────────
+        try:
+            from app.services.notifications.telegram import notify_telegram
+            from app.api.v1.routes.ws import broadcast
+
+            company = lead.company_name or lead.company or from_email
+            classification = reply_result.get("classification", "reply")
+            preview = reply_text[:200].replace("*", "").replace("_", "").strip()
+            score = getattr(lead, "score", 0) or 0
+
+            tg_lines = [
+                f"📬 *Lead Reply Received* — {company}\n",
+                f"*From:* {from_email}",
+                f"*Subject:* {subject[:80]}",
+                f"*Lead Score:* {int(score)}",
+                f"*Classification:* {classification.upper()}",
+                f"\n_{preview}_" if preview else "",
+                "\n/leads for pipeline | /drafts for pending emails",
+            ]
+            await notify_telegram("\n".join(l for l in tg_lines if l))
+
+            await broadcast("lead_reply", {
+                "lead_id": str(lead_id),
+                "company": company,
+                "from_email": from_email,
+                "classification": classification,
+                "score": float(score),
+            })
+        except Exception:
+            pass
+
     elif lead_id:
         # Has lead but no extractable text — record the event only
         processing["action"] = "event_recorded_no_text"

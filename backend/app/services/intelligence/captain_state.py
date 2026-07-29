@@ -33,6 +33,7 @@ class CaptainAwarenessEngine:
                             Conversation.created_at >= since,
                         )
                         .order_by(Conversation.created_at.asc())
+                        .limit(500)
                     )
                 ).scalars().all()
                 pending_count = await session.scalar(
@@ -125,6 +126,7 @@ class DecisionLoadManager:
                             ApprovalRequest.status == ApprovalStatus.PENDING,
                         )
                         .order_by(ApprovalRequest.priority.desc(), ApprovalRequest.created_at.asc())
+                        .limit(100)
                     )
                 ).scalars().all()
 

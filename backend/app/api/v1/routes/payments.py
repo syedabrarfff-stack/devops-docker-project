@@ -1,8 +1,6 @@
 """
 Payment routes — Stripe payment link generation and webhook handler.
 """
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -12,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.payments.stripe_service import (
     create_payment_link,
     process_webhook_event,
@@ -29,14 +28,16 @@ class PaymentLinkRequest(BaseModel):
 
 
 @router.post("/invoices/{invoice_id}/payment-link")
+@limiter.limit("5/minute")
 async def generate_payment_link(
     invoice_id: str,
+    request: Request,
     req: PaymentLinkRequest = PaymentLinkRequest(),
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
     """Generate a Stripe Payment Link for an invoice and store the URL."""
-    from app.models.revenue import Invoice
+    from app.models.revenue import Invoice, InvoiceStatus
     from sqlalchemy import select
     import uuid
 
@@ -50,7 +51,7 @@ async def generate_payment_link(
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
 
-    if inv.status == "paid":
+    if inv.status == InvoiceStatus.PAID:
         raise HTTPException(status_code=400, detail="Invoice already paid")
 
     link_data = await create_payment_link(
@@ -81,8 +82,10 @@ async def generate_payment_link(
 
 
 @router.post("/invoices/{invoice_id}/bank-transfer")
+@limiter.limit("5/minute")
 async def bank_transfer_details(
     invoice_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:
@@ -113,8 +116,10 @@ async def bank_transfer_details(
 
 
 @router.post("/invoices/{invoice_id}/wise-transfer")
+@limiter.limit("5/minute")
 async def wise_transfer_details(
     invoice_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ) -> dict[str, Any]:

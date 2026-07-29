@@ -1,5 +1,6 @@
 import logging
-from pydantic import model_validator
+import uuid
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -25,6 +26,33 @@ class Settings(BaseSettings):
     CAPTAIN_PASSWORD: str = "CHANGE_ME_IN_ENV"
     APP_BASE_URL: str = "http://localhost:8000"
     JARVIS_DEFAULT_TENANT_ID: Optional[str] = None
+
+    @field_validator("JARVIS_DEFAULT_TENANT_ID", mode="before")
+    @classmethod
+    def _sanitize_default_tenant_id(cls, v):
+        # docker-compose's `env_file` loader does NOT strip inline comments —
+        # `KEY=  # some comment` on one line makes the ENTIRE remainder of the
+        # line (including "# ...") the literal value. That corrupted value then
+        # failed uuid.UUID(...) everywhere this setting is read (aionx_scheduler,
+        # client_digital_twin, main.py's tenant-context queries, etc.), which is
+        # what crashed BULK_DISCOVER/HUBSPOT_SYNC and other scheduled jobs.
+        # Sanitize here once so every consumer gets either a real UUID string or
+        # None, regardless of what stray comment ended up in .env.
+        if not v:
+            return None
+        cleaned = str(v).split("#", 1)[0].strip()
+        if not cleaned:
+            return None
+        try:
+            uuid.UUID(cleaned)
+        except ValueError:
+            _cfg_logger.warning(
+                "JARVIS_DEFAULT_TENANT_ID is not a valid UUID (%r) — ignoring, "
+                "tenant-scoped scheduled jobs will run without a default tenant.",
+                v,
+            )
+            return None
+        return cleaned
     PILOT_READY: bool = True
     AUTONOMOUS_CONFIDENCE_THRESHOLD: float = 0.70
     SYSTEM_CONFIDENCE_BASE: float = 0.68
@@ -45,6 +73,7 @@ class Settings(BaseSettings):
     # AI Providers
     ANTHROPIC_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
     GOOGLE_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
@@ -66,10 +95,10 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY_J: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
     ELEVENLABS_VOICE_ID: str = "onwK4e9ZLuTAKqWW03F9"  # Daniel — British male
-    CLAUDE_BUDGET_TOTAL_USD: float = 5.0
+    CLAUDE_BUDGET_TOTAL_USD: float = 50.0
     CLAUDE_BUDGET_WINDOW_DAYS: int = 14
     CLAUDE_RESERVE_RATIO: float = 0.20
-    CLAUDE_SINGLE_CALL_MAX_USD: float = 0.20
+    CLAUDE_SINGLE_CALL_MAX_USD: float = 1.00
 
     # Lead discovery
     GOOGLE_MAPS_API_KEY: Optional[str] = None
@@ -79,6 +108,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
     TELEGRAM_WEBHOOK_SECRET: Optional[str] = None  # Set to validate X-Telegram-Bot-API-Secret-Token
+    VOICE_WEBHOOK_SECRET: Optional[str] = None  # Set to validate X-Voice-Webhook-Secret on /api/v1/webhooks/voice/*
 
     # Executive email / SES
     OUTBOUND_EMAIL_PROVIDER: str = "ses"
@@ -130,9 +160,28 @@ class Settings(BaseSettings):
     WISE_API_KEY: Optional[str] = None
     PAYPAL_ENABLED: bool = False
     BANK_TRANSFER_ENABLED: bool = True
+    BANK_ACCOUNT_NAME: Optional[str] = None
+    BANK_ACCOUNT_NUMBER: Optional[str] = None
+    BANK_ROUTING_NUMBER: Optional[str] = None
+    BANK_SWIFT_CODE: Optional[str] = None
+    BANK_BENEFICIARY_BANK: Optional[str] = None
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
+
+    # Slack Bot (two-way: Phase 6A)
+    SLACK_BOT_TOKEN: Optional[str] = None
+    SLACK_SIGNING_SECRET: Optional[str] = None
+
+    # Zapier / Make.com webhook gateway (Phase 6A)
+    ZAPIER_WEBHOOK_SECRET: Optional[str] = None
+    MAKE_WEBHOOK_SECRET: Optional[str] = None
+    ZAPIER_LEAD_QUALIFIED_HOOK: Optional[str] = None
+    ZAPIER_PROPOSAL_SENT_HOOK: Optional[str] = None
+    MAKE_APPROVAL_HOOK: Optional[str] = None
+
+    # LinkedIn outreach (Phase 6A — Proxycurl enrichment)
+    PROXYCURL_API_KEY: Optional[str] = None
 
     # n8n Automation Platform
     N8N_BASE_URL: str = "https://automation.aliyarsolutions.com"
@@ -172,21 +221,34 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost,http://localhost:3000,https://aliyarsolutions.com,https://www.aliyarsolutions.com"
 
+    # Separate from DEBUG on purpose: DEBUG also controls verbose logging/tracebacks
+    # and gets flipped for reasons unrelated to secrets (e.g. diagnosing on a
+    # prod-like box). A stale or copied .env with DEBUG=True must not silently
+    # skip the insecure-default checks below — this second, explicitly-named
+    # flag has to also be set for that skip to take effect.
+    ALLOW_INSECURE_DEV_DEFAULTS: bool = False
+
     @model_validator(mode="after")
     def _validate_production_config(self) -> "Settings":
-        if not self.DEBUG:
+        if not (self.DEBUG and self.ALLOW_INSECURE_DEV_DEFAULTS):
             errors: list[str] = []
             if self.SECRET_KEY in ("change-this-in-production", "", None):
                 errors.append(
                     "SECRET_KEY is the insecure default — all JWTs are compromised. "
                     "Set a strong random value in .env or AWS Secrets Manager."
                 )
+            elif len(self.SECRET_KEY) < 32:
+                errors.append(
+                    f"SECRET_KEY is too short ({len(self.SECRET_KEY)} chars) — "
+                    "HS256 requires at least 32 characters (256 bits). "
+                    "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
             if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", "", None):
                 errors.append(
                     "CAPTAIN_PASSWORD is the insecure default — "
                     "Set a strong password in .env or AWS Secrets Manager."
                 )
-            if "jarvis_pass" in self.DATABASE_URL:
+            if any(p in self.DATABASE_URL for p in ("jarvis_pass", "jarvis_secret", "CHANGE_ME", "password")):
                 errors.append(
                     "DATABASE_URL contains the default development password — "
                     "Set a strong password in .env or AWS Secrets Manager."
@@ -199,11 +261,11 @@ class Settings(BaseSettings):
                     + "\n".join(f"  • {e}" for e in errors)
                 )
         else:
-            # Dev mode — warn but don't block
+            # DEBUG=True and ALLOW_INSECURE_DEV_DEFAULTS=true both set — warn but don't block
             if self.SECRET_KEY == "change-this-in-production":
-                _cfg_logger.warning("DEV: SECRET_KEY is the default (acceptable in DEBUG mode only)")
+                _cfg_logger.warning("DEV: SECRET_KEY is the default (acceptable only with ALLOW_INSECURE_DEV_DEFAULTS=true)")
             if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", ""):
-                _cfg_logger.warning("DEV: CAPTAIN_PASSWORD is the default (acceptable in DEBUG mode only)")
+                _cfg_logger.warning("DEV: CAPTAIN_PASSWORD is the default (acceptable only with ALLOW_INSECURE_DEV_DEFAULTS=true)")
         return self
 
     class Config:

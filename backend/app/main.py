@@ -12,6 +12,7 @@ from app.api.v1 import api_router
 from app.middleware import (
     ObservabilityRefreshMiddleware,
     RequestContextMiddleware,
+    SecurityHeadersMiddleware,
     TenantContextMiddleware,
     http_exception_handler,
     setup_observability,
@@ -200,17 +201,43 @@ async def lifespan(app: FastAPI):
         await requeue_pending()
         logger.info("✅ Task queue initialized — starting worker")
         worker_task = asyncio.create_task(worker())
+        worker_task.add_done_callback(
+            lambda t: logger.error("Task worker exited unexpectedly: %s", t.exception()) if not t.cancelled() and t.exception() else logger.warning("Task worker stopped")
+        )
     except Exception as e:
         logger.warning(f"Task worker skipped: {e}")
         worker_task = None
 
-    # ── APScheduler ───────────────────────────────────────────────────────────
+    # ── APScheduler (file-lock leader election) ────────────────────────────────
+    # Only one gunicorn worker may run the scheduler. We use an exclusive file
+    # lock: the first worker to acquire it starts APScheduler; the rest skip.
+    # When the leader dies (recycling, shutdown), the OS releases the lock and
+    # the next worker to start claims it.
+    import fcntl as _fcntl
+    _scheduler_lock_fd = None
     try:
+        _scheduler_lock_fd = open("/tmp/jarvis_scheduler.lock", "w")
+        _fcntl.flock(_scheduler_lock_fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
         from app.services.scheduler.scheduler import start_scheduler
         await start_scheduler()
-        logger.info("✅ Scheduler started")
+        logger.info("✅ Scheduler started (this worker is the scheduler leader)")
+
+        try:
+            from app.services.kernel.health_aggregator import get_health_aggregator
+            from app.services.kernel.core_health_checks import register_core_checks
+            _aggregator = get_health_aggregator()
+            register_core_checks(_aggregator)
+            await _aggregator.start()
+            logger.info("✅ HealthAggregator started (this worker is the scheduler leader)")
+        except Exception as e:
+            logger.warning("HealthAggregator start skipped: %s", e)
+    except BlockingIOError:
+        logger.info("Scheduler running in another worker — skipping in this one")
+        if _scheduler_lock_fd:
+            _scheduler_lock_fd.close()
+        _scheduler_lock_fd = None
     except Exception as e:
-        logger.warning(f"Scheduler skipped: {e}")
+        logger.warning("Scheduler skipped (this worker holds the leader lock): %s", e)
 
     logger.info("🚀 JARVIS operational — Aliyar Solutions v9.0.0")
     yield
@@ -218,11 +245,18 @@ async def lifespan(app: FastAPI):
     # ── Graceful shutdown ─────────────────────────────────────────────────────
     if worker_task:
         worker_task.cancel()
-    try:
-        from app.services.scheduler.scheduler import stop_scheduler
-        stop_scheduler()
-    except Exception as exc:
-        logger.warning("Scheduler stop failed during shutdown: %s", exc)
+    if _scheduler_lock_fd:
+        try:
+            from app.services.scheduler.scheduler import stop_scheduler
+            stop_scheduler()
+        except Exception as exc:
+            logger.warning("Scheduler stop failed during shutdown: %s", exc)
+        try:
+            from app.services.kernel.health_aggregator import get_health_aggregator
+            await get_health_aggregator().stop()
+        except Exception as exc:
+            logger.warning("HealthAggregator stop failed during shutdown: %s", exc)
+        _scheduler_lock_fd.close()
     logger.info("JARVIS shutting down cleanly")
 
 
@@ -239,12 +273,15 @@ app.state.limiter = limiter
 
 if RATE_LIMITING_ENABLED:
     try:
+        from slowapi import SlowAPIMiddleware
         from slowapi.errors import RateLimitExceeded
         from slowapi import _rate_limit_exceeded_handler
+        app.add_middleware(SlowAPIMiddleware)
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     except ImportError:
         pass
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(ObservabilityRefreshMiddleware)

@@ -251,29 +251,35 @@ api_router.include_router(council.router)
 
 ## STEP 7 — VERIFY SCHEDULER JOBS ARE REGISTERED
 
-Open `app/services/scheduler/engine.py`. Verify ALL these jobs exist in `_register_default_jobs()`:
+Open `app/services/scheduler/scheduler.py` — this is the single canonical
+scheduler (a second module, `engine.py`, existed until Task #23's
+consolidation; it was never started in production and has been deleted).
+Verify ALL these jobs exist in `_production_job_specs()`:
 
 ```python
 # Core daily jobs
-add_cron_job("morning_briefing", ..., hour=7, minute=0)
-add_cron_job("daily_lead_score", ..., hour=2, minute=0)
-add_cron_job("outreach_stats", ..., day_of_week="mon", hour=8, minute=0)
-add_cron_job("overnight_pipeline_health", ..., hour=1, minute=0)
+{"job_id": "daily_morning_briefing", ..., "hour": 1, "minute": 30}
+{"job_id": "daily_lead_scoring", ..., "hour": 20, "minute": 30}
+{"job_id": "weekly_outreach_stats", ..., "day_of_week": "mon", "hour": 2, "minute": 30}
+{"job_id": "weekly_pipeline_health", ..., "day_of_week": "sun", "hour": 14, "minute": 30}
 
 # 6-Layer Council System
-add_cron_job("daily_strategy_report", ..., hour=23, minute=0)      # Layer 6
-add_cron_job("milestone_bulk_review", ..., hour=10, minute=0)      # Layer 2
-add_interval_job("tech_evolution_scan", ..., hours=6)              # Layer 4
-add_interval_job("pre_call_briefing_trigger", ..., minutes=30)     # Layer 5
-add_cron_job("weekly_strategy_review", ..., hour=7, day_of_week="sun")
-add_cron_job("dio_health_check", ..., hour=6, minute=30)           # Layer 1
+{"job_id": "daily_strategy_report", ..., "hour": 23, "minute": 0}       # Layer 6
+{"job_id": "milestone_bulk_review", ..., "hour": 10, "minute": 0}       # Layer 2
+{"job_id": "tech_evolution_scan", "kind": "interval", "hours": 6}       # Layer 4
+{"job_id": "pre_call_briefing_trigger", "kind": "interval", "minutes": 30}  # Layer 5
+{"job_id": "weekly_strategy_review", ..., "hour": 7, "day_of_week": "sun"}
+{"job_id": "dio_health_check", ..., "hour": 6, "minute": 30}            # Layer 1
 
 # 9-Connector Pipeline
-add_cron_job("daily_connector_hub_ingestion", ..., hour=14, minute=30)  # 20:00 IST
-add_cron_job("daily_market_intelligence", ..., hour=4, minute=0)        # 09:30 IST
+{"job_id": "daily_connector_hub_ingestion", ..., "hour": 14, "minute": 30}  # 20:00 IST
+{"job_id": "daily_market_intelligence", ..., "hour": 4, "minute": 0}        # 09:30 IST
 ```
 
-If any are missing, add them. These are the permanent scheduled jobs — not patches.
+If any are missing, add them to both `_production_job_specs()` and
+`PRODUCTION_JOB_IDS` — the two must stay in exact sync (see
+`docs/architecture/SCHEDULER_MIGRATION_MATRIX.md` for the full job list and
+rationale). These are the permanent scheduled jobs — not patches.
 
 ---
 

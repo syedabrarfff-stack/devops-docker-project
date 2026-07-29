@@ -1,9 +1,17 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+# Only needed when building behind a TLS-inspecting proxy (e.g. this repo's
+# dev sandbox — see /root/.ccr/ca-bundle.crt in that environment's docs).
+# Real CI (GitHub Actions) and the production EC2 host have direct internet
+# access and don't need this — defaulting it off keeps certificate
+# verification on everywhere except when explicitly opted into.
+ARG NPM_INSECURE_REGISTRY=false
+
 WORKDIR /app
 COPY package*.json ./
-RUN npm config set strict-ssl false && npm ci --legacy-peer-deps
+RUN if [ "$NPM_INSECURE_REGISTRY" = "true" ]; then npm config set strict-ssl false; fi \
+    && npm ci --legacy-peer-deps
 COPY . .
 RUN npm run build
 

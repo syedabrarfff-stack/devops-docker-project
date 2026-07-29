@@ -26,14 +26,29 @@ logger = logging.getLogger(__name__)
 AI_SIMULATION_TIMEOUT_SECONDS = 8.0
 
 
+def _resolve_tenant(tenant_id=None) -> uuid.UUID | None:
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+    from app.core.config import settings as _cfg
+    raw = getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
+
+
 async def simulate_decision(
     db: AsyncSession,
     decision_id: uuid.UUID,
 ) -> dict[str, Any]:
     """Simulate what might have happened with a different decision option."""
-    decision = (await db.execute(
-        select(DecisionObject).where(DecisionObject.id == decision_id)
-    )).scalars().first()
+    _tid = _resolve_tenant()
+    _q = select(DecisionObject).where(DecisionObject.id == decision_id)
+    if _tid:
+        _q = _q.where(DecisionObject.tenant_id == _tid)
+    decision = (await db.execute(_q)).scalars().first()
 
     if not decision:
         return {"error": "decision not found"}
@@ -68,6 +83,7 @@ async def simulate_decision(
     )
     db.add(simulation)
     await db.flush()
+    await db.commit()
 
     logger.info("Counterfactual: simulated decision %s", decision_id)
     return {
@@ -86,16 +102,18 @@ async def record_actuality(
     actual_timeline_delta_days: int = 0,
 ) -> dict[str, Any]:
     """Record what actually happened and calibrate the latest simulation."""
-    decision = (await db.execute(
-        select(DecisionObject).where(DecisionObject.id == decision_id)
-    )).scalars().first()
+    _tid = _resolve_tenant()
+    _dq = select(DecisionObject).where(DecisionObject.id == decision_id)
+    if _tid:
+        _dq = _dq.where(DecisionObject.tenant_id == _tid)
+    decision = (await db.execute(_dq)).scalars().first()
 
     if not decision:
         return {"error": "decision not found"}
 
     simulation = (await db.execute(
         select(CounterfactualSimulation).where(
-            CounterfactualSimulation.decision_id == decision_id
+            CounterfactualSimulation.decision_id == decision_id,
         ).order_by(CounterfactualSimulation.simulated_at.desc())
     )).scalars().first()
 
@@ -125,6 +143,7 @@ async def record_actuality(
     )
     db.add(actuality)
     await db.flush()
+    await db.commit()
 
     logger.info("Counterfactual: recorded actuality for decision %s", decision_id)
     return {
@@ -143,7 +162,7 @@ async def extract_learning(db: AsyncSession) -> dict[str, Any]:
     actualities = (await db.execute(
         select(CounterfactualActualization).where(
             CounterfactualActualization.updated_at >= thirty_days_ago
-        )
+        ).limit(500)
     )).scalars().all()
 
     if not actualities:

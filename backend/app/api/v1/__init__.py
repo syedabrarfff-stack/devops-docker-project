@@ -41,6 +41,18 @@ from app.api.v1.routes import payments
 from app.api.v1.routes import telegram_webhook
 from app.api.v1.routes import trust
 from app.api.v1.routes import truth_engine, resilience, financial_intel, learning, founder, moat
+from app.api.v1.routes import omega
+from app.api.v1.routes import ghost
+from app.api.v1.routes import autopilot
+from app.api.v1.routes import signal
+from app.api.v1.routes import nexus
+from app.api.v1.routes import constitution
+# Phase 6A — Revenue Activation
+from app.api.v1.routes import slack_bot, zapier, captain_whitelabel
+# Phase 6B — Voice & Media
+from app.api.v1.routes import voice_webhook
+# Headquarters — Orchestrator + Execution Engine chat entry point
+from app.api.v1.routes import headquarters
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -62,67 +74,95 @@ async def ai_health_alias():
     return await ai_ops.provider_health()
 
 
-api_router.include_router(chat.router)
-api_router.include_router(briefing.router)
-api_router.include_router(approvals.router)
-api_router.include_router(agents.router)
+api_router.include_router(chat.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(briefing.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(approvals.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(agents.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(ws.router)
-api_router.include_router(crm.router)
-api_router.include_router(leads.router)
-api_router.include_router(outreach.router)
-api_router.include_router(memory.router)
-api_router.include_router(tasks.router)
+api_router.include_router(crm.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(leads.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(leads.public_router)
+api_router.include_router(outreach.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(memory.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(tasks.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(auth.router)
-api_router.include_router(scheduler.router)
-api_router.include_router(calendar.router)
-api_router.include_router(notifications.router)
-api_router.include_router(sync.router)
-api_router.include_router(intelligence.router)
-api_router.include_router(governance.router)
-api_router.include_router(emergency.router)
-api_router.include_router(knowledge.router)
+api_router.include_router(scheduler.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(calendar.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(notifications.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(sync.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(intelligence.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(governance.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(emergency.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(knowledge.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(catalog.router)
-api_router.include_router(ai_ops.router)
-api_router.include_router(team.router)
-api_router.include_router(jarvis.router)
-api_router.include_router(agent_ops.router)
-api_router.include_router(gmail.router)
-api_router.include_router(discovery.router)
-api_router.include_router(voice.router)
+api_router.include_router(ai_ops.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(team.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(jarvis.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(agent_ops.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(gmail.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(discovery.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(voice.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(pricing.router)
-api_router.include_router(proposals.router)
-api_router.include_router(invoices.router)
-api_router.include_router(revenue.router)
-api_router.include_router(clients.router)
-api_router.include_router(council.router)
-api_router.include_router(tenancy.router)
-api_router.include_router(departments.router)
+api_router.include_router(proposals.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(invoices.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(revenue.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(clients.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(council.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(tenancy.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(departments.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(demos.router)
 api_router.include_router(pilot.router)
 api_router.include_router(captain.router, dependencies=[Depends(get_current_captain)])
 api_router.include_router(captain.voice_router, dependencies=[Depends(get_current_captain)])
-api_router.include_router(economics.router)
-api_router.include_router(innovation.router)
-api_router.include_router(civilization.router)
-api_router.include_router(calls.router)
-api_router.include_router(intel.router)
-api_router.include_router(connector_hub.router)
-api_router.include_router(consciousness.router)
-api_router.include_router(aionx.router)
-api_router.include_router(batch1.router)
-api_router.include_router(frontier.router)
-api_router.include_router(system.router)
-api_router.include_router(communication.router)
-api_router.include_router(ses_inbound.router)
-api_router.include_router(whitelabel.router)
-api_router.include_router(payments.router)
-api_router.include_router(payments.webhook_router)
-api_router.include_router(telegram_webhook.router)
-api_router.include_router(trust.router)
+api_router.include_router(economics.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(innovation.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(civilization.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(calls.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(intel.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(connector_hub.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(consciousness.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(aionx.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(batch1.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(frontier.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(system.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(communication.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(communication.webhook_router)  # internal-only — see comment in communication.py
+api_router.include_router(ses_inbound.router)          # public — SES inbound webhook
+api_router.include_router(whitelabel.router)           # public — white-label client onboarding
+api_router.include_router(payments.router)             # public — checkout / payment links
+api_router.include_router(payments.webhook_router)     # public — Stripe webhook callbacks
+api_router.include_router(telegram_webhook.router)     # public — Telegram webhook callbacks
+api_router.include_router(trust.router, dependencies=[Depends(get_current_captain)])
 # Layer 18 — Truth, Validation & Resilience
-api_router.include_router(truth_engine.router)
-api_router.include_router(resilience.router)
-api_router.include_router(financial_intel.router)
-api_router.include_router(learning.router)
-api_router.include_router(founder.router)
-api_router.include_router(moat.router)
+api_router.include_router(truth_engine.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(resilience.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(financial_intel.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(learning.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(founder.router, dependencies=[Depends(get_current_captain)])
+api_router.include_router(moat.router, dependencies=[Depends(get_current_captain)])
+# OMEGA — Global Intelligence Swarm (Captain auth required — 16-model AI swarm)
+api_router.include_router(omega.router, dependencies=[Depends(get_current_captain)])
+# GHOST — AI Outreach Intelligence Engine (Captain auth required — sends emails)
+api_router.include_router(ghost.router, dependencies=[Depends(get_current_captain)])
+# AUTOPILOT — Autonomous Outreach Pipeline (Captain auth required — approves/sends emails)
+api_router.include_router(autopilot.router, dependencies=[Depends(get_current_captain)])
+# SIGNAL — AI Pipeline Intelligence Scanner (Captain auth required — triggers AI scans)
+api_router.include_router(signal.router, dependencies=[Depends(get_current_captain)])
+# NEXUS — Supreme Autonomous Intelligence Core (Captain auth required — autonomous execution)
+api_router.include_router(nexus.router, dependencies=[Depends(get_current_captain)])
+# Layer 19 — Supreme Intelligence: Constitution, CEO, Revenue, Platform, Sales Autonomy
+api_router.include_router(constitution.router, dependencies=[Depends(get_current_captain)])
+# L3 Kernel Ops Dashboard (v4)
+from app.api.v1.routes import kernel_dashboard
+api_router.include_router(kernel_dashboard.router)  # auth already wired on the router
+# Phase 6A — Revenue Activation
+api_router.include_router(slack_bot.router)          # public — Slack HMAC-verified
+api_router.include_router(zapier.router)             # public — Zapier/Make HMAC-verified
+api_router.include_router(captain_whitelabel.router, dependencies=[Depends(get_current_captain)])
+# Phase 6B — Voice & Media
+api_router.include_router(voice_webhook.router)      # mixed auth — see route decorators
+# Headquarters — Captain-only, drives real repo mutation via the Execution Engine
+api_router.include_router(headquarters.router, dependencies=[Depends(get_current_captain)])
+# Phase 7 — Engineering Organization (Mission Planner + departments)
+from app.api.v1.routes import engineering_dashboard
+api_router.include_router(engineering_dashboard.router)  # auth already wired on the router

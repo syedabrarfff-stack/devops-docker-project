@@ -365,6 +365,42 @@ async def personalize_message(db: AsyncSession, lead_id: str, payload: dict[str,
     return {"lead_id": lead_id, "profile": profile, "personalized_message": f"{template} Framed {suffix}."}
 
 
+async def real_threat_signals(db: AsyncSession) -> dict[str, Any]:
+    """Pull live signals for scan_threats instead of the empty-dict default that made every threshold unreachable."""
+    reply_rates = (await db.execute(
+        text(
+            "SELECT "
+            "(SELECT COUNT(*) FROM outreach_log WHERE created_at >= now() - interval '1 day') AS sent_today, "
+            "(SELECT COUNT(*) FROM reply_log WHERE created_at >= now() - interval '1 day') AS replies_today, "
+            "(SELECT COUNT(*) FROM outreach_log WHERE created_at >= now() - interval '7 days') AS sent_week, "
+            "(SELECT COUNT(*) FROM reply_log WHERE created_at >= now() - interval '7 days') AS replies_week"
+        )
+    )).mappings().one()
+
+    today_rate = (reply_rates["replies_today"] / reply_rates["sent_today"] * 100) if reply_rates["sent_today"] else 0.0
+    week_rate = (reply_rates["replies_week"] / reply_rates["sent_week"] * 100) if reply_rates["sent_week"] else 0.0
+    reply_rate_drop_pct = max(0.0, week_rate - today_rate)
+
+    silence_row = (await db.execute(
+        text("SELECT EXTRACT(day FROM now() - MAX(created_at)) AS days FROM reply_log")
+    )).mappings().one()
+    client_silence_days = float(silence_row["days"]) if silence_row["days"] is not None else 0.0
+
+    pipeline_leads = (await db.execute(text("SELECT COUNT(*) FROM leads"))).scalar_one()
+
+    from app.services.ai.router import ai_router as jarvis_router
+    configured = len(jarvis_router.available_providers())
+    operational = len(jarvis_router.operational_providers())
+    provider_error_rate_pct = (100.0 * (1 - operational / configured)) if configured else 0.0
+
+    return {
+        "reply_rate_drop_pct": round(reply_rate_drop_pct, 1),
+        "client_silence_days": client_silence_days,
+        "provider_error_rate_pct": round(provider_error_rate_pct, 1),
+        "pipeline_leads": pipeline_leads,
+    }
+
+
 async def scan_threats(db: AsyncSession, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = payload or {}
     signals = payload.get("signals") or {}
@@ -504,18 +540,56 @@ async def what_worked(db: AsyncSession, industry: str | None = None, service_typ
     return await recall_knowledge(db, query, limit=20)
 
 
+async def _real_department_capacity(db: AsyncSession) -> list[dict[str, Any]]:
+    """Pull live queue/backlog counts per department instead of hardcoded sample numbers."""
+    outreach = (await db.execute(
+        text(
+            "SELECT "
+            "(SELECT COUNT(*) FROM follow_up_queue WHERE status = 'PENDING' AND scheduled_at <= now()) AS queued, "
+            "(SELECT COUNT(*) FROM reply_log WHERE classification IN ('INTERESTED', 'QUESTION') "
+            "AND created_at <= now() - interval '3 days') AS backlog"
+        )
+    )).mappings().one()
+
+    client_success = (await db.execute(
+        text(
+            "SELECT "
+            "(SELECT COUNT(*) FROM invoices WHERE status = 'SENT') AS queued, "
+            "(SELECT COUNT(*) FROM invoices WHERE status = 'OVERDUE') AS backlog"
+        )
+    )).mappings().one()
+
+    cloud = (await db.execute(
+        text(
+            "SELECT "
+            "(SELECT COUNT(*) FROM incident_reports WHERE status IN ('open', 'investigating')) AS queued, "
+            "(SELECT COUNT(*) FROM incident_reports WHERE category = 'infrastructure' AND status = 'open') AS backlog"
+        )
+    )).mappings().one()
+
+    return [
+        {"department": "Outreach", "tasks_queued": outreach["queued"], "response_time_minutes": 0, "backlog_size": outreach["backlog"]},
+        {"department": "Client Success", "tasks_queued": client_success["queued"], "response_time_minutes": 0, "backlog_size": client_success["backlog"]},
+        {"department": "Cloud", "tasks_queued": cloud["queued"], "response_time_minutes": 0, "backlog_size": cloud["backlog"]},
+    ]
+
+
 async def agent_capacity(db: AsyncSession, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     payload = payload or {}
-    departments = payload.get("departments") or [
-        {"department": "Outreach", "tasks_queued": 18, "response_time_minutes": 42, "backlog_size": 9},
-        {"department": "Client Success", "tasks_queued": 6, "response_time_minutes": 18, "backlog_size": 2},
-        {"department": "Cloud", "tasks_queued": 4, "response_time_minutes": 22, "backlog_size": 1},
-    ]
-    proposals = []
+    departments = payload.get("departments") or await _real_department_capacity(db)
     snapshots = []
+    insert_params = []
+    over_capacity_depts: list[str] = []
     for dept in departments:
         capacity = min(100, int(dept.get("tasks_queued", 0)) * 4 + int(dept.get("backlog_size", 0)) * 6)
         status = "over_capacity" if capacity >= 80 else "normal"
+        row_params = {**dept, "tenant_id": payload.get("tenant_id"), "capacity_percent": capacity, "status": status}
+        insert_params.append(row_params)
+        snapshots.append({**dept, "capacity_percent": capacity, "status": status})
+        if status == "over_capacity":
+            over_capacity_depts.append(dept["department"])
+
+    if insert_params:
         await db.execute(
             text(
                 """
@@ -525,11 +599,18 @@ async def agent_capacity(db: AsyncSession, payload: dict[str, Any] | None = None
                     (:tenant_id, :department, :tasks_queued, :response_time_minutes, :backlog_size, :capacity_percent, :status)
                 """
             ),
-            {**dept, "tenant_id": payload.get("tenant_id"), "capacity_percent": capacity, "status": status},
+            insert_params,
         )
-        snapshots.append({**dept, "capacity_percent": capacity, "status": status})
-        if status == "over_capacity":
-            proposals.append(await propose_agent(db, dept["department"], payload.get("tenant_id")))
+
+    proposals = []
+    for dept_name in over_capacity_depts:
+        existing = await db.execute(
+            text("SELECT id FROM aionx_agent_proposals WHERE department = :department AND status = 'captain_review' LIMIT 1"),
+            {"department": dept_name},
+        )
+        if existing.first() is not None:
+            continue
+        proposals.append(await propose_agent(db, dept_name, payload.get("tenant_id")))
     await db.commit()
     return {"capacity_checked": True, "departments": snapshots, "agent_proposals": proposals}
 

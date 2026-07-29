@@ -1,8 +1,14 @@
 name: JARVIS — Build & Deploy to AWS ECS
 
+# This targets a separate AWS ECS pipeline (jarvis-production-cluster) that is
+# NOT the real production system — that's the single EC2 instance deployed by
+# ec2-deploy.yml. This workflow has failed on every run since it was added
+# (missing the AWS_OIDC_ROLE_ARN secret it needs), generating a permanent red
+# X on every PR/push with zero bearing on actual production health. Removed
+# the automatic `push` trigger so it stops firing and failing on unrelated
+# work — kept as workflow_dispatch-only in case ECS deployment is properly
+# configured and intentionally used later.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -22,7 +28,7 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   TASK_FAMILY:  jarvis-production-backend
   APP_BASE_URL: https://aliyarsolutions.com
-  OIDC_ROLE:    arn:aws:iam::824232273953:role/JarvisGitHubActionsRole
+  OIDC_ROLE:    ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
 jobs:
   # ── Build & push Docker images ─────────────────────────────────────────────
@@ -235,7 +241,8 @@ jobs:
           echo "Checking readiness: $READYZ_URL"
           RSTAT=$(curl -s -o /dev/null -w "%{http_code}" "$READYZ_URL" || echo "000")
           if [ "$RSTAT" != "200" ]; then
-            echo "::warning::Readiness degraded — HTTP $RSTAT (deployment continues)"
+            echo "::error::Readiness check failed — HTTP $RSTAT (DB/dependency unreachable)"
+            exit 1
           fi
           echo "✅ JARVIS v$(curl -s $HEALTH_URL | python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"version\",\"?\"))') is live"
 
@@ -268,39 +275,9 @@ jobs:
             -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d "text=🚨 JARVIS deployment FAILED — https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
 
-  # ── Terraform plan (PR-only) ───────────────────────────────────────────────
-  terraform-plan:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.0
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume:    ${{ env.OIDC_ROLE }}
-          role-session-name: JarvisTerraformPlan
-          aws-region:        ${{ env.AWS_REGION }}
-
-      - name: Terraform init
-        working-directory: infra/terraform
-        run: terraform init -backend=false
-
-      - name: Terraform plan
-        working-directory: infra/terraform
-        run: |
-          terraform plan \
-            -var="db_password=placeholder" \
-            -var="secret_key=placeholder" \
-            -var="captain_password=placeholder" \
-            -no-color
-        continue-on-error: true
+  # NOTE: a 'terraform-plan (PR-only)' job used to live here, gated on
+  # `if: github.event_name == 'pull_request'` — but this workflow's `on:`
+  # block (top of file) only triggers on push/workflow_dispatch, never
+  # pull_request, so that job could never run. Removed rather than wired up:
+  # it targeted the ECS/RDS/ALB infra in infra/terraform/, which is out of
+  # scope until customer growth justifies it (see terraform-apply.yml).

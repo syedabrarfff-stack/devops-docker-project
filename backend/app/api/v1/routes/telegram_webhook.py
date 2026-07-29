@@ -7,8 +7,10 @@ import logging
 import secrets
 from typing import Optional
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.notifications.telegram_bot import (
     send_message, handle_command, handle_text_message
 )
@@ -17,8 +19,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
-@router.post("/register")
-async def register_webhook(webhook_url: Optional[str] = None):
+@router.post("/register", dependencies=[Depends(get_current_captain)])
+@limiter.limit("5/minute")
+async def register_webhook(request: Request, webhook_url: Optional[str] = None):
     """Register JARVIS webhook with Telegram API."""
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="TELEGRAM_BOT_TOKEN not configured")
@@ -51,6 +54,7 @@ async def register_webhook(webhook_url: Optional[str] = None):
 
 
 @router.post("/webhook")
+@limiter.limit("60/minute")
 async def webhook(request: Request):
     """
     Receive incoming messages from Telegram.
@@ -59,11 +63,12 @@ async def webhook(request: Request):
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=400, detail="Bot not configured")
 
-    if settings.TELEGRAM_WEBHOOK_SECRET:
-        token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
-        if not secrets.compare_digest(token_header, settings.TELEGRAM_WEBHOOK_SECRET):
-            logger.warning("Telegram webhook: invalid or missing secret token")
-            raise HTTPException(status_code=403, detail="Forbidden")
+    if not settings.TELEGRAM_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Telegram webhook not configured")
+    token_header = request.headers.get("X-Telegram-Bot-API-Secret-Token", "")
+    if not secrets.compare_digest(token_header, settings.TELEGRAM_WEBHOOK_SECRET):
+        logger.warning("Telegram webhook: invalid or missing secret token")
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         body = await request.json()

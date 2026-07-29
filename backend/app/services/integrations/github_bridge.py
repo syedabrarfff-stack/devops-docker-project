@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,10 @@ class GitHubBridge:
         effective_date = date_str or await asyncio.to_thread(self.get_latest_date_folder)
         if not effective_date:
             logger.warning("[GitHubBridge] No date folder found in %s/daily/", self.REPO_DATA_PATH)
+            return {}
+
+        if date_str and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+            logger.warning("[GitHubBridge] Invalid date_str format: %s", date_str)
             return {}
 
         daily_path = Path(self.REPO_DATA_PATH) / "daily" / effective_date
@@ -140,6 +145,12 @@ class GitHubBridge:
         Returns: file_path written.
         """
         effective_date = date_str or date.today().isoformat()
+        if date_str and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_str):
+            logger.warning("[GitHubBridge] Invalid date_str format for output: %s", date_str)
+            return ""
+        if not re.fullmatch(r"[a-z_]+", output_type):
+            logger.warning("[GitHubBridge] Invalid output_type: %s", output_type)
+            return ""
         output_path = Path(self.REPO_DATA_PATH) / "outputs"
 
         try:

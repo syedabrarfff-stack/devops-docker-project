@@ -91,6 +91,9 @@ class EmailTracking(JarvisBase):
 
 class ReplyLog(JarvisBase):
     __tablename__ = "reply_log"
+    __table_args__ = (
+        Index("ix_reply_log_tenant_processed_at", "tenant_id", "processed_at"),
+    )
 
     lead_id: Mapped[uuid.UUID] = mapped_column(
         SUUID(as_uuid=True),
@@ -123,6 +126,7 @@ class FollowUpQueue(JarvisBase):
     __tablename__ = "follow_up_queue"
     __table_args__ = (
         Index("ix_follow_up_queue_status_scheduled_at", "status", "scheduled_at"),
+        Index("ix_follow_up_queue_tenant_status_scheduled_at", "tenant_id", "status", "scheduled_at"),
     )
 
     lead_id: Mapped[uuid.UUID | None] = mapped_column(

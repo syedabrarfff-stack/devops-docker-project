@@ -25,12 +25,21 @@ async def get_or_create_twin(
     client_id: uuid.UUID,
     tenant_id: uuid.UUID | None = None,
 ) -> ClientDigitalTwin:
-    result = await db.execute(
-        select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
-    )
+    _tid = tenant_id
+    if _tid is None:
+        from app.core.config import settings as _cfg
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+    q = select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
+    if _tid is not None:
+        q = q.where(ClientDigitalTwin.tenant_id == _tid)
+    result = await db.execute(q)
     twin = result.scalar_one_or_none()
     if not twin:
-        twin = ClientDigitalTwin(client_id=client_id, tenant_id=tenant_id)
+        twin = ClientDigitalTwin(client_id=client_id, tenant_id=_tid)
         db.add(twin)
         await db.commit()
     return twin
@@ -40,13 +49,15 @@ async def update_twin_profile(
     db: AsyncSession,
     client_id: uuid.UUID,
     updates: dict[str, Any],
+    tenant_id: uuid.UUID | None = None,
 ) -> ClientDigitalTwin:
-    result = await db.execute(
-        select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
-    )
+    q = select(ClientDigitalTwin).where(ClientDigitalTwin.client_id == client_id)
+    if tenant_id is not None:
+        q = q.where(ClientDigitalTwin.tenant_id == tenant_id)
+    result = await db.execute(q)
     twin = result.scalar_one_or_none()
     if not twin:
-        twin = ClientDigitalTwin(client_id=client_id)
+        twin = ClientDigitalTwin(client_id=client_id, tenant_id=tenant_id)
         db.add(twin)
 
     allowed_fields = {
@@ -98,7 +109,17 @@ async def record_interaction(
     twin.updated_at = datetime.utcnow()
 
     if profile_updates:
-        await update_twin_profile(db, client_id, profile_updates)
+        _allowed = {
+            "communication_preferences", "decision_speed", "risk_tolerance",
+            "budget_authority", "internal_politics", "buying_psychology",
+            "technical_maturity", "support_expectation", "preferred_hia_agent",
+            "historical_objections", "successful_strategies", "trust_score",
+            "stakeholder_map", "churn_risk_score", "upsell_opportunity_score",
+            "renewal_probability",
+        }
+        for field, value in profile_updates.items():
+            if field in _allowed:
+                setattr(twin, field, value)
 
     await db.commit()
     return interaction
@@ -166,7 +187,7 @@ async def get_twin_for_hia(
     await update_predictions(db, client_id)
 
     result = await db.execute(
-        select(ClientTwinPrediction).where(ClientTwinPrediction.twin_id == twin.id)
+        select(ClientTwinPrediction).where(ClientTwinPrediction.twin_id == twin.id).limit(100)
     )
     predictions = result.scalars().all()
 

@@ -47,34 +47,33 @@ class BriefGenerator:
         messages = [Message(role="user", content=prompt)]
 
         parsed = {}
+        brief_status = "generated"
         try:
-            response, _ = await ai_router.chat(
-                messages,
-                task_type=TaskType.STRATEGY,
-                max_tokens=1500,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages,
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=1500,
+                ),
+                timeout=30.0,
             )
-            raw = response.content.strip()
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            logger.warning("BriefGenerator: JSON parse failed, using stub data")
-            parsed = {
-                "bottlenecks": [],
-                "opportunities": [],
-                "quick_wins": [],
-                "risk_factors": [],
-                "estimated_roi": None,
-                "narrative": None,
-            }
-        except Exception as e:
-            logger.warning("BriefGenerator: AI call failed: %s", e)
-            parsed = {
-                "bottlenecks": [],
-                "opportunities": [],
-                "quick_wins": [],
-                "risk_factors": [],
-                "estimated_roi": None,
-                "narrative": None,
-            }
+            if response.error:
+                raise ValueError(f"AI provider error: {response.error}")
+            raw = (response.content or "").strip()
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                logger.error(
+                    "BriefGenerator: JSON parse failed for %s (response prefix: %.100s): %s",
+                    company_name, raw, exc,
+                )
+                brief_status = "failed"
+        except asyncio.TimeoutError:
+            logger.error("BriefGenerator: AI call timed out for %s", company_name)
+            brief_status = "failed"
+        except Exception as exc:
+            logger.error("BriefGenerator: AI call failed for %s: %s", company_name, exc)
+            brief_status = "failed"
 
         trust_score = 0.0
         if lead_id:
@@ -82,8 +81,8 @@ class BriefGenerator:
                 from app.services.trust.scoring import compute_scores
                 scores = await compute_scores(lead_id)
                 trust_score = scores.get("trust_score", 0.0)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("BriefGenerator: trust score failed for lead %s: %s", lead_id, exc)
 
         async with AsyncSessionLocal() as db:
             brief = ExecutiveOpportunityBrief(
@@ -98,7 +97,7 @@ class BriefGenerator:
                 estimated_roi=parsed.get("estimated_roi"),
                 narrative=parsed.get("narrative"),
                 trust_score_at_creation=trust_score,
-                status="generated",
+                status=brief_status,
             )
             db.add(brief)
             await db.commit()

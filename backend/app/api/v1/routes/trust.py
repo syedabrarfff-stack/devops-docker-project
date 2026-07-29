@@ -1,10 +1,12 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/trust", tags=["trust"])
+router = APIRouter(prefix="/trust", tags=["trust"], dependencies=[Depends(get_current_captain)])
 
 
 class BriefRequest(BaseModel):
@@ -32,7 +34,8 @@ class ReferralGenerateRequest(BaseModel):
 
 
 @router.post("/briefs/generate")
-async def generate_brief(req: BriefRequest):
+@limiter.limit("10/minute")
+async def generate_brief(request: Request, req: BriefRequest):
     from app.services.trust.brief_generator import brief_generator
     return await brief_generator.generate(
         company_name=req.company_name,
@@ -54,13 +57,15 @@ async def list_briefs_for_lead(lead_id: UUID):
             select(ExecutiveOpportunityBrief)
             .where(ExecutiveOpportunityBrief.lead_id == lead_id)
             .order_by(ExecutiveOpportunityBrief.created_at.desc())
+            .limit(50)
         )
         briefs = result.scalars().all()
         return [brief_generator._serialize(b) for b in briefs]
 
 
 @router.post("/engagement")
-async def log_engagement_event(req: EngagementEventRequest):
+@limiter.limit("30/minute")
+async def log_engagement_event(request: Request, req: EngagementEventRequest):
     from app.services.trust.scoring import log_event
     return await log_event(
         lead_id=req.lead_id,
@@ -77,7 +82,8 @@ async def get_trust_score(lead_id: UUID):
 
 
 @router.post("/referrals/generate")
-async def generate_referrals(req: ReferralGenerateRequest):
+@limiter.limit("5/minute")
+async def generate_referrals(request: Request, req: ReferralGenerateRequest):
     from app.services.trust.referral_engine import referral_engine
     return await referral_engine.generate(
         client_id=req.client_id,
@@ -95,7 +101,7 @@ async def list_referrals(status: Optional[str] = None):
     from app.models.trust_engine import ReferralRequest
 
     async with AsyncSessionLocal() as db:
-        q = select(ReferralRequest).order_by(ReferralRequest.created_at.desc())
+        q = select(ReferralRequest).order_by(ReferralRequest.created_at.desc()).limit(200)
         if status:
             q = q.where(ReferralRequest.status == status)
         result = await db.execute(q)

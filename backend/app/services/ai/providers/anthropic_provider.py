@@ -23,6 +23,7 @@ class AnthropicProvider(BaseAIProvider):
             model_id = "claude-sonnet-4-6"
         try:
             import anthropic
+            # Python's ssl module respects SSL_CERT_FILE env var set at container start
             client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
             result = await client.messages.create(
                 model=model_id,

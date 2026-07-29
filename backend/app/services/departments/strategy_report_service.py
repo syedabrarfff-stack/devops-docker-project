@@ -17,6 +17,7 @@ Weekly (Sunday 07:00 UTC):
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -205,12 +206,14 @@ class StrategyReportService:
     async def _collect_operational_data(self, tenant_uuid: uuid.UUID) -> dict[str, Any]:
         """Collect real-time operational data from all departments."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
 
             # DIO performance
             dios = (await db.execute(
                 select(DepartmentIntelligenceOfficer)
                 .where(DepartmentIntelligenceOfficer.tenant_id == tenant_uuid)
+                .limit(100)
             )).scalars().all()
 
             # Recent milestones
@@ -284,12 +287,18 @@ Return as JSON:
 Return only valid JSON."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
-            return json.loads(response.content.strip())
-        except Exception:
+            if response.error:
+                raise ValueError(response.error)
+            return json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Weekly intelligence collection failed: %s", exc)
             return {"weekly_intelligence": "Collection pending"}
 
     async def _generate_report_content(
@@ -318,11 +327,16 @@ Confident, concise, data-driven. Never mention AI or automation.
 Length: 600-900 words."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                ),
+                timeout=60.0,
             )
-            return response.content
+            if response.error:
+                raise ValueError(response.error)
+            return response.content or f"Strategy report for {report_date.strftime('%Y-%m-%d')} — AI analysis pending."
         except Exception as exc:
             logger.warning("Strategy report generation failed: %s", exc)
             return f"Strategy report for {report_date.strftime('%Y-%m-%d')} — data collection complete, analysis pending."
@@ -364,13 +378,19 @@ Analysis: {council_reasoning[:2000]}
 Return only valid JSON array."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
-            items = json.loads(response.content.strip())
+            if response.error:
+                raise ValueError(response.error)
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("Directive extraction failed: %s", exc)
             return [council_reasoning[:200]]
 
     async def _cascade_directives_to_departments(
@@ -392,7 +412,8 @@ Return only valid JSON array."""
     ) -> uuid.UUID:
         """Persist the strategy report to database."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
 
             report = StrategyReport(
                 tenant_id=tenant_uuid,
@@ -418,7 +439,8 @@ Return only valid JSON array."""
     ) -> None:
         """Update report with Council results and cascaded directives."""
         async with AsyncSessionLocal() as db:
-            await set_tenant_context(db, str(tenant_uuid))
+            if not settings.DATABASE_URL.startswith("sqlite"):
+                await set_tenant_context(db, str(tenant_uuid))
             report = await db.get(StrategyReport, report_id)
             if report:
                 report.council_session_id = uuid.UUID(council_result.session_id)
@@ -443,14 +465,14 @@ Return only valid JSON array."""
         )
 
         try:
-            from app.services.notifications.slack import send_slack_message
-            await send_slack_message(summary)
+            from app.services.notifications.slack import notify_slack
+            await notify_slack(summary)
         except Exception as exc:
             logger.warning("Slack strategy report notification failed: %s", exc)
 
         try:
-            from app.services.notifications.telegram_bot import send_telegram_message
-            await send_telegram_message(summary)
+            from app.services.notifications.telegram import notify_telegram
+            await notify_telegram(summary)
         except Exception as exc:
             logger.warning("Telegram strategy report notification failed: %s", exc)
 

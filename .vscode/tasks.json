@@ -2,6 +2,84 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Council: Ask the AI Council",
+      "type": "shell",
+      "command": "python council.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Install Requirements",
+      "type": "shell",
+      "command": "pip install -r requirements.txt",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Council: Start Telegram Bot",
+      "type": "shell",
+      "command": "python telegram_bot.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Browse Session History",
+      "type": "shell",
+      "command": "python sessions_viewer.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Start REST API Server",
+      "type": "shell",
+      "command": "python api.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Run Full Diagnostic",
+      "type": "shell",
+      "command": "python test_keys.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
       "label": "🚀 JARVIS: Start Full Stack",
       "type": "shell",
       "command": "docker compose up -d && echo '\\n✅ Stack started. Logs: docker compose logs -f backend'",
@@ -216,6 +294,42 @@
       "presentation": {
         "reveal": "always",
         "panel": "new"
+      }
+    },
+    {
+      "label": "🏗️ V4: Task Book Status",
+      "type": "shell",
+      "command": "python3 scripts/agent_bridge.py status",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "🏗️ V4: Draft One Task",
+      "type": "shell",
+      "command": "read -p 'Task ID (e.g. K1-2): ' tid && python3 scripts/agent_bridge.py draft \"$tid\"",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "📖 V4: Open Architecture Doc",
+      "type": "shell",
+      "command": "${env:EDITOR:-code} docs/architecture/JARVIS_V4_ARCHITECTURE.md",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "📖 V4: Open Task Book",
+      "type": "shell",
+      "command": "${env:EDITOR:-code} docs/architecture/JARVIS_V4_TASKBOOK.md",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
       }
     }
   ]

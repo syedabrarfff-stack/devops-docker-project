@@ -4,6 +4,7 @@ Implements lead qualification → outreach email → proposal follow-up chain.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -69,14 +70,18 @@ SUBJECT: [subject line]
 BODY: [email body]"""
 
     try:
-        response = await ai_router.execute(
-            task_type=TaskType.OUTREACH,
-            prompt=prompt,
-            model_preference="claude",
-            timeout_sec=10,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.SALES,
+                force_provider="anthropic",
+            ),
+            timeout=10.0,
         )
+        if response.error:
+            raise ValueError(response.error)
 
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = response.content or ""
 
         # Parse response
         lines = content.split('\n')

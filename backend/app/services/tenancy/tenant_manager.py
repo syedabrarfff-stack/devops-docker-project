@@ -208,7 +208,7 @@ class TenantManager:
 
     async def list_tenants(self) -> list[Tenant]:
         async with AsyncSessionLocal() as db:
-            rows = await db.execute(select(Tenant).order_by(Tenant.created_at.desc()))
+            rows = await db.execute(select(Tenant).order_by(Tenant.created_at.desc()).limit(500))
             return list(rows.scalars().all())
 
     async def update_plan_limits(self, tenant_id: uuid.UUID | str, limits: dict[str, Any]) -> Tenant:
@@ -258,7 +258,7 @@ class TenantManager:
                 select(TenantApiKey).where(
                     TenantApiKey.tenant_id == tenant_uuid,
                     TenantApiKey.is_active.is_(True),
-                )
+                ).limit(100)
             )
             for existing in existing_rows.scalars().all():
                 existing.is_active = False

@@ -2,6 +2,7 @@
 JARVIS Governance — AI-powered document generation for invoices, proposals, and contracts.
 All documents require Captain approval before execution.
 """
+import asyncio
 import json
 import logging
 import random
@@ -14,6 +15,19 @@ from app.models.governance import Contract, Invoice, Proposal, ContractTemplate
 from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_doc_tenant(tenant_id=None):
+    """Return a UUID for tenant_id, falling back to configured default or system UUID."""
+    import uuid as _uuid
+    if tenant_id:
+        return _uuid.UUID(str(tenant_id))
+    from app.core.config import settings
+    tid = settings.JARVIS_DEFAULT_TENANT_ID
+    return _uuid.UUID(str(tid)) if tid else _uuid.UUID(_SYSTEM_TENANT)
+
 
 PROPOSAL_PROMPT = """You are JARVIS — the strategic AI of Aliyar Solutions, a premium AI automation and cloud consulting company.
 
@@ -56,6 +70,7 @@ async def generate_proposal(
     context: str,
     pricing: dict,
     style: str = "standard",
+    tenant_id=None,
 ) -> dict:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -91,12 +106,17 @@ async def generate_proposal(
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.STRATEGY,
-            max_tokens=2500,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.STRATEGY,
+                max_tokens=2500,
+            ),
+            timeout=60.0,
         )
-        content = response.content.strip()
+        if response.error:
+            raise ValueError(response.error)
+        content = (response.content or "").strip()
     except Exception as e:
         logger.warning(f"Proposal generation failed: {e}")
         content = (
@@ -106,7 +126,9 @@ async def generate_proposal(
         )
 
     title = f"{service_type} — {client_company}"
+    _tid = _resolve_doc_tenant(tenant_id)
     proposal = Proposal(
+        tenant_id=_tid,
         title=title,
         client_name=client_name,
         client_email=client_email,
@@ -141,24 +163,28 @@ async def create_invoice(
     currency: str = "USD",
     notes: str = "",
     due_days: int = 14,
+    tenant_id=None,
 ) -> dict:
+    from app.models.revenue import InvoiceStatus
     subtotal = sum(float(i.get("amount", 0)) for i in items)
     tax_amount = subtotal * tax_rate / 100
     total = subtotal + tax_amount
 
     invoice = Invoice(
+        tenant_id=_resolve_doc_tenant(tenant_id),
         invoice_number=_next_invoice_number(),
         client_name=client_name,
         client_email=client_email,
         client_company=client_company,
         items=items,
-        subtotal=Decimal(str(round(subtotal, 2))),
-        tax_rate=Decimal(str(tax_rate)),
-        tax_amount=Decimal(str(round(tax_amount, 2))),
-        total=Decimal(str(round(total, 2))),
+        subtotal=round(subtotal, 2),
+        tax_rate=tax_rate,
+        tax_amount=round(tax_amount, 2),
+        total=round(total, 2),
+        amount_usd=round(subtotal, 2),
         currency=currency,
         notes=notes,
-        status="draft",
+        status=InvoiceStatus.DRAFT,
         due_date=datetime.now(timezone.utc) + timedelta(days=due_days),
     )
     db.add(invoice)
@@ -173,25 +199,34 @@ async def get_invoices(db: AsyncSession, status: str | None = None, tenant_id=No
     if tenant_id is not None:
         import uuid as _uuid
         q = q.where(Invoice.tenant_id == _uuid.UUID(str(tenant_id)))
-    result = await db.execute(q)
+    result = await db.execute(q.limit(500))
     return [_serialize_invoice(i) for i in result.scalars().all()]
 
 
-async def get_proposals(db: AsyncSession, status: str | None = None) -> list[dict]:
+async def get_proposals(db: AsyncSession, status: str | None = None, tenant_id=None) -> list[dict]:
     q = select(Proposal).order_by(Proposal.created_at.desc())
     if status:
         q = q.where(Proposal.status == status)
-    result = await db.execute(q)
+    if tenant_id is not None:
+        import uuid as _uuid
+        q = q.where(Proposal.tenant_id == _uuid.UUID(str(tenant_id)))
+    result = await db.execute(q.limit(500))
     return [_serialize_proposal(p) for p in result.scalars().all()]
 
 
-async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str) -> bool:
+async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str, tenant_id=None) -> bool:
     import uuid as _uuid
     try:
         _id = _uuid.UUID(str(invoice_id))
     except (ValueError, AttributeError):
         return False
-    result = await db.execute(select(Invoice).where(Invoice.id == _id))
+    q = select(Invoice).where(Invoice.id == _id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Invoice.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     inv = result.scalar_one_or_none()
     if not inv:
         return False
@@ -203,8 +238,15 @@ async def update_invoice_status(db: AsyncSession, invoice_id, new_status: str) -
     return True
 
 
-async def update_proposal_status(db: AsyncSession, proposal_id: int, new_status: str) -> bool:
-    result = await db.execute(select(Proposal).where(Proposal.id == proposal_id))
+async def update_proposal_status(db: AsyncSession, proposal_id: int, new_status: str, tenant_id=None) -> bool:
+    import uuid as _uuid
+    q = select(Proposal).where(Proposal.id == proposal_id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Proposal.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     prop = result.scalar_one_or_none()
     if not prop:
         return False
@@ -305,6 +347,7 @@ async def generate_contract(
     service_type: str,
     scope: str,
     pricing: dict,
+    tenant_id=None,
 ) -> dict:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -322,12 +365,17 @@ async def generate_contract(
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.STRATEGY,
-            max_tokens=3000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.STRATEGY,
+                max_tokens=3000,
+            ),
+            timeout=60.0,
         )
-        content = response.content.strip()
+        if response.error:
+            raise ValueError(response.error)
+        content = (response.content or "").strip()
     except Exception as e:
         logger.warning("Contract generation AI failed: %s", e)
         content = (
@@ -342,6 +390,7 @@ async def generate_contract(
         )
 
     contract = Contract(
+        tenant_id=_resolve_doc_tenant(tenant_id),
         proposal_id=proposal_id,
         client_name=client_name,
         client_email=client_email,
@@ -358,16 +407,34 @@ async def generate_contract(
     return _serialize_contract(contract)
 
 
-async def get_contracts(db: AsyncSession, status: str | None = None) -> list[dict]:
+async def get_contract(db: AsyncSession, contract_id: int) -> dict | None:
+    # Contract has no tenant_id column (single-tenant document); unlike get_contracts/
+    # update_contract_status this deliberately doesn't accept a tenant filter param.
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalar_one_or_none()
+    return _serialize_contract(contract) if contract else None
+
+
+async def get_contracts(db: AsyncSession, status: str | None = None, tenant_id=None) -> list[dict]:
     q = select(Contract).order_by(Contract.created_at.desc()).limit(200)
     if status:
         q = q.where(Contract.status == status)
+    if tenant_id is not None:
+        import uuid as _uuid
+        q = q.where(Contract.tenant_id == _uuid.UUID(str(tenant_id)))
     result = await db.execute(q)
     return [_serialize_contract(c) for c in result.scalars().all()]
 
 
-async def update_contract_status(db: AsyncSession, contract_id: int, new_status: str) -> bool:
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+async def update_contract_status(db: AsyncSession, contract_id: int, new_status: str, tenant_id=None) -> bool:
+    import uuid as _uuid
+    q = select(Contract).where(Contract.id == contract_id)
+    if tenant_id is not None:
+        try:
+            q = q.where(Contract.tenant_id == _uuid.UUID(str(tenant_id)))
+        except (ValueError, AttributeError):
+            return False
+    result = await db.execute(q)
     contract = result.scalar_one_or_none()
     if not contract:
         return False

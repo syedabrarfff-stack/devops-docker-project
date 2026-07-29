@@ -493,6 +493,12 @@ export default function ConsciousnessHub() {
       title="Consciousness Hub"
       subtitle="JARVIS Soul - Heart - Brain - The Complete Inner Operating System"
     >
+      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 mb-3 text-xs text-amber-100/90">
+        Diagnostic console — most buttons here send fixed sample data (e.g. a demo
+        "VaultPay" lead) to exercise each engine's logic in isolation. Results reflect
+        that sample input, not your live pipeline. Use Revenue Intel, Leads, or CRM for
+        real business figures.
+      </div>
       {pageError && (
         <div className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
           <p className="font-semibold">Consciousness page alert</p>

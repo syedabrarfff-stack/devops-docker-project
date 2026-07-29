@@ -60,6 +60,7 @@ import DiscoveryView from './components/discovery/DiscoveryView'
 import ProjectsView from './components/projects/ProjectsView'
 import VoiceView from './components/voice/VoiceView'
 import KnowledgeView from './components/knowledge/KnowledgeView'
+import TrustView from './components/trust/TrustView'
 import ResearchView from './components/research/ResearchView'
 import SettingsView from './components/settings/SettingsView'
 import DepartmentsView from './components/departments/DepartmentsView'
@@ -76,7 +77,6 @@ import AionxArchitecture from './components/aionx/AionxArchitecture'
 import CommunicationHub from './components/communication/CommunicationHub'
 import AgentOpsCenter from './components/agent_ops/AgentOpsCenter'
 import AIOpsDashboard from './components/ai_ops/AIOpsDashboard'
-import ApprovalQueue from './components/approvals/ApprovalQueue'
 import CalendarView from './components/calendar/CalendarView'
 import EvolutionDashboard from './components/evolution/EvolutionDashboard'
 import FrontierShell from './components/frontier/FrontierShell'
@@ -90,6 +90,17 @@ import FinancialIntelligence from './components/financial/FinancialIntelligence'
 import LearningEngine from './components/learning/LearningEngine'
 import FounderDependency from './components/founder/FounderDependency'
 import MoatEngine from './components/moat/MoatEngine'
+import OmegaDashboard from './components/omega/OmegaDashboard'
+import GhostWriter from './components/ghost/GhostWriter'
+import AutopilotDashboard from './components/autopilot/AutopilotDashboard'
+import SignalDashboard from './components/signal/SignalDashboard'
+import NexusCore from './components/nexus/NexusCore'
+import SupremeDashboard from './components/supreme/SupremeDashboard'
+import MonitoringDashboard from './components/monitoring/MonitoringDashboard'
+import KernelDashboard from './components/KernelDashboard'
+import RevenueActivation from './components/RevenueActivation'
+import EngineeringOrg from './components/EngineeringOrg'
+import Headquarters from './components/Headquarters'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -121,6 +132,7 @@ export const VIEWS = {
   gmailLegacy:   { path: controlPath('/gmail'),         title: 'Executive Email Center', Component: EmailRedirect },
   voice:         { path: controlPath('/voice'),         title: 'Voice Briefings',        Component: VoiceView },
   knowledge:     { path: controlPath('/knowledge'),     title: 'Knowledge Base',         Component: KnowledgeView },
+  trust:         { path: controlPath('/trust'),         title: 'Client Trust',           Component: TrustView },
   research:      { path: controlPath('/research'),      title: 'Research Reports',       Component: ResearchView },
   departments:   { path: controlPath('/departments'),   title: 'Department Intelligence', Component: DepartmentsView },
   governance:    { path: controlPath('/governance'),    title: 'Governance',             Component: GovernanceDashboard },
@@ -138,7 +150,6 @@ export const VIEWS = {
   aionxArchitecture: { path: controlPath('/aionx-architecture'), title: 'AIONX Architecture', Component: AionxArchitecture },
   agentOps:          { path: controlPath('/agent-ops'),          title: 'Agent Operations',  Component: AgentOpsCenter },
   aiOps:             { path: controlPath('/ai-ops'),             title: 'AI Operations',     Component: AIOpsDashboard },
-  approvalQueue:     { path: controlPath('/approval-queue'),     title: 'Approval Queue',    Component: ApprovalQueue },
   calendar:          { path: controlPath('/calendar'),           title: 'Calendar',          Component: CalendarView },
   evolution:         { path: controlPath('/evolution'),          title: 'System Evolution',  Component: EvolutionDashboard },
   frontierShell:     { path: controlPath('/frontier'),           title: 'Frontier Shell',    Component: FrontierShell },
@@ -153,6 +164,26 @@ export const VIEWS = {
   learningEngine:    { path: controlPath('/learning-engine'),     title: 'Learning Engine',         Component: LearningEngine },
   founderDependency: { path: controlPath('/founder-dependency'),  title: 'Founder Dependency',      Component: FounderDependency },
   moatEngine:        { path: controlPath('/moat-engine'),         title: 'Competitive Moat',        Component: MoatEngine },
+  // OMEGA Global Intelligence Swarm
+  omega:             { path: controlPath('/omega'),               title: 'OMEGA Swarm',             Component: OmegaDashboard },
+  // GHOST — AI Outreach Intelligence Engine
+  ghost:             { path: controlPath('/ghost'),               title: 'GHOST Outreach AI',       Component: GhostWriter },
+  // AUTOPILOT — Autonomous Outreach Pipeline
+  autopilot:         { path: controlPath('/autopilot'),           title: 'AUTOPILOT Pipeline',      Component: AutopilotDashboard },
+  // SIGNAL — AI Pipeline Intelligence Scanner
+  signal:            { path: controlPath('/signal'),              title: 'Pipeline Intelligence',   Component: SignalDashboard },
+  // NEXUS — Supreme Autonomous Intelligence Core
+  nexus:             { path: controlPath('/nexus'),               title: 'JARVIS NEXUS',            Component: NexusCore },
+  // Layer 19 — Supreme Intelligence (Constitution, CEO, Revenue, Platform, Sales)
+  supreme:           { path: controlPath('/supreme'),             title: 'Supreme Intelligence',    Component: SupremeDashboard },
+  // Real-time Monitoring & Metrics
+  monitoring:        { path: controlPath('/monitoring'),          title: 'System Monitoring',       Component: MonitoringDashboard },
+  kernel:            { path: controlPath('/kernel'),              title: 'Kernel Ops Dashboard',    Component: KernelDashboard },
+  // Phase 6A — Revenue Activation
+  revenueActivation: { path: controlPath('/revenue-activation'),  title: 'Revenue Activation',      Component: RevenueActivation },
+  headquarters:      { path: controlPath('/headquarters'),        title: 'Headquarters',             Component: Headquarters },
+  // Phase 7 — Engineering Organization (Mission Planner + departments)
+  engineeringOrg:    { path: controlPath('/engineering'),         title: 'Engineering Organization', Component: EngineeringOrg },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)
@@ -181,7 +212,7 @@ function PublicWebsite() {
     setContactSubmitting(true)
     setContactError(null)
     try {
-      await fetch('/api/v1/leads/', {
+      const res = await fetch('/api/v1/leads/public/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,11 +220,10 @@ function PublicWebsite() {
           contact_name: contactForm.name,
           email: contactForm.email,
           opportunity_type: contactForm.service,
-          notes: contactForm.message,
-          source: 'website_contact',
-          pain_points: [contactForm.service],
+          message: contactForm.message,
         }),
       })
+      if (!res.ok) throw new Error(`Submission failed (${res.status})`)
       setContactSent(true)
     } catch {
       setContactError('Something went wrong. Please email info@aliyarsolutions.com directly.')

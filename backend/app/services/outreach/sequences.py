@@ -4,6 +4,7 @@ All cold emails follow the concise Phase 2 client-acquisition format.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -182,13 +183,18 @@ async def generate_sequence_with_ai(
         "- Use {name}, {company}, {industry} as placeholders\n\n"
         'Return ONLY valid JSON array: [{"step":1,"delay_days":0,"subject":"...","body":"..."},...]'
     )
-    resp, _ = await ai_router.chat(
-        [Message(role="user", content=prompt)],
-        task_type=TaskType.FAST,
-        force_provider="google",
-    )
     try:
-        text = resp.content.strip()
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.FAST,
+                force_provider="google",
+            ),
+            timeout=60.0,
+        )
+        if resp.error:
+            raise ValueError(resp.error)
+        text = (resp.content or "").strip()
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
         steps = json.loads(text)
@@ -208,15 +214,37 @@ async def enroll_contacts(
     db: AsyncSession,
     sequence_id: int,
     contact_ids: list[int],
+    tenant_id: Optional[str] = None,
 ) -> list[OutreachEmail]:
     """Enroll contacts into a sequence by creating scheduled OutreachEmail records."""
+    import uuid as _uuid
     from datetime import datetime, timedelta, timezone
 
-    seq_row = (await db.execute(select(OutreachSequence).where(OutreachSequence.id == sequence_id))).scalar_one_or_none()
+    _tid: Optional[_uuid.UUID] = None
+    if tenant_id is not None:
+        try:
+            _tid = _uuid.UUID(str(tenant_id))
+        except (ValueError, AttributeError):
+            pass
+    if _tid is None:
+        from app.core.config import settings as _cfg
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+
+    seq_q = select(OutreachSequence).where(OutreachSequence.id == sequence_id)
+    if _tid is not None:
+        seq_q = seq_q.where(OutreachSequence.tenant_id == _tid)
+    seq_row = (await db.execute(seq_q)).scalar_one_or_none()
     if not seq_row:
         return []
 
-    contacts = (await db.execute(select(Contact).where(Contact.id.in_(contact_ids)))).scalars().all()
+    contact_q = select(Contact).where(Contact.id.in_(contact_ids))
+    if _tid is not None:
+        contact_q = contact_q.where(Contact.tenant_id == _tid)
+    contacts = (await db.execute(contact_q)).scalars().all()
     created = []
     now = datetime.now(timezone.utc)
 
@@ -224,8 +252,14 @@ async def enroll_contacts(
         for step in seq_row.steps or []:
             delay = step.get("delay_days", 0)
             subject = (step.get("subject") or "").replace("{name}", contact.name or "")
-            company_name = ""
-            body = (step.get("body") or "").replace("{name}", contact.name or "").replace("{company}", company_name)
+            company_name = getattr(contact, "company_name", None) or getattr(contact, "company", None) or ""
+            industry_name = getattr(contact, "industry", None) or ""
+            body = (
+                (step.get("body") or "")
+                .replace("{name}", contact.name or "")
+                .replace("{company}", company_name)
+                .replace("{industry}", industry_name)
+            )
             email = OutreachEmail(
                 sequence_id=sequence_id,
                 contact_id=contact.id,
@@ -236,6 +270,7 @@ async def enroll_contacts(
                 step_number=step.get("step", 1),
                 status="scheduled",
                 scheduled_at=now + timedelta(days=delay),
+                tenant_id=_tid,
             )
             db.add(email)
             created.append(email)
@@ -257,7 +292,7 @@ async def get_sequence_stats(db: AsyncSession) -> list[dict]:
             "status": s.status,
             "emails_sent": s.emails_sent,
             "replies_received": s.replies_received,
-            "open_rate": round(s.emails_opened / s.emails_sent * 100, 1) if s.emails_sent else 0,
+            "open_rate": round((s.emails_opened or 0) / s.emails_sent * 100, 1) if s.emails_sent else 0,
         }
         for s in rows
     ]

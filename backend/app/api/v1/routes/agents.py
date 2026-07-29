@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.agents.liaison import client_liaison_service
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/agents", tags=["agents"], dependencies=[Depends(get_current_captain)])
 
 AGENT_HIERARCHY = {
     "core": {
@@ -72,7 +74,8 @@ async def get_hierarchy():
 
 
 @router.post("/dispatch")
-async def dispatch_task(task: TaskDispatch):
+@limiter.limit("30/minute")
+async def dispatch_task(request: Request, task: TaskDispatch):
     return {
         "success": True,
         "task_id": f"task_{task.agent_id}_{int(__import__('time').time())}",
@@ -88,12 +91,14 @@ async def list_liaison_agents():
 
 
 @router.post("/liaison/seed")
+@limiter.limit("3/minute")
 async def seed_liaison_agents(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await client_liaison_service.seed_agents(resolved_tenant_id)
 
 
 @router.post("/liaison/{agent_name}/prepare-call")
+@limiter.limit("10/minute")
 async def prepare_liaison_call(
     agent_name: str,
     request: Request,

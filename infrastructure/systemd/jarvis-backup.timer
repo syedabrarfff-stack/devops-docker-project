@@ -1,0 +1,11 @@
+[Unit]
+Description=Run JARVIS backup nightly at 02:00 UTC
+Requires=jarvis-backup.service
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

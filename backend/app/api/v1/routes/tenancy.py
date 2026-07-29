@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import secrets
 import uuid
 from typing import Any
@@ -9,6 +7,7 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.models.tenant import Tenant
 from app.services.tenancy import TenantManager
 
@@ -65,7 +64,9 @@ async def require_captain(request: Request) -> bool:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def create_tenant(
+    request: Request,
     payload: CreateTenantRequest,
     _: bool = Depends(require_captain),
 ):
@@ -100,7 +101,9 @@ async def list_tenants(_: bool = Depends(require_captain)):
 
 
 @router.put("/{tenant_id}/limits")
+@limiter.limit("5/minute")
 async def update_tenant_limits(
+    request: Request,
     tenant_id: uuid.UUID,
     payload: TenantLimitsRequest,
     _: bool = Depends(require_captain),
@@ -114,7 +117,9 @@ async def update_tenant_limits(
 
 
 @router.post("/{tenant_id}/api-key")
+@limiter.limit("3/minute")
 async def rotate_tenant_api_key(
+    request: Request,
     tenant_id: uuid.UUID,
     payload: RotateApiKeyRequest | None = None,
     _: bool = Depends(require_captain),

@@ -106,7 +106,7 @@ class PilotActivationService:
                             FollowUpQueue.tenant_id == tenant_id,
                             FollowUpQueue.lead_id == lead_id,
                             FollowUpQueue.status == FollowUpStatus.PENDING,
-                        )
+                        ).limit(10)
                     )
                 ).scalars().all()
                 for item in items:

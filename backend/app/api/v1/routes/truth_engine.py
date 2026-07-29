@@ -1,19 +1,19 @@
 """Layer 18 — Truth Engine API routes."""
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.intelligence.truth_engine import truth_engine
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/truth", tags=["Truth Engine"])
+router = APIRouter(prefix="/truth", tags=["Truth Engine"], dependencies=[Depends(get_current_captain)])
 
 
 # ---------------------------------------------------------------------------
@@ -22,23 +22,23 @@ router = APIRouter(prefix="/truth", tags=["Truth Engine"])
 
 
 class PredictionIn(BaseModel):
-    prediction_type: str
-    entity_type: str
-    entity_id: Optional[str] = None
+    prediction_type: str = Field(..., max_length=100)
+    entity_type: str = Field(..., max_length=100)
+    entity_id: Optional[str] = Field(default=None, max_length=200)
     predicted_value: Optional[float] = None
-    predicted_label: Optional[str] = None
-    predicted_by: str
-    confidence_score: Optional[float] = None
+    predicted_label: Optional[str] = Field(default=None, max_length=500)
+    predicted_by: str = Field(..., max_length=100)
+    confidence_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     metadata: dict = {}
 
 
 class OutcomeIn(BaseModel):
     outcome_value: Optional[float] = None
-    outcome_label: Optional[str] = None
+    outcome_label: Optional[str] = Field(default=None, max_length=500)
 
 
 class RealityCheckIn(BaseModel):
-    check_type: str
+    check_type: str = Field(..., max_length=100)
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +67,7 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
 
 
 @router.post("/prediction")
+@limiter.limit("30/minute")
 async def record_prediction(body: PredictionIn, request: Request, tenant_id: Optional[UUID] = None):
     """Record a prediction for later accuracy tracking."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -91,6 +92,7 @@ async def record_prediction(body: PredictionIn, request: Request, tenant_id: Opt
 
 
 @router.post("/outcome/{truth_event_id}")
+@limiter.limit("30/minute")
 async def record_outcome(truth_event_id: UUID, body: OutcomeIn, request: Request, tenant_id: Optional[UUID] = None):
     """Record the actual outcome for a previously tracked prediction."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -110,6 +112,7 @@ async def record_outcome(truth_event_id: UUID, body: OutcomeIn, request: Request
 
 
 @router.get("/report")
+@limiter.limit("10/minute")
 async def get_truth_report(request: Request, tenant_id: Optional[UUID] = None):
     """Get the full truth engine accuracy report."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -123,6 +126,7 @@ async def get_truth_report(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/accuracy")
+@limiter.limit("10/minute")
 async def get_accuracy_dashboard(request: Request, tenant_id: Optional[UUID] = None):
     """Get the accuracy dashboard across all prediction types."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
@@ -136,6 +140,7 @@ async def get_accuracy_dashboard(request: Request, tenant_id: Optional[UUID] = N
 
 
 @router.post("/reality-check")
+@limiter.limit("5/minute")
 async def run_reality_check(body: RealityCheckIn, request: Request, tenant_id: Optional[UUID] = None):
     """Run a reality check to validate system assumptions against actual data."""
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)

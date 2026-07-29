@@ -7,20 +7,20 @@ GET  /connector-hub/status           Get today's ingestion status
 GET  /connector-hub/outputs          Get JARVIS outputs for today
 POST /connector-hub/council-review   Send content to AI Council for quality gate
 """
-from __future__ import annotations
-
 import logging
 import uuid
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"])
+router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"], dependencies=[Depends(get_current_captain)])
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
@@ -63,7 +63,8 @@ class IngestResponse(BaseModel):
 # ------------------------------------------------------------------
 
 @router.post("/ingest", response_model=IngestResponse, summary="Trigger daily connector hub ingestion")
-async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
+@limiter.limit("5/minute")
+async def trigger_ingestion(http_request: Request, request: IngestRequest, background_tasks: BackgroundTasks):
     """
     Trigger full daily ingestion from /jarvis-data/ folder.
     Called by Codex at 14:30 UTC (20:00 IST) daily, or manually by Captain.
@@ -99,7 +100,8 @@ async def trigger_ingestion(request: IngestRequest, background_tasks: Background
 
 
 @router.post("/intelligence", summary="Trigger market intelligence generation")
-async def trigger_intelligence(request: IntelligenceRequest):
+@limiter.limit("5/minute")
+async def trigger_intelligence(http_request: Request, request: IntelligenceRequest):
     """
     Trigger daily market intelligence report and opportunity scan.
     Writes reports to /jarvis-data/intelligence/.
@@ -108,9 +110,14 @@ async def trigger_intelligence(request: IntelligenceRequest):
     from app.services.integrations.github_bridge import github_bridge
     import os
 
-    output_dir = request.output_dir or os.path.join(
-        github_bridge.REPO_DATA_PATH, "intelligence"
-    )
+    base_data_path = os.path.realpath(github_bridge.REPO_DATA_PATH)
+    if request.output_dir:
+        resolved = os.path.realpath(request.output_dir)
+        if not resolved.startswith(base_data_path + os.sep) and resolved != base_data_path:
+            raise HTTPException(status_code=400, detail="output_dir must be within the data directory")
+        output_dir = resolved
+    else:
+        output_dir = os.path.join(base_data_path, "intelligence")
 
     logger.info("[ConnectorHub API] Intelligence generation triggered — tenant=%s", request.tenant_id)
 
@@ -215,7 +222,8 @@ async def get_outputs(
 
 
 @router.post("/council-review", summary="Send content to AI Council for quality gate")
-async def council_review(request: CouncilReviewRequest):
+@limiter.limit("5/minute")
+async def council_review(http_request: Request, request: CouncilReviewRequest):
     """
     Sends content through the JARVIS AI Council for quality review.
     content_type: outreach_email | proposal | market_report | lead_score

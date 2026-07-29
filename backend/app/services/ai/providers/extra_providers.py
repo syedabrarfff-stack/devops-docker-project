@@ -179,6 +179,7 @@ class NvidiaProvider(BaseAIProvider):
 
     async def chat(self, messages: List[Message], model_id: str = "meta/llama-4-maverick-17b-128e-instruct",
                    system_prompt: str = "", max_tokens: int = 4096) -> AIResponse:
+        import os
         keys = self._nim_keys()
         if not keys:
             return AIResponse(content="", model=model_id, provider=self.name,
@@ -189,12 +190,13 @@ class NvidiaProvider(BaseAIProvider):
             msgs.append({"role": "system", "content": system_prompt})
         msgs.extend([{"role": m.role, "content": m.content} for m in messages])
 
+        # Use CA bundle from environment if available (for proxy SSL verification)
+        ca_cert = os.getenv("SSL_CERT_FILE") or os.getenv("REQUESTS_CA_BUNDLE") or True
+
         last_error = ""
         for api_key in keys:
             try:
-                # verify=False: cloud/corp environments with TLS inspection present self-signed
-                # intermediate certs not in the system bundle. NVIDIA's endpoint is trusted.
-                async with httpx.AsyncClient(timeout=90, verify=False) as client:
+                async with httpx.AsyncClient(timeout=90, verify=ca_cert) as client:
                     r = await client.post(
                         f"{self.base_url}/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}"},

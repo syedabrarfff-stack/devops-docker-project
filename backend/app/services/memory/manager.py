@@ -6,6 +6,7 @@ JARVIS Memory Manager — three-tier memory system.
   working     : current session scratchpad
   learning    : self-improvement insights from outcome analysis
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -105,7 +106,7 @@ async def get_instructions(
     db: AsyncSession,
     category: Optional[str] = None,
 ) -> list[Memory]:
-    q = select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance))
+    q = select(Memory).where(Memory.memory_type == "instruction").order_by(desc(Memory.importance)).limit(200)
     if category:
         q = q.where(Memory.tags.contains([category]))
     r = await db.execute(q)
@@ -174,13 +175,12 @@ async def build_context(
 
 async def get_memory_stats(db: AsyncSession) -> dict:
     total = await db.scalar(select(sqlfunc.count()).select_from(Memory)) or 0
-    by_type = {}
-    for mtype in ["episodic", "semantic", "instruction", "learning", "working"]:
-        count = await db.scalar(
-            select(sqlfunc.count()).select_from(Memory).where(Memory.memory_type == mtype)
-        ) or 0
-        if count:
-            by_type[mtype] = count
+    rows = (
+        await db.execute(
+            select(Memory.memory_type, sqlfunc.count()).group_by(Memory.memory_type)
+        )
+    ).all()
+    by_type = {mtype: cnt for mtype, cnt in rows if cnt}
     return {"total": total, "by_type": by_type}
 
 
@@ -224,12 +224,15 @@ async def maybe_summarise(
     )
     try:
         from app.services.ai.router import ai_router
-        resp = await ai_router.chat(
-            messages=[{"role": "user", "content": prompt}],
-            task_type="FAST",
-            max_tokens=600,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[{"role": "user", "content": prompt}],
+                task_type="FAST",
+                max_tokens=600,
+            ),
+            timeout=30.0,
         )
-        summary_text = resp.get("content", f"Conversation of {len(rows)} turns.")
+        summary_text = resp.content or f"Conversation of {len(rows)} turns."
     except Exception:
         summary_text = f"Conversation covering {len(rows)} turns."
 

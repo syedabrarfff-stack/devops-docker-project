@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getMoatReport, getMoatDimensions, getMoatThreats, runMoatScan } from '../../services/api'
 
 const DIMENSIONS = [
   { key: 'proprietary_data', label: 'Proprietary Data', desc: 'Lead database + client intelligence accumulated' },
@@ -27,9 +28,9 @@ export default function MoatEngine() {
     setLoading(true)
     try {
       const [r, d, t] = await Promise.all([
-        fetch('/api/v1/moat/report', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/moat/dimensions', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/moat/threats', { credentials: 'include' }).then(r => r.json()),
+        getMoatReport(),
+        getMoatDimensions(),
+        getMoatThreats(),
       ])
       setReport(r); setDims(d); setThreats(t)
     } catch (e) { setError(e.message) }
@@ -41,7 +42,7 @@ export default function MoatEngine() {
   const runScan = async () => {
     setScanning(true)
     try {
-      await fetch('/api/v1/moat/scan', { method: 'POST', credentials: 'include' })
+      await runMoatScan()
       setMsg('Moat scan complete.')
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }

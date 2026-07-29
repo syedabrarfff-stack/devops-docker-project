@@ -6,13 +6,14 @@ JARVIS's inner operating system: emotional state, competitive obsession,
 leadership frameworks, values, prospect psychology, horizon intelligence,
 offer construction, self-evolution, and Captain intelligence.
 """
-from __future__ import annotations
-
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
+
+from app.core.rate_limit import limiter
 
 from app.services.intelligence.emotional_core import emotional_core
 from app.services.intelligence.competitive_obsession import competitive_obsession
@@ -24,7 +25,7 @@ from app.services.intelligence.offer_engine import offer_engine
 from app.services.intelligence.upgrade_engine import upgrade_engine
 from app.services.intelligence.captain_profile_engine import captain_profile
 
-router = APIRouter(prefix="/consciousness", tags=["JARVIS Consciousness"])
+router = APIRouter(prefix="/consciousness", tags=["JARVIS Consciousness"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/snapshot")
@@ -64,7 +65,8 @@ class PipelineDataRequest(BaseModel):
     positive_reply_last_48h: bool = False
 
 @router.post("/emotional-state")
-async def assess_emotional_state(body: PipelineDataRequest):
+@limiter.limit("10/minute")
+async def assess_emotional_state(body: PipelineDataRequest, request: Request):
     return await emotional_core.assess_current_state(body.model_dump())
 
 @router.get("/emotional-state/tone/{state}")
@@ -87,7 +89,8 @@ class CompanyDataRequest(BaseModel):
     sources: list[str] = Field(default_factory=list)
 
 @router.post("/competitor/decode")
-async def decode_competitor_strategy(body: CompanyDataRequest):
+@limiter.limit("5/minute")
+async def decode_competitor_strategy(body: CompanyDataRequest, request: Request):
     profile = await competitive_obsession.decode_company_strategy(
         body.company_name,
         body.model_dump(exclude={"company_name"}),
@@ -95,7 +98,8 @@ async def decode_competitor_strategy(body: CompanyDataRequest):
     return profile.to_dict()
 
 @router.post("/competitor/briefing")
-async def competitive_briefing(profiles_data: list[dict]):
+@limiter.limit("20/minute")
+async def competitive_briefing(profiles_data: list[dict], request: Request):
     from app.services.intelligence.competitive_obsession import CompanyStrategyProfile
     profiles = []
     for d in profiles_data:
@@ -118,7 +122,8 @@ class GiantsDecisionRequest(BaseModel):
     options: list[str] = Field(default_factory=list)
 
 @router.post("/council-of-giants/convene")
-async def convene_giants_council(body: GiantsDecisionRequest):
+@limiter.limit("5/minute")
+async def convene_giants_council(body: GiantsDecisionRequest, request: Request):
     return council_of_giants.convene_for_decision(
         body.decision_type, body.context, body.options
     )
@@ -150,7 +155,8 @@ class ActionValidationRequest(BaseModel):
     proposed_action: str = Field(min_length=3, max_length=2000)
 
 @router.post("/soul/validate")
-async def validate_action(body: ActionValidationRequest):
+@limiter.limit("30/minute")
+async def validate_action(body: ActionValidationRequest, request: Request):
     return soul_engine.validate_action_against_soul(body.proposed_action)
 
 
@@ -161,14 +167,16 @@ class ProspectProfileRequest(BaseModel):
     interaction_history: list[dict] = Field(default_factory=list)
 
 @router.post("/heart/profile-prospect")
-async def profile_prospect(body: ProspectProfileRequest):
+@limiter.limit("10/minute")
+async def profile_prospect(body: ProspectProfileRequest, request: Request):
     profile = heart_engine.profile_prospect(
         body.lead_data, body.interaction_history
     )
     return profile.to_dict()
 
 @router.post("/heart/relationship-health")
-async def relationship_health(interaction_history: list[dict]):
+@limiter.limit("20/minute")
+async def relationship_health(interaction_history: list[dict], request: Request):
     return heart_engine.assess_relationship_health(interaction_history)
 
 @router.get("/heart/emotional-drivers")
@@ -186,11 +194,13 @@ class CurrentStateRequest(BaseModel):
     days_since_launch: int = 0
 
 @router.post("/vision/horizon-map")
-async def horizon_map(body: CurrentStateRequest):
+@limiter.limit("10/minute")
+async def horizon_map(body: CurrentStateRequest, request: Request):
     return vision_engine.generate_horizon_map(body.model_dump())
 
 @router.post("/vision/trajectory")
-async def trajectory_assessment(historical_states: list[dict]):
+@limiter.limit("20/minute")
+async def trajectory_assessment(historical_states: list[dict], request: Request):
     return vision_engine.assess_trajectory(historical_states)
 
 @router.get("/vision/compounding-assets")
@@ -211,7 +221,8 @@ class ProposalOfferRequest(BaseModel):
     recommended_tier: str = Field(default="GROWTH", max_length=50)
 
 @router.post("/offer/build")
-async def build_proposal_offer(body: ProposalOfferRequest):
+@limiter.limit("20/minute")
+async def build_proposal_offer(body: ProposalOfferRequest, request: Request):
     return offer_engine.build_proposal_offer(
         body.lead_data,
         body.emotional_profile,
@@ -219,7 +230,8 @@ async def build_proposal_offer(body: ProposalOfferRequest):
     )
 
 @router.post("/offer/select-tier")
-async def select_tier(lead_data: dict):
+@limiter.limit("30/minute")
+async def select_tier(lead_data: dict, request: Request):
     tier = offer_engine.select_tier(lead_data)
     return {"recommended_tier": tier, "tier_details": offer_engine.get_all_tiers()[tier]}
 
@@ -239,7 +251,8 @@ class UpgradePlanRequest(BaseModel):
     recent_failures: list[dict] = Field(default_factory=list)
 
 @router.post("/upgrade/weekly-plan")
-async def weekly_upgrade_plan(body: UpgradePlanRequest):
+@limiter.limit("5/minute")
+async def weekly_upgrade_plan(body: UpgradePlanRequest, request: Request):
     return upgrade_engine.generate_weekly_upgrade_plan(
         body.performance_data, body.recent_failures
     )
@@ -251,7 +264,8 @@ class FailureLogRequest(BaseModel):
     prevention_principle: str = Field(min_length=5, max_length=1000)
 
 @router.post("/upgrade/log-failure")
-async def log_failure(body: FailureLogRequest):
+@limiter.limit("30/minute")
+async def log_failure(body: FailureLogRequest, request: Request):
     return upgrade_engine.log_failure_and_learn(
         body.failure_type,
         body.failure_detail,
@@ -286,7 +300,8 @@ class DetectStateRequest(BaseModel):
     recent_messages: list[str] = Field(default_factory=list)
 
 @router.post("/captain/detect-state")
-async def detect_captain_state(body: DetectStateRequest):
+@limiter.limit("30/minute")
+async def detect_captain_state(body: DetectStateRequest, request: Request):
     state = captain_profile.detect_captain_state(body.recent_messages)
     return {"detected_state": state}
 
@@ -294,6 +309,7 @@ class BlindSpotRequest(BaseModel):
     decision_context: str = Field(min_length=5, max_length=2000)
 
 @router.post("/captain/blind-spot-check")
-async def blind_spot_check(body: BlindSpotRequest):
+@limiter.limit("20/minute")
+async def blind_spot_check(body: BlindSpotRequest, request: Request):
     alert = captain_profile.surface_blind_spot_alert(body.decision_context)
     return alert if alert else {"status": "CLEAR", "note": "No blind spots detected for this decision."}

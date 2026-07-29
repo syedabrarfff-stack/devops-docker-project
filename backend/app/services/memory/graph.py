@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import math
@@ -86,6 +87,7 @@ async def seed_memory_graph(tenant_id: uuid.UUID | str) -> dict[str, Any]:
                     select(ServiceDivision)
                     .where(ServiceDivision.is_active == True)
                     .order_by(ServiceDivision.sort_order.asc())
+                    .limit(200)
                 )
             ).scalars().all()
             service_nodes: list[MemoryGraphNode] = []
@@ -113,6 +115,7 @@ async def seed_memory_graph(tenant_id: uuid.UUID | str) -> dict[str, Any]:
                     select(Lead)
                     .where(Lead.tenant_id == tenant_uuid)
                     .order_by(Lead.score.desc(), Lead.created_at.desc())
+                    .limit(1000)
                 )
             ).scalars().all()
             lead_nodes: list[MemoryGraphNode] = []
@@ -143,6 +146,7 @@ async def seed_memory_graph(tenant_id: uuid.UUID | str) -> dict[str, Any]:
                         ApprovalRequest.status == ApprovalStatus.PENDING,
                     )
                     .order_by(ApprovalRequest.priority.asc(), ApprovalRequest.created_at.asc())
+                    .limit(200)
                 )
             ).scalars().all()
             approval_nodes: list[MemoryGraphNode] = []
@@ -229,6 +233,7 @@ async def search_memory_graph(query: str, tenant_id: uuid.UUID | str, limit: int
                     select(MemoryGraphNode)
                     .where(MemoryGraphNode.tenant_id == tenant_uuid)
                     .order_by(MemoryGraphNode.updated_at.desc())
+                    .limit(2000)
                 )
             ).scalars().all()
 

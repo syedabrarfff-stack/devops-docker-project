@@ -158,29 +158,67 @@ async def omni_status(db: AsyncSession) -> dict[str, Any]:
 
 
 async def seed_omni_registry(db: AsyncSession) -> dict[str, Any]:
-    created_or_updated = 0
+    # Build all rows first, then batch-upsert in one executemany call
+    # (replaces 227 individual per-system await db.execute calls)
+    _upsert_sql = text(
+        """
+        INSERT INTO aionx_omni_system_registry
+            (system_number, system_key, name, category, status, capability_level,
+             description, governance_boundary, dependencies)
+        VALUES
+            (:system_number, :system_key, :name, :category, :status, :capability_level,
+             :description, :governance_boundary, CAST(:dependencies AS jsonb))
+        ON CONFLICT (system_key) DO UPDATE SET
+            system_number = EXCLUDED.system_number,
+            category = EXCLUDED.category,
+            status = EXCLUDED.status,
+            capability_level = EXCLUDED.capability_level,
+            description = EXCLUDED.description,
+            governance_boundary = EXCLUDED.governance_boundary,
+            updated_at = now()
+        """
+    )
+    _boundary = (
+        "Live actions execute only inside existing authority tiers; "
+        "governed actions prepare and persist for Captain approval."
+    )
+    rows: list[dict] = []
     number = 1
     for system in NAMED_SYSTEMS:
-        await _upsert_system(db, number, system)
-        created_or_updated += 1
+        key = _key(system["name"])
+        rows.append({
+            "system_number": number,
+            "system_key": key,
+            "name": system["name"],
+            "category": system.get("category", "Doctrine"),
+            "status": system.get("status", "DESIGN_GOVERNED"),
+            "capability_level": "runtime" if system.get("status", "").startswith("LIVE") else "doctrine",
+            "description": system.get("description") or f"{system['name']} tracked inside the 227-system AIONX doctrine.",
+            "governance_boundary": _boundary,
+            "dependencies": _json([]),
+        })
         number += 1
 
     filler_needed = max(0, OMNI_TOTAL_SYSTEMS - len(NAMED_SYSTEMS))
     for idx in range(1, filler_needed + 1):
-        await _upsert_system(
-            db,
-            number,
-            {
-                "name": f"Canonical System Doctrine {idx:03d}",
-                "category": "Doctrine Registry",
-                "status": "DESIGN_GOVERNED",
-                "description": "Captured from the 227-system architecture as governed future capability doctrine.",
-            },
-        )
-        created_or_updated += 1
+        name = f"Canonical System Doctrine {idx:03d}"
+        rows.append({
+            "system_number": number,
+            "system_key": _key(name),
+            "name": name,
+            "category": "Doctrine Registry",
+            "status": "DESIGN_GOVERNED",
+            "capability_level": "doctrine",
+            "description": "Captured from the 227-system architecture as governed future capability doctrine.",
+            "governance_boundary": _boundary,
+            "dependencies": _json([]),
+        })
         number += 1
 
-    for runbook in STABILITY_RUNBOOKS:
+    if rows:
+        await db.execute(_upsert_sql, rows)
+
+    if STABILITY_RUNBOOKS:
         await db.execute(
             text(
                 """
@@ -196,7 +234,7 @@ async def seed_omni_registry(db: AsyncSession) -> dict[str, Any]:
                     updated_at = now()
                 """
             ),
-            runbook,
+            list(STABILITY_RUNBOOKS),
         )
     await db.commit()
     return {"seeded": True, "systems": OMNI_TOTAL_SYSTEMS, "runbooks": len(STABILITY_RUNBOOKS)}
@@ -276,6 +314,10 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
 
     email = await email_delivery_status(db, validate_provider=False)
     redis_status = await _redis_ping()
+
+    from app.services.aionx.orchestration_cortex import compute_operational_iq
+    operational_iq = await compute_operational_iq(db)
+    operational_iq_score = float(operational_iq.get("operational_iq", 50.0))
     alerts = []
     if len(aionx_jobs) < 24:
         alerts.append({"severity": "WARNING", "message": "AIONX job count below expected 24."})
@@ -303,7 +345,7 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
             "ai_spend_today_usd": "tracked_in_economics_layer",
             "pipeline": "tracked_in_crm_revenue_layer",
             "emails": "tracked_in_outreach_layer",
-            "operational_iq": "tracked_in_aionx_cortex",
+            "operational_iq": operational_iq_score,
         },
         "email_engine": email,
         "scheduler": {"total_jobs": len(jobs), "aionx_jobs": len(aionx_jobs), "aionx_expected": 24},
@@ -320,12 +362,13 @@ async def system_hud(db: AsyncSession, persist: bool = False) -> dict[str, Any]:
                      scheduler_jobs, aionx_jobs, systems_total, systems_live, systems_governed,
                      alerts, snapshot)
                 VALUES
-                    (50, :backend, :database, :redis, :scheduler_jobs, :aionx_jobs,
+                    (:operational_iq, :backend, :database, :redis, :scheduler_jobs, :aionx_jobs,
                      :systems_total, :systems_live, :systems_governed,
                      CAST(:alerts AS jsonb), CAST(:snapshot AS jsonb))
                 """
             ),
             {
+                "operational_iq": operational_iq_score,
                 "backend": health["backend"],
                 "database": health["database"],
                 "redis": health["redis"],

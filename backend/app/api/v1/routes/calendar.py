@@ -1,7 +1,9 @@
 """
 Google Calendar routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -12,7 +14,7 @@ from app.services.calendar.google_cal import (
     list_calendars, schedule_meeting,
 )
 
-router = APIRouter(prefix="/calendar", tags=["Calendar"])
+router = APIRouter(prefix="/calendar", tags=["Calendar"], dependencies=[Depends(get_current_captain)])
 
 
 class EventIn(BaseModel):
@@ -44,7 +46,8 @@ async def get_events(
 
 
 @router.post("/events")
-async def add_event(body: EventIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def add_event(request: Request, body: EventIn, db: AsyncSession = Depends(get_db)):
     event = await create_event(
         db, body.summary, body.description or "",
         start=body.start, end=body.end,
@@ -56,7 +59,8 @@ async def add_event(body: EventIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/events/{event_id}")
-async def remove_event(event_id: str, calendar_id: str = "primary",
+@limiter.limit("20/minute")
+async def remove_event(request: Request, event_id: str, calendar_id: str = "primary",
                         db: AsyncSession = Depends(get_db)):
     ok = await delete_event(db, event_id, calendar_id)
     if not ok:
@@ -70,7 +74,8 @@ async def get_calendars(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/meetings/schedule")
-async def schedule_lead_meeting(body: MeetingIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def schedule_lead_meeting(request: Request, body: MeetingIn, db: AsyncSession = Depends(get_db)):
     event = await schedule_meeting(
         db, body.lead_email, body.lead_name, body.company, body.service
     )

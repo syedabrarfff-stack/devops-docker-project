@@ -211,21 +211,32 @@ class AutonomousGovernanceEngine:
             }
 
         execution_id = str(uuid4())
+
+        from app.services.notifications.slack import notify_slack
+        from app.services.notifications.telegram import notify_telegram
+
+        message = f"*Tier-2 Auto-Executed*: {action_type} [id={execution_id}]"
+        slack_ok = await notify_slack(message)
+        telegram_ok = await notify_telegram(message)
+        captain_notified = slack_ok or telegram_ok
+
         outcome = {
             "status": "executed_with_notification",
             "action_type": action_type,
             "executed_at": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution_id,
-            "captain_notified": True,
-            "notification_channel": "dashboard",
+            "captain_notified": captain_notified,
+            "notification_channel": "slack" if slack_ok else ("telegram" if telegram_ok else "none"),
         }
         await _log_governance_action(
             tenant_id, action_type, 2, payload, outcome,
             auto_executed=True, approval_required=False
         )
 
-        # Notification would be dispatched via WebSocket/Slack in full integration
-        logger.info("Tier-2 action executed + Captain notification queued: %s [id=%s]", action_type, execution_id)
+        if not captain_notified:
+            logger.warning("Tier-2 action executed but Captain notification failed on all channels: %s [id=%s]", action_type, execution_id)
+        else:
+            logger.info("Tier-2 action executed + Captain notified: %s [id=%s]", action_type, execution_id)
         return outcome
 
     async def queue_tier3_action(

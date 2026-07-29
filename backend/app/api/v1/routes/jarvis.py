@@ -2,8 +2,11 @@
 JARVIS Self-Awareness API
 Morning briefing, idea enhancer, agent teams, self-improvement, memory, evolution
 """
+import asyncio
 import logging
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,7 +30,7 @@ from app.services.intelligence.jarvis_self_learning import (
     get_evolution_history,
 )
 
-router = APIRouter(prefix="/jarvis", tags=["jarvis"])
+router = APIRouter(prefix="/jarvis", tags=["jarvis"], dependencies=[Depends(get_current_captain)])
 
 
 class IdeaRequest(BaseModel):
@@ -65,31 +68,36 @@ class MemoryStoreRequest(BaseModel):
 
 
 @router.get("/briefing")
-async def morning_briefing(db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db)):
     """Daily morning briefing — news, weather, skills, opportunities."""
     return await generate_morning_briefing(db)
 
 
 @router.get("/self-improvement")
-async def self_improvement(db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def self_improvement(request: Request, db: AsyncSession = Depends(get_db)):
     """JARVIS self-improvement report — new tech, market intel."""
     return await self_improvement_report(db)
 
 
 @router.post("/enhance-idea")
-async def enhance_idea_endpoint(body: IdeaRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def enhance_idea_endpoint(request: Request, body: IdeaRequest, db: AsyncSession = Depends(get_db)):
     """JARVIS analyses and enhances Captain's ideas with 10+ improvements."""
     return await enhance_idea(db, body.idea)
 
 
 @router.post("/spawn-team")
-async def spawn_team(body: AgentTeamRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def spawn_team(request: Request, body: AgentTeamRequest, db: AsyncSession = Depends(get_db)):
     """JARVIS spawns a specialist agent team for any task."""
     return await spawn_agent_team(db, body.task)
 
 
 @router.post("/chat")
-async def jarvis_chat_endpoint(body: ChatRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def jarvis_chat_endpoint(request: Request, body: ChatRequest, db: AsyncSession = Depends(get_db)):
     """Talk to JARVIS — responds as senior operational manager. Memory active."""
     return await jarvis_chat(db, body.message, body.task_type, body.history, body.session_id)
 
@@ -122,7 +130,8 @@ async def get_memory(
 
 
 @router.post("/memory/store")
-async def store_captain_memory(body: MemoryStoreRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def store_captain_memory(request: Request, body: MemoryStoreRequest, db: AsyncSession = Depends(get_db)):
     """Captain teaches JARVIS something — stored as permanent instruction."""
     memory = await mem.store_memory(
         db,
@@ -145,7 +154,8 @@ async def memory_stats(db: AsyncSession = Depends(get_db)):
 # ── Self-Evolution Endpoints ──────────────────────────────────────────────────
 
 @router.post("/evolve")
-async def trigger_learning_cycle(db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def trigger_learning_cycle(request: Request, db: AsyncSession = Depends(get_db)):
     """Trigger JARVIS daily self-learning cycle manually."""
     result = await run_daily_learning_cycle(db)
     return result
@@ -161,7 +171,8 @@ async def evolution_log(limit: int = Query(10, ge=1, le=30), db: AsyncSession = 
 # ── Outcome Tracking ──────────────────────────────────────────────────────────
 
 @router.post("/outcomes")
-async def create_outcome(body: OutcomeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def create_outcome(request: Request, body: OutcomeRequest, db: AsyncSession = Depends(get_db)):
     """Log a JARVIS action for outcome tracking."""
     record = await record_outcome(
         db,
@@ -175,7 +186,9 @@ async def create_outcome(body: OutcomeRequest, db: AsyncSession = Depends(get_db
 
 
 @router.post("/outcomes/{outcome_id}/resolve")
+@limiter.limit("20/minute")
 async def resolve_outcome_endpoint(
+    request: Request,
     outcome_id: int,
     body: ResolveOutcomeRequest,
     db: AsyncSession = Depends(get_db)
@@ -212,7 +225,8 @@ async def jarvis_authority():
 
 
 @router.get("/greeting")
-async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def jarvis_greeting(request: Request, db: AsyncSession = Depends(get_db)):
     """Context-aware greeting — called when Captain opens the app."""
     from datetime import datetime
     from app.services.memory.manager import build_context
@@ -230,20 +244,23 @@ async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
     try:
         memory_context = await build_context(db, query="recent client activity leads proposals", limit=5)
 
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": (
-                    f"Captain just opened the JARVIS dashboard. It's {time_of_day}. "
-                    f"Give a natural, warm greeting in 2-3 sentences. Mention what's happening if there's context below. "
-                    f"End by asking if they want the full brief or to jump straight to clients. "
-                    f"Context: {memory_context or 'No recent activity to report.'}"
-                )}
-            ],
-            task_type="FAST",
-            max_tokens=120,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": (
+                        f"Captain just opened the JARVIS dashboard. It's {time_of_day}. "
+                        f"Give a natural, warm greeting in 2-3 sentences. Mention what's happening if there's context below. "
+                        f"End by asking if they want the full brief or to jump straight to clients. "
+                        f"Context: {memory_context or 'No recent activity to report.'}"
+                    )}
+                ],
+                task_type="FAST",
+                max_tokens=120,
+            ),
+            timeout=30.0,
         )
-        greeting_text = response.get("content", f"Good {time_of_day}, Captain. JARVIS operational.")
+        greeting_text = response.content or f"Good {time_of_day}, Captain. JARVIS operational."
     except Exception:
         greeting_text = f"Good {time_of_day}, Captain. All systems running."
 
@@ -255,7 +272,8 @@ async def jarvis_greeting(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/voice-brief")
-async def jarvis_voice_brief(db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def jarvis_voice_brief(request: Request, db: AsyncSession = Depends(get_db)):
     """Short spoken brief — 4-5 topics, voice-optimised, no markdown."""
     try:
         briefing = await generate_morning_briefing(db)
@@ -289,7 +307,7 @@ async def jarvis_ai_health():
         import time
         t0 = time.monotonic()
         try:
-            resp = await _router.chat(
+            resp, _ = await _router.chat(
                 messages=[{"role": "user", "content": "Reply with one word: operational"}],
                 task_type="FAST",
                 max_tokens=5,
@@ -300,7 +318,7 @@ async def jarvis_ai_health():
                 "status": "online",
                 "latency_ms": latency,
                 "model": model,
-                "response": resp.get("content", "")[:20],
+                "response": (resp.content or "")[:20],
             }
         except Exception as ex:
             return name, {

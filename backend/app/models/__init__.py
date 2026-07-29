@@ -96,6 +96,23 @@ from app.models.truth_resilience import (
     DependencyScore,
     MoatMetrics,
 )
+from app.models.kernel import (
+    SystemState,
+    KernelEvent,
+    KernelTaskQueue,
+    AuditLog,
+    HealthSnapshot,
+    KernelConfig,
+    DecisionRecord,
+    MemoryEntry,
+)
+from app.models.fabric import (
+    ModelRegistry,
+    ModelMetrics,
+    CouncilAssembly,
+)
+from app.models.headquarters import HQActionRequest
+from app.models.engineering import EngineeringTaskGraph, EngineeringWorkPackage
 
 
 MODEL_MODULES = (
@@ -238,4 +255,7 @@ __all__ = [
     "DeliveryLesson",
     "DependencyScore",
     "MoatMetrics",
+    "HQActionRequest",
+    "EngineeringTaskGraph",
+    "EngineeringWorkPackage",
 ]

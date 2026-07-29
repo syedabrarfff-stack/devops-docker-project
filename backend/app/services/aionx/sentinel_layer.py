@@ -109,5 +109,5 @@ async def get_active_threats(
     query = select(SentinelThreat).where(SentinelThreat.status == "ACTIVE")
     if severity:
         query = query.where(SentinelThreat.severity == severity)
-    result = await db.execute(query.order_by(SentinelThreat.created_at.desc()))
+    result = await db.execute(query.order_by(SentinelThreat.created_at.desc()).limit(200))
     return result.scalars().all()

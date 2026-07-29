@@ -13,6 +13,7 @@ alembic==1.14.0
 # Settings & validation
 pydantic==2.10.3
 pydantic-settings==2.6.1
+email-validator==2.2.0
 
 # HTTP client
 httpx==0.27.2
@@ -32,7 +33,7 @@ apscheduler==3.10.4
 psycopg2-binary==2.9.9
 
 # Phase 3 — Secure credential storage + AWS
-cryptography>=41.0.0
+cryptography==49.0.0
 boto3==1.35.0
 
 # Phase 3 — Calendar integrations + legacy auth compatibility
@@ -46,6 +47,10 @@ slowapi==0.1.9
 # Utilities
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1  # pinned: passlib 1.7.4's bcrypt backend crashes on bcrypt>=4.1
+               # (AttributeError probing __about__, then ValueError in its own
+               # 72-byte self-test) — confirmed by reproduction, breaks every
+               # pwd_context.hash() call including tenant_manager.py onboarding
 python-dotenv==1.0.1
 pytz==2024.2
 reportlab==4.2.5

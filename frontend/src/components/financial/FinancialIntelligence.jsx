@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getCFOBriefing, getFinancialHealthScore, computeFinancialSnapshot } from '../../services/api'
 
 function MetricCard({ label, value, sub, color = 'text-white', large = false }) {
   return (
@@ -26,8 +27,8 @@ export default function FinancialIntelligence() {
     setLoading(true)
     try {
       const [b, h] = await Promise.all([
-        fetch('/api/v1/financial/cfo-briefing', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/financial/health-score', { credentials: 'include' }).then(r => r.json()),
+        getCFOBriefing(),
+        getFinancialHealthScore(),
       ])
       setBriefing(b); setHealthScore(h)
     } catch (e) { setError(e.message) }
@@ -39,7 +40,7 @@ export default function FinancialIntelligence() {
   const computeSnapshot = async () => {
     setComputing(true)
     try {
-      await fetch('/api/v1/financial/snapshot', { method: 'POST', credentials: 'include' })
+      await computeFinancialSnapshot()
       setMsg('Financial snapshot computed.')
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }

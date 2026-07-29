@@ -1,13 +1,13 @@
 """Layer 18 — Founder Dependency Engine API routes."""
-from __future__ import annotations
-
 import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.intelligence.founder_dependency import (
     founder_dependency_engine,
     TARGET_DEPENDENCY_SCORE,
@@ -16,7 +16,7 @@ from app.services.intelligence.founder_dependency import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/founder", tags=["Founder Dependency"])
+router = APIRouter(prefix="/founder", tags=["Founder Dependency"], dependencies=[Depends(get_current_captain)])
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
@@ -45,6 +45,7 @@ def _status(score: float) -> str:
 
 
 @router.post("/assess")
+@limiter.limit("5/minute")
 async def run_assessment(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -55,6 +56,7 @@ async def run_assessment(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/report")
+@limiter.limit("10/minute")
 async def get_report(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -65,6 +67,7 @@ async def get_report(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/score")
+@limiter.limit("20/minute")
 async def get_score(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -89,6 +92,7 @@ async def get_score(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/opportunities")
+@limiter.limit("10/minute")
 async def get_opportunities(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:

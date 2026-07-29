@@ -95,15 +95,18 @@ async def _execute(task: AgentTask) -> str:
     prompt = f"{task.title}\n\n{task.description or ''}{payload_ctx}"
     messages = [Message(role="user", content=prompt)]
 
-    resp, _ = await ai_router.chat(
-        messages,
-        task_type=task_type,
-        force_provider="google",
-        system_prompt=JARVIS_SYSTEM_PROMPT,
+    resp, _ = await asyncio.wait_for(
+        ai_router.chat(
+            messages,
+            task_type=task_type,
+            force_provider="google",
+            system_prompt=JARVIS_SYSTEM_PROMPT,
+        ),
+        timeout=60.0,
     )
     if resp.error:
         raise RuntimeError(resp.error)
-    return resp.content
+    return (resp.content or "").strip()
 
 
 async def worker():
@@ -114,7 +117,10 @@ async def worker():
     while True:
         try:
             priority, task_id = await asyncio.wait_for(_queue.get(), timeout=5.0)
-            asyncio.create_task(_process_task(task_id))
+            _pt = asyncio.create_task(_process_task(task_id))
+            _pt.add_done_callback(
+                lambda t: logger.error("Task processing failed: %s", t.exception()) if not t.cancelled() and t.exception() else None
+            )
             _queue.task_done()
         except asyncio.TimeoutError:
             continue
@@ -129,6 +135,7 @@ async def requeue_pending():
             select(AgentTask)
             .where(AgentTask.status.in_(["queued", "running"]))
             .order_by(desc(AgentTask.priority))
+            .limit(500)
         )).scalars().all()
         for t in rows:
             if t.status == "running":

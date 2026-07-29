@@ -18,6 +18,19 @@ from app.models.aionx_organs import DecisionDebtAssessment, DecisionObject, Inst
 logger = logging.getLogger(__name__)
 
 
+def _resolve_tenant(tenant_id=None) -> uuid.UUID | None:
+    if tenant_id:
+        return tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id))
+    from app.core.config import settings as _cfg
+    raw = getattr(_cfg, "JARVIS_DEFAULT_TENANT_ID", None)
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except (ValueError, AttributeError):
+            pass
+    return None
+
+
 async def compute_decision_debt(
     db: AsyncSession,
     decision_id: uuid.UUID,
@@ -26,9 +39,11 @@ async def compute_decision_debt(
     opportunity_cost_usd: float = 0.0,
 ) -> dict[str, Any]:
     """Compute debt for a single decision and persist a schema-valid assessment."""
-    decision = (await db.execute(
-        select(DecisionObject).where(DecisionObject.id == decision_id)
-    )).scalars().first()
+    _tid = _resolve_tenant()
+    _dq = select(DecisionObject).where(DecisionObject.id == decision_id)
+    if _tid:
+        _dq = _dq.where(DecisionObject.tenant_id == _tid)
+    decision = (await db.execute(_dq)).scalars().first()
 
     if not decision:
         return {"error": "decision not found"}
@@ -55,6 +70,7 @@ async def compute_decision_debt(
     )
     db.add(assessment)
     await db.flush()
+    await db.commit()
 
     logger.info("Decision Debt: decision %s debt=$%.2f", decision_id, total_debt)
     return {

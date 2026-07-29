@@ -4,6 +4,7 @@ Client Project → Lessons Learned → SOP Update → Proposal Improvement → O
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -142,14 +143,17 @@ Return 2-3 specific, actionable lessons in JSON array format:
 [{{"title": "...", "body": "...", "category": "technical|communication|scoping|timeline|pricing|client_management", "do_next_time": "...", "tags": ["..."]}}]
 
 Return only valid JSON."""
-            response = await ai_router.route(
-                task_type=TaskType.ANALYSIS,
-                prompt=prompt,
-                tenant_id=None,
-                max_tokens=800,
+            from app.services.ai.base_provider import Message
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
             import json
-            content = response.get("content", "[]")
+            content = response.content or "[]"
             start = content.find("[")
             end = content.rfind("]") + 1
             if start >= 0 and end > start:
@@ -187,7 +191,7 @@ Return only valid JSON."""
                 select(DeliveryLesson).where(
                     DeliveryLesson.tenant_id == tid,
                     DeliveryLesson.id.in_(lesson_ids),
-                )
+                ).limit(200)
             )
             lessons = result.scalars().all()
             if not lessons:
@@ -252,7 +256,7 @@ Return only valid JSON."""
                 result = await db.execute(
                     select(
                         func.count().label("total"),
-                        func.count(OutreachEmail.reply_received.is_(True)).label("replied"),
+                        func.count(OutreachEmail.replied_at).label("replied"),
                     ).where(OutreachEmail.tenant_id == tid)
                 )
                 row = result.first()
@@ -338,9 +342,10 @@ Return only valid JSON."""
             )
             avg_effort_accuracy = avg_acc_result.scalar()
 
-            recent_lessons = await db.execute(
+            recent_lessons_result = await db.execute(
                 select(DeliveryLesson).where(DeliveryLesson.tenant_id == tid).order_by(DeliveryLesson.created_at.desc()).limit(5)
             )
+            recent_lessons_rows = recent_lessons_result.scalars().all()
 
         return {
             "lessons_count": lessons_count,
@@ -356,7 +361,7 @@ Return only valid JSON."""
                     "effort_accuracy_pct": l.effort_accuracy_pct,
                     "created_at": l.created_at.isoformat() if l.created_at else None,
                 }
-                for l in recent_lessons.scalars().all()
+                for l in recent_lessons_rows
             ],
         }
 

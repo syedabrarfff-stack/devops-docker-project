@@ -138,7 +138,7 @@ async def check_certification_renewal(
         select(DecisionObject).where(
             DecisionObject.executor_role == hia_agent_id,
             DecisionObject.created_at >= last_certified_at,
-        )
+        ).limit(200)
     )
     recent_decisions = recent_result.scalars().all()
 
@@ -246,7 +246,7 @@ async def revoke_hia_certification(
 async def _actuality_scores_for_decision(db: AsyncSession, decision_id) -> list[float]:
     """Map a decision to counterfactual actualizations through simulations."""
     simulation_ids = (await db.execute(
-        select(CounterfactualSimulation.id).where(CounterfactualSimulation.decision_id == decision_id)
+        select(CounterfactualSimulation.id).where(CounterfactualSimulation.decision_id == decision_id).limit(100)
     )).scalars().all()
     if not simulation_ids:
         return []
@@ -254,7 +254,7 @@ async def _actuality_scores_for_decision(db: AsyncSession, decision_id) -> list[
     actualities = (await db.execute(
         select(CounterfactualActualization).where(
             CounterfactualActualization.simulation_id.in_(simulation_ids)
-        )
+        ).limit(100)
     )).scalars().all()
 
     scores: list[float] = []

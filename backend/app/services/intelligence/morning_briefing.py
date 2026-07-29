@@ -148,6 +148,7 @@ class MorningBriefingEngine:
             await db.execute(
                 select(Proposal)
                 .where(
+                    Proposal.tenant_id == tenant_id,
                     Proposal.status == "sent",
                     Proposal.sent_at <= overdue_threshold,
                     Proposal.responded_at.is_(None),
@@ -160,6 +161,7 @@ class MorningBriefingEngine:
         # Proposals accepted awaiting contract
         accepted_proposals = await db.scalar(
             select(func.count()).select_from(Proposal).where(
+                Proposal.tenant_id == tenant_id,
                 Proposal.status == "accepted",
             )
         )
@@ -168,7 +170,10 @@ class MorningBriefingEngine:
         pending_contracts = (
             await db.execute(
                 select(Contract)
-                .where(Contract.status.in_(["draft", "sent"]))
+                .where(
+                    Contract.tenant_id == tenant_id,
+                    Contract.status.in_(["draft", "sent"]),
+                )
                 .order_by(Contract.created_at.desc())
                 .limit(5)
             )
@@ -177,6 +182,7 @@ class MorningBriefingEngine:
         # Executive briefs generated this week
         briefs_this_week = await db.scalar(
             select(func.count()).select_from(ExecutiveOpportunityBrief).where(
+                ExecutiveOpportunityBrief.tenant_id == tenant_id,
                 ExecutiveOpportunityBrief.created_at >= week_start,
             )
         )
@@ -224,8 +230,19 @@ class MorningBriefingEngine:
             ],
             "pending_contract_count": len(pending_contracts),
             "briefs_this_week": int(briefs_this_week or 0),
-            "system_health_summary": "DB reachable, scheduler active, tenant context ready",
+            "system_health_summary": await self._system_health_summary(),
         }
+
+    async def _system_health_summary(self) -> str:
+        try:
+            from app.services.monitoring.emergency import check_system_health
+
+            health = await check_system_health()
+            subsystems = health.get("subsystems", {})
+            parts = [f"{name}: {info.get('status', 'unknown')}" for name, info in subsystems.items()]
+            return f"{health.get('overall', 'unknown').upper()} — " + ", ".join(parts)
+        except Exception as exc:
+            return f"Health check failed: {exc}"
 
     def _render(self, metrics: dict) -> str:
         approval_lines = "\n".join(

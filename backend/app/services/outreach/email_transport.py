@@ -166,6 +166,14 @@ def _identity_details_sync(identity: ExecutiveIdentity) -> list[dict[str, Any]]:
             continue
         dkim = result.get("DkimAttributes", {}) or {}
         tokens = dkim.get("Tokens", []) or []
+        # The hosted-zone suffix for Easy DKIM CNAME targets varies by AWS Region
+        # and cell — it is NOT always "dkim.amazonses.com". AWS's GetEmailIdentity
+        # response returns the actual required suffix in SigningHostedZone; using
+        # a hardcoded universal suffix here silently told operators to publish the
+        # wrong CNAME target for opt-in regions (e.g. ap-south-2), which keeps DKIM
+        # verification FAILED no matter what they add to DNS.
+        # https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html
+        hosted_zone = dkim.get("SigningHostedZone") or "dkim.amazonses.com"
         details.append(
             {
                 "identity": candidate,
@@ -173,11 +181,12 @@ def _identity_details_sync(identity: ExecutiveIdentity) -> list[dict[str, Any]]:
                 "verification_status": result.get("VerificationStatus"),
                 "verified_for_sending": bool(result.get("VerifiedForSendingStatus")),
                 "dkim_status": dkim.get("Status"),
+                "dkim_signing_hosted_zone": hosted_zone,
                 "dkim_records": [
                     {
                         "type": "CNAME",
                         "name": f"{token}._domainkey.{candidate}",
-                        "value": f"{token}.dkim.amazonses.com",
+                        "value": f"{token}.{hosted_zone}",
                     }
                     for token in tokens
                     if token and "@" not in candidate

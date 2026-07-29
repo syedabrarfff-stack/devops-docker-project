@@ -4,6 +4,7 @@ Gemini scores, qualifies, and generates outreach strategy for leads.
 Aliyar Solutions ICP: SaaS, hotels, restaurants, clinics, recruiters.
 Target: USA, Canada, UK, Europe, Australia, NZ.
 """
+import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -61,19 +62,23 @@ async def score_lead_with_ai(lead: Lead) -> dict:
         f"Opportunity: {lead.opportunity_type or 'unknown'}"
     )
 
-    resp, _ = await ai_router.chat(
-        [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
-        task_type=TaskType.FAST,
-        force_provider="google",
-    )
-
     try:
-        text = resp.content.strip()
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=SCORE_PROMPT.format(lead_data=lead_data))],
+                task_type=TaskType.FAST,
+                force_provider="google",
+            ),
+            timeout=60.0,
+        )
+        if resp.error:
+            raise ValueError(resp.error)
+        text = (resp.content or "").strip()
         if "```" in text:
             text = text.split("```")[1].lstrip("json").strip()
         return json.loads(text)
     except Exception:
-        # Fallback scoring
+        # Fallback scoring (covers AI errors, timeouts, and JSON parse failures)
         score = 50
         if lead.country and any(c in lead.country.lower() for c in ALIYAR_ICP["countries"]):
             score += 15
@@ -83,9 +88,20 @@ async def score_lead_with_ai(lead: Lead) -> dict:
                 "recommended_service": "AI automation", "outreach_angle": "Automate your operations"}
 
 
-async def qualify_and_score(db: AsyncSession, lead_id: UUID) -> Optional[Lead]:
+async def qualify_and_score(db: AsyncSession, lead_id: UUID, tenant_id: Optional[UUID] = None) -> Optional[Lead]:
     """Score a lead with Gemini and update the database record."""
-    lead = (await db.execute(select(Lead).where(Lead.id == lead_id))).scalar_one_or_none()
+    _tid = tenant_id
+    if _tid is None:
+        from app.core.config import settings as _cfg
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            try:
+                _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+            except (ValueError, AttributeError):
+                pass
+    q = select(Lead).where(Lead.id == lead_id)
+    if _tid is not None:
+        q = q.where(Lead.tenant_id == _tid)
+    lead = (await db.execute(q)).scalar_one_or_none()
     if not lead:
         return None
 
@@ -130,11 +146,19 @@ async def qualify_and_score(db: AsyncSession, lead_id: UUID) -> Optional[Lead]:
     return lead
 
 
-async def bulk_score(db: AsyncSession, limit: int = 20) -> int:
+async def bulk_score(db: AsyncSession, limit: int = 20, tenant_id: Optional[UUID] = None) -> int:
     """Score all unscored leads. Returns count processed."""
-    rows = (await db.execute(
-        select(Lead).where(Lead.score == 0).limit(limit)
-    )).scalars().all()
+    from app.core.config import settings as _cfg
+    _tid = tenant_id
+    if _tid is None and _cfg.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+    q = select(Lead).where(Lead.score == 0)
+    if _tid is not None:
+        q = q.where(Lead.tenant_id == _tid)
+    rows = (await db.execute(q.limit(limit))).scalars().all()
     count = 0
     for lead in rows:
         try:
@@ -154,8 +178,18 @@ async def create_lead(db: AsyncSession, data: dict) -> Lead:
 
 
 async def list_leads(db: AsyncSession, status: Optional[str] = None,
-                     min_score: int = 0, limit: int = 50) -> list[Lead]:
+                     min_score: int = 0, limit: int = 50,
+                     tenant_id: Optional[UUID] = None) -> list[Lead]:
+    from app.core.config import settings as _cfg
+    _tid = tenant_id
+    if _tid is None and _cfg.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
     q = select(Lead).order_by(desc(Lead.score)).limit(limit)
+    if _tid is not None:
+        q = q.where(Lead.tenant_id == _tid)
     if status:
         q = q.where(Lead.status == status)
     if min_score:
@@ -163,22 +197,31 @@ async def list_leads(db: AsyncSession, status: Optional[str] = None,
     return list((await db.execute(q)).scalars().all())
 
 
-async def lead_stats(db: AsyncSession) -> dict:
-    total              = await db.scalar(select(func.count()).select_from(Lead)) or 0
+async def lead_stats(db: AsyncSession, tenant_id: Optional[UUID] = None) -> dict:
+    from app.core.config import settings as _cfg
+    _tid = tenant_id
+    if _tid is None and _cfg.JARVIS_DEFAULT_TENANT_ID:
+        try:
+            _tid = UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID))
+        except (ValueError, AttributeError):
+            pass
+    _t = (Lead.tenant_id == _tid,) if _tid is not None else ()
+    total              = await db.scalar(select(func.count()).select_from(Lead).where(*_t)) or 0
     qualified          = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.score >= ALIYAR_ICP["min_score"])
+        select(func.count()).select_from(Lead).where(*_t, Lead.score >= ALIYAR_ICP["min_score"])
     ) or 0
     high_score         = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.score >= 70)
+        select(func.count()).select_from(Lead).where(*_t, Lead.score >= 70)
     ) or 0
     outreach_eligible  = await db.scalar(
-        select(func.count()).select_from(Lead).where(Lead.outreach_eligible == True)
+        select(func.count()).select_from(Lead).where(*_t, Lead.outreach_eligible == True)
     ) or 0
-    contacted          = await db.scalar(select(func.count()).select_from(Lead).where(Lead.outreach_sent == True)) or 0
-    avg_score          = await db.scalar(select(func.avg(Lead.score)).where(Lead.score > 0)) or 0
+    contacted          = await db.scalar(select(func.count()).select_from(Lead).where(*_t, Lead.outreach_sent == True)) or 0
+    unscored           = await db.scalar(select(func.count()).select_from(Lead).where(*_t, Lead.score == 0)) or 0
+    avg_score          = await db.scalar(select(func.avg(Lead.score)).where(*_t, Lead.score > 0)) or 0
     by_status: dict[str, int] = {}
     for status_val in ["NEW", "CONTACTED", "REPLIED", "DEMO", "PROPOSAL", "WON", "LOST"]:
-        cnt = await db.scalar(select(func.count()).select_from(Lead).where(Lead.status == status_val)) or 0
+        cnt = await db.scalar(select(func.count()).select_from(Lead).where(*_t, Lead.status == status_val)) or 0
         if cnt:
             by_status[status_val.lower()] = cnt
     return {
@@ -187,6 +230,7 @@ async def lead_stats(db: AsyncSession) -> dict:
         "high_score": high_score,
         "outreach_eligible": outreach_eligible,
         "contacted": contacted,
+        "unscored": unscored,
         "avg_score": round(float(avg_score), 1),
         "conversion_rate": round(qualified / total * 100, 1) if total else 0,
         "by_status": by_status,

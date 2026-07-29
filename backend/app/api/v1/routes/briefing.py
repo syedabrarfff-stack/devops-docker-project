@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from datetime import datetime
@@ -8,8 +10,11 @@ from app.core.database import get_db, set_tenant_context
 from app.services.intelligence.morning_briefing import MorningBriefingEngine
 from app.services.ai.router import ai_router
 from app.services.ai.base_provider import Message, TaskType
+from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/briefing", tags=["briefing"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/briefing", tags=["briefing"], dependencies=[Depends(get_current_captain)])
 
 BRIEFING_PROMPT = """You are JARVIS, the operational intelligence core of Aliyar Solutions.
 Generate a sharp, strategic morning briefing for Captain Syed Abrar.
@@ -29,6 +34,7 @@ Use the live JARVIS data provided in the user message as ground truth."""
 
 
 @router.get("/morning")
+@limiter.limit("10/minute")
 async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db)):
     tenant_id = _resolve_tenant_id(request)
     await set_tenant_context(db, str(tenant_id))
@@ -50,7 +56,9 @@ async def morning_briefing(request: Request, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/morning-ai")
+@limiter.limit("5/minute")
 async def morning_briefing_ai(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: dict = Depends(get_current_captain),
 ):
@@ -100,19 +108,34 @@ OUTREACH:
 ACTIONS PENDING: {metrics.get('pending_approvals', 0)}
 """.strip()
 
-    response, _ = await ai_router.chat(
-        messages=[Message(role="user", content=f"{greeting} JARVIS. Today is {date_str}.\n\n{live_data}\n\nGenerate the morning briefing.")],
-        task_type=TaskType.REASONING,
-        system_prompt=BRIEFING_PROMPT,
-        max_tokens=1500,
-    )
+    _fallback = f"Good {greeting.split()[-1].lower()}, Captain. JARVIS operational. AI briefing temporarily unavailable."
+    try:
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[Message(role="user", content=f"{greeting} JARVIS. Today is {date_str}.\n\n{live_data}\n\nGenerate the morning briefing.")],
+                task_type=TaskType.REASONING,
+                system_prompt=BRIEFING_PROMPT,
+                max_tokens=1500,
+            ),
+            timeout=55.0,
+        )
+        briefing_content = (response.content or _fallback) if not response.error else f"{_fallback} — {response.error}"
+        ai_model = response.model
+        ai_provider = response.provider
+        ai_demo = response.demo
+    except Exception as exc:
+        logger.warning("Briefing AI call failed: %s", exc)
+        briefing_content = _fallback
+        ai_model = "unavailable"
+        ai_provider = "unavailable"
+        ai_demo = False
 
     return {
-        "briefing": response.content,
+        "briefing": briefing_content,
         "metrics": metrics,
-        "model": response.model,
-        "provider": response.provider,
-        "demo": response.demo,
+        "model": ai_model,
+        "provider": ai_provider,
+        "demo": ai_demo,
         "generated_at": now.isoformat(),
         "greeting": greeting,
     }
@@ -126,6 +149,7 @@ def _resolve_tenant_id_from_str(tenant_str: str) -> UUID:
 
 
 @router.post("/generate")
+@limiter.limit("5/minute")
 async def generate_briefing(request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     return await morning_briefing(request, db)
 
@@ -148,7 +172,9 @@ async def system_status():
 
 
 @router.post("/opportunity-radar")
+@limiter.limit("5/minute")
 async def trigger_opportunity_radar(
+    request: Request,
     bg: BackgroundTasks = None,
     _: dict = Depends(get_current_captain),
 ) -> dict:

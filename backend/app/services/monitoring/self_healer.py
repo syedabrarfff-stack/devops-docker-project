@@ -37,6 +37,7 @@ async def run_self_healing_cycle() -> dict:
         _heal_lead_pipeline(report),
         _heal_scheduler_jobs(report),
         _heal_redis(report),
+        _heal_job_failures(report),
         return_exceptions=True,
     )
 
@@ -61,15 +62,22 @@ async def _heal_ai_providers(report: dict) -> None:
             if ph.state == "OPEN":
                 # Probe with a minimal test — if it passes, force reset
                 try:
-                    await ai_router.chat(
-                        [Message(role="user", content="ping")],
-                        task_type=TaskType.FAST,
-                        force_provider=name,
+                    probe, _ = await asyncio.wait_for(
+                        ai_router.chat(
+                            [Message(role="user", content="ping")],
+                            task_type=TaskType.FAST,
+                            force_provider=name,
+                        ),
+                        timeout=10.0,
                     )
+                    if probe.error:
+                        still_open.append(name)
+                        continue
                     health_monitor.reset(name)
                     recovered.append(name)
                     report["actions"].append(f"circuit_breaker_reset:{name}")
-                except Exception:
+                except Exception as probe_exc:
+                    logger.warning("Self-healer: probe failed for provider %s: %s", name, probe_exc)
                     still_open.append(name)
 
         if still_open:
@@ -91,9 +99,15 @@ async def _heal_lead_pipeline(report: dict) -> None:
 
         async with AsyncSessionLocal() as db:
             cutoff = datetime.now(UTC) - timedelta(hours=36)
-            recent_count = await db.scalar(
-                select(func.count()).select_from(Lead).where(Lead.created_at >= cutoff)
-            )
+            _lead_q = select(func.count()).select_from(Lead).where(Lead.created_at >= cutoff)
+            if settings.JARVIS_DEFAULT_TENANT_ID:
+                import uuid as _uuid
+                try:
+                    _tid = _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+                    _lead_q = _lead_q.where(Lead.tenant_id == _tid)
+                except (ValueError, AttributeError):
+                    pass
+            recent_count = await db.scalar(_lead_q)
 
         if (recent_count or 0) == 0:
             tenant_id = settings.JARVIS_DEFAULT_TENANT_ID
@@ -156,19 +170,72 @@ async def _heal_redis(report: dict) -> None:
         logger.warning("Self-healer: Redis ping failed: %s", exc)
 
 
-async def _alert_captain(report: dict) -> None:
-    """Send a consolidated self-healer alert to Captain via Telegram."""
+async def _heal_job_failures(report: dict) -> None:
+    """Auto-resolve open job failures for jobs that have recovered and are running again."""
     try:
-        from app.services.notifications.telegram import notify_telegram
+        from app.core.database import AsyncSessionLocal
+        from app.models.scheduling import JobFailure
+        from app.services.scheduler.scheduler import get_scheduler, get_jobs
+        from sqlalchemy import select, update
 
-        lines = ["🔧 *JARVIS Self-Healer Report*\n"]
-        if report["actions"]:
-            lines.append("*Auto-recovered:*")
-            lines.extend(f"  ✅ {a}" for a in report["actions"])
-        if report["alerts"]:
-            lines.append("\n*Requires attention:*")
-            lines.extend(f"  ⚠️ {a}" for a in report["alerts"])
-        lines.append(f"\n_Scan completed in {report.get('duration_ms', '?')}ms_")
-        await notify_telegram("\n".join(lines))
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(
+                select(JobFailure.id, JobFailure.job_name)
+                .where(JobFailure.status == "open")
+                .limit(100)
+            )).all()
+
+        if not rows:
+            return
+
+        running_job_ids = {j["id"] for j in get_jobs()}
+        to_resolve = [r.id for r in rows if r.job_name in running_job_ids]
+
+        if not to_resolve:
+            return
+
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await db.execute(
+                    update(JobFailure)
+                    .where(JobFailure.id.in_(to_resolve))
+                    .values(status="auto_resolved")
+                )
+
+        resolved_names = list({r.job_name for r in rows if r.id in set(to_resolve)})
+        report["actions"].append(f"auto_resolved_job_failures:{len(to_resolve)}")
+        logger.info("Self-healer: auto-resolved %d failure(s) for recovered jobs: %s",
+                    len(to_resolve), resolved_names)
+
     except Exception as exc:
-        logger.warning("Self-healer captain alert failed: %s", exc)
+        logger.warning("Self-healer job failure recovery failed: %s", exc)
+
+
+async def _alert_captain(report: dict) -> None:
+    """Create a real incident record for unrecoverable issues and notify Captain
+    through every channel (Slack + Telegram + WebSocket) — not just a Telegram
+    message that leaves no trace in the Incidents system.
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.monitoring.emergency import declare_emergency
+
+        actions_line = "; ".join(report["actions"]) if report["actions"] else "none"
+        alerts_line = "; ".join(report["alerts"])
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                await declare_emergency(
+                    db,
+                    title="Self-healer detected issues it could not auto-recover",
+                    severity="medium",
+                    category="automation",
+                    description=(
+                        f"Auto-recovered this cycle: {actions_line}\n"
+                        f"Requires attention: {alerts_line}\n"
+                        f"Scan completed in {report.get('duration_ms', '?')}ms"
+                    ),
+                    affected_systems=["self_healer"],
+                    auto_detected=True,
+                )
+    except Exception as exc:
+        logger.warning("Self-healer incident creation failed: %s", exc)

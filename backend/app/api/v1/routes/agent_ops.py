@@ -2,12 +2,15 @@
 JARVIS Agent Operations Center API
 Captain can see all teams, monitor agents, and talk to any team in real time.
 """
-from fastapi import APIRouter, HTTPException
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 import logging
 
+from app.core.rate_limit import limiter
 from app.services.agents.agent_registry import (
     get_all_teams,
     get_team,
@@ -19,7 +22,7 @@ from app.services.ai.router import ai_router
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/agent-ops", tags=["agent-ops"])
+router = APIRouter(prefix="/agent-ops", tags=["agent-ops"], dependencies=[Depends(get_current_captain)])
 
 
 class AgentChatRequest(BaseModel):
@@ -119,7 +122,8 @@ async def get_agent_detail(agent_id: str):
 
 
 @router.post("/agents/{agent_id}/chat")
-async def chat_with_agent(agent_id: str, body: AgentChatRequest):
+@limiter.limit("30/minute")
+async def chat_with_agent(request: Request, agent_id: str, body: AgentChatRequest):
     """
     Captain talks directly to a specific agent.
     The agent responds in character with their expertise.
@@ -140,13 +144,16 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            task_type=body.task_type,
-            max_tokens=1500
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                task_type=body.task_type,
+                max_tokens=1500
+            ),
+            timeout=60.0,
         )
 
         return {
@@ -155,9 +162,9 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
             "agent_role": agent["role"],
             "team": agent["team"],
             "captain_message": body.message,
-            "agent_response": response.get("content", ""),
-            "model": response.get("model", ""),
-            "provider": response.get("provider", ""),
+            "agent_response": response.content or "",
+            "model": response.model or "",
+            "provider": response.provider or "",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -172,7 +179,8 @@ async def chat_with_agent(agent_id: str, body: AgentChatRequest):
 
 
 @router.post("/teams/{team_id}/chat")
-async def chat_with_team(team_id: str, body: AgentChatRequest):
+@limiter.limit("20/minute")
+async def chat_with_team(request: Request, team_id: str, body: AgentChatRequest):
     """
     Captain talks to an entire team.
     The team responds collectively with a briefing or answer.
@@ -194,13 +202,16 @@ async def chat_with_team(team_id: str, body: AgentChatRequest):
         user_message = f"Context: {body.context}\n\nCaptain says: {body.message}"
 
     try:
-        response = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            task_type=body.task_type,
-            max_tokens=2000
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                task_type=body.task_type,
+                max_tokens=2000
+            ),
+            timeout=60.0,
         )
 
         return {
@@ -209,9 +220,9 @@ async def chat_with_team(team_id: str, body: AgentChatRequest):
             "manager": team["manager"],
             "agents": [a["name"] for a in team["agents"]],
             "captain_message": body.message,
-            "team_response": response.get("content", ""),
-            "model": response.get("model", ""),
-            "provider": response.get("provider", ""),
+            "team_response": response.content or "",
+            "model": response.model or "",
+            "provider": response.provider or "",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:

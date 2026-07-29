@@ -1,23 +1,23 @@
 """JARVIS executive email operations center."""
-from __future__ import annotations
-
 import hashlib
 import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.outreach.gmail import email_delivery_status, send_client_email
 from app.services.outreach.gmail_inbox import fetch_new_emails, get_inbox, get_inbox_stats, mark_read
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/gmail", tags=["gmail"])
+router = APIRouter(prefix="/gmail", tags=["gmail"], dependencies=[Depends(get_current_captain)])
 
 
 class SendEmailRequest(BaseModel):
@@ -59,7 +59,8 @@ async def gmail_engine_status(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/fetch")
-async def fetch_inbox(db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def fetch_inbox(request: Request, db: AsyncSession = Depends(get_db)):
     """Trigger inbox fetch manually; JARVIS reads all new emails."""
     count = await fetch_new_emails(db)
     return {"fetched": count, "message": f"JARVIS processed {count} new emails from the inbound queue."}
@@ -108,14 +109,16 @@ async def inbox_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/messages/{message_id}/read")
-async def read_message(message_id: int, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def read_message(request: Request, message_id: int, db: AsyncSession = Depends(get_db)):
     """Mark a message as read."""
     await mark_read(db, message_id)
     return {"marked_read": True}
 
 
 @router.post("/send")
-async def send_email(body: SendEmailRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def send_email(request: Request, body: SendEmailRequest, db: AsyncSession = Depends(get_db)):
     """Send an email directly from the JARVIS dashboard."""
     success, error, method = await send_client_email(
         db,

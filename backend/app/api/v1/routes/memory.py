@@ -1,15 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.memory import manager as mem
 from app.services.memory.graph import graph_status, search_memory_graph, seed_memory_graph
 from app.services.memory.human_intelligence import HUMAN_INTELLIGENCE_KB, seed_human_intelligence
 
-router = APIRouter(prefix="/memory", tags=["Memory"])
+router = APIRouter(prefix="/memory", tags=["Memory"], dependencies=[Depends(get_current_captain)])
 
 
 class MemoryIn(BaseModel):
@@ -33,7 +35,8 @@ class MemorySearchIn(BaseModel):
 
 
 @router.post("/store")
-async def store_memory(body: MemoryIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def store_memory(request: Request, body: MemoryIn, db: AsyncSession = Depends(get_db)):
     memory = await mem.store_memory(db, **body.model_dump(exclude_none=True))
     await db.commit()
     return {"id": memory.id, "memory_type": memory.memory_type}
@@ -57,7 +60,8 @@ async def recall_memory(
 
 
 @router.post("/instructions")
-async def store_instruction(body: InstructionIn, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def store_instruction(request: Request, body: InstructionIn, db: AsyncSession = Depends(get_db)):
     memory = await mem.store_instruction(db, **body.model_dump(exclude_none=True))
     await db.commit()
     return {"id": memory.id, "category": memory.tags}
@@ -83,20 +87,23 @@ async def build_context(
 
 
 @router.post("/summarize")
-async def summarize_session(session_id: str, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def summarize_session(request: Request, session_id: str, db: AsyncSession = Depends(get_db)):
     result = await mem.maybe_summarise(db, session_id=session_id, force=True)
     await db.commit()
     return {"summarized": bool(result), "session_id": session_id}
 
 
 @router.post("/seed")
+@limiter.limit("3/minute")
 async def seed_enterprise_memory(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await seed_memory_graph(resolved_tenant_id)
 
 
 @router.post("/search")
-async def semantic_memory_search(body: MemorySearchIn, request: Request):
+@limiter.limit("30/minute")
+async def semantic_memory_search(request: Request, body: MemorySearchIn):
     resolved_tenant_id = _resolve_tenant_id(request, body.tenant_id)
     limit = max(1, min(body.limit, 25))
     return await search_memory_graph(body.query, resolved_tenant_id, limit=limit)
@@ -109,6 +116,7 @@ async def enterprise_memory_status(request: Request, tenant_id: Optional[UUID] =
 
 
 @router.post("/human-intelligence/seed")
+@limiter.limit("5/minute")
 async def seed_human_intelligence_memory(request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     return await seed_human_intelligence(resolved_tenant_id)

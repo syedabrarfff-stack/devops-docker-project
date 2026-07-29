@@ -122,7 +122,7 @@ HIE_WORKFLOW = {
 def _stage(stage_num: int, name: str) -> dict[str, Any]:
     phase = next(label for label, rng in PHASES if stage_num in rng)
     owner_map = {
-        1: "SCOUT", 2: "SCOUT", 3: "ORACLE-S", 4: "MARKET", 5: "QUILL", 6: "COUNCIL", 7: "HERALD",
+        1: "SCOUT", 2: "SCOUT", 3: "SCOUT", 4: "NEXUS-R", 5: "QUILL", 6: "COUNCIL", 7: "HERALD",
         8: "NEXUS-R", 9: "SELF_LEARN", 10: "HERALD", 11: "HIE", 12: "JARVIS",
         13: "MISSION_CONTROL", 14: "HIE", 15: "CLIENT_SUCCESS", 16: "MISSION_CONTROL",
         17: "MISSION_CONTROL", 18: "DEPARTMENTS", 19: "CROSS_REVIEW_BOARD", 20: "QUALITY_ASSURANCE",

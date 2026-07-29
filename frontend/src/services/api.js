@@ -12,6 +12,11 @@ const API_PREFIX = '/api/v1'
 const API_RESOURCES = new Set([
   'agent-ops',
   'agents',
+  'autopilot',
+  'ghost',
+  'nexus',
+  'signal',
+  'supreme',
   'ai-ops',
   'aionx',
   'approvals',
@@ -85,8 +90,8 @@ export { api }
 
 // Chat
 export const sendChat = (payload) => api.post('/api/v1/chat', payload).then((r) => r.data)
-export const getChatHistory = (sessionId) => api.get(`/api/v1/history/${sessionId}`).then((r) => r.data)
-export const getProviders = () => api.get('/api/v1/providers').then((r) => r.data)
+export const getChatHistory = (sessionId) => api.get(`/api/v1/chat/history/${sessionId}`).then((r) => r.data)
+export const getProviders = () => api.get('/api/v1/chat/providers').then((r) => r.data)
 
 // Briefing
 export const getMorningBriefing = (tenantId = '794d9b02-2dd6-49f0-b5c1-9f7c0b3af4b1') =>
@@ -182,6 +187,9 @@ export const createIntervalJob = (data) => api.post('/api/v1/scheduler/jobs/inte
 export const deleteSchedulerJob = (id) => api.delete(`/api/v1/scheduler/jobs/${id}`).then(r => r.data)
 export const pauseJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/pause`).then(r => r.data)
 export const resumeJob = (id) => api.post(`/api/v1/scheduler/jobs/${id}/resume`).then(r => r.data)
+export const triggerJobNow = (id) => api.post(`/api/v1/scheduler/jobs/${id}/trigger`).then(r => r.data)
+export const getSchedulerFailures = (status) => api.get('/api/v1/scheduler/failures', { params: status ? { status } : {} }).then(r => r.data)
+export const resolveJobFailure = (id) => api.patch(`/api/v1/scheduler/failures/${id}/resolve`).then(r => r.data)
 
 // Phase 3 — Calendar
 export const getCalendarEvents = (params) => api.get('/api/v1/calendar/events', { params }).then(r => r.data)
@@ -385,6 +393,9 @@ export const getPricingEstimate = (payload) =>
   api.post('/api/v1/pricing/estimate', payload).then(r => r.data)
 export const getPricingMatrix = () => api.get('/api/v1/pricing/matrix').then(r => r.data)
 export const getIntelligencePricingCatalog = () => api.get('/api/v1/intelligence/pricing/catalog').then(r => r.data)
+export const semanticSearchLeads = (q, limit = 20) => api.get('/api/v1/intelligence/semantic-search', { params: { q, limit } }).then(r => r.data)
+export const embedLead = (leadId) => api.post(`/api/v1/intelligence/semantic-search/embed/${leadId}`).then(r => r.data)
+export const embedBatchLeads = (limit = 50) => api.post('/api/v1/intelligence/semantic-search/embed-batch', null, { params: { limit } }).then(r => r.data)
 
 // Department Intelligence — 6-Layer Autonomous System
 export const getDepartmentHealth       = () => api.get('/api/v1/departments/health').then(r => r.data)
@@ -454,7 +465,7 @@ export const runRealityCheck          = (payload)          => api.post('/api/v1/
 
 // Layer 18 — Operational Resilience
 export const triggerIncident          = (payload)          => api.post('/api/v1/resilience/incident', payload).then(r => r.data)
-export const resolveIncident          = (eventId, payload) => api.post(`/api/v1/resilience/incident/${eventId}/resolve`, payload).then(r => r.data)
+export const resolveResilienceIncident = (eventId, payload) => api.post(`/api/v1/resilience/incident/${eventId}/resolve`, payload).then(r => r.data)
 export const getActiveIncidents       = ()                 => api.get('/api/v1/resilience/active').then(r => r.data)
 export const getResilienceStatus      = ()                 => api.get('/api/v1/resilience/status').then(r => r.data)
 export const getPlaybooks             = ()                 => api.get('/api/v1/resilience/playbooks').then(r => r.data)
@@ -487,5 +498,118 @@ export const getMoatReport            = ()                 => api.get('/api/v1/m
 export const getMoatScore             = ()                 => api.get('/api/v1/moat/score').then(r => r.data)
 export const getMoatDimensions        = ()                 => api.get('/api/v1/moat/dimensions').then(r => r.data)
 export const getMoatThreats           = ()                 => api.get('/api/v1/moat/threats').then(r => r.data)
+
+// AUTOPILOT — Autonomous Outreach Pipeline
+export const autopilotIgnite      = (payload) => api.post('/api/v1/autopilot/ignite', payload, { timeout: 300000 }).then(r => r.data)
+export const autopilotStatus      = ()         => api.get('/api/v1/autopilot/status').then(r => r.data)
+export const autopilotPending     = ()         => api.get('/api/v1/autopilot/pending').then(r => r.data)
+export const autopilotAll         = ()         => api.get('/api/v1/autopilot/all').then(r => r.data)
+export const autopilotApprove     = (id)       => api.post(`/api/v1/autopilot/approve/${id}`).then(r => r.data)
+export const autopilotReject      = (id, body) => api.post(`/api/v1/autopilot/reject/${id}`, body).then(r => r.data)
+export const autopilotApproveAll  = ()         => api.post('/api/v1/autopilot/approve-all').then(r => r.data)
+export const autopilotEditDraft   = (id, body) => api.patch(`/api/v1/autopilot/draft/${id}`, body).then(r => r.data)
+export const autopilotClear       = ()         => api.delete('/api/v1/autopilot/clear').then(r => r.data)
+
+// GHOST — AI Outreach Intelligence Engine
+export const ghostPersonas       = ()         => api.get('/api/v1/ghost/personas').then(r => r.data)
+export const ghostSuggestPersona = (params)   => api.get('/api/v1/ghost/persona/suggest', { params }).then(r => r.data)
+export const ghostSequence       = (payload)  => api.post('/api/v1/ghost/sequence', payload, { timeout: 120000 }).then(r => r.data)
+export const ghostSend           = (payload)  => api.post('/api/v1/ghost/send', payload).then(r => r.data)
+
+// SIGNAL — AI Pipeline Intelligence Scanner
+export const signalStatus        = (params)   => api.get('/api/v1/signal/status', { params }).then(r => r.data)
+export const signalLeads         = (params)   => api.get('/api/v1/signal/leads', { params }).then(r => r.data)
+export const signalScanLead      = (leadId)   => `/api/v1/signal/scan/lead/${leadId}`  // SSE URL
+export const signalScanPipeline  = (payload)  => api.post('/api/v1/signal/scan/pipeline', payload, { timeout: 300000 }).then(r => r.data)
+export const signalBriefStream   = (payload)  => api.post('/api/v1/signal/brief/stream', payload, { timeout: 120000 }).then(r => r.data)
+
+// NEXUS — Supreme Autonomous Intelligence Core
+export const nexusStatus         = ()         => api.get('/api/v1/nexus/status').then(r => r.data)
+export const nexusConstitution   = ()         => api.get('/api/v1/nexus/constitution').then(r => r.data)
+export const nexusDecisions      = (limit)    => api.get('/api/v1/nexus/decisions', { params: { limit } }).then(r => r.data)
+export const nexusPulse          = ()         => api.get('/api/v1/nexus/pulse').then(r => r.data)
+export const nexusHealth         = ()         => api.get('/api/v1/nexus/health').then(r => r.data)
+export const nexusTriggerHeal    = (subsystem)=> api.post('/api/v1/nexus/heal', { subsystem }).then(r => r.data)
+export const nexusTriggerCycle   = ()         => api.post('/api/v1/nexus/cycle', {}, { timeout: 300000 }).then(r => r.data)
+export const nexusTriggerPulse   = ()         => api.post('/api/v1/nexus/pulse/trigger').then(r => r.data)
+export const nexusThink          = (state)    => api.post('/api/v1/nexus/think', { pipeline_state: state || null }, { timeout: 120000 }).then(r => r.data)
+
+// Revenue
+export const getRevenueSummary      = (tenantId)    => api.get('/api/v1/revenue/snapshot', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueInvoices     = (params)      => api.get('/api/v1/invoices/', { params }).then(r => r.data)
+export const getRevenueWarRoom      = (tenantId)    => api.get('/api/v1/revenue/war-room', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueARR          = (tenantId)    => api.get('/api/v1/revenue/arr', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenuePipeline     = (tenantId)    => api.get('/api/v1/revenue/pipeline', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueForecast     = (tenantId)    => api.get('/api/v1/revenue/forecast', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueHealth       = (tenantId)    => api.get('/api/v1/revenue/health', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRetentionCohorts    = (tenantId)    => api.get('/api/v1/revenue/cohorts', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueClients      = (tenantId)    => api.get('/api/v1/revenue/clients', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueSegments     = (tenantId)    => api.get('/api/v1/revenue/segments', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getRevenueSnapshot     = (tenantId)    => api.get('/api/v1/revenue/snapshot', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+export const getMRRChart            = (tenantId)    => api.get('/api/v1/revenue/mrr-chart', { params: tenantId ? { tenant_id: tenantId } : {} }).then(r => r.data)
+
+// SUPREME — Layer 19: Constitution, CEO, Revenue Consciousness, Platform, Sales Autonomy
+export const supremeSnapshot          = (mrr = 0)  => api.get('/api/v1/supreme/snapshot', { params: { mrr } }).then(r => r.data)
+export const supremeConstitutionSummary = ()       => api.get('/api/v1/supreme/constitution/summary').then(r => r.data)
+export const supremeConstitutionLaws  = ()         => api.get('/api/v1/supreme/constitution/laws').then(r => r.data)
+export const supremeAuthorityMatrix   = ()         => api.get('/api/v1/supreme/constitution/authority-matrix').then(r => r.data)
+export const supremeEscalationTriggers= ()         => api.get('/api/v1/supreme/constitution/escalation-triggers').then(r => r.data)
+export const supremeEvaluateAction    = (payload)  => api.post('/api/v1/supreme/constitution/evaluate', payload).then(r => r.data)
+export const supremeScoreDecision     = (payload)  => api.post('/api/v1/supreme/constitution/score-decision', payload).then(r => r.data)
+export const supremeCEODashboard      = (mrr = 0)  => api.get('/api/v1/supreme/ceo/dashboard', { params: { mrr } }).then(r => r.data)
+export const supremeCEOExpansion      = (mrr = 0)  => api.get('/api/v1/supreme/ceo/expansion-roadmap', { params: { mrr } }).then(r => r.data)
+export const supremeCEOPriorities     = (payload)  => api.post('/api/v1/supreme/ceo/strategic-priorities', payload).then(r => r.data)
+export const supremeCEOCompetitive    = ()         => api.get('/api/v1/supreme/ceo/competitive-intelligence').then(r => r.data)
+export const supremeScoreOpportunity  = (payload)  => api.post('/api/v1/supreme/ceo/score-opportunity', payload).then(r => r.data)
+export const supremeRevenueDashboard  = ()         => api.get('/api/v1/supreme/revenue/dashboard').then(r => r.data)
+export const supremeComputeLTV        = (payload)  => api.post('/api/v1/supreme/revenue/compute-ltv', payload).then(r => r.data)
+export const supremeChurnRisk         = (payload)  => api.post('/api/v1/supreme/revenue/churn-risk', payload).then(r => r.data)
+export const supremePipelineHealth    = (payload)  => api.post('/api/v1/supreme/revenue/pipeline-health', payload).then(r => r.data)
+export const supremePricingRec        = (payload)  => api.post('/api/v1/supreme/revenue/pricing-recommendation', payload).then(r => r.data)
+export const supremePlatformDashboard = ()         => api.get('/api/v1/supreme/platform/dashboard').then(r => r.data)
+export const supremeTechDebt          = ()         => api.get('/api/v1/supreme/platform/tech-debt').then(r => r.data)
+export const supremeCostPosture       = (payload)  => api.post('/api/v1/supreme/platform/cost-posture', payload).then(r => r.data)
+export const supremeScalingReadiness  = (payload)  => api.post('/api/v1/supreme/platform/scaling-readiness', payload).then(r => r.data)
+export const supremeDeploymentRisk    = (payload)  => api.post('/api/v1/supreme/platform/deployment-risk', payload).then(r => r.data)
+export const supremeSalesDashboard    = ()         => api.get('/api/v1/supreme/sales/dashboard').then(r => r.data)
+export const supremeScoreLead         = (payload)  => api.post('/api/v1/supreme/sales/score-lead', payload).then(r => r.data)
+export const supremeObjectionPlaybook = (type)     => api.get(`/api/v1/supreme/sales/objection/${encodeURIComponent(type)}`).then(r => r.data)
+export const supremeOutreachSequence  = (tier)     => api.get(`/api/v1/supreme/sales/sequence/${encodeURIComponent(tier)}`).then(r => r.data)
+export const supremeAnalyzeWinLoss    = (payload)  => api.post('/api/v1/supreme/sales/analyze-win-loss', payload).then(r => r.data)
+
+// KERNEL DASHBOARD — L3 Runtime Kernel Ops (v4)
+export const kernelDashboard  = ()            => api.get('/api/v1/kernel/dashboard').then(r => r.data)
+export const kernelState      = ()            => api.get('/api/v1/kernel/state').then(r => r.data)
+export const kernelHealth     = ()            => api.get('/api/v1/kernel/health').then(r => r.data)
+export const kernelTaskDepth  = ()            => api.get('/api/v1/kernel/tasks/depth').then(r => r.data)
+export const kernelDeadTasks  = ()            => api.get('/api/v1/kernel/tasks/dead').then(r => r.data)
+export const kernelConfig     = ()            => api.get('/api/v1/kernel/config').then(r => r.data)
+export const kernelConfigSet  = (key, value)  => api.put(`/api/v1/kernel/config/${encodeURIComponent(key)}`, { value }).then(r => r.data)
+export const kernelConfigDel  = (key)         => api.delete(`/api/v1/kernel/config/${encodeURIComponent(key)}`).then(r => r.data)
+export const kernelDiscovery  = ()            => api.get('/api/v1/kernel/discovery').then(r => r.data)
+export const kernelPlugins    = ()            => api.get('/api/v1/kernel/plugins').then(r => r.data)
+export const kernelFailover   = ()            => api.get('/api/v1/kernel/failover').then(r => r.data)
+export const kernelAudit      = (limit = 50)  => api.get('/api/v1/kernel/audit', { params: { limit } }).then(r => r.data)
+export const kernelSync       = ()            => api.get('/api/v1/kernel/sync').then(r => r.data)
+
+// Headquarters — Orchestrator + Execution Engine chat entry point
+export const hqSendMessage   = (message, sessionId) =>
+  api.post('/api/v1/headquarters/chat', { message, session_id: sessionId }).then(r => r.data)
+export const hqApprove       = (requestId) => api.post(`/api/v1/headquarters/approve/${requestId}`).then(r => r.data)
+export const hqReject        = (requestId) => api.post(`/api/v1/headquarters/reject/${requestId}`).then(r => r.data)
+export const hqHistory       = (sessionId, limit = 50) =>
+  api.get('/api/v1/headquarters/history', { params: { session_id: sessionId, limit } }).then(r => r.data)
+export const hqAutonomousFeed = (limit = 20) =>
+  api.get('/api/v1/headquarters/autonomous-feed', { params: { limit } }).then(r => r.data)
+
+// Phase 7 — Engineering Organization (Mission Planner + departments)
+export const engineeringDepartments = () => api.get('/api/v1/engineering/departments').then(r => r.data)
+export const engineeringDashboard   = () => api.get('/api/v1/engineering/dashboard').then(r => r.data)
+export const engineeringSubmitObjective = (objective, objectiveType = 'feature', context = {}) =>
+  api.post('/api/v1/engineering/objectives', { objective, objective_type: objectiveType, context }).then(r => r.data)
+export const engineeringTaskGraph = (graphId) =>
+  api.get(`/api/v1/engineering/task-graphs/${graphId}`).then(r => r.data)
+export const engineeringDispatch = (graphId) =>
+  api.post(`/api/v1/engineering/task-graphs/${graphId}/dispatch`).then(r => r.data)
 
 export default api

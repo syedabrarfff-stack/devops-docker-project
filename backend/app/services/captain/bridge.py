@@ -4,6 +4,7 @@ Processes raw input, brain dumps, email threads, and generates situation reports
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -70,12 +71,17 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("AI lead intake failed: %s", exc)
             structured = {}
@@ -133,12 +139,17 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=1200,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Brain dump parsing failed: %s", exc)
             structured = {}
@@ -182,12 +193,17 @@ Return ONLY valid JSON with these exact keys:
 urgency_score must be integer 1–10. 10 = extremely urgent."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Email intelligence extraction failed: %s", exc)
             structured = {}
@@ -207,11 +223,19 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
 
         pipeline_data = await self._fetch_pipeline_metrics(tenant_uuid)
 
+        try:
+            from app.services.monitoring.emergency import check_system_health  # noqa: PLC0415
+            health = await check_system_health()
+            system_health = health.get("overall", "unknown").upper()
+        except Exception as exc:
+            logger.warning("System health check failed in situation report: %s", exc)
+            system_health = "UNKNOWN"
+
         return {
             "generated_at": datetime.now(UTC).isoformat(),
             "tenant_id": str(tenant_uuid),
             "pipeline": pipeline_data,
-            "system_health": "OPERATIONAL",
+            "system_health": system_health,
             "top_priority_action": pipeline_data.get("top_priority_action", "Review pipeline leads"),
             "alerts": pipeline_data.get("alerts", []),
         }
@@ -326,7 +350,7 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
         threats: list[dict] = []
 
         try:
-            from app.models.outreach import ReplyLog  # noqa: PLC0415
+            from app.models.outreach import OutreachLog, ReplyLog  # noqa: PLC0415
             from app.models.lead import Lead  # noqa: PLC0415
             from app.models.governance import Proposal  # noqa: PLC0415
 
@@ -342,10 +366,10 @@ urgency_score must be integer 1–10. 10 = extremely urgent."""
                     # Threat: No outreach today
                     outreach_today = await session.scalar(
                         select(func.count())
-                        .select_from(ReplyLog)
+                        .select_from(OutreachLog)
                         .where(
-                            ReplyLog.tenant_id == tenant_uuid,
-                            ReplyLog.created_at >= today_start,
+                            OutreachLog.tenant_id == tenant_uuid,
+                            OutreachLog.created_at >= today_start,
                         )
                     ) or 0
 

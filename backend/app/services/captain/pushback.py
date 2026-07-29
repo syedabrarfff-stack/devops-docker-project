@@ -4,6 +4,7 @@ Stress-tests strategies and surfaces risks before they become expensive mistakes
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -40,7 +41,7 @@ def _coerce_uuid(val: Any) -> UUID:
 
 def _parse_json_response(text: str) -> dict:
     try:
-        match = re.search(r"\{[\s\S]+\}", text)
+        match = re.search(r"\{[\s\S]+\}", text or "")
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -103,11 +104,16 @@ VERDICT CRITERIA:
 confidence must be float 0.0–1.0."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                max_tokens=900,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    max_tokens=900,
+                ),
+                timeout=60.0,
             )
+            if response.error:
+                raise ValueError(response.error)
             result = _parse_json_response(response.content)
             if result and "verdict" in result:
                 result["evaluated_at"] = datetime.now(UTC).isoformat()
@@ -186,11 +192,16 @@ stress_score: 0 = catastrophically fragile, 100 = highly resilient.
 Be ruthlessly honest — Captain needs the truth, not validation."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    max_tokens=1200,
+                ),
+                timeout=60.0,
             )
+            if response.error:
+                raise ValueError(response.error)
             result = _parse_json_response(response.content)
             if result and "stress_score" in result:
                 result["strategy"] = strategy
