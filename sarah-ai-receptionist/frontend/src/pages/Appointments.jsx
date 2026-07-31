@@ -4,13 +4,16 @@ import { appointmentsApi } from "../services/api";
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     load();
   }, []);
 
   function load() {
-    appointmentsApi.list({ upcoming_only: true }).then(({ data }) => setAppointments(data));
+    appointmentsApi.list({ upcoming_only: true })
+      .then(({ data }) => setAppointments(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load appointments."));
   }
 
   async function markStatus(id, status) {
@@ -22,6 +25,9 @@ export default function Appointments() {
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">Appointments</h1>
       <p className="text-sm text-slate-500 mb-6">Upcoming bookings from Sarah and manual entries.</p>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">

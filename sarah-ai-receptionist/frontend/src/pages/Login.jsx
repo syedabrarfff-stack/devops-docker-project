@@ -18,7 +18,7 @@ export default function Login() {
     try {
       const { data } = await authApi.login(email, password);
       login(data);
-      navigate("/");
+      navigate(data.role === "platform_admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.detail || "Login failed. Check your credentials.");
     } finally {

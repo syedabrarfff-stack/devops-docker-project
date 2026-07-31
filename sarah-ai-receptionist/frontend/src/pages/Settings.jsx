@@ -4,9 +4,12 @@ import { dashboardApi } from "../services/api";
 export default function Settings() {
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    dashboardApi.getSettings().then(({ data }) => setForm(data));
+    dashboardApi.getSettings()
+      .then(({ data }) => setForm(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load settings."));
   }, []);
 
   function set(field, value) {
@@ -26,6 +29,12 @@ export default function Settings() {
     setSaved(true);
   }
 
+  if (error) return (
+    <div>
+      <h1 className="text-2xl font-semibold text-slate-900 mb-1">Settings</h1>
+      <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+    </div>
+  );
   if (!form) return null;
 
   return (

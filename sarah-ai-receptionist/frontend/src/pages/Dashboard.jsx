@@ -5,15 +5,21 @@ import StatCard from "../components/StatCard";
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    dashboardApi.getStats().then(({ data }) => setStats(data));
+    dashboardApi.getStats()
+      .then(({ data }) => setStats(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load stats."));
   }, []);
 
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">Dashboard</h1>
       <p className="text-sm text-slate-500 mb-6">Today's activity at a glance.</p>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Calls Today" value={stats?.calls_today ?? "—"} icon={PhoneCall} />

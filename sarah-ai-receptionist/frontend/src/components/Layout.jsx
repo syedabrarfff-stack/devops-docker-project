@@ -3,8 +3,9 @@ import Sidebar from "./Sidebar";
 import { useAuthStore } from "../store/useAuthStore";
 
 export default function Layout() {
-  const token = useAuthStore((s) => s.token);
+  const { token, role } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
+  if (role === "platform_admin") return <Navigate to="/admin" replace />;
 
   return (
     <div className="flex">

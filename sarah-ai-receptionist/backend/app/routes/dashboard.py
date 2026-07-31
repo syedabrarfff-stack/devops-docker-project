@@ -33,6 +33,7 @@ class CallLogOut(BaseModel):
     transferred: bool
     appointment_booked: bool
     ai_summary: str | None
+    exchange_count: int = 0
 
     class Config:
         from_attributes = True

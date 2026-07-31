@@ -1,16 +1,21 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, PhoneCall, CalendarClock, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, PhoneCall, CalendarClock, Settings, LogOut, ShieldCheck } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 
-const NAV = [
+const CLINIC_NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/calls", label: "Call Log", icon: PhoneCall },
   { to: "/appointments", label: "Appointments", icon: CalendarClock },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+const ADMIN_NAV = [
+  { to: "/admin", label: "Admin Console", icon: ShieldCheck },
+];
+
 export default function Sidebar() {
-  const { fullName, logout } = useAuthStore();
+  const { fullName, role, logout } = useAuthStore();
+  const NAV = role === "platform_admin" ? ADMIN_NAV : CLINIC_NAV;
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">

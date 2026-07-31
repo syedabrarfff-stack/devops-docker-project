@@ -12,9 +12,12 @@ export default function CallLog() {
   const [calls, setCalls] = useState([]);
   const [selected, setSelected] = useState(null);
   const [recordingUrl, setRecordingUrl] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    dashboardApi.getCalls({ limit: 50 }).then(({ data }) => setCalls(data));
+    dashboardApi.getCalls({ limit: 50 })
+      .then(({ data }) => setCalls(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load call log."));
   }, []);
 
   async function openCall(id) {
@@ -35,6 +38,9 @@ export default function CallLog() {
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">Call Log</h1>
       <p className="text-sm text-slate-500 mb-6">Every call Sarah has answered.</p>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
