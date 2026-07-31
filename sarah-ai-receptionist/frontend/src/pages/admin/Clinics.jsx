@@ -4,15 +4,21 @@ import { adminApi } from "../../services/api";
 
 export default function Clinics() {
   const [clinics, setClinics] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    adminApi.listClinics().then(({ data }) => setClinics(data));
+    adminApi.listClinics()
+      .then(({ data }) => setClinics(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load clinics."));
   }, []);
 
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">All Clinics</h1>
       <p className="text-sm text-slate-500 mb-6">Every clinic running on the Sarah platform.</p>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <table className="w-full text-sm">
