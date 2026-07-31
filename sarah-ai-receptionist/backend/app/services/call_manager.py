@@ -250,6 +250,7 @@ class CallManager:
 
         return {
             "call_sid": self.call_sid,
+            "started_at": self.call_start,
             "duration_seconds": duration,
             "transcript": self.call_log,
             "outcome": self.pending_action.action if self.pending_action else "completed",

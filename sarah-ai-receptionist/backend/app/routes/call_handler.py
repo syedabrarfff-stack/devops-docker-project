@@ -39,25 +39,33 @@ def _redis() -> redis_lib.Redis:
     return redis_lib.from_url(settings.redis_url)
 
 
-async def _mark_call_validated(call_sid: str) -> None:
+async def _mark_call_validated(call_sid: str, caller_phone: str | None = None) -> None:
     """Records that this call_sid passed Twilio signature validation on /incoming-call,
     so the WebSocket handler can confirm the stream that follows is legitimate."""
     r = _redis()
     try:
-        await r.set(f"call:pending:{call_sid}", "1", ex=_PENDING_CALL_TTL_SECONDS)
+        await r.set(f"call:pending:{call_sid}", caller_phone or "unknown", ex=_PENDING_CALL_TTL_SECONDS)
     finally:
         await r.aclose()
 
 
-async def _consume_call_validation(call_sid: str) -> bool:
-    """Atomically checks and clears the validated flag. Returns False for any
-    call_sid that didn't go through the validated webhook (or is being replayed)."""
+async def _consume_call_validation(call_sid: str) -> str | None:
+    """Atomically checks and clears the validated flag. Returns None for any
+    call_sid that didn't go through the validated webhook (or is being replayed);
+    otherwise returns the caller's phone number."""
     if not call_sid:
-        return False
+        return None
     r = _redis()
     try:
-        removed = await r.delete(f"call:pending:{call_sid}")
-        return removed == 1
+        pipe = r.pipeline()
+        await pipe.get(f"call:pending:{call_sid}")
+        await pipe.delete(f"call:pending:{call_sid}")
+        results = await pipe.execute()
+        caller_phone = results[0]
+        deleted = results[1]
+        if not deleted:
+            return None
+        return caller_phone.decode() if isinstance(caller_phone, bytes) else caller_phone
     finally:
         await r.aclose()
 
@@ -82,9 +90,10 @@ async def incoming_call(request: Request):
         raise HTTPException(status_code=403, detail="Invalid request signature")
 
     to_number = form_dict.get("To", "")
+    from_number = form_dict.get("From", "")
     call_sid = form_dict.get("CallSid", "")
 
-    await _mark_call_validated(call_sid)
+    await _mark_call_validated(call_sid, caller_phone=from_number)
 
     ws_scheme = "wss" if settings.is_production else "ws"
     base_host = settings.app_base_url.split("://", 1)[-1].rstrip("/")
@@ -117,6 +126,7 @@ async def media_stream(websocket: WebSocket):
     call_manager: CallManager | None = None
     call_sid: str | None = None
     called_number: str | None = None
+    caller_phone: str | None = None
     clinic_config: dict | None = None
     call_task: asyncio.Task | None = None
 
@@ -133,7 +143,8 @@ async def media_stream(websocket: WebSocket):
                 custom_params = start_data.get("customParameters", {})
                 called_number = custom_params.get("calledNumber")
 
-                if not await _consume_call_validation(call_sid):
+                caller_phone = await _consume_call_validation(call_sid)
+                if caller_phone is None:
                     logger.warning(f"Rejected /media-stream: unvalidated call_sid {call_sid}")
                     await websocket.close(code=4403)
                     return
@@ -167,6 +178,7 @@ async def media_stream(websocket: WebSocket):
                 except (asyncio.CancelledError, Exception):
                     pass
             result = await call_manager.end_call()
+            result["caller_phone"] = caller_phone
             await save_call_transcript(call_sid, clinic_config, result)
             _active_calls.pop(call_sid, None)
 

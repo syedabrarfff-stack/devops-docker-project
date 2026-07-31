@@ -24,7 +24,7 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         logger.warning(f"No clinic_id for call {call_sid}, skipping persistence")
         return
 
-    started_at = datetime.now(timezone.utc)
+    started_at = result.get("started_at") or datetime.now(timezone.utc)
     outcome = result.get("outcome")
     action_params = result.get("action_params", {})
 
@@ -32,6 +32,7 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         call_log = CallLog(
             clinic_id=clinic_id,
             call_sid=call_sid,
+            caller_phone=result.get("caller_phone"),
             started_at=started_at,
             duration_seconds=result.get("duration_seconds"),
             exchange_count=len(result.get("transcript", [])),
