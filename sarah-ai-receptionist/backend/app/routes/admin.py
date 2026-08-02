@@ -39,6 +39,12 @@ class OnboardClinicRequest(BaseModel):
     admin_full_name: str
     auto_buy_twilio_number: bool = True
     area_code: str | None = None
+    # Where an in-hours [TRANSFER] is dialled, and who gets texted outside
+    # hours. Without these Sarah declines to promise a handoff at all.
+    transfer_phone_number: str | None = None
+    after_hours_escalation_number: str | None = None
+    # {"mon": [["08:00","18:00"]], "sun": []} — evaluated in `timezone`.
+    business_hours: dict | None = None
 
 
 class OnboardClinicResponse(BaseModel):
@@ -74,6 +80,9 @@ async def onboard_clinic(
         timezone=payload.timezone,
         twilio_phone_number=twilio_number,
         clinic_config=get_default_clinic_config(),
+        transfer_phone_number=payload.transfer_phone_number,
+        after_hours_escalation_number=payload.after_hours_escalation_number,
+        business_hours=payload.business_hours or {},
     )
     db.add(clinic)
     await db.flush()

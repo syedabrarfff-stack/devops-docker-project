@@ -152,6 +152,64 @@ def parse_caller_datetime(raw: str | None, timezone_name: str | None) -> datetim
     return parsed.astimezone(timezone.utc)
 
 
+_WEEKDAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def is_open_now(business_hours: dict | None, timezone_name: str | None) -> bool | None:
+    """Whether the clinic is open right now, in its own local time.
+
+    `business_hours` maps weekday keys to a list of [open, close] "HH:MM"
+    intervals, so a clinic that closes for lunch can say so:
+
+        {"mon": [["08:00", "12:00"], ["13:00", "18:00"]], "sun": []}
+
+    Returns None when hours aren't configured — the caller must decide what to
+    do with "unknown", which is not the same as "closed".
+    """
+    if not business_hours or not isinstance(business_hours, dict):
+        return None
+
+    local = now_in_clinic(timezone_name)
+    intervals = business_hours.get(_WEEKDAY_KEYS[local.weekday()])
+    if not intervals:
+        # An explicit empty list means closed that day; a missing key in an
+        # otherwise-configured week means the same thing.
+        return False
+
+    minutes_now = local.hour * 60 + local.minute
+    for interval in intervals:
+        parsed = _parse_interval(interval)
+        if parsed is None:
+            continue
+        start, end = parsed
+        if start <= end:
+            if start <= minutes_now < end:
+                return True
+        # An interval that wraps midnight ("22:00"–"02:00") is open on both
+        # sides of the boundary.
+        elif minutes_now >= start or minutes_now < end:
+            return True
+    return False
+
+
+def _parse_interval(interval) -> tuple[int, int] | None:
+    """Convert ["08:00", "18:00"] to minutes-since-midnight, or None if malformed.
+
+    Bad data in one interval must not make a clinic look permanently closed, so
+    unparseable entries are skipped rather than raised.
+    """
+    if not isinstance(interval, (list, tuple)) or len(interval) != 2:
+        logger.warning(f"Malformed business-hours interval: {interval!r}")
+        return None
+    try:
+        start_h, start_m = (int(p) for p in str(interval[0]).split(":", 1))
+        end_h, end_m = (int(p) for p in str(interval[1]).split(":", 1))
+    except (ValueError, TypeError):
+        logger.warning(f"Unparseable business-hours interval: {interval!r}")
+        return None
+    return start_h * 60 + start_m, end_h * 60 + end_m
+
+
 def _resolve_relative_day(raw: str) -> tuple[str, int | None]:
     """Strip a relative day word out of the phrase and return its day offset.
 

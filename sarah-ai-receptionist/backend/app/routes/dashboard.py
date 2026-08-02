@@ -31,6 +31,7 @@ class CallLogOut(BaseModel):
     duration_seconds: float | None
     outcome: str | None
     transferred: bool
+    transfer_result: str | None = None
     appointment_booked: bool
     ai_summary: str | None
     exchange_count: int = 0
@@ -190,6 +191,9 @@ async def get_clinic_settings(
         "sarah_name": clinic.sarah_name,
         "clinic_config": clinic.clinic_config,
         "twilio_phone_number": clinic.twilio_phone_number,
+        "transfer_phone_number": clinic.transfer_phone_number,
+        "after_hours_escalation_number": clinic.after_hours_escalation_number,
+        "business_hours": clinic.business_hours,
     }
 
 
@@ -206,7 +210,10 @@ async def update_clinic_settings(
     if not clinic:
         raise HTTPException(status_code=404, detail="Clinic not found")
 
-    allowed_fields = {"name", "address", "city", "state", "timezone", "sarah_name", "clinic_config"}
+    allowed_fields = {
+        "name", "address", "city", "state", "timezone", "sarah_name", "clinic_config",
+        "transfer_phone_number", "after_hours_escalation_number", "business_hours",
+    }
     changed_fields = []
     for field, value in payload.items():
         if field in allowed_fields:

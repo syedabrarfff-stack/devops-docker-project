@@ -30,6 +30,35 @@ async def send_appointment_confirmation(to_phone: str, clinic_name: str, service
         return False
 
 
+async def send_urgent_escalation(
+    to_phone: str, clinic_name: str, caller_phone: str | None, summary: str | None
+) -> bool:
+    """Text the on-call number when a caller needed a human and none was available.
+
+    This is the only thing standing between an after-hours caller and being
+    forgotten, so it carries the callback number first — the person reading it
+    at 11pm needs to act, not scroll.
+    """
+    if not to_phone:
+        return False
+    settings = get_settings()
+    body = (
+        f"{clinic_name} — urgent call needs a callback.\n"
+        f"Caller: {caller_phone or 'number withheld'}\n"
+        f"{(summary or 'Caller asked to speak with a person.')[:400]}"
+    )
+    try:
+        client = get_twilio_client()
+        await asyncio.to_thread(
+            client.messages.create, body=body, from_=settings.twilio_phone_number, to=to_phone
+        )
+        logger.info(f"Sent urgent escalation SMS to on-call number for {clinic_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send urgent escalation SMS to {to_phone}: {e}")
+        return False
+
+
 async def send_appointment_reminder(to_phone: str, clinic_name: str, service: str, when: str) -> bool:
     if not to_phone:
         return False

@@ -15,7 +15,7 @@ from app.core.database import get_db_context
 from app.models.appointment import Appointment
 from app.models.call_log import CallLog
 from app.services.appointment_service import book_appointment_from_action
-from app.services.notification_service import send_appointment_confirmation
+from app.services.notification_service import send_appointment_confirmation, send_urgent_escalation
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -41,6 +41,7 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             exchange_count=len(result.get("transcript", [])),
             outcome=outcome,
             transferred=outcome == "TRANSFER",
+            transfer_result=result.get("transfer_result"),
             appointment_booked=outcome == "BOOK",
             transcript=result.get("transcript", []),
             avg_response_ms=result.get("avg_response_ms"),
@@ -69,6 +70,31 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             await db.flush()
 
     await _enqueue_summary(call_log_id)
+
+    # Sarah told the caller their details were passed on — that has to be true.
+    # Sent here rather than mid-call so an abrupt hangup can't skip it.
+    escalate_to = result.get("escalate_sms_to")
+    if escalate_to:
+        transcript = result.get("transcript") or []
+        last_caller_turn = next(
+            (t.get("content") for t in reversed(transcript) if t.get("role") == "caller"), None
+        )
+        sent = await send_urgent_escalation(
+            escalate_to,
+            (clinic_config or {}).get("name", "Your clinic"),
+            result.get("caller_phone"),
+            last_caller_turn,
+        )
+        if not sent:
+            # The caller was promised a callback nobody was told about — this
+            # needs to be visible in the dashboard, not just the logs.
+            async with get_db_context() as db:
+                await db.execute(
+                    update(CallLog)
+                    .where(CallLog.id == call_log_id)
+                    .values(transfer_result="escalation_failed")
+                )
+            logger.error(f"Escalation SMS failed for call {call_sid} — caller expects a callback")
 
     if appointment_id and action_params.get("phone"):
         clinic_name = (clinic_config or {}).get("name", "our clinic")

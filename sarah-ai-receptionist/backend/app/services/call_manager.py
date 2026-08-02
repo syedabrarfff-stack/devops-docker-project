@@ -19,16 +19,31 @@ from app.services.barge_in import is_real_interruption, send_clear_event
 from app.services.call_recorder import upload_recording_to_s3
 from app.services.speech_to_text import SpeechToText, TranscriptEvent
 from app.services.text_to_speech import TextToSpeech, audio_to_twilio_payload
+from app.services.transfer_service import (
+    UNAVAILABLE_MESSAGE,
+    TransferPlan,
+    plan_transfer,
+    redirect_call_to_human,
+)
 
 logger = logging.getLogger(__name__)
 
 SILENCE_PROMPT_SECONDS = 30.0
+
+# Upper bound on waiting for Twilio to confirm the handoff line finished
+# playing. Exceeding it means a mark was lost, not that audio is still going —
+# transferring late is better than stranding the caller with Sarah.
+PLAYBACK_CONFIRM_TIMEOUT = 10.0
 
 
 class CallManager:
     def __init__(self, call_sid: str, stream_sid: str, clinic_config: dict | None = None):
         self.call_sid = call_sid
         self.stream_sid = stream_sid
+        # Kept separate from ai_brain.clinic_config, which substitutes defaults
+        # for an unrecognised number — routing must never fall back to a
+        # sample clinic's numbers.
+        self.clinic_config = clinic_config or {}
         self.ai_brain = AIBrain(clinic_config)
         self.stt = SpeechToText()
         self.tts = TextToSpeech()
@@ -41,6 +56,12 @@ class CallManager:
 
         self._speak_task: asyncio.Task | None = None
         self._utterance_buffer: str = ""
+        # Twilio echoes a mark back once the audio before it has actually been
+        # played to the caller. Handing the call to a human discards whatever is
+        # still buffered, so the transfer path waits on these.
+        self._pending_marks: dict[str, asyncio.Event] = {}
+        self._mark_counter = 0
+        self.transfer_plan: TransferPlan | None = None
         self._latencies_ms: list[float] = []
         # Raw mulaw/8kHz bytes, both directions, appended in real-time arrival
         # order — a simple but faithful single-track recording. (Proper
@@ -144,13 +165,47 @@ class CallManager:
         if action:
             logger.info(f"[{self.call_sid}] Action: {action.action} {action.params}")
             if action.action == "TRANSFER":
-                await self._speak_sentence("Let me connect you with our office manager. One moment please.")
+                await self._handle_transfer()
+
+    async def _handle_transfer(self):
+        """Hand the caller to a person, or tell them the truth about why we can't.
+
+        This used to announce a transfer and then hang up — on the emergency
+        path, which is the one call a dental practice cannot afford to drop.
+        """
+        plan = plan_transfer(self.clinic_config)
+        self.transfer_plan = plan
+        self._log("assistant", plan.spoken_message)
+        logger.info(f"[{self.call_sid}] Transfer plan: {plan.result}")
+
+        # Must finish playing before the redirect discards Twilio's buffer.
+        await self._speak_sentence(plan.spoken_message, await_playback=plan.should_dial)
+
+        if plan.should_dial:
+            connected = await redirect_call_to_human(
+                self.call_sid, plan.dial_number, self.clinic_config.get("_twilio_phone_number")
+            )
+            if not connected:
+                # Twilio refused the redirect; the caller is still with Sarah,
+                # so recover rather than leaving them on a dead promise.
+                plan.result = "unavailable"
+                plan.dial_number = None
+                plan.escalate_sms_to = self.clinic_config.get("_after_hours_escalation_number")
+                self._log("assistant", UNAVAILABLE_MESSAGE)
+                await self._speak_sentence(UNAVAILABLE_MESSAGE)
 
     async def _speak_text(self, text: str):
         """Speak a single fixed string (used for greeting / silence prompts). Caller logs it."""
         await self._speak_sentence(text)
 
-    async def _speak_sentence(self, text: str):
+    async def _speak_sentence(self, text: str, await_playback: bool = False):
+        """Stream one sentence to the caller.
+
+        With await_playback, waits until Twilio confirms the audio actually
+        reached the caller. Only the transfer path needs that: redirecting the
+        call discards Twilio's buffer, so returning early would cut Sarah off
+        mid-sentence and the caller would hear a click instead of a handoff.
+        """
         if not text.strip() or not self.twilio_ws:
             return
         try:
@@ -164,12 +219,28 @@ class CallManager:
                 })
                 await self.twilio_ws.send_text(media_message)
 
+            self._mark_counter += 1
+            mark_name = f"speech_{self._mark_counter}"
+            # Registered before the mark is sent — Twilio can echo it back
+            # faster than this coroutine resumes.
+            played = asyncio.Event() if await_playback else None
+            if played is not None:
+                self._pending_marks[mark_name] = played
+
             mark_message = json.dumps({
                 "event": "mark",
                 "streamSid": self.stream_sid,
-                "mark": {"name": f"speech_{len(self.call_log)}"},
+                "mark": {"name": mark_name},
             })
             await self.twilio_ws.send_text(mark_message)
+
+            if played is not None:
+                try:
+                    await asyncio.wait_for(played.wait(), timeout=PLAYBACK_CONFIRM_TIMEOUT)
+                except asyncio.TimeoutError:
+                    logger.warning(f"[{self.call_sid}] No playback confirmation for {mark_name}")
+                finally:
+                    self._pending_marks.pop(mark_name, None)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -210,7 +281,13 @@ class CallManager:
                 logger.info("Call stream stopped")
                 self.is_active = False
             elif event == "mark":
-                logger.debug(f"Mark event: {data.get('mark', {}).get('name')}")
+                mark_name = data.get("mark", {}).get("name")
+                logger.debug(f"Mark event: {mark_name}")
+                # Twilio only echoes a mark once the audio queued before it has
+                # played, so this is the signal the transfer path waits on.
+                waiter = self._pending_marks.pop(mark_name, None)
+                if waiter is not None:
+                    waiter.set()
         except Exception as e:
             logger.error(f"Error handling Twilio message: {e}")
 
@@ -257,4 +334,9 @@ class CallManager:
             "avg_response_ms": avg_latency,
             "action_params": self.pending_action.params if self.pending_action else {},
             "recording_s3_key": recording_s3_key,
+            # The escalation SMS is sent after teardown rather than mid-call:
+            # this dict is handed to save_call_transcript from call_handler's
+            # finally block, which runs even if the caller hangs up abruptly.
+            "transfer_result": self.transfer_plan.result if self.transfer_plan else None,
+            "escalate_sms_to": self.transfer_plan.escalate_sms_to if self.transfer_plan else None,
         }

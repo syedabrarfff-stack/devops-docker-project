@@ -27,6 +27,10 @@ class CallLog(Base, UUIDMixin, TimestampMixin):
     # Outcome
     outcome: Mapped[str] = mapped_column(String(50), nullable=True)
     transferred: Mapped[bool] = mapped_column(Boolean, default=False)
+    # What actually happened when a transfer was attempted: "connected",
+    # "no_answer", "escalated_sms", or "unavailable". `transferred` alone can't
+    # distinguish a handoff that worked from one that rang out.
+    transfer_result: Mapped[str] = mapped_column(String(30), nullable=True)
     appointment_booked: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Recording consent — set once the mandatory disclosure has played (see

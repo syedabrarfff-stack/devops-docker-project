@@ -113,6 +113,96 @@ async def incoming_call(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+NO_ANSWER_MESSAGE = (
+    "I'm sorry, no one was able to pick up just now. I've let our team know you called "
+    "and someone will get back to you. If this is a serious emergency, please go to your "
+    "nearest emergency room right away."
+)
+
+
+@router.post("/transfer-status")
+async def transfer_status(request: Request):
+    """Twilio posts here when a transferred <Dial> finishes.
+
+    Without this the caller would hear silence when the front desk doesn't
+    pick up, and the call log would claim a transfer succeeded when it rang
+    out. Both outcomes are recorded from what actually happened.
+    """
+    form = await request.form()
+    form_dict = dict(form)
+
+    if not _validate_twilio_request(request, form_dict):
+        logger.warning("Rejected /transfer-status: invalid Twilio signature")
+        raise HTTPException(status_code=403, detail="Invalid request signature")
+
+    call_sid = form_dict.get("CallSid", "")
+    dial_status = form_dict.get("DialCallStatus", "")
+
+    if dial_status == "completed":
+        await _record_transfer_result(call_sid, "connected")
+        return Response(
+            content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>',
+            media_type="application/xml",
+        )
+
+    logger.warning(f"Transfer for call {call_sid} ended as {dial_status!r}")
+    await _record_transfer_result(call_sid, "no_answer")
+    await _escalate_unanswered_transfer(call_sid, form_dict.get("From"))
+
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f"<Response><Say>{xml_escape(NO_ANSWER_MESSAGE)}</Say><Hangup/></Response>"
+    )
+    return Response(content=twiml, media_type="application/xml")
+
+
+async def _record_transfer_result(call_sid: str, result: str) -> None:
+    """Overwrite the optimistic 'connected' written when the redirect was issued."""
+    if not call_sid:
+        return
+    from sqlalchemy import update
+
+    from app.models.call_log import CallLog
+
+    try:
+        async with get_db_context() as db:
+            await db.execute(
+                update(CallLog).where(CallLog.call_sid == call_sid).values(transfer_result=result)
+            )
+    except Exception as e:
+        logger.error(f"Failed to record transfer result for {call_sid}: {e}")
+
+
+async def _escalate_unanswered_transfer(call_sid: str, caller_phone: str | None) -> None:
+    """Text the on-call number when a live transfer rang out, so the caller
+    isn't lost between Sarah and a front desk that never answered."""
+    from app.models.call_log import CallLog
+    from app.services.notification_service import send_urgent_escalation
+
+    try:
+        async with get_db_context() as db:
+            result = await db.execute(select(CallLog).where(CallLog.call_sid == call_sid))
+            call_log = result.scalar_one_or_none()
+            if not call_log:
+                return
+            clinic_result = await db.execute(select(Clinic).where(Clinic.id == call_log.clinic_id))
+            clinic = clinic_result.scalar_one_or_none()
+            if not clinic or not clinic.after_hours_escalation_number:
+                return
+            escalate_to = clinic.after_hours_escalation_number
+            clinic_name = clinic.name
+            last_turn = next(
+                (t.get("content") for t in reversed(call_log.transcript or [])
+                 if t.get("role") == "caller"),
+                None,
+            )
+        await send_urgent_escalation(
+            escalate_to, clinic_name, caller_phone or call_log.caller_phone, last_turn
+        )
+    except Exception as e:
+        logger.error(f"Failed to escalate unanswered transfer for {call_sid}: {e}")
+
+
 @router.websocket("/media-stream")
 async def media_stream(websocket: WebSocket):
     """Twilio's bidirectional audio WebSocket. One connection per call.
@@ -209,4 +299,10 @@ async def _load_clinic_config(twilio_number: str | None) -> dict | None:
         # Booking and SMS confirmation both resolve caller-spoken times against
         # this — without it they'd fall back to UTC and be hours off.
         config["_timezone"] = clinic.timezone
+        # Escalation routing. Prefixed with _ like the other internal fields so
+        # they're never interpolated into the AI system prompt.
+        config["_transfer_phone_number"] = clinic.transfer_phone_number
+        config["_after_hours_escalation_number"] = clinic.after_hours_escalation_number
+        config["_business_hours"] = clinic.business_hours
+        config["_twilio_phone_number"] = clinic.twilio_phone_number
         return config

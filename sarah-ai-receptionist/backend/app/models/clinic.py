@@ -14,6 +14,17 @@ class Clinic(Base, UUIDMixin, TimestampMixin):
     # Twilio
     twilio_phone_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=True)
 
+    # Escalation. During opening hours a [TRANSFER] hands the live call to
+    # transfer_phone_number. Outside them there is nobody to hand it to, so the
+    # caller's details are texted to after_hours_escalation_number instead —
+    # promising a transfer to an empty office is worse than not offering one.
+    transfer_phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
+    after_hours_escalation_number: Mapped[str] = mapped_column(String(20), nullable=True)
+
+    # {"mon": [["08:00","18:00"]], "sat": [["09:00","14:00"]], "sun": []}
+    # Evaluated in this clinic's `timezone`, never the server's.
+    business_hours: Mapped[dict] = mapped_column(JSON, default=dict)
+
     # Location
     address: Mapped[str] = mapped_column(Text, nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=True)
