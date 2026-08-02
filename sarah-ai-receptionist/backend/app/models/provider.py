@@ -1,6 +1,12 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, UUIDMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.appointment import Appointment
+    from app.models.clinic import Clinic
 
 
 class Provider(Base, UUIDMixin, TimestampMixin):

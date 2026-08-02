@@ -1,6 +1,21 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String, Boolean, JSON, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, UUIDMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    # relationship() resolves these by class name via SQLAlchemy's mapper
+    # registry, not by this import — real models never load at runtime here,
+    # so there's no risk of the circular import these classes have with each
+    # other. This only makes the `Mapped["X"]` forward references resolvable
+    # for type checkers and linters.
+    from app.models.appointment import Appointment
+    from app.models.call_log import CallLog
+    from app.models.organization import Organization
+    from app.models.patient import Patient
+    from app.models.provider import Provider
+    from app.models.user import User
 
 
 class Clinic(Base, UUIDMixin, TimestampMixin):

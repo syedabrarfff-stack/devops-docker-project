@@ -91,3 +91,56 @@ async def book_appointment_from_action(
 
     logger.info(f"Booked appointment {appointment.id} for clinic {clinic_id}: {service} @ {appt_dt}")
     return appointment
+
+
+async def _match_upcoming_appointment(db: AsyncSession, clinic_id: str, phone: str):
+    """The soonest scheduled, still-future appointment for a caller's number.
+
+    Reschedule and cancel both act on 'your appointment' — during the call
+    Sarah confirms which one via the lookup, so matching the soonest upcoming
+    one is the safe interpretation. Returns None when nothing matches, so the
+    caller is never told a change happened that didn't.
+    """
+    from app.services.patient_lookup import find_upcoming_appointments
+
+    appointments = await find_upcoming_appointments(db, clinic_id, phone)
+    return appointments[0] if appointments else None
+
+
+async def reschedule_appointment_from_action(db: AsyncSession, clinic_id: str, params: dict):
+    """Move a caller's upcoming appointment to a new time. Returns the updated
+    appointment, or None if no matching one was found."""
+    phone = params.get("phone", "").strip()
+    appointment = await _match_upcoming_appointment(db, clinic_id, phone)
+    if not appointment:
+        logger.warning(f"Reschedule requested for clinic {clinic_id} but no upcoming appointment matched")
+        return None
+
+    clinic_timezone = await db.scalar(select(Clinic.timezone).where(Clinic.id == clinic_id))
+    new_dt = parse_caller_datetime(params.get("datetime", ""), clinic_timezone)
+    if new_dt is None:
+        logger.warning(f"Reschedule for appointment {appointment.id} had an unparseable new time")
+        return None
+
+    appointment.appointment_datetime = new_dt
+    # A moved appointment needs its reminder to fire again for the new time.
+    appointment.reminder_sent = False
+    await db.flush()
+    logger.info(f"Rescheduled appointment {appointment.id} for clinic {clinic_id} to {new_dt}")
+    return appointment
+
+
+async def cancel_appointment_from_action(db: AsyncSession, clinic_id: str, params: dict):
+    """Cancel a caller's upcoming appointment. Returns the cancelled appointment,
+    or None if none matched. The row is kept (status='cancelled') so the slot
+    freeing up is visible on the dashboard rather than silently vanishing."""
+    phone = params.get("phone", "").strip()
+    appointment = await _match_upcoming_appointment(db, clinic_id, phone)
+    if not appointment:
+        logger.warning(f"Cancel requested for clinic {clinic_id} but no upcoming appointment matched")
+        return None
+
+    appointment.status = "cancelled"
+    await db.flush()
+    logger.info(f"Cancelled appointment {appointment.id} for clinic {clinic_id}")
+    return appointment

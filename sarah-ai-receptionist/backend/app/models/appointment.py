@@ -1,7 +1,16 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String, DateTime, ForeignKey, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, UUIDMixin, TimestampMixin
+
+if TYPE_CHECKING:
+    # See app/models/clinic.py — string-only, resolved by SQLAlchemy's mapper
+    # registry, never imported at runtime.
+    from app.models.clinic import Clinic
+    from app.models.patient import Patient
+    from app.models.provider import Provider
 
 
 class Appointment(Base, UUIDMixin, TimestampMixin):

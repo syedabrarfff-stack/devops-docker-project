@@ -30,6 +30,31 @@ async def send_appointment_confirmation(to_phone: str, clinic_name: str, service
         return False
 
 
+async def send_appointment_change(
+    to_phone: str, clinic_name: str, kind: str, service: str, when: str
+) -> bool:
+    """Confirm a reschedule or cancellation by SMS, the same way a booking is
+    confirmed — so the caller has it in writing, not just a spoken 'done'."""
+    if not to_phone:
+        return False
+    settings = get_settings()
+    if kind == "rescheduled":
+        body = f"{clinic_name}: your {service} has been moved to {when}. See you then."
+    elif kind == "cancelled":
+        body = f"{clinic_name}: your {service} on {when} has been cancelled. Call us to rebook anytime."
+    else:
+        return False
+    try:
+        client = get_twilio_client()
+        await asyncio.to_thread(
+            client.messages.create, body=body, from_=settings.twilio_phone_number, to=to_phone
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send {kind} SMS to {to_phone}: {e}")
+        return False
+
+
 async def send_urgent_escalation(
     to_phone: str, clinic_name: str, caller_phone: str | None, summary: str | None
 ) -> bool:

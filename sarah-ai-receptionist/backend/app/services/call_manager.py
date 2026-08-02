@@ -16,7 +16,9 @@ from datetime import datetime, timezone
 
 from app.services.ai_brain import ActionCommand, AIBrain
 from app.services.barge_in import is_real_interruption, send_clear_event
+from app.core.database import get_db_context
 from app.services.call_recorder import upload_recording_to_s3
+from app.services.patient_lookup import lookup_patient_context
 from app.services.speech_to_text import SpeechToText, TranscriptEvent
 from app.services.text_to_speech import TextToSpeech, audio_to_twilio_payload
 from app.services.transfer_service import (
@@ -30,6 +32,14 @@ logger = logging.getLogger(__name__)
 
 SILENCE_PROMPT_SECONDS = 30.0
 
+# Actions that change clinic records — accumulated across the whole call so a
+# later control-flow action can't drop them.
+_FULFILLMENT_ACTIONS = frozenset({"BOOK", "RESCHEDULE", "CANCEL"})
+
+# A single caller turn may need at most this many lookups before Sarah replies —
+# a guard so a model that keeps re-emitting [LOOKUP_PATIENT] can't spin.
+_MAX_LOOKUPS_PER_TURN = 2
+
 # Upper bound on waiting for Twilio to confirm the handoff line finished
 # playing. Exceeding it means a mark was lost, not that audio is still going —
 # transferring late is better than stranding the caller with Sarah.
@@ -37,9 +47,19 @@ PLAYBACK_CONFIRM_TIMEOUT = 10.0
 
 
 class CallManager:
-    def __init__(self, call_sid: str, stream_sid: str, clinic_config: dict | None = None):
+    def __init__(
+        self,
+        call_sid: str,
+        stream_sid: str,
+        clinic_config: dict | None = None,
+        caller_phone: str | None = None,
+    ):
         self.call_sid = call_sid
         self.stream_sid = stream_sid
+        # The number Twilio reported for the caller — used as the lookup key when
+        # Sarah doesn't capture one explicitly, so an existing patient is
+        # recognised without being asked to read their number back.
+        self.caller_phone = caller_phone
         # Kept separate from ai_brain.clinic_config, which substitutes defaults
         # for an unrecognised number — routing must never fall back to a
         # sample clinic's numbers.
@@ -52,6 +72,12 @@ class CallManager:
         self.call_start = datetime.now(timezone.utc)
         self.call_log: list[dict] = []
         self.pending_action: ActionCommand | None = None
+        # BOOK/RESCHEDULE/CANCEL are accumulated here instead of read from
+        # pending_action at call end: a caller who books and then says "bye"
+        # makes Sarah emit [END], which would otherwise overwrite the [BOOK] and
+        # silently lose the appointment. Control-flow actions (END/TRANSFER)
+        # stay on pending_action; fulfillment actions live here.
+        self.fulfillment_actions: list[ActionCommand] = []
         self._clinic_id = (clinic_config or {}).get("_clinic_id")
 
         self._speak_task: asyncio.Task | None = None
@@ -122,6 +148,18 @@ class CallManager:
 
                 await self._respond_now(transcript)
 
+                # Resolve any record lookups Sarah asked for before handing the
+                # turn back to the caller, so she answers with real data in the
+                # same breath instead of leaving dead air after "let me check".
+                lookups = 0
+                while (
+                    self.pending_action
+                    and self.pending_action.action == "LOOKUP_PATIENT"
+                    and lookups < _MAX_LOOKUPS_PER_TURN
+                ):
+                    lookups += 1
+                    await self._handle_lookup(self.pending_action.params)
+
                 if self.pending_action and self.pending_action.action == "TRANSFER":
                     break
                 if self.pending_action and self.pending_action.action == "END":
@@ -134,8 +172,12 @@ class CallManager:
         self._speak_task = asyncio.create_task(self._stream_ai_response(caller_text))
         await self._safe_await(self._speak_task)
 
-    async def _stream_ai_response(self, caller_text: str):
-        """Streams sentence chunks from the AI brain straight into TTS, tracking latency."""
+    async def _stream_ai_response(self, caller_text: str | None):
+        """Streams sentence chunks from the AI brain straight into TTS, tracking latency.
+
+        caller_text=None continues from existing history (used after a lookup
+        injects a system note) rather than adding a new caller turn.
+        """
         t0 = time.monotonic()
         first_token_ms = None
         spoken_parts: list[str] = []
@@ -164,8 +206,39 @@ class CallManager:
         self.pending_action = action
         if action:
             logger.info(f"[{self.call_sid}] Action: {action.action} {action.params}")
+            # Record every booking/change as it happens, not just the last
+            # action standing at call end.
+            if action.action in _FULFILLMENT_ACTIONS:
+                self.fulfillment_actions.append(action)
             if action.action == "TRANSFER":
                 await self._handle_transfer()
+
+    async def _handle_lookup(self, params: dict):
+        """Answer a [LOOKUP_PATIENT] by reading the record and letting Sarah continue.
+
+        Runs the DB read, feeds the result back to the model as a system note,
+        then generates a follow-up in the same turn — so the caller hears the
+        answer, not silence, after Sarah says "let me check that". pending_action
+        is cleared first so this can't re-enter for the same tag.
+        """
+        self.pending_action = None
+        phone = (params.get("phone") or self.caller_phone or "").strip()
+
+        try:
+            async with get_db_context() as db:
+                note = await lookup_patient_context(
+                    db, self._clinic_id, phone, self.clinic_config.get("_timezone")
+                )
+        except Exception as e:
+            logger.error(f"[{self.call_sid}] Patient lookup failed: {e}")
+            # Tell the model the lookup failed rather than letting it invent a
+            # match — an honest "I couldn't pull it up" beats a confabulated one.
+            note = "The record lookup could not be completed. Do not guess whether the caller is on file."
+
+        self.ai_brain.inject_system_note(note)
+        # caller_text=None: continue from history using the injected note.
+        self._speak_task = asyncio.create_task(self._stream_ai_response(None))
+        await self._safe_await(self._speak_task)
 
     async def _handle_transfer(self):
         """Hand the caller to a person, or tell them the truth about why we can't.
@@ -333,6 +406,11 @@ class CallManager:
             "outcome": self.pending_action.action if self.pending_action else "completed",
             "avg_response_ms": avg_latency,
             "action_params": self.pending_action.params if self.pending_action else {},
+            # Every booking/change made during the call, in order — processed at
+            # persistence regardless of whether [END] came after them.
+            "fulfillment_actions": [
+                {"action": a.action, "params": a.params} for a in self.fulfillment_actions
+            ],
             "recording_s3_key": recording_s3_key,
             # The escalation SMS is sent after teardown rather than mid-call:
             # this dict is handed to save_call_transcript from call_handler's

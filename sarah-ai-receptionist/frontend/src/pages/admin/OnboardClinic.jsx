@@ -15,6 +15,7 @@ const EMPTY = {
   admin_full_name: "",
   auto_buy_twilio_number: true,
   area_code: "",
+  existing_twilio_number: "",
 };
 
 export default function OnboardClinic() {
@@ -45,7 +46,7 @@ export default function OnboardClinic() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">Onboard New Clinic</h1>
-      <p className="text-sm text-slate-500 mb-6">Create the org, clinic, dashboard login, and buy a Twilio number — all in one step.</p>
+      <p className="text-sm text-slate-500 mb-6">Create the org, clinic, dashboard login, and connect a phone number — all in one step.</p>
 
       {result && (
         <div className="mb-6 bg-green-50 border border-green-100 rounded-xl p-4 text-sm text-green-800">
@@ -95,16 +96,31 @@ export default function OnboardClinic() {
 
         <div className="pt-2 border-t border-slate-100" />
 
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={form.auto_buy_twilio_number}
-            onChange={(e) => set("auto_buy_twilio_number", e.target.checked)}
-          />
-          Auto-purchase a Twilio phone number
-        </label>
-        {form.auto_buy_twilio_number && (
-          <Field label="Preferred Area Code (optional)" value={form.area_code} onChange={(v) => set("area_code", v)} />
+        <Field
+          label="Existing Twilio number (optional)"
+          value={form.existing_twilio_number}
+          onChange={(v) => set("existing_twilio_number", v)}
+        />
+        <p className="-mt-2 text-xs text-slate-400">
+          A number already in this Twilio account (E.164, e.g. +13055551234). We wire Sarah's
+          webhook to it and skip buying a new one. Porting a number in from another carrier is a
+          separate multi-day process.
+        </p>
+
+        {!form.existing_twilio_number && (
+          <>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.auto_buy_twilio_number}
+                onChange={(e) => set("auto_buy_twilio_number", e.target.checked)}
+              />
+              Auto-purchase a new Twilio phone number
+            </label>
+            {form.auto_buy_twilio_number && (
+              <Field label="Preferred Area Code (optional)" value={form.area_code} onChange={(v) => set("area_code", v)} />
+            )}
+          </>
         )}
 
         <button

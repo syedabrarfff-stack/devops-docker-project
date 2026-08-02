@@ -241,7 +241,7 @@ async def media_stream(websocket: WebSocket):
 
                 clinic_config = await _load_clinic_config(called_number)
 
-                call_manager = CallManager(call_sid, stream_sid, clinic_config)
+                call_manager = CallManager(call_sid, stream_sid, clinic_config, caller_phone=caller_phone)
                 _active_calls[call_sid] = call_manager
 
                 call_task = asyncio.create_task(_run_call(call_manager, websocket))

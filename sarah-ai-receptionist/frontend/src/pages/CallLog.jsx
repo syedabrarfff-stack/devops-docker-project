@@ -13,14 +13,22 @@ export default function CallLog() {
   const [selected, setSelected] = useState(null);
   const [recordingUrl, setRecordingUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [query, setQuery] = useState("");
   const timeZone = useClinicTimezone();
   const zoneLabel = clinicZoneLabel(timeZone);
 
+  // Debounced so typing doesn't fire a request per keystroke. Empty query
+  // returns the recent calls unfiltered.
   useEffect(() => {
-    dashboardApi.getCalls({ limit: 50 })
-      .then(({ data }) => setCalls(data))
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load call log."));
-  }, []);
+    const params = { limit: 50 };
+    if (query.trim()) params.q = query.trim();
+    const t = setTimeout(() => {
+      dashboardApi.getCalls(params)
+        .then(({ data }) => { setCalls(data); setError(null); })
+        .catch((err) => setError(err.response?.data?.detail || "Failed to load call log."));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
 
   async function openCall(id) {
     setRecordingUrl(null);
@@ -39,7 +47,15 @@ export default function CallLog() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-1">Call Log</h1>
-      <p className="text-sm text-slate-500 mb-6">Every call Sarah has answered.</p>
+      <p className="text-sm text-slate-500 mb-4">Every call Sarah has answered.</p>
+
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by phone number, summary, or anything said on the call…"
+        className="w-full mb-6 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
       )}
@@ -87,7 +103,7 @@ export default function CallLog() {
             {calls.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                  No calls yet.
+                  {query.trim() ? "No calls match your search." : "No calls yet."}
                 </td>
               </tr>
             )}

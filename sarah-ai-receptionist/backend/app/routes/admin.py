@@ -39,6 +39,11 @@ class OnboardClinicRequest(BaseModel):
     admin_full_name: str
     auto_buy_twilio_number: bool = True
     area_code: str | None = None
+    # A number the clinic already holds in this Twilio account. When set,
+    # onboarding wires Sarah's webhook to it instead of buying a new one — this
+    # is the "works with your existing number" path (for numbers already in
+    # Twilio; porting one in from another carrier is a separate LOA process).
+    existing_twilio_number: str | None = None
     # Where an in-hours [TRANSFER] is dialled, and who gets texted outside
     # hours. Without these Sarah declines to promise a handoff at all.
     transfer_phone_number: str | None = None
@@ -65,8 +70,12 @@ async def onboard_clinic(
     db.add(org)
     await db.flush()
 
+    # An existing number the clinic already owns takes precedence over buying a
+    # new one — that's the whole point of connecting a number they already use.
     twilio_number = None
-    if payload.auto_buy_twilio_number:
+    if payload.existing_twilio_number:
+        twilio_number = payload.existing_twilio_number.strip()
+    elif payload.auto_buy_twilio_number:
         twilio_number = await _buy_twilio_number(payload.area_code, payload.country)
 
     clinic = Clinic(
@@ -214,13 +223,16 @@ async def platform_analytics(db: AsyncSession = Depends(get_db)):
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    total_clinics = await db.scalar(select(func.count(Clinic.id)).where(Clinic.is_active == True))
+    # .is_(True), not `== True` (E712) or `not Clinic.is_active` — the latter
+    # evaluates Python truthiness of the Column object, not SQL, silently
+    # turning the filter into a no-op.
+    total_clinics = await db.scalar(select(func.count(Clinic.id)).where(Clinic.is_active.is_(True)))
     total_calls_month = await db.scalar(
         select(func.count(CallLog.id)).where(CallLog.started_at >= month_start)
     )
     total_bookings_month = await db.scalar(
         select(func.count(CallLog.id)).where(
-            CallLog.started_at >= month_start, CallLog.appointment_booked == True
+            CallLog.started_at >= month_start, CallLog.appointment_booked.is_(True)
         )
     )
 

@@ -14,8 +14,16 @@ from app.core.clinic_time import format_for_caller
 from app.core.database import get_db_context
 from app.models.appointment import Appointment
 from app.models.call_log import CallLog
-from app.services.appointment_service import book_appointment_from_action
-from app.services.notification_service import send_appointment_confirmation, send_urgent_escalation
+from app.services.appointment_service import (
+    book_appointment_from_action,
+    cancel_appointment_from_action,
+    reschedule_appointment_from_action,
+)
+from app.services.notification_service import (
+    send_appointment_change,
+    send_appointment_confirmation,
+    send_urgent_escalation,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -28,8 +36,23 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         return
 
     started_at = result.get("started_at") or datetime.now(timezone.utc)
-    outcome = result.get("outcome")
-    action_params = result.get("action_params", {})
+    transfer_result = result.get("transfer_result")
+    fulfillment = result.get("fulfillment_actions", [])
+
+    # The outcome label is what the caller actually accomplished. A concrete
+    # booking/change outranks the [END] the call happened to finish on — the
+    # bug this replaces let that [END] overwrite a [BOOK] and lose it.
+    booked = any(fa["action"] == "BOOK" for fa in fulfillment)
+    if fulfillment:
+        outcome = fulfillment[-1]["action"]
+    elif transfer_result:
+        outcome = "TRANSFER"
+    else:
+        outcome = result.get("outcome")
+
+    clinic_timezone = (clinic_config or {}).get("_timezone")
+    # Primitives captured inside the session so SMS can be sent after it closes.
+    changes: list[dict] = []
 
     async with get_db_context() as db:
         call_log = CallLog(
@@ -40,9 +63,9 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             duration_seconds=result.get("duration_seconds"),
             exchange_count=len(result.get("transcript", [])),
             outcome=outcome,
-            transferred=outcome == "TRANSFER",
-            transfer_result=result.get("transfer_result"),
-            appointment_booked=outcome == "BOOK",
+            transferred=transfer_result is not None,
+            transfer_result=transfer_result,
+            appointment_booked=booked,
             transcript=result.get("transcript", []),
             avg_response_ms=result.get("avg_response_ms"),
             recording_s3_key=result.get("recording_s3_key"),
@@ -55,21 +78,32 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         await db.flush()
         call_log_id = call_log.id
 
-        appointment_id = None
-        appointment_when = None
-        appointment_service = None
-        if outcome == "BOOK":
-            appointment = await book_appointment_from_action(db, clinic_id, action_params, call_log_id=call_log_id)
-            call_log.patient_id = appointment.patient_id
-            # Confirm what was actually booked, not the raw phrase the caller
-            # said — the two differ whenever the time was rolled forward or the
-            # phrase couldn't be parsed.
-            appointment_id = appointment.id
-            appointment_when = appointment.appointment_datetime
-            appointment_service = appointment.service_type
-            await db.flush()
+        # Apply each booking/change in the order it happened. A cancel-then-book
+        # (the caller moved to a different clinic day) is two actions and both
+        # run. Confirm what was actually written, not the caller's raw phrase.
+        for fa in fulfillment:
+            act, params = fa["action"], fa.get("params", {})
+            appt = None
+            if act == "BOOK":
+                appt = await book_appointment_from_action(db, clinic_id, params, call_log_id=call_log_id)
+                call_log.patient_id = appt.patient_id
+            elif act == "RESCHEDULE":
+                appt = await reschedule_appointment_from_action(db, clinic_id, params)
+            elif act == "CANCEL":
+                appt = await cancel_appointment_from_action(db, clinic_id, params)
+            if appt is not None:
+                changes.append({
+                    "kind": {"BOOK": "booked", "RESCHEDULE": "rescheduled", "CANCEL": "cancelled"}[act],
+                    "id": appt.id,
+                    "phone": appt.patient_phone,
+                    "service": appt.service_type,
+                    "when": appt.appointment_datetime,
+                })
+        await db.flush()
 
     await _enqueue_summary(call_log_id)
+
+    await _send_change_confirmations(clinic_config, clinic_timezone, changes)
 
     # Sarah told the caller their details were passed on — that has to be true.
     # Sent here rather than mid-call so an abrupt hangup can't skip it.
@@ -96,26 +130,38 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
                 )
             logger.error(f"Escalation SMS failed for call {call_sid} — caller expects a callback")
 
-    if appointment_id and action_params.get("phone"):
-        clinic_name = (clinic_config or {}).get("name", "our clinic")
-        clinic_timezone = (clinic_config or {}).get("_timezone")
-        sent = await send_appointment_confirmation(
-            action_params.get("phone"),
-            clinic_name,
-            appointment_service or "your appointment",
-            format_for_caller(appointment_when, clinic_timezone),
-        )
-        if sent:
-            # Recorded so staff can see who was actually notified, and so a
-            # failed send stays visible instead of looking confirmed.
-            async with get_db_context() as db:
-                await db.execute(
-                    update(Appointment)
-                    .where(Appointment.id == appointment_id)
-                    .values(confirmation_sms_sent=True)
-                )
-
     logger.info(f"Saved call log for {call_sid} (clinic {clinic_id}, outcome={outcome})")
+
+
+async def _send_change_confirmations(
+    clinic_config: dict | None, clinic_timezone: str | None, changes: list[dict]
+) -> None:
+    """Text the caller a confirmation for each booking/change actually written.
+
+    Runs after the DB session closes so a slow carrier can't hold the call's
+    persistence transaction open. A booking marks confirmation_sms_sent so the
+    dashboard can tell a delivered confirmation from a silent failure."""
+    clinic_name = (clinic_config or {}).get("name", "our clinic")
+    for change in changes:
+        phone = change.get("phone")
+        if not phone:
+            continue
+        when = format_for_caller(change["when"], clinic_timezone)
+        if change["kind"] == "booked":
+            sent = await send_appointment_confirmation(
+                phone, clinic_name, change["service"] or "your appointment", when
+            )
+            if sent:
+                async with get_db_context() as db:
+                    await db.execute(
+                        update(Appointment)
+                        .where(Appointment.id == change["id"])
+                        .values(confirmation_sms_sent=True)
+                    )
+        else:
+            await send_appointment_change(
+                phone, clinic_name, change["kind"], change["service"] or "your appointment", when
+            )
 
 
 async def _enqueue_summary(call_log_id: str) -> None:

@@ -84,7 +84,7 @@ async def send_reminders(ctx):
             .where(
                 Appointment.appointment_datetime >= window_start,
                 Appointment.appointment_datetime <= window_end,
-                Appointment.reminder_sent == False,
+                Appointment.reminder_sent.is_(False),
                 Appointment.status == "scheduled",
             )
         )

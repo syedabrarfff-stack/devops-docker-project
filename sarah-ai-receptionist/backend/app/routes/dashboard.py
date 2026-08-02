@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -20,6 +20,11 @@ class StatsOut(BaseModel):
     calls_this_week: int
     appointments_booked_today: int
     transfers_today: int
+    # Sarah always answers, so nothing rings out to voicemail — the honest
+    # analogue to a "missed call" is a caller who hung up before engaging
+    # (abandoned) plus a transfer the front desk didn't pick up.
+    abandoned_today: int
+    unanswered_transfers_today: int
     avg_response_ms: float | None
 
 
@@ -64,7 +69,24 @@ async def get_stats(clinic_id: str = Depends(get_current_clinic_id), db: AsyncSe
     )
     transfers_today = await db.scalar(
         select(func.count(CallLog.id)).where(
-            CallLog.clinic_id == clinic_id, CallLog.started_at >= today_start, CallLog.transferred == True
+            CallLog.clinic_id == clinic_id, CallLog.started_at >= today_start, CallLog.transferred.is_(True)
+        )
+    )
+    # Abandoned: the caller hung up before a real exchange. Sarah's greeting is
+    # logged as one turn, so a transcript of 1 turn or fewer means the caller
+    # never actually engaged.
+    abandoned_today = await db.scalar(
+        select(func.count(CallLog.id)).where(
+            CallLog.clinic_id == clinic_id,
+            CallLog.started_at >= today_start,
+            CallLog.exchange_count <= 1,
+        )
+    )
+    unanswered_transfers_today = await db.scalar(
+        select(func.count(CallLog.id)).where(
+            CallLog.clinic_id == clinic_id,
+            CallLog.started_at >= today_start,
+            CallLog.transfer_result == "no_answer",
         )
     )
     avg_latency = await db.scalar(
@@ -78,6 +100,8 @@ async def get_stats(clinic_id: str = Depends(get_current_clinic_id), db: AsyncSe
         calls_this_week=calls_this_week or 0,
         appointments_booked_today=booked_today or 0,
         transfers_today=transfers_today or 0,
+        abandoned_today=abandoned_today or 0,
+        unanswered_transfers_today=unanswered_transfers_today or 0,
         avg_response_ms=avg_latency,
     )
 
@@ -86,12 +110,28 @@ async def get_stats(clinic_id: str = Depends(get_current_clinic_id), db: AsyncSe
 async def list_calls(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0),
+    q: str | None = Query(default=None, description="Search caller phone, summary, and transcript"),
     clinic_id: str = Depends(get_current_clinic_id),
     db: AsyncSession = Depends(get_db),
 ):
+    filters = [CallLog.clinic_id == clinic_id]
+    if q and q.strip():
+        # Match the phone number, the AI summary, or the transcript text. The
+        # transcript is JSON, so it's cast to text for a substring match — a
+        # pragmatic search that needs no separate index, sufficient at
+        # per-clinic call volumes.
+        term = f"%{q.strip()}%"
+        filters.append(
+            or_(
+                CallLog.caller_phone.ilike(term),
+                CallLog.ai_summary.ilike(term),
+                func.cast(CallLog.transcript, String).ilike(term),
+            )
+        )
+
     result = await db.execute(
         select(CallLog)
-        .where(CallLog.clinic_id == clinic_id)
+        .where(*filters)
         .order_by(CallLog.started_at.desc())
         .limit(limit)
         .offset(offset)

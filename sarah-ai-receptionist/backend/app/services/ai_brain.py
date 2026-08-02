@@ -59,15 +59,39 @@ class AIBrain:
     async def close(self):
         await self._client.aclose()
 
-    async def stream_response(self, caller_text: str):
+    def inject_system_note(self, note: str) -> None:
+        """Feed the model data it asked for mid-call (e.g. a patient-record lookup).
+
+        Framed explicitly as system data on a user-role turn — the only role
+        every OpenRouter-fronted model handles consistently mid-conversation —
+        and marked 'do not read aloud' so Sarah paraphrases it instead of
+        reciting the raw record. This is never added to the spoken transcript;
+        it is context, not something the caller said.
+        """
+        self.conversation_history.append(
+            {
+                "role": "user",
+                "content": (
+                    "[SYSTEM DATA — not spoken by the caller. Use it to answer naturally; "
+                    f"do not read it aloud verbatim.]\n{note}"
+                ),
+            }
+        )
+
+    async def stream_response(self, caller_text: str | None = None):
         """
         Streams Sarah's spoken response as sentence-sized chunks (for TTS),
         then yields a final ActionCommand (or None) once the stream ends.
 
+        caller_text=None continues from the current history without adding a new
+        caller turn — used after inject_system_note, so Sarah answers using the
+        looked-up data rather than waiting for the caller to speak again.
+
         Yields: ("sentence", str) for each spoken chunk
                 ("action", ActionCommand | None) exactly once at the end
         """
-        self.conversation_history.append({"role": "user", "content": caller_text})
+        if caller_text is not None:
+            self.conversation_history.append({"role": "user", "content": caller_text})
         if len(self.conversation_history) > 40:
             self.conversation_history = self.conversation_history[-40:]
 
