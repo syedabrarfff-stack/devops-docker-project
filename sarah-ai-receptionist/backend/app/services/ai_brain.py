@@ -13,8 +13,18 @@ from app.prompts.dental_receptionist import build_system_prompt, get_default_cli
 
 logger = logging.getLogger(__name__)
 
-# Matches sentence boundaries: . ! ? followed by space/end, but not mid-abbreviation
-_SENTENCE_BOUNDARY = re.compile(r"([.!?])(\s+|$)")
+# Titles and abbreviations whose trailing period is not a sentence ending.
+# Without these, "Dr. Chen has an opening" is flushed to TTS as "Dr." followed
+# by "Chen has an opening" — an audible stutter mid-name, on a dental clinic's
+# most-spoken word. Each needs its own lookbehind: Python requires fixed-width
+# lookbehinds, so they cannot be collapsed into one alternation.
+_ABBREVIATIONS = ("Dr", "Mr", "Mrs", "Ms", "Prof", "St", "Ave", "Rd", "Blvd", "Jr", "Sr", "vs", "approx", "Inc", "Ltd")
+
+# Matches sentence boundaries: . ! ? followed by space/end, but not after a
+# known abbreviation or a single initial ("J. Smith").
+_SENTENCE_BOUNDARY = re.compile(
+    "".join(rf"(?<!\b{abbr})" for abbr in _ABBREVIATIONS) + r"(?<!\b[A-Z])" + r"([.!?])(\s+|$)"
+)
 _ACTION_TAG = re.compile(r"\[(\w+)(?::\s*(.+?))?\]")
 
 

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.core.clinic_time import format_for_caller
 from app.core.database import get_db_context
 from app.models.appointment import Appointment
 from app.models.call_log import CallLog
@@ -94,7 +95,8 @@ async def send_reminders(ctx):
                 appointment.patient_phone,
                 clinic.name,
                 appointment.service_type,
-                appointment.appointment_datetime.strftime("%B %d at %I:%M %p"),
+                # Stored as UTC — the patient must be told their own local time.
+                format_for_caller(appointment.appointment_datetime, clinic.timezone),
             )
             if sent:
                 appointment.reminder_sent = True

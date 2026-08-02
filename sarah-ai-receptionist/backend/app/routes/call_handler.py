@@ -206,4 +206,7 @@ async def _load_clinic_config(twilio_number: str | None) -> dict | None:
         config["name"] = clinic.name
         config["sarah_name"] = clinic.sarah_name
         config["_clinic_id"] = clinic.id
+        # Booking and SMS confirmation both resolve caller-spoken times against
+        # this — without it they'd fall back to UTC and be hours off.
+        config["_timezone"] = clinic.timezone
         return config

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { dashboardApi } from "../services/api";
+import { clinicZoneLabel, formatInClinicZone, useClinicTimezone } from "../lib/clinicTime";
 
 const OUTCOME_STYLES = {
   BOOK: "bg-green-50 text-green-700",
@@ -13,6 +13,8 @@ export default function CallLog() {
   const [selected, setSelected] = useState(null);
   const [recordingUrl, setRecordingUrl] = useState(null);
   const [error, setError] = useState(null);
+  const timeZone = useClinicTimezone();
+  const zoneLabel = clinicZoneLabel(timeZone);
 
   useEffect(() => {
     dashboardApi.getCalls({ limit: 50 })
@@ -46,7 +48,9 @@ export default function CallLog() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
-              <th className="text-left px-4 py-3">Time</th>
+              <th className="text-left px-4 py-3">
+                Time{zoneLabel && <span className="ml-1 normal-case text-slate-400">({zoneLabel})</span>}
+              </th>
               <th className="text-left px-4 py-3">Duration</th>
               <th className="text-left px-4 py-3">Exchanges</th>
               <th className="text-left px-4 py-3">Outcome</th>
@@ -60,7 +64,7 @@ export default function CallLog() {
                 className="hover:bg-slate-50 cursor-pointer focus:outline-none focus:bg-slate-50"
                 tabIndex={0}
                 role="button"
-                aria-label={`View call from ${format(new Date(c.started_at), "MMM d, h:mm a")}`}
+                aria-label={`View call from ${formatInClinicZone(c.started_at, timeZone)}`}
                 onClick={() => openCall(c.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -69,7 +73,7 @@ export default function CallLog() {
                   }
                 }}
               >
-                <td className="px-4 py-3">{format(new Date(c.started_at), "MMM d, h:mm a")}</td>
+                <td className="px-4 py-3">{formatInClinicZone(c.started_at, timeZone)}</td>
                 <td className="px-4 py-3">{c.duration_seconds ? `${Math.round(c.duration_seconds)}s` : "—"}</td>
                 <td className="px-4 py-3">{c.exchange_count ?? "—"}</td>
                 <td className="px-4 py-3">

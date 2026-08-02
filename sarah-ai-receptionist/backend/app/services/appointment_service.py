@@ -4,14 +4,15 @@ looks up/creates the patient, and triggers an SMS confirmation.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import timedelta, timezone
 
-from dateutil import parser as dateparser
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clinic_time import now_in_clinic, parse_caller_datetime
 from app.models.appointment import Appointment
+from app.models.clinic import Clinic
 from app.models.patient import Patient
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,23 @@ async def book_appointment_from_action(
     service = params.get("service", "General checkup").strip()
     raw_datetime = params.get("datetime", "")
 
-    try:
-        appt_dt = dateparser.parse(raw_datetime, fuzzy=True) if raw_datetime else None
-    except (ValueError, OverflowError):
-        appt_dt = None
+    # The caller spoke in the clinic's local time — parsing without it would
+    # store the wrong hour (and, near midnight, the wrong day).
+    clinic_timezone = await db.scalar(select(Clinic.timezone).where(Clinic.id == clinic_id))
+
+    appt_dt = parse_caller_datetime(raw_datetime, clinic_timezone)
     if appt_dt is None:
-        appt_dt = datetime.now(timezone.utc)
+        # Falling back to "now" would look like a real appointment starting this
+        # second. Park it at the next morning instead — visibly a placeholder
+        # the front desk will correct, not a booking that silently looks valid.
+        local_next_morning = (now_in_clinic(clinic_timezone) + timedelta(days=1)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        appt_dt = local_next_morning.astimezone(timezone.utc)
+        logger.warning(
+            f"Unparseable appointment time {raw_datetime!r} for clinic {clinic_id}; "
+            f"parked at {appt_dt.isoformat()} for staff review"
+        )
 
     patient = None
     if phone:

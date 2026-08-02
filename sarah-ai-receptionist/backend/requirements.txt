@@ -17,6 +17,7 @@ python-multipart==0.0.20
 twilio==9.4.3
 boto3==1.35.97
 python-dateutil==2.9.0.post0
+tzdata==2024.2  # python:3.11-slim ships no system tz database; zoneinfo falls back to this package, without it ZoneInfo("America/New_York") raises at runtime
 arq==0.26.3
 stripe==11.4.1
 python-dotenv==1.0.1

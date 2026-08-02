@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { appointmentsApi } from "../services/api";
+import { clinicZoneLabel, formatInClinicZone, useClinicTimezone } from "../lib/clinicTime";
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([]);
   const [error, setError] = useState(null);
+  const timeZone = useClinicTimezone();
+  const zoneLabel = clinicZoneLabel(timeZone);
 
   useEffect(() => {
     load();
@@ -33,7 +35,9 @@ export default function Appointments() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
             <tr>
-              <th className="text-left px-4 py-3">Date &amp; Time</th>
+              <th className="text-left px-4 py-3">
+                Date &amp; Time{zoneLabel && <span className="ml-1 normal-case text-slate-400">({zoneLabel})</span>}
+              </th>
               <th className="text-left px-4 py-3">Patient</th>
               <th className="text-left px-4 py-3">Service</th>
               <th className="text-left px-4 py-3">Source</th>
@@ -44,7 +48,7 @@ export default function Appointments() {
           <tbody className="divide-y divide-slate-100">
             {appointments.map((a) => (
               <tr key={a.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3">{format(new Date(a.appointment_datetime), "MMM d, h:mm a")}</td>
+                <td className="px-4 py-3">{formatInClinicZone(a.appointment_datetime, timeZone)}</td>
                 <td className="px-4 py-3">{a.patient_name || "—"}</td>
                 <td className="px-4 py-3">{a.service_type}</td>
                 <td className="px-4 py-3 text-xs text-slate-400 uppercase">{a.source}</td>

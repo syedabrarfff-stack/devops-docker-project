@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { dashboardApi } from "../services/api";
+import { resetClinicTimezoneCache } from "../lib/clinicTime";
 
 export default function Settings() {
   const [form, setForm] = useState(null);
@@ -26,6 +27,9 @@ export default function Settings() {
       timezone: form.timezone,
       sarah_name: form.sarah_name,
     });
+    // Call Log and Appointments render against the cached timezone — drop it so
+    // a change here shows up without a reload.
+    resetClinicTimezoneCache();
     setSaved(true);
   }
 

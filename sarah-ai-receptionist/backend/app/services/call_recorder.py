@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 
 from arq import create_pool
 from arq.connections import RedisSettings
+from sqlalchemy import update
 
 from app.config.settings import get_settings
+from app.core.clinic_time import format_for_caller
 from app.core.database import get_db_context
+from app.models.appointment import Appointment
 from app.models.call_log import CallLog
 from app.services.appointment_service import book_appointment_from_action
 from app.services.notification_service import send_appointment_confirmation
@@ -51,21 +54,40 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
         await db.flush()
         call_log_id = call_log.id
 
+        appointment_id = None
+        appointment_when = None
+        appointment_service = None
         if outcome == "BOOK":
             appointment = await book_appointment_from_action(db, clinic_id, action_params, call_log_id=call_log_id)
             call_log.patient_id = appointment.patient_id
+            # Confirm what was actually booked, not the raw phrase the caller
+            # said — the two differ whenever the time was rolled forward or the
+            # phrase couldn't be parsed.
+            appointment_id = appointment.id
+            appointment_when = appointment.appointment_datetime
+            appointment_service = appointment.service_type
             await db.flush()
 
     await _enqueue_summary(call_log_id)
 
-    if outcome == "BOOK" and action_params.get("phone"):
+    if appointment_id and action_params.get("phone"):
         clinic_name = (clinic_config or {}).get("name", "our clinic")
-        await send_appointment_confirmation(
+        clinic_timezone = (clinic_config or {}).get("_timezone")
+        sent = await send_appointment_confirmation(
             action_params.get("phone"),
             clinic_name,
-            action_params.get("service", "your appointment"),
-            action_params.get("datetime", "the scheduled time"),
+            appointment_service or "your appointment",
+            format_for_caller(appointment_when, clinic_timezone),
         )
+        if sent:
+            # Recorded so staff can see who was actually notified, and so a
+            # failed send stays visible instead of looking confirmed.
+            async with get_db_context() as db:
+                await db.execute(
+                    update(Appointment)
+                    .where(Appointment.id == appointment_id)
+                    .values(confirmation_sms_sent=True)
+                )
 
     logger.info(f"Saved call log for {call_sid} (clinic {clinic_id}, outcome={outcome})")
 
