@@ -57,26 +57,21 @@ class OnboardClinicResponse(BaseModel):
     clinic_id: str
     user_id: str
     twilio_phone_number: str | None
+    # Populated when an external side-effect (Twilio purchase, Stripe setup,
+    # webhook config) partially failed. The onboarding still succeeded --
+    # local rows are durable -- but an operator needs to see and reconcile
+    # these instead of them being buried in logs.
+    warnings: list[str] = []
 
 
-@router.post("/clinics/onboard", response_model=OnboardClinicResponse)
-async def onboard_clinic(
-    payload: OnboardClinicRequest,
-    request: Request,
-    current_user: dict = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
+async def _create_org_clinic_user(payload: OnboardClinicRequest, db: AsyncSession) -> tuple:
+    """Phase 1: create the durable local rows in a single transaction, then
+    commit. Everything else is an external side-effect layered on top, so a
+    Stripe/Twilio failure never rolls back the org/clinic/user the user just
+    paid for creating."""
     org = Organization(name=payload.organization_name, slug=_slugify(payload.organization_name))
     db.add(org)
     await db.flush()
-
-    # An existing number the clinic already owns takes precedence over buying a
-    # new one — that's the whole point of connecting a number they already use.
-    twilio_number = None
-    if payload.existing_twilio_number:
-        twilio_number = payload.existing_twilio_number.strip()
-    elif payload.auto_buy_twilio_number:
-        twilio_number = await _buy_twilio_number(payload.area_code, payload.country)
 
     clinic = Clinic(
         organization_id=org.id,
@@ -87,7 +82,6 @@ async def onboard_clinic(
         state=payload.state,
         country=payload.country,
         timezone=payload.timezone,
-        twilio_phone_number=twilio_number,
         clinic_config=get_default_clinic_config(),
         transfer_phone_number=payload.transfer_phone_number,
         after_hours_escalation_number=payload.after_hours_escalation_number,
@@ -106,11 +100,78 @@ async def onboard_clinic(
     )
     db.add(user)
     await db.flush()
+    return org, clinic, user
+
+
+@router.post("/clinics/onboard", response_model=OnboardClinicResponse)
+async def onboard_clinic(
+    payload: OnboardClinicRequest,
+    request: Request,
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Onboards a clinic in phases, each committed before the next runs.
+
+    Why: the previous flow purchased a Twilio number and created a Stripe
+    Customer *inside* the same transaction as the org/clinic/user inserts.
+    Any error after those external calls -- a UNIQUE-violation on the slug,
+    a downstream exception -- rolled the whole transaction back and left the
+    purchased Twilio number and Stripe Customer orphaned with zero local
+    record. Real money spent, silently.
+
+    Phased:
+      1. Local rows: org/clinic/user, committed.
+      2. Twilio: attach an existing number OR purchase one, then wire the
+         voice webhook. Failure is a warning, not a rollback -- a clinic
+         without a number is fixable, an orphaned number that keeps billing
+         is not.
+      3. Stripe: real Customer + Subscription against the configured Price.
+         Same warning-not-rollback rule.
+    """
+    warnings: list[str] = []
+
+    # Phase 1: durable local state.
+    org, clinic, user = await _create_org_clinic_user(payload, db)
+    await db.commit()
+    logger.info(f"Onboarding clinic {clinic.id} ({clinic.name}) -- local rows committed")
+
+    # Phase 2: Twilio. Each sub-step is guarded so a partial failure leaves a
+    # visible warning, not an orphaned purchase or a number with no webhook.
+    twilio_number: str | None = None
+    if payload.existing_twilio_number:
+        twilio_number = payload.existing_twilio_number.strip()
+    elif payload.auto_buy_twilio_number:
+        try:
+            twilio_number = await _buy_twilio_number(payload.area_code, payload.country)
+            if not twilio_number:
+                warnings.append("No Twilio number was purchased -- none available for the requested criteria.")
+        except Exception as e:
+            logger.exception(f"Twilio purchase failed for clinic {clinic.id}")
+            warnings.append(f"Twilio purchase failed: {e}")
 
     if twilio_number:
-        await _configure_twilio_webhook(twilio_number)
+        # Persist the number FIRST, before wiring the webhook: if webhook
+        # config fails, the number is still ours and visible in the clinic
+        # record for manual fix, rather than "we bought it but forgot where."
+        clinic.twilio_phone_number = twilio_number
+        await db.commit()
+        try:
+            await _configure_twilio_webhook(twilio_number)
+        except Exception as e:
+            logger.exception(f"Twilio webhook configuration failed for {twilio_number}")
+            warnings.append(
+                f"Twilio number {twilio_number} was assigned but the voice webhook could not be "
+                f"configured -- inbound calls will not reach Sarah until this is retried: {e}"
+            )
 
-    await create_stripe_customer_and_subscription(db, clinic, payload.admin_email)
+    # Phase 3: Stripe (never raises out).
+    billing = await create_stripe_customer_and_subscription(db, clinic, payload.admin_email)
+    await db.commit()
+    if not billing.stripe_created:
+        warnings.append(
+            f"Stripe subscription not created ({billing.error or 'unknown'}) -- clinic will not be "
+            f"billed until this is reconciled."
+        )
 
     await write_audit_log(
         db,
@@ -121,15 +182,18 @@ async def onboard_clinic(
         resource_type="clinic",
         resource_id=clinic.id,
         ip_address=request.client.host if request.client else None,
+        details={"warnings": warnings},
     )
+    await db.commit()
 
-    logger.info(f"Onboarded clinic {clinic.id} ({clinic.name}) with number {twilio_number}")
+    logger.info(f"Onboarded clinic {clinic.id} with number {twilio_number}; warnings={len(warnings)}")
 
     return OnboardClinicResponse(
         organization_id=org.id,
         clinic_id=clinic.id,
         user_id=user.id,
         twilio_phone_number=twilio_number,
+        warnings=warnings,
     )
 
 

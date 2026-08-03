@@ -6,14 +6,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config.settings import get_settings
+from app.middleware import RequestContextMiddleware, RequestIDLogFilter, install_error_handling
 from app.routes import admin, appointments, auth, billing, call_handler, dashboard
 
 settings = get_settings()
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    format="%(asctime)s %(levelname)s [%(name)s] [%(request_id)s] %(message)s",
 )
+# Applied to the root logger's handlers so request_id is available on every
+# record, including ones logged deep in a service module that never touches
+# the request object directly.
+for _handler in logging.getLogger().handlers:
+    _handler.addFilter(RequestIDLogFilter())
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Runs on HTTP request/response routes only -- BaseHTTPMiddleware does not
+# wrap WebSocket connections, so /media-stream is unaffected and keeps its
+# own call_sid-based logging.
+app.add_middleware(RequestContextMiddleware)
+install_error_handling(app)
 
 app.include_router(call_handler.router)
 app.include_router(auth.router, prefix="/api/v1/auth")

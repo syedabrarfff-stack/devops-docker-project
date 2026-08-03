@@ -8,7 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const login = useAuthStore((s) => s.login);
+  const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -16,8 +16,10 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
+      // authApi.login stores the access token in module memory (see api.js).
+      // setSession only holds the identity fields the SPA needs to render.
       const { data } = await authApi.login(email, password);
-      login(data);
+      setSession(data);
       navigate(data.role === "platform_admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.detail || "Login failed. Check your credentials.");

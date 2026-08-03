@@ -1,6 +1,7 @@
 import { Outlet, Navigate, NavLink } from "react-router-dom";
 import { LogOut } from "lucide-react";
-import { useAuthStore } from "../../store/useAuthStore";
+import { authApi } from "../../services/api";
+import { getAccessToken, useAuthStore } from "../../store/useAuthStore";
 
 const NAV = [
   { to: "/admin", label: "Clinics" },
@@ -9,9 +10,16 @@ const NAV = [
 ];
 
 export default function AdminLayout() {
-  const { token, role, logout } = useAuthStore();
-  if (!token) return <Navigate to="/login" replace />;
+  // Same rationale as Layout.jsx: check the in-memory access token, not
+  // persisted state, and only redirect after silent-refresh has completed
+  // (bootstrapped) so a hard reload doesn't flash the login screen.
+  const { role, bootstrapped } = useAuthStore();
+  if (!bootstrapped) return null;
+  if (!getAccessToken()) return <Navigate to="/login" replace />;
   if (role !== "platform_admin") return <Navigate to="/" replace />;
+  // Logout now revokes the refresh token server-side, not just clearing
+  // local state; the local clear runs unconditionally in api.js's finally.
+  const logout = authApi.logout;
 
   return (
     <div className="flex">

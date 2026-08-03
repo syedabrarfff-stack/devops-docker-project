@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, PhoneCall, CalendarClock, Settings, LogOut, ShieldCheck } from "lucide-react";
+import { authApi } from "../services/api";
 import { useAuthStore } from "../store/useAuthStore";
 
 const CLINIC_NAV = [
@@ -14,7 +15,12 @@ const ADMIN_NAV = [
 ];
 
 export default function Sidebar() {
-  const { fullName, role, logout } = useAuthStore();
+  // Use authApi.logout so the server-side refresh token is actually revoked,
+  // not just the local state cleared -- useAuthStore.logout only wipes the
+  // in-memory access token, leaving the refresh cookie usable for anyone
+  // with the machine.
+  const { fullName, role } = useAuthStore();
+  const logout = authApi.logout;
   const NAV = role === "platform_admin" ? ADMIN_NAV : CLINIC_NAV;
 
   return (

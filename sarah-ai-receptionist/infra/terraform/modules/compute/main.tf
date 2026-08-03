@@ -61,6 +61,11 @@ locals {
     { name = "S3_BUCKET_RECORDINGS", value = var.recordings_bucket_name },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "APP_BASE_URL", value = "https://${var.api_domain}" },
+    # Refresh cookie must be scoped to the parent domain so app./admin./sarah.
+    # subdomains can all send it -- without this the cookie is host-only to
+    # sarah. and never reaches from app. on /auth/refresh, breaking silent
+    # refresh and forcing a re-login every 15 minutes.
+    { name = "REFRESH_COOKIE_DOMAIN", value = ".${var.root_domain}" },
   ]
 
   common_secrets = [

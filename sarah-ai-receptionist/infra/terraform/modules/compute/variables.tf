@@ -37,3 +37,7 @@ variable "ecs_worker_desired_count" {
 variable "recordings_bucket_name" { type = string }
 variable "app_secrets_arn" { type = string }
 variable "api_domain" { type = string }
+variable "root_domain" {
+  description = "Parent domain (e.g. aliyarsolutions.com). Refresh-token cookies are scoped to .<root_domain> so app./admin./sarah. can share the session."
+  type        = string
+}

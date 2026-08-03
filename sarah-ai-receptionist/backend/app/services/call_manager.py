@@ -20,7 +20,7 @@ from app.core.database import get_db_context
 from app.services.call_recorder import upload_recording_to_s3
 from app.services.patient_lookup import lookup_patient_context
 from app.services.speech_to_text import SpeechToText, TranscriptEvent
-from app.services.text_to_speech import TextToSpeech, audio_to_twilio_payload
+from app.services.text_to_speech import SynthesisFailed, TextToSpeech, audio_to_twilio_payload
 from app.services.transfer_service import (
     UNAVAILABLE_MESSAGE,
     TransferPlan,
@@ -31,6 +31,18 @@ from app.services.transfer_service import (
 logger = logging.getLogger(__name__)
 
 SILENCE_PROMPT_SECONDS = 30.0
+
+# Spoken when ElevenLabs fails to produce audio even after TextToSpeech's own
+# retry -- so a caller experiencing a real outage hears *something* rather
+# than silence indistinguishable from a dropped call. If ElevenLabs is fully
+# down this can itself fail to synthesize; _speak_sentence's _is_fallback
+# guard stops that from recursing, but there is currently no non-TTS (e.g.
+# pre-recorded static audio) fallback for a total outage -- a known residual
+# gap, not a promise this message can always be spoken.
+TTS_FALLBACK_MESSAGE = (
+    "I'm sorry, I'm having trouble with my voice right now. "
+    "If you can still hear this, please stay on the line or call back in a moment."
+)
 
 # Actions that change clinic records — accumulated across the whole call so a
 # later control-flow action can't drop them.
@@ -271,13 +283,18 @@ class CallManager:
         """Speak a single fixed string (used for greeting / silence prompts). Caller logs it."""
         await self._speak_sentence(text)
 
-    async def _speak_sentence(self, text: str, await_playback: bool = False):
+    async def _speak_sentence(self, text: str, await_playback: bool = False, _is_fallback: bool = False):
         """Stream one sentence to the caller.
 
         With await_playback, waits until Twilio confirms the audio actually
         reached the caller. Only the transfer path needs that: redirecting the
         call discards Twilio's buffer, so returning early would cut Sarah off
         mid-sentence and the caller would hear a click instead of a handoff.
+
+        _is_fallback marks a call as itself being the apology spoken after a
+        synthesis failure, so that a *second* failure (ElevenLabs genuinely
+        down, not just a blip) logs and gives up instead of recursing forever
+        trying to announce that it can't announce anything.
         """
         if not text.strip() or not self.twilio_ws:
             return
@@ -316,6 +333,16 @@ class CallManager:
                     self._pending_marks.pop(mark_name, None)
         except asyncio.CancelledError:
             raise
+        except SynthesisFailed as e:
+            logger.error(f"[{self.call_sid}] TTS gave up producing audio: {e}")
+            if not _is_fallback:
+                # The caller heard nothing for `text` -- without this they'd
+                # have no way to tell a real outage from a dropped call.
+                # Recording it as a separate assistant turn (not a retry of
+                # the original) keeps the transcript honest about what was
+                # actually said.
+                self._log("assistant", TTS_FALLBACK_MESSAGE)
+                await self._speak_sentence(TTS_FALLBACK_MESSAGE, _is_fallback=True)
         except Exception as e:
             logger.error(f"Speak error: {e}")
 

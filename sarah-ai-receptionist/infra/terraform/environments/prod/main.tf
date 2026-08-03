@@ -194,6 +194,7 @@ module "compute" {
   recordings_bucket_name = module.storage.recordings_bucket_name
   app_secrets_arn        = module.security.app_secrets_arn
   api_domain             = "${var.api_subdomain}.${var.root_domain}"
+  root_domain            = var.root_domain
 }
 
 # All CloudWatch alarms/SNS live downstream of compute/loadbalancer/database —

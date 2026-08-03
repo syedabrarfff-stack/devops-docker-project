@@ -25,35 +25,39 @@ DEFAULT_PLAN = "starter"
 DEFAULT_MONTHLY_PRICE_USD = 299.0
 
 
+class BillingSetupResult:
+    """Outcome of the billing side of onboarding, so the caller can tell
+    'billed for real' from 'local-only tracking' from 'Stripe blew up' -- the
+    original returned Subscription lost that distinction, so the API had no
+    way to warn a human 'this clinic isn't actually being charged'."""
+
+    def __init__(self, subscription: Subscription, stripe_created: bool, error: str | None = None):
+        self.subscription = subscription
+        self.stripe_created = stripe_created
+        self.error = error
+
+
 async def create_stripe_customer_and_subscription(
     db: AsyncSession, clinic: Clinic, admin_email: str
-) -> Subscription:
-    """Creates a Stripe customer for a newly onboarded clinic and starts a local
-    trial subscription record. If Stripe isn't configured (local/dev), the
-    subscription is still tracked locally in `trialing` status so the rest of
-    the app (billing UI, dunning) has something real to read."""
+) -> BillingSetupResult:
+    """Creates the local Subscription row and, if Stripe is configured, a real
+    Stripe Customer + Subscription against the configured Price so the clinic
+    is actually charged after the trial.
+
+    The previous implementation created a Customer only -- no Product, no
+    Price, no Subscription -- so `customer.subscription.*` webhooks would
+    never fire and no clinic ever got billed. That was a silent revenue leak
+    disguised as working billing code.
+
+    Never raises out to the caller: onboarding an *organization* is the value
+    the user paid for with their time; a Stripe API blip must not block it,
+    but must be surfaced in the return so a human sees the gap.
+    """
     now = datetime.now(timezone.utc)
     trial_ends_at = now + timedelta(days=TRIAL_DAYS)
 
-    stripe_customer_id = None
-    if settings.stripe_secret_key:
-        try:
-            stripe.api_key = settings.stripe_secret_key
-            customer = stripe.Customer.create(
-                email=admin_email,
-                name=clinic.name,
-                metadata={"clinic_id": clinic.id},
-            )
-            stripe_customer_id = customer.id
-            clinic.stripe_customer_id = stripe_customer_id
-        except Exception as e:
-            logger.error(f"Failed to create Stripe customer for clinic {clinic.id}: {e}")
-    else:
-        logger.warning("STRIPE_SECRET_KEY not configured — subscription tracked locally only")
-
     subscription = Subscription(
         clinic_id=clinic.id,
-        stripe_customer_id=stripe_customer_id,
         plan=DEFAULT_PLAN,
         monthly_price_usd=DEFAULT_MONTHLY_PRICE_USD,
         status="trialing",
@@ -63,7 +67,51 @@ async def create_stripe_customer_and_subscription(
     )
     db.add(subscription)
     await db.flush()
-    return subscription
+
+    if not settings.stripe_secret_key:
+        logger.warning("STRIPE_SECRET_KEY not configured — clinic %s tracked locally only", clinic.id)
+        return BillingSetupResult(subscription, stripe_created=False,
+                                  error="stripe_secret_key not configured")
+    if not settings.stripe_price_id:
+        # Distinct from missing api key: an operator forgot to point at a
+        # Price, so nothing charges even though Stripe is "wired up".
+        logger.error(
+            "STRIPE_PRICE_ID not configured — cannot start real subscription for clinic %s; "
+            "created Customer only will not be billed", clinic.id,
+        )
+        return BillingSetupResult(subscription, stripe_created=False,
+                                  error="stripe_price_id not configured")
+
+    try:
+        stripe.api_key = settings.stripe_secret_key
+        customer = stripe.Customer.create(
+            email=admin_email,
+            name=clinic.name,
+            metadata={"clinic_id": clinic.id},
+        )
+        stripe_sub = stripe.Subscription.create(
+            customer=customer.id,
+            items=[{"price": settings.stripe_price_id}],
+            trial_period_days=TRIAL_DAYS,
+            # Straight to canceled on failed payment: dental practices are
+            # low-touch; a past_due state that lingers indefinitely while
+            # Sarah keeps answering their phone is worse than a hard stop
+            # they'll notice and call about.
+            payment_behavior="default_incomplete",
+            metadata={"clinic_id": clinic.id},
+        )
+        clinic.stripe_customer_id = customer.id
+        clinic.stripe_subscription_id = stripe_sub.id
+        subscription.stripe_customer_id = customer.id
+        subscription.stripe_subscription_id = stripe_sub.id
+        await db.flush()
+        logger.info("Stripe subscription %s created for clinic %s", stripe_sub.id, clinic.id)
+        return BillingSetupResult(subscription, stripe_created=True)
+    except Exception as e:
+        # The local Subscription is already flushed; Stripe just didn't line
+        # up. Log the specifics for reconciliation, but do not raise.
+        logger.exception("Failed to create Stripe subscription for clinic %s", clinic.id)
+        return BillingSetupResult(subscription, stripe_created=False, error=str(e))
 
 
 async def handle_stripe_event(db: AsyncSession, event: dict) -> None:
