@@ -282,6 +282,158 @@ async def erase_patient(
     return {"status": "erased"}
 
 
+class PortRequestCreate(BaseModel):
+    clinic_id: str
+    phone_number: str  # E.164, e.g. +13055551234
+    losing_carrier_name: str | None = None
+    losing_account_number: str | None = None
+    losing_account_pin: str | None = None
+    billing_name: str | None = None
+    billing_address: str | None = None
+
+
+class PortRequestOut(BaseModel):
+    id: str
+    clinic_id: str
+    phone_number: str
+    status: str
+    twilio_port_in_sid: str | None
+    status_details: dict
+    target_completion_date: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/port-requests", response_model=PortRequestOut)
+async def create_port_request(
+    payload: PortRequestCreate,
+    request: Request,
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a draft port-in request. Submission to Twilio is a separate
+    step so operators can review the collected LOA data first."""
+    from app.models.port_request import PortRequest
+
+    clinic = await db.scalar(select(Clinic).where(Clinic.id == payload.clinic_id))
+    if not clinic:
+        raise HTTPException(status_code=404, detail="Clinic not found")
+
+    port = PortRequest(
+        clinic_id=payload.clinic_id,
+        phone_number=payload.phone_number.strip(),
+        losing_carrier_name=payload.losing_carrier_name,
+        losing_account_number=payload.losing_account_number,
+        losing_account_pin=payload.losing_account_pin,
+        billing_name=payload.billing_name,
+        billing_address=payload.billing_address,
+        status="draft",
+    )
+    db.add(port)
+    await db.flush()
+
+    await write_audit_log(
+        db, clinic_id=payload.clinic_id, actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"), action="port_request_create",
+        resource_type="port_request", resource_id=port.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return port
+
+
+@router.post("/port-requests/{port_id}/submit", response_model=PortRequestOut)
+async def submit_port_request(
+    port_id: str,
+    request: Request,
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Submit a draft port to Twilio. Idempotent -- re-submitting a
+    submitted port just refreshes its status."""
+    from app.models.port_request import PortRequest
+    from app.services.porting_service import PortingError, submit_port_in
+
+    port = await db.scalar(select(PortRequest).where(PortRequest.id == port_id))
+    if not port:
+        raise HTTPException(status_code=404, detail="Port request not found")
+    try:
+        await submit_port_in(db, port)
+    except PortingError as e:
+        # Real Twilio error -- surface, not disguise. Operator needs the
+        # actual reason (e.g. "PhoneNumber already assigned to another PortIn").
+        raise HTTPException(status_code=400, detail=str(e))
+
+    await write_audit_log(
+        db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"), action="port_request_submit",
+        resource_type="port_request", resource_id=port.id,
+        ip_address=request.client.host if request.client else None,
+        details={"twilio_port_in_sid": port.twilio_port_in_sid},
+    )
+    return port
+
+
+@router.get("/port-requests", response_model=list[PortRequestOut])
+async def list_port_requests(
+    _: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.port_request import PortRequest
+
+    result = await db.execute(select(PortRequest).order_by(PortRequest.created_at.desc()))
+    return result.scalars().all()
+
+
+@router.post("/port-requests/{port_id}/refresh", response_model=PortRequestOut)
+async def refresh_port_request(
+    port_id: str,
+    _: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pull latest status from Twilio. In production a nightly Arq job
+    should do this automatically; this endpoint is for manual refresh."""
+    from app.models.port_request import PortRequest
+    from app.services.porting_service import PortingError, refresh_port_status
+
+    port = await db.scalar(select(PortRequest).where(PortRequest.id == port_id))
+    if not port:
+        raise HTTPException(status_code=404, detail="Port request not found")
+    try:
+        await refresh_port_status(db, port)
+    except PortingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return port
+
+
+@router.post("/port-requests/{port_id}/cancel", response_model=PortRequestOut)
+async def cancel_port_request(
+    port_id: str,
+    request: Request,
+    current_user: dict = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.port_request import PortRequest
+    from app.services.porting_service import PortingError, cancel_port_in
+
+    port = await db.scalar(select(PortRequest).where(PortRequest.id == port_id))
+    if not port:
+        raise HTTPException(status_code=404, detail="Port request not found")
+    try:
+        await cancel_port_in(db, port)
+    except PortingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await write_audit_log(
+        db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
+        user_id=current_user.get("sub"), action="port_request_cancel",
+        resource_type="port_request", resource_id=port.id,
+        ip_address=request.client.host if request.client else None,
+    )
+    return port
+
+
 @router.get("/analytics")
 async def platform_analytics(db: AsyncSession = Depends(get_db)):
     now = datetime.now(timezone.utc)

@@ -7,7 +7,7 @@ from alembic import context
 from app.core.database import Base
 from app.config.settings import get_settings
 from app.models import (  # noqa: F401
-    Organization, Clinic, Provider, Patient, Appointment, CallLog, User, AuditLog, Subscription,
+    Organization, Clinic, Provider, Patient, Appointment, CallLog, User, AuditLog, PortRequest, Subscription,
 )
 
 config = context.config

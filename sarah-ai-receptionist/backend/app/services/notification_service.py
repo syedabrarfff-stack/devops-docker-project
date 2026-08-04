@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from app.config.settings import get_settings
+from app.core.redact import redact_phone
 from app.services.twilio_client import get_twilio_client
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ async def send_appointment_confirmation(to_phone: str, clinic_name: str, service
         )
         return True
     except Exception as e:
-        logger.error(f"Failed to send SMS confirmation to {to_phone}: {e}")
+        logger.error(f"Failed to send SMS confirmation to {redact_phone(to_phone)}: {e}")
         return False
 
 
@@ -51,7 +52,7 @@ async def send_appointment_change(
         )
         return True
     except Exception as e:
-        logger.error(f"Failed to send {kind} SMS to {to_phone}: {e}")
+        logger.error(f"Failed to send {kind} SMS to {redact_phone(to_phone)}: {e}")
         return False
 
 
@@ -80,7 +81,7 @@ async def send_urgent_escalation(
         logger.info(f"Sent urgent escalation SMS to on-call number for {clinic_name}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send urgent escalation SMS to {to_phone}: {e}")
+        logger.error(f"Failed to send urgent escalation SMS to {redact_phone(to_phone)}: {e}")
         return False
 
 
@@ -96,5 +97,5 @@ async def send_appointment_reminder(to_phone: str, clinic_name: str, service: st
         )
         return True
     except Exception as e:
-        logger.error(f"Failed to send SMS reminder to {to_phone}: {e}")
+        logger.error(f"Failed to send SMS reminder to {redact_phone(to_phone)}: {e}")
         return False

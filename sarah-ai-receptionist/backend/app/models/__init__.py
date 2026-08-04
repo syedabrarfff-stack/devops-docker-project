@@ -6,6 +6,7 @@ from app.models.appointment import Appointment
 from app.models.call_log import CallLog
 from app.models.user import User
 from app.models.audit_log import AuditLog
+from app.models.port_request import PortRequest
 from app.models.subscription import Subscription
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "CallLog",
     "User",
     "AuditLog",
+    "PortRequest",
     "Subscription",
 ]

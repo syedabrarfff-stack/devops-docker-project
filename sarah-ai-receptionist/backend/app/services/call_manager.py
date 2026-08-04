@@ -151,7 +151,13 @@ class CallManager:
                 transcript = self._utterance_buffer
                 self._utterance_buffer = ""
                 self._log("caller", transcript)
-                logger.info(f"[{self.call_sid}] Caller: {transcript}")
+                # Full utterance kept in the DB transcript (encrypted at rest,
+                # KMS-scoped, audit-logged on read). Logging it verbatim to
+                # CloudWatch would put PHI in a lower-controlled store; the
+                # length + first few words is enough context for a live-debug
+                # timeline without leaking what was actually said.
+                _preview = (transcript[:40] + "…") if len(transcript) > 40 else transcript
+                logger.info(f"[{self.call_sid}] Caller (len={len(transcript)}): {_preview!r}")
 
                 if self.pending_action and self.pending_action.action == "TRANSFER":
                     break
