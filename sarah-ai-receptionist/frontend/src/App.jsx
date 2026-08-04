@@ -10,6 +10,7 @@ import Appointments from "./pages/Appointments";
 import Settings from "./pages/Settings";
 import AdminLayout from "./pages/admin/AdminLayout";
 import Clinics from "./pages/admin/Clinics";
+import ClinicDetail from "./pages/admin/ClinicDetail";
 import OnboardClinic from "./pages/admin/OnboardClinic";
 import Analytics from "./pages/admin/Analytics";
 
@@ -44,6 +45,7 @@ export default function App() {
 
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Clinics />} />
+        <Route path="clinics/:clinicId" element={<ClinicDetail />} />
         <Route path="onboard" element={<OnboardClinic />} />
         <Route path="analytics" element={<Analytics />} />
       </Route>

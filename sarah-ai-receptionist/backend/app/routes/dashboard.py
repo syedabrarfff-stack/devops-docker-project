@@ -6,7 +6,7 @@ from sqlalchemy import String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_clinic_id, get_current_user
+from app.core.security import get_current_user, get_scoped_clinic_id
 from app.models.appointment import Appointment
 from app.models.call_log import CallLog
 from app.models.clinic import Clinic
@@ -51,7 +51,7 @@ class CallLogDetailOut(CallLogOut):
 
 
 @router.get("/stats", response_model=StatsOut)
-async def get_stats(clinic_id: str = Depends(get_current_clinic_id), db: AsyncSession = Depends(get_db)):
+async def get_stats(clinic_id: str = Depends(get_scoped_clinic_id), db: AsyncSession = Depends(get_db)):
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start = today_start - timedelta(days=today_start.weekday())
@@ -111,7 +111,7 @@ async def list_calls(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0),
     q: str | None = Query(default=None, description="Search caller phone, summary, and transcript"),
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     db: AsyncSession = Depends(get_db),
 ):
     filters = [CallLog.clinic_id == clinic_id]
@@ -143,7 +143,7 @@ async def list_calls(
 async def get_call_detail(
     call_log_id: str,
     request: Request,
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -171,7 +171,7 @@ async def get_call_detail(
 async def get_call_recording_url(
     call_log_id: str,
     request: Request,
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -216,7 +216,7 @@ async def get_call_recording_url(
 
 @router.get("/settings")
 async def get_clinic_settings(
-    clinic_id: str = Depends(get_current_clinic_id), db: AsyncSession = Depends(get_db)
+    clinic_id: str = Depends(get_scoped_clinic_id), db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(Clinic).where(Clinic.id == clinic_id))
     clinic = result.scalar_one_or_none()
@@ -241,7 +241,7 @@ async def get_clinic_settings(
 async def update_clinic_settings(
     payload: dict,
     request: Request,
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

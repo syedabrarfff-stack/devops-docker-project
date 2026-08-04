@@ -8,7 +8,7 @@ const OUTCOME_STYLES = {
   END: "bg-slate-100 text-slate-600",
 };
 
-export default function CallLog() {
+export default function CallLog({ clinicId } = {}) {
   const [calls, setCalls] = useState([]);
   const [selected, setSelected] = useState(null);
   const [recordingUrl, setRecordingUrl] = useState(null);
@@ -16,11 +16,12 @@ export default function CallLog() {
   const [query, setQuery] = useState("");
   const timeZone = useClinicTimezone();
   const zoneLabel = clinicZoneLabel(timeZone);
+  const scope = clinicId ? { clinic_id: clinicId } : {};
 
   // Debounced so typing doesn't fire a request per keystroke. Empty query
   // returns the recent calls unfiltered.
   useEffect(() => {
-    const params = { limit: 50 };
+    const params = { ...scope, limit: 50 };
     if (query.trim()) params.q = query.trim();
     const t = setTimeout(() => {
       dashboardApi.getCalls(params)
@@ -28,15 +29,16 @@ export default function CallLog() {
         .catch((err) => setError(err.response?.data?.detail || "Failed to load call log."));
     }, 250);
     return () => clearTimeout(t);
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, clinicId]);
 
   async function openCall(id) {
     setRecordingUrl(null);
-    const { data } = await dashboardApi.getCallDetail(id);
+    const { data } = await dashboardApi.getCallDetail(id, scope);
     setSelected(data);
     if (data.recording_s3_key) {
       try {
-        const { data: rec } = await dashboardApi.getRecordingUrl(id);
+        const { data: rec } = await dashboardApi.getRecordingUrl(id, scope);
         setRecordingUrl(rec.url);
       } catch {
         setRecordingUrl(null);

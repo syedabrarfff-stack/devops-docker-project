@@ -2,24 +2,26 @@ import { useEffect, useState } from "react";
 import { appointmentsApi } from "../services/api";
 import { clinicZoneLabel, formatInClinicZone, useClinicTimezone } from "../lib/clinicTime";
 
-export default function Appointments() {
+export default function Appointments({ clinicId } = {}) {
   const [appointments, setAppointments] = useState([]);
   const [error, setError] = useState(null);
   const timeZone = useClinicTimezone();
   const zoneLabel = clinicZoneLabel(timeZone);
+  const scope = clinicId ? { clinic_id: clinicId } : {};
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicId]);
 
   function load() {
-    appointmentsApi.list({ upcoming_only: true })
+    appointmentsApi.list({ ...scope, upcoming_only: true })
       .then(({ data }) => setAppointments(data))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load appointments."));
   }
 
   async function markStatus(id, status) {
-    await appointmentsApi.update(id, { status });
+    await appointmentsApi.update(id, { status }, scope);
     load();
   }
 

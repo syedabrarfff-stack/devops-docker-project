@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
 import { adminApi } from "../../services/api";
 
 export default function Clinics() {
@@ -29,6 +30,7 @@ export default function Clinics() {
               <th className="text-left px-4 py-3">Plan</th>
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Onboarded</th>
+              <th></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -43,11 +45,16 @@ export default function Clinics() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500">{format(new Date(c.created_at), "MMM d, yyyy")}</td>
+                <td className="px-4 py-3 text-right">
+                  <Link to={`/admin/clinics/${c.id}`} className="text-brand-600 text-xs font-medium hover:text-brand-700">
+                    View Dashboard →
+                  </Link>
+                </td>
               </tr>
             ))}
             {clinics.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                   No clinics onboarded yet.
                 </td>
               </tr>

@@ -362,9 +362,15 @@ async def submit_port_request(
     try:
         await submit_port_in(db, port)
     except PortingError as e:
-        # Real Twilio error -- surface, not disguise. Operator needs the
-        # actual reason (e.g. "PhoneNumber already assigned to another PortIn").
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        # F3: don't leak raw Twilio API error bodies (may carry account-scoped
+        # SIDs / partial numbers) to the HTTP client. Log the reason server-side
+        # keyed by request_id so the operator can look it up.
+        request_id = getattr(request.state, "request_id", "-")
+        logger.warning(f"[req={request_id}] Port submit failed for port_id={port_id}: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Port submission failed. Reference id: {request_id}",
+        ) from e
 
     await write_audit_log(
         db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
@@ -390,6 +396,7 @@ async def list_port_requests(
 @router.post("/port-requests/{port_id}/refresh", response_model=PortRequestOut)
 async def refresh_port_request(
     port_id: str,
+    request: Request,
     _: dict = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -404,7 +411,12 @@ async def refresh_port_request(
     try:
         await refresh_port_status(db, port)
     except PortingError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        request_id = getattr(request.state, "request_id", "-")
+        logger.warning(f"[req={request_id}] Port refresh failed for port_id={port_id}: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Port refresh failed. Reference id: {request_id}",
+        ) from e
     return port
 
 
@@ -424,7 +436,12 @@ async def cancel_port_request(
     try:
         await cancel_port_in(db, port)
     except PortingError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        request_id = getattr(request.state, "request_id", "-")
+        logger.warning(f"[req={request_id}] Port cancel failed for port_id={port_id}: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Port cancellation failed. Reference id: {request_id}",
+        ) from e
     await write_audit_log(
         db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
         user_id=current_user.get("sub"), action="port_request_cancel",

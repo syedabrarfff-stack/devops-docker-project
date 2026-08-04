@@ -3,15 +3,15 @@ import { PhoneCall, CalendarCheck, PhoneForwarded, Zap, PhoneMissed } from "luci
 import { dashboardApi } from "../services/api";
 import StatCard from "../components/StatCard";
 
-export default function Dashboard() {
+export default function Dashboard({ clinicId } = {}) {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    dashboardApi.getStats()
+    dashboardApi.getStats(clinicId ? { clinic_id: clinicId } : undefined)
       .then(({ data }) => setStats(data))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load stats."));
-  }, []);
+  }, [clinicId]);
 
   return (
     <div>
