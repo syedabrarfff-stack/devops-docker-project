@@ -14,9 +14,9 @@ import logging
 import time
 from datetime import datetime, timezone
 
+from app.core.database import get_db_context
 from app.services.ai_brain import ActionCommand, AIBrain
 from app.services.barge_in import is_real_interruption, send_clear_event
-from app.core.database import get_db_context
 from app.services.call_recorder import upload_recording_to_s3
 from app.services.patient_lookup import lookup_patient_context
 from app.services.speech_to_text import SpeechToText, TranscriptEvent

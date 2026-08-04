@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass
 
 import websockets
+
 # Imported directly rather than referenced as websockets.exceptions.X: the
 # websockets package (14.x) lazily populates its submodules, and
 # `websockets.exceptions` is NOT set on the top-level module by a plain
@@ -21,6 +22,7 @@ import websockets
 # disconnect would have hit that AttributeError instead of the intended
 # graceful-close handling.
 from websockets.exceptions import ConnectionClosed
+
 from app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,9 @@
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Float
+
+from sqlalchemy import DateTime, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
-from app.models.base import Base, UUIDMixin, TimestampMixin
+
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class Subscription(Base, UUIDMixin, TimestampMixin):

@@ -364,7 +364,7 @@ async def submit_port_request(
     except PortingError as e:
         # Real Twilio error -- surface, not disguise. Operator needs the
         # actual reason (e.g. "PhoneNumber already assigned to another PortIn").
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     await write_audit_log(
         db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
@@ -404,7 +404,7 @@ async def refresh_port_request(
     try:
         await refresh_port_status(db, port)
     except PortingError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return port
 
 
@@ -424,7 +424,7 @@ async def cancel_port_request(
     try:
         await cancel_port_in(db, port)
     except PortingError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await write_audit_log(
         db, clinic_id=port.clinic_id, actor=current_user.get("email", "unknown"),
         user_id=current_user.get("sub"), action="port_request_cancel",

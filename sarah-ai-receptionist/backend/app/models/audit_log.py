@@ -1,6 +1,7 @@
-from sqlalchemy import String, ForeignKey, JSON
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
-from app.models.base import Base, UUIDMixin, TimestampMixin
+
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class AuditLog(Base, UUIDMixin, TimestampMixin):

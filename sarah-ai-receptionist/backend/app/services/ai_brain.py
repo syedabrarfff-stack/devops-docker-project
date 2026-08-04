@@ -3,11 +3,13 @@ AI Brain — streams Claude's response via OpenRouter, sentence by sentence,
 so TTS can start speaking before the full response is generated.
 """
 
-import re
 import json
 import logging
-import httpx
+import re
 from dataclasses import dataclass, field
+
+import httpx
+
 from app.config.settings import get_settings
 from app.prompts.dental_receptionist import build_system_prompt, get_default_clinic_config
 
