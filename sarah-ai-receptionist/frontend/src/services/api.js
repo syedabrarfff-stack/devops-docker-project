@@ -38,6 +38,16 @@ async function refreshAccessToken() {
         { withCredentials: true },
       );
       setAccessToken(data.access_token);
+      // Resync identity (role/clinic_id/full_name) to whoever the refresh
+      // cookie actually belongs to -- NOT just the token. The cookie is
+      // shared across every *.aliyarsolutions.com subdomain, while role/
+      // clinic_id/full_name are cached per-origin in localStorage; without
+      // this, a browser that logged into two subdomains as two different
+      // accounts would keep rendering the older subdomain's stale identity
+      // (e.g. still showing the admin console) even after the shared
+      // cookie moved to a different, non-admin account -- every API call
+      // would then 403 against a UI that still claims to be an admin.
+      useAuthStore.getState().setSession(data);
       return data.access_token;
     } finally {
       _refreshInFlight = null;
