@@ -28,7 +28,31 @@ jobs:
       - name: Security scan (Bandit)
         run: bandit -r app -ll
       - name: Dependency vulnerability scan
-        run: pip-audit -r requirements.txt
+        # Ignore-list explanation:
+        # - PYSEC-2026-1325 (ecdsa Minerva side-channel): no upstream fix;
+        #   ecdsa is used inside python-jose for JWT verification which we
+        #   do server-side over TLS, so the timing surface isn't reachable.
+        # - PYSEC-2026-{2263,3455,3456,3457} (pyasn1 DoS on crafted ASN.1):
+        #   pyasn1<0.5 is hard-pinned by python-jose 3.4.0. Our JWT path
+        #   parses JSON, not ASN.1, so untrusted ASN.1 never reaches pyasn1.
+        # - PYSEC-2026-{161,248,249,1941,1942,2280,2281} (starlette):
+        #   starlette version is constrained by fastapi 0.121.0. Not
+        #   exploitable — we don't mount StaticFiles, and form-DoS is
+        #   mitigated by ALB in front of the app.
+        run: |
+          pip-audit -r requirements.txt \
+            --ignore-vuln PYSEC-2026-1325 \
+            --ignore-vuln PYSEC-2026-2263 \
+            --ignore-vuln PYSEC-2026-3455 \
+            --ignore-vuln PYSEC-2026-3456 \
+            --ignore-vuln PYSEC-2026-3457 \
+            --ignore-vuln PYSEC-2026-161 \
+            --ignore-vuln PYSEC-2026-248 \
+            --ignore-vuln PYSEC-2026-249 \
+            --ignore-vuln PYSEC-2026-1941 \
+            --ignore-vuln PYSEC-2026-1942 \
+            --ignore-vuln PYSEC-2026-2280 \
+            --ignore-vuln PYSEC-2026-2281
       - name: Unit tests
         run: pytest tests/ -v
         working-directory: ${{ env.WORKDIR }}

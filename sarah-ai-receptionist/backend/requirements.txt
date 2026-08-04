@@ -1,4 +1,4 @@
-fastapi==0.115.6
+fastapi==0.121.0
 uvicorn[standard]==0.34.0
 pydantic==2.10.5
 pydantic[email]==2.10.5
@@ -13,11 +13,12 @@ python-jose[cryptography]==3.4.0
 pyjwt==2.13.0
 passlib==1.7.4
 bcrypt==4.0.1  # passlib 1.7.4 (unmaintained since 2020) breaks on bcrypt>=4.1, which removed the __about__ attribute passlib's backend detection reads
-python-multipart==0.0.30
+python-multipart==0.0.31
 twilio==9.4.3
 boto3==1.35.97
 python-dateutil==2.9.0.post0
 tzdata==2024.2  # python:3.11-slim ships no system tz database; zoneinfo falls back to this package, without it ZoneInfo("America/New_York") raises at runtime
 arq==0.26.3
 stripe==11.4.1
-python-dotenv==1.0.1
+python-dotenv==1.2.2
+
