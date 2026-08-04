@@ -1,0 +1,25 @@
+# Copy to terraform.tfvars and adjust. Never commit terraform.tfvars — it's gitignored.
+
+aws_region      = "us-east-1"
+project_name    = "sarah-receptionist"
+environment     = "prod"
+
+root_domain     = "aliyarsolutions.com"
+api_subdomain   = "sarah"
+app_subdomain   = "app"
+admin_subdomain = "admin"
+
+vpc_cidr = "10.20.0.0/16"
+
+db_instance_class = "db.t4g.medium"
+redis_node_type   = "cache.t4g.small"
+
+# Filled in by the CI/CD pipeline after each image build (see .github/workflows/deploy.yml)
+container_image_voice = "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sarah-receptionist-voice:latest"
+container_image_api   = "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/sarah-receptionist-api:latest"
+
+# Receives CloudWatch alarm emails (ALB 5xx, unhealthy targets, ECS task loss, RDS health)
+alarm_email = "ops@aliyarsolutions.com"
+
+# RDS backups are cross-region-copied here for disaster recovery
+dr_region = "us-west-2"

@@ -1,0 +1,187 @@
+import { useEffect, useState } from "react";
+import { dashboardApi } from "../services/api";
+import { resetClinicTimezoneCache } from "../lib/clinicTime";
+
+export default function Settings() {
+  const [form, setForm] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    dashboardApi.getSettings()
+      .then(({ data }) => setForm(data))
+      .catch((err) => setError(err.response?.data?.detail || "Failed to load settings."));
+  }, []);
+
+  function set(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+    setSaved(false);
+  }
+
+  async function save() {
+    await dashboardApi.updateSettings({
+      name: form.name,
+      address: form.address,
+      city: form.city,
+      state: form.state,
+      timezone: form.timezone,
+      sarah_name: form.sarah_name,
+      transfer_phone_number: form.transfer_phone_number || null,
+      after_hours_escalation_number: form.after_hours_escalation_number || null,
+      business_hours: form.business_hours || {},
+    });
+    // Call Log and Appointments render against the cached timezone — drop it so
+    // a change here shows up without a reload.
+    resetClinicTimezoneCache();
+    setSaved(true);
+  }
+
+  if (error) return (
+    <div>
+      <h1 className="text-2xl font-semibold text-slate-900 mb-1">Settings</h1>
+      <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{error}</div>
+    </div>
+  );
+  if (!form) return null;
+
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold text-slate-900 mb-1">Settings</h1>
+      <p className="text-sm text-slate-500 mb-6">Clinic details and how Sarah introduces herself.</p>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-xl space-y-4">
+        <Field label="Clinic Name" value={form.name} onChange={(v) => set("name", v)} />
+        <Field label="Sarah's Name" value={form.sarah_name} onChange={(v) => set("sarah_name", v)} />
+        <Field label="Address" value={form.address || ""} onChange={(v) => set("address", v)} />
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="City" value={form.city || ""} onChange={(v) => set("city", v)} />
+          <Field label="State" value={form.state || ""} onChange={(v) => set("state", v)} />
+        </div>
+        <Field label="Timezone" value={form.timezone} onChange={(v) => set("timezone", v)} />
+
+        <div className="pt-4 mt-2 border-t border-slate-100 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Escalation to a person</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              During your opening hours Sarah transfers urgent callers to the front desk.
+              Outside them she takes their details and texts your on-call number instead of
+              promising a transfer nobody would answer.
+            </p>
+          </div>
+          <Field
+            label="Front desk number (in-hours transfers)"
+            value={form.transfer_phone_number || ""}
+            onChange={(v) => set("transfer_phone_number", v)}
+          />
+          <Field
+            label="On-call number (after-hours alerts)"
+            value={form.after_hours_escalation_number || ""}
+            onChange={(v) => set("after_hours_escalation_number", v)}
+          />
+          <BusinessHours
+            value={form.business_hours || {}}
+            onChange={(v) => set("business_hours", v)}
+          />
+          {!form.transfer_phone_number && !form.after_hours_escalation_number && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              No numbers set — Sarah will tell urgent callers the team will follow up, but
+              nobody will be alerted.
+            </div>
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-slate-100">
+          <div className="text-xs text-slate-400">Twilio Number</div>
+          <div className="text-sm font-medium text-slate-700">{form.twilio_phone_number || "Not assigned"}</div>
+        </div>
+
+        <button
+          onClick={save}
+          className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          Save Changes
+        </button>
+        {saved && <span className="ml-3 text-sm text-green-600">Saved.</span>}
+      </div>
+    </div>
+  );
+}
+
+const DAYS = [
+  ["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"],
+  ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"],
+];
+
+// Stored as {"mon": [["08:00","18:00"]], "sun": []} — a list of intervals per
+// day, so a clinic that closes for lunch can say so. The UI edits the first
+// interval and preserves any extra ones set through the API.
+function BusinessHours({ value, onChange }) {
+  function setDay(key, open, closeAt, isOpen) {
+    const next = { ...value };
+    if (!isOpen) {
+      next[key] = [];
+    } else {
+      const rest = (value[key] || []).slice(1);
+      next[key] = [[open, closeAt], ...rest];
+    }
+    onChange(next);
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-2">Opening hours</label>
+      <div className="space-y-1.5">
+        {DAYS.map(([key, label]) => {
+          const intervals = value[key] || [];
+          const isOpen = intervals.length > 0;
+          const [open = "09:00", closeAt = "17:00"] = intervals[0] || [];
+          return (
+            <div key={key} className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 w-32 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={isOpen}
+                  onChange={(e) => setDay(key, open, closeAt, e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span className="text-slate-700">{label}</span>
+              </label>
+              {isOpen ? (
+                <>
+                  <input
+                    type="time"
+                    value={open}
+                    onChange={(e) => setDay(key, e.target.value, closeAt, true)}
+                    className="px-2 py-1 border border-slate-300 rounded text-sm"
+                  />
+                  <span className="text-slate-400">to</span>
+                  <input
+                    type="time"
+                    value={closeAt}
+                    onChange={(e) => setDay(key, open, e.target.value, true)}
+                    className="px-2 py-1 border border-slate-300 rounded text-sm"
+                  />
+                </>
+              ) : (
+                <span className="text-slate-400 text-xs">Closed</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+      />
+    </div>
+  );
+}

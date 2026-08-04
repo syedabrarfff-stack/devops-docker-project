@@ -1,0 +1,134 @@
+name: Deploy Sarah AI Receptionist
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sarah-ai-receptionist/**"
+  workflow_dispatch: {}
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO_VOICE: sarah-receptionist-voice
+  ECR_REPO_API: sarah-receptionist-api
+  ECS_CLUSTER: sarah-receptionist-prod
+  WORKDIR: sarah-ai-receptionist
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: pip install pytest pytest-asyncio ruff bandit fakeredis
+      - name: Lint
+        run: ruff check app
+      - name: Security scan
+        run: bandit -r app -ll
+      - name: Unit tests
+        run: pytest tests/ -v
+        working-directory: ${{ env.WORKDIR }}
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image_voice: ${{ steps.image.outputs.voice }}
+      image_api: ${{ steps.image.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image (shared by voice + api + worker)
+        id: image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -f ${{ env.WORKDIR }}/docker/Dockerfile.backend -t $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA ${{ env.WORKDIR }}
+          docker tag $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+          docker push $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA
+          docker push $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+          echo "voice=$REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA" >> "$GITHUB_OUTPUT"
+          echo "api=$REGISTRY/${{ env.ECR_REPO_API }}:$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Build and deploy frontend to S3 + CloudFront
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          cd ${{ env.WORKDIR }}/frontend
+          npm ci
+          npm run build
+          aws s3 sync dist/ s3://sarah-receptionist-prod-frontend/ --delete
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update voice-service (blue/green via ECS deployment circuit breaker)
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service sarah-receptionist-prod-voice \
+            --force-new-deployment
+
+      - name: Update api-service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service sarah-receptionist-prod-api \
+            --force-new-deployment
+
+      - name: Update worker-service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service sarah-receptionist-prod-worker \
+            --force-new-deployment
+
+      - name: Wait for voice-service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-voice
+
+      - name: Wait for api-service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-api
+
+      - name: Post-deploy smoke test
+        run: python3 ${{ env.WORKDIR }}/scripts/smoke_test.py
+        env:
+          SARAH_HEALTH_URL: https://sarah.aliyarsolutions.com/health

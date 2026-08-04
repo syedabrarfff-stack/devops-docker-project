@@ -1,0 +1,79 @@
+name: PR Checks
+
+on:
+  pull_request:
+    paths:
+      - "sarah-ai-receptionist/**"
+
+env:
+  WORKDIR: sarah-ai-receptionist
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: pip install pytest pytest-asyncio ruff bandit mypy pip-audit
+      - name: Lint
+        run: ruff check app
+      - name: Type check
+        run: mypy app --ignore-missing-imports
+      - name: Security scan (Bandit)
+        run: bandit -r app -ll
+      - name: Dependency vulnerability scan
+        run: pip-audit -r requirements.txt
+      - name: Unit tests
+        run: pytest tests/ -v
+        working-directory: ${{ env.WORKDIR }}
+
+  container-scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -f docker/Dockerfile.backend -t sarah-backend:pr-check .
+      - name: Scan image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: sarah-backend:pr-check
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run lint
+      - name: Dependency vulnerability scan
+        run: npm audit --audit-level=high
+      - run: npm run build
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}/infra/terraform/environments/prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - run: terraform fmt -check -recursive ../../
