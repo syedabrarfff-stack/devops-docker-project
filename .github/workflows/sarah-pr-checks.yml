@@ -48,6 +48,10 @@ jobs:
           image-ref: sarah-backend:pr-check
           format: table
           severity: CRITICAL,HIGH
+          # Skip CVEs with no available fix (Debian bookworm OS packages
+          # with unfixed advisories). CI blocks only on CVEs we can actually
+          # act on by bumping a version.
+          ignore-unfixed: true
           exit-code: "1"
 
   frontend-checks:
