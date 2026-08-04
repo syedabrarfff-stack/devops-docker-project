@@ -3,6 +3,8 @@ name: JARVIS — Build & Deploy to AWS ECS
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'sarah-ai-receptionist/**'
   workflow_dispatch:
     inputs:
       environment:
