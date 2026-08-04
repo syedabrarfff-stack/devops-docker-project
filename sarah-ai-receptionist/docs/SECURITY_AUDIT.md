@@ -193,7 +193,26 @@ revisiting for a HIPAA audit.
   preview instead of the whole utterance.
 
 ## What was NOT fixed (deferred)
-- F3 (raw exceptions to admin) — pending a decision on unified error
-  format across the whole API, not just port routes.
-- F4/F5/F6/F7 — documented, not code-changed.
+- F5 (bandit 0.0.0.0 bind) — verified false positive, `# nosec B104`
+  applied on the settings line with a reference to this file.
+- F6 (admin password rotation) — deferred until there is a second admin
+  human; not needed while the platform_admin count is 1.
 - Custom lint rule for future PHI-in-logs — nice-to-have, not blocking.
+
+## Closed in follow-up work
+- **F3 — raw exception bodies to admin clients:** the three port-request
+  admin routes (`submit`, `refresh`, `cancel`) now return a generic
+  `"Port <action> failed. Reference id: <request_id>"` to the HTTP
+  client; the raw Twilio error is written to the server log with the
+  same `request_id`. Operator lookup is via `req=<id>` in the log stream.
+- **F4 — SameSite=None justification:** written up in
+  `docs/COMPLIANCE.md#f4`. Confirms the cross-subdomain requirement,
+  documents the CSRF mitigation stack (Domain-scoped cookie +
+  SHA-256-hashed opaque refresh token + one-shot rotation).
+- **F7 — S3 MFA-delete + Object Lock:** operational procedure written up
+  in `docs/COMPLIANCE.md#f7` with the exact CLI to run under the root
+  account (MFA-delete can only be enabled by root; terraform cannot).
+  Terraform path to add Object Lock to new buckets is described; not
+  applied to the existing bucket because Object Lock is a
+  bucket-creation-time-only flag and enabling it would force a bucket
+  replacement, destroying existing recordings.
