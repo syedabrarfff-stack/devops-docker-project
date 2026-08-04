@@ -30,7 +30,7 @@ async def stripe_webhook(request: Request):
         event = stripe.Webhook.construct_event(payload, signature, settings.stripe_webhook_secret)
     except (ValueError, stripe.error.SignatureVerificationError) as e:
         logger.warning(f"Rejected Stripe webhook: {e}")
-        raise HTTPException(status_code=400, detail="Invalid signature")
+        raise HTTPException(status_code=400, detail="Invalid signature") from e
 
     async with get_db_context() as db:
         await handle_stripe_event(db, event)

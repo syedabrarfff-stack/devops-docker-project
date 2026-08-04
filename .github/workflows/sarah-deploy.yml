@@ -1,4 +1,4 @@
-name: Deploy Sarah AI Receptionist
+name: Sarah — Deploy to AWS
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: pip install pytest pytest-asyncio ruff bandit fakeredis
+      - run: pip install pytest pytest-asyncio ruff bandit fakeredis testcontainers[postgres]
       - name: Lint
         run: ruff check app
       - name: Security scan
