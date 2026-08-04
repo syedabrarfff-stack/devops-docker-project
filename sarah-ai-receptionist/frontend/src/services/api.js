@@ -92,18 +92,23 @@ export const authApi = {
   me: () => api.get("/auth/me"),
 };
 
+// Every dashboard/appointments call accepts an optional trailing `params`
+// object. Clinic users don't need to pass anything -- the backend scopes to
+// their own clinic from the JWT. The admin console's per-clinic view passes
+// { clinic_id } explicitly, since a platform_admin token carries no clinic
+// of its own (see app/core/security.py:get_scoped_clinic_id).
 export const dashboardApi = {
-  getStats: () => api.get("/dashboard/stats"),
+  getStats: (params) => api.get("/dashboard/stats", { params }),
   getCalls: (params) => api.get("/dashboard/calls", { params }),
-  getCallDetail: (id) => api.get(`/dashboard/calls/${id}`),
-  getRecordingUrl: (id) => api.get(`/dashboard/calls/${id}/recording-url`),
-  getSettings: () => api.get("/dashboard/settings"),
-  updateSettings: (payload) => api.patch("/dashboard/settings", payload),
+  getCallDetail: (id, params) => api.get(`/dashboard/calls/${id}`, { params }),
+  getRecordingUrl: (id, params) => api.get(`/dashboard/calls/${id}/recording-url`, { params }),
+  getSettings: (params) => api.get("/dashboard/settings", { params }),
+  updateSettings: (payload, params) => api.patch("/dashboard/settings", payload, { params }),
 };
 
 export const appointmentsApi = {
   list: (params) => api.get("/appointments", { params }),
-  update: (id, payload) => api.patch(`/appointments/${id}`, payload),
+  update: (id, payload, params) => api.patch(`/appointments/${id}`, payload, { params }),
 };
 
 export const adminApi = {

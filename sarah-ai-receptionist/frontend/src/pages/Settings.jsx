@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { dashboardApi } from "../services/api";
 import { resetClinicTimezoneCache } from "../lib/clinicTime";
 
-export default function Settings() {
+export default function Settings({ clinicId } = {}) {
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
+  const scope = clinicId ? { clinic_id: clinicId } : {};
 
   useEffect(() => {
-    dashboardApi.getSettings()
+    dashboardApi.getSettings(scope)
       .then(({ data }) => setForm(data))
       .catch((err) => setError(err.response?.data?.detail || "Failed to load settings."));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicId]);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -29,7 +31,7 @@ export default function Settings() {
       transfer_phone_number: form.transfer_phone_number || null,
       after_hours_escalation_number: form.after_hours_escalation_number || null,
       business_hours: form.business_hours || {},
-    });
+    }, scope);
     // Call Log and Appointments render against the cached timezone — drop it so
     // a change here shows up without a reload.
     resetClinicTimezoneCache();

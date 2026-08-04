@@ -6,7 +6,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_clinic_id, get_current_user
+from app.core.security import get_current_user, get_scoped_clinic_id
 from app.models.appointment import Appointment
 from app.services.audit import write_audit_log
 
@@ -36,7 +36,7 @@ class AppointmentUpdate(BaseModel):
 @router.get("", response_model=list[AppointmentOut])
 async def list_appointments(
     upcoming_only: bool = Query(default=True),
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     db: AsyncSession = Depends(get_db),
 ):
     filters = [Appointment.clinic_id == clinic_id]
@@ -54,7 +54,7 @@ async def update_appointment(
     appointment_id: str,
     payload: AppointmentUpdate,
     request: Request,
-    clinic_id: str = Depends(get_current_clinic_id),
+    clinic_id: str = Depends(get_scoped_clinic_id),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

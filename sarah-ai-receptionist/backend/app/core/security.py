@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 
@@ -41,11 +41,34 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(b
     return decode_token(credentials.credentials)
 
 
-async def get_current_clinic_id(current_user: dict = Depends(get_current_user)) -> str:
-    clinic_id = current_user.get("clinic_id")
-    if not clinic_id:
+async def get_scoped_clinic_id(
+    clinic_id: str | None = Query(
+        default=None,
+        description="Clinic to view. Required for platform_admin callers; ignored (the "
+        "caller's own clinic is used) for clinic-user callers.",
+    ),
+    current_user: dict = Depends(get_current_user),
+) -> str:
+    """Resolve which clinic a request is scoped to.
+
+    Clinic users are hard-scoped to the clinic_id baked into their JWT --
+    the query param is ignored for them so a clinic user can never read
+    another clinic's data by editing the URL. platform_admin tokens carry
+    no clinic_id (an admin isn't a member of any one clinic), so admin
+    requests must name the clinic explicitly via ?clinic_id=; this is how
+    the admin console's per-clinic dashboard view works.
+    """
+    if current_user.get("role") == "platform_admin":
+        if not clinic_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="clinic_id query parameter is required for admin access",
+            )
+        return clinic_id
+    own_clinic_id = current_user.get("clinic_id")
+    if not own_clinic_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No clinic access")
-    return clinic_id
+    return own_clinic_id
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
