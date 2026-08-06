@@ -30,6 +30,14 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
     jwt_secret_key        = "REPLACE_ME"
     stripe_secret_key     = "REPLACE_ME"
     stripe_webhook_secret = "REPLACE_ME"
+    # Browser "Call Sarah" widget (Twilio Voice SDK). Separate API Key/Secret
+    # pair + TwiML App SID -- not the main twilio_auth_token above -- so a
+    # leaked widget token can't touch the rest of the Twilio account. Leave
+    # as REPLACE_ME (the widget's /token endpoint returns 503) until these
+    # are created in the Twilio console.
+    twilio_voice_api_key_sid    = "REPLACE_ME"
+    twilio_voice_api_key_secret = "REPLACE_ME"
+    twilio_voice_twiml_app_sid  = "REPLACE_ME"
   })
 
   lifecycle {

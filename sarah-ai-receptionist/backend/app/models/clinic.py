@@ -58,6 +58,10 @@ class Clinic(Base, UUIDMixin, TimestampMixin):
     stripe_customer_id: Mapped[str] = mapped_column(String(100), nullable=True)
     stripe_subscription_id: Mapped[str] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # The one clinic real callers never book against -- resolved by the
+    # browser-call webhook so visitors on the marketing site's "Call Sarah"
+    # widget get a full live demo without touching a real clinic's data.
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     organization: Mapped["Organization"] = relationship("Organization", back_populates="clinics")
     providers: Mapped[list["Provider"]] = relationship("Provider", back_populates="clinic")
