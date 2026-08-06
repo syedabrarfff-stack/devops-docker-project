@@ -51,6 +51,38 @@
     /* FOOTER */
     footer { border-top: 1px solid rgba(23,32,29,0.08); padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--muted); }
     footer a { color: var(--green); font-weight: 600; }
+
+    /* SARAH WIDGET */
+    .sarah { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 5rem; }
+    .sarah-card {
+      background: var(--text); color: #fff; border-radius: 1.75rem; padding: 2.5rem;
+      display: grid; gap: 2rem; align-items: center;
+    }
+    @media (min-width: 900px) { .sarah-card { grid-template-columns: 1.1fr 0.9fr; } }
+    .sarah-card h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 900; letter-spacing: -0.03em; }
+    .sarah-card p { margin-top: 0.9rem; color: rgba(255,255,255,0.68); font-size: 0.95rem; line-height: 1.7; max-width: 32rem; }
+    .sarah-panel {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 1.25rem; padding: 1.75rem; text-align: center;
+    }
+    .sarah-btn {
+      display: inline-flex; align-items: center; gap: 0.6rem; justify-content: center;
+      width: 100%; border: none; cursor: pointer; border-radius: 999px;
+      padding: 0.9rem 1.6rem; font-size: 1rem; font-weight: 700; font-family: inherit;
+      background: var(--accent); color: var(--text); transition: opacity 0.2s, transform 0.15s;
+    }
+    .sarah-btn:hover:not(:disabled) { opacity: 0.88; }
+    .sarah-btn:active:not(:disabled) { transform: scale(0.98); }
+    .sarah-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .sarah-btn.hangup { background: #c65b4e; color: #fff; }
+    .sarah-status { margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.55); min-height: 1.2em; }
+    .sarah-status.err { color: #e8a3a3; }
+    .sarah-dot {
+      display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 999px;
+      background: #6fd39a; margin-right: 0.4rem; animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .sarah-fineprint { margin-top: 0.9rem; font-size: 0.7rem; color: rgba(255,255,255,0.4); line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -104,9 +136,134 @@
   </div>
 </section>
 
+<section class="sarah">
+  <p class="section-label">AI Voice Receptionist</p>
+  <h2 class="section-title" style="margin-bottom: 1.5rem;">Meet Sarah</h2>
+  <div class="sarah-card">
+    <div>
+      <h2>Your dental practice's phone, answered by AI.</h2>
+      <p>
+        Sarah answers every call, books appointments, answers insurance and service
+        questions, and hands off real emergencies — 24/7, no hold music, no missed calls.
+        Try her right now, right in your browser.
+      </p>
+    </div>
+    <div class="sarah-panel">
+      <button id="sarah-call-btn" class="sarah-btn" type="button">
+        📞 Call Sarah — Live Demo
+      </button>
+      <p id="sarah-status" class="sarah-status"></p>
+      <p class="sarah-fineprint">
+        This is a live demo call to our AI receptionist, not a real dental practice.
+        Your microphone is only used while connected.
+      </p>
+    </div>
+  </div>
+</section>
+
 <footer>
   <p>© 2026 Aliyar Solutions &nbsp;·&nbsp; <a href="mailto:info@aliyarsolutions.com">info@aliyarsolutions.com</a> &nbsp;·&nbsp; <a href="/control-room/dashboard">Team Login</a></p>
 </footer>
+
+<script src="https://sdk.twilio.com/js/voice/releases/2.12.3/twilio.min.js"></script>
+<script>
+(function () {
+  var TOKEN_URL = "https://sarah.aliyarsolutions.com/api/v1/voice-widget/token";
+
+  var btn = document.getElementById("sarah-call-btn");
+  var statusEl = document.getElementById("sarah-status");
+  var device = null;
+  var activeCall = null;
+  var state = "idle"; // idle | connecting | in-call
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text || "";
+    statusEl.classList.toggle("err", !!isError);
+  }
+
+  function setState(next) {
+    state = next;
+    if (state === "idle") {
+      btn.textContent = "📞 Call Sarah — Live Demo";
+      btn.classList.remove("hangup");
+      btn.disabled = false;
+    } else if (state === "connecting") {
+      btn.textContent = "Connecting…";
+      btn.classList.remove("hangup");
+      btn.disabled = true;
+    } else if (state === "in-call") {
+      btn.innerHTML = '<span class="sarah-dot"></span>End Call';
+      btn.classList.add("hangup");
+      btn.disabled = false;
+    }
+  }
+
+  async function startCall() {
+    if (typeof Twilio === "undefined" || !Twilio.Device) {
+      setStatus("Couldn't load the calling library. Please refresh and try again.", true);
+      return;
+    }
+
+    setState("connecting");
+    setStatus("Requesting microphone access…");
+
+    try {
+      var res = await fetch(TOKEN_URL, { method: "POST" });
+      if (!res.ok) {
+        var body = await res.json().catch(function () { return {}; });
+        throw new Error(body.detail || ("Server returned " + res.status));
+      }
+      var data = await res.json();
+
+      device = new Twilio.Device(data.token, { logLevel: "error" });
+
+      device.on("error", function (err) {
+        console.error("Twilio Device error:", err);
+        setStatus("Call error: " + (err.message || "something went wrong."), true);
+        setState("idle");
+      });
+
+      setStatus("Ringing Sarah…");
+      activeCall = await device.connect();
+
+      activeCall.on("accept", function () { setState("in-call"); setStatus("Connected — say hello."); });
+      activeCall.on("disconnect", function () { endCall(); });
+      activeCall.on("cancel", function () { endCall(); });
+      activeCall.on("reject", function () { setStatus("Call was rejected.", true); endCall(); });
+    } catch (err) {
+      console.error(err);
+      setStatus(
+        err.name === "NotAllowedError"
+          ? "Microphone access was blocked. Allow it in your browser and try again."
+          : (err.message || "Couldn't start the call. Please try again."),
+        true
+      );
+      setState("idle");
+    }
+  }
+
+  function endCall() {
+    if (activeCall) {
+      try { activeCall.disconnect(); } catch (e) {}
+      activeCall = null;
+    }
+    if (device) {
+      try { device.destroy(); } catch (e) {}
+      device = null;
+    }
+    setState("idle");
+    setStatus("Call ended. Thanks for trying Sarah!");
+  }
+
+  btn.addEventListener("click", function () {
+    if (state === "idle") {
+      startCall();
+    } else if (state === "in-call") {
+      endCall();
+    }
+  });
+})();
+</script>
 
 </body>
 </html>

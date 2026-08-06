@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     twilio_auth_token: str
     twilio_phone_number: str
 
+    # Twilio Voice SDK (browser "Call Sarah" widget). Separate from the main
+    # auth token: the Voice SDK issues short-lived client access tokens
+    # signed with an API Key/Secret pair, scoped only to a single TwiML
+    # Application -- so a compromised widget token can't touch the account
+    # the way the main auth_token could. Empty means the widget is disabled;
+    # /api/v1/voice-widget/token returns 503 rather than crash on startup.
+    twilio_voice_api_key_sid: str = ""
+    twilio_voice_api_key_secret: str = ""
+    twilio_voice_twiml_app_sid: str = ""
+
     # Deepgram
     deepgram_api_key: str
 

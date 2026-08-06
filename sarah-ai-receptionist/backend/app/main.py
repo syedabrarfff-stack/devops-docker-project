@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config.settings import get_settings
 from app.middleware import RequestContextMiddleware, RequestIDLogFilter, install_error_handling
-from app.routes import admin, appointments, auth, billing, call_handler, dashboard
+from app.routes import admin, appointments, auth, billing, call_handler, dashboard, voice_widget
 
 settings = get_settings()
 
@@ -44,6 +44,8 @@ app.add_middleware(
     allow_origins=[
         "https://app.aliyarsolutions.com",
         "https://admin.aliyarsolutions.com",
+        "https://www.aliyarsolutions.com",
+        "https://aliyarsolutions.com",
     ] if settings.is_production else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -61,6 +63,7 @@ app.include_router(appointments.router, prefix="/api/v1/appointments")
 app.include_router(dashboard.router, prefix="/api/v1/dashboard")
 app.include_router(admin.router, prefix="/api/v1/admin")
 app.include_router(billing.router, prefix="/api/v1/billing")
+app.include_router(voice_widget.router, prefix="/api/v1/voice-widget")
 
 
 @app.get("/health")
