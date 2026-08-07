@@ -42,13 +42,13 @@ _DEMO_TTS_OUTPUT_FORMAT = "pcm_16000"
 # is_demo clinic seeded in migration 0005, which the real Twilio-based
 # /browser-call path (voice_widget.py) still reads from the DB.
 DEMO_CLINIC_CONFIG = {
-    "name": "Sarah's Demo Practice",
+    "name": "Sarah's Demo Practice — Riyadh",
     "sarah_name": "Sarah",
     "hours": "Open every day, 24 hours -- this is a live demo",
-    "address": "123 Demo Street",
+    "address": "King Fahd Road, Riyadh, Saudi Arabia",
     "services": ["cleanings", "fillings", "root canals", "crowns", "whitening", "emergency care"],
-    "providers": ["Dr. Aslam", "Dr. Chen", "Dr. Reyes"],
-    "insurance_accepted": ["Delta Dental", "Cigna", "Aetna", "MetLife", "Guardian"],
+    "providers": ["Dr. Aslam", "Dr. Al-Rashid", "Dr. Chen"],
+    "insurance_accepted": ["Bupa Arabia", "Tawuniya", "MedGulf", "AXA Gulf"],
     "emergency_instructions": "For a real dental emergency, please call your own dentist or 911.",
 }
 

@@ -45,8 +45,8 @@ class Clinic(Base, UUIDMixin, TimestampMixin):
     address: Mapped[str] = mapped_column(Text, nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=True)
     state: Mapped[str] = mapped_column(String(50), nullable=True)
-    country: Mapped[str] = mapped_column(String(50), default="US")
-    timezone: Mapped[str] = mapped_column(String(50), default="America/New_York")
+    country: Mapped[str] = mapped_column(String(50), default="SA")
+    timezone: Mapped[str] = mapped_column(String(50), default="Asia/Riyadh")
 
     # AI Configuration
     clinic_config: Mapped[dict] = mapped_column(JSON, default=dict)
