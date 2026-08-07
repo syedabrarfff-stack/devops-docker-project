@@ -47,6 +47,7 @@ DEMO_CLINIC_CONFIG = {
     "hours": "Open every day, 24 hours -- this is a live demo",
     "address": "123 Demo Street",
     "services": ["cleanings", "fillings", "root canals", "crowns", "whitening", "emergency care"],
+    "providers": ["Dr. Aslam", "Dr. Chen", "Dr. Reyes"],
     "insurance_accepted": ["Delta Dental", "Cigna", "Aetna", "MetLife", "Guardian"],
     "emergency_instructions": "For a real dental emergency, please call your own dentist or 911.",
 }

@@ -231,7 +231,9 @@
     setStatus("Requesting microphone access…");
 
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       await audioCtx.audioWorklet.addModule("/pcm-worklet.js");
@@ -247,7 +249,12 @@
           processorOptions: { targetRate: PLAYBACK_SAMPLE_RATE },
         });
         workletNode.port.onmessage = function (event) {
-          if (ws && ws.readyState === WebSocket.OPEN) {
+          // Half-duplex gate: don't forward mic frames while Sarah's own
+          // voice is still playing (+ a short tail), or her TTS leaks back
+          // through the speakers into the mic and gets transcribed as if
+          // the caller said it -- which reads as Sarah repeating herself.
+          var sarahSpeaking = audioCtx && nextPlaybackTime > audioCtx.currentTime + 0.25;
+          if (ws && ws.readyState === WebSocket.OPEN && !sarahSpeaking) {
             ws.send(event.data);
           }
         };
