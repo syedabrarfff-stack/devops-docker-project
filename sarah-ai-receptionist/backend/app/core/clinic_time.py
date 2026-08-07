@@ -145,8 +145,10 @@ def parse_caller_datetime(raw: str | None, timezone_name: str | None) -> datetim
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=zone)
 
-    # "3pm" said at 5pm means tomorrow at 3pm.
-    if parsed < local_now and (local_now - parsed) < _ROLL_FORWARD_WINDOW:
+    # "3pm" said at 5pm means tomorrow at 3pm. Only applies to a bare time --
+    # if the caller already named an explicit day ("today at 4pm"), that day
+    # is authoritative even if the clock time has already passed today.
+    if day_offset is None and parsed < local_now and (local_now - parsed) < _ROLL_FORWARD_WINDOW:
         parsed = parsed + timedelta(days=1)
 
     return parsed.astimezone(timezone.utc)
