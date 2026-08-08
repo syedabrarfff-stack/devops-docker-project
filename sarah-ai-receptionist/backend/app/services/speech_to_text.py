@@ -49,7 +49,13 @@ def _deepgram_url(encoding: str, sample_rate: int) -> str:
         f"&sample_rate={sample_rate}"
         "&channels=1"
         "&interim_results=true"
-        "&endpointing=300"
+        # Deliberately tighter than the usual 300ms. Acoustic silence alone
+        # no longer has to decide whether a caller is finished -- the caller
+        # loop adds a grace period when the words look mid-thought (see
+        # turn_detection.py) -- so this can be tuned for a snappy reply to a
+        # clearly-completed sentence without cutting off someone who pauses
+        # to think.
+        "&endpointing=200"
         "&smart_format=true"
         "&punctuate=true"
     )

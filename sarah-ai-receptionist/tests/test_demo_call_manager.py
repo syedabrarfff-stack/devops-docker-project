@@ -233,3 +233,35 @@ async def test_demo_config_never_touches_a_real_clinic_lookup():
     assert DEMO_CLINIC_CONFIG["name"]
     assert DEMO_CLINIC_CONFIG["services"]
     assert "sarah_name" in DEMO_CLINIC_CONFIG
+
+
+@pytest.mark.asyncio
+async def test_a_trailing_off_caller_is_not_answered_until_they_finish():
+    """The turn-detection payoff: "book something for" <pause> "Tuesday"
+    must produce ONE reply to the whole sentence, not a reply to the
+    fragment that then gets talked over by the rest of it."""
+    manager, _, _, _ = _make_manager("", turns={})
+    ws = _FakeWebSocket(incoming=[])
+    replied: list[str] = []
+    manager._respond = lambda _ws, text: replied.append(text) or asyncio.sleep(0)
+
+    await manager._schedule_turn(ws, "I'd like to book something for")
+    assert replied == [], "must not answer a caller who is clearly mid-sentence"
+
+    await manager._schedule_turn(ws, "Tuesday afternoon.")
+    await manager._turn_task
+
+    assert replied == ["I'd like to book something for Tuesday afternoon."]
+
+
+@pytest.mark.asyncio
+async def test_a_completed_sentence_is_answered_without_waiting():
+    manager, _, _, _ = _make_manager("", turns={})
+    ws = _FakeWebSocket(incoming=[])
+    replied: list[str] = []
+    manager._respond = lambda _ws, text: replied.append(text) or asyncio.sleep(0)
+
+    await manager._schedule_turn(ws, "I need a cleaning next Tuesday.")
+    await manager._turn_task
+
+    assert replied == ["I need a cleaning next Tuesday."]
