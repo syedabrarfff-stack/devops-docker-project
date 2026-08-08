@@ -114,7 +114,7 @@ class AIBrain:
                 json={
                     "model": self.model,
                     "messages": [{"role": "system", "content": self.system_prompt}, *self.conversation_history],
-                    "max_tokens": 200,
+                    "max_tokens": 280,
                     "temperature": 0.7,
                     "top_p": 0.9,
                     "stream": True,
