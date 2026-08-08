@@ -1,25 +1,30 @@
-"""Browser-based "Call Sarah" widget — Twilio Voice SDK (WebRTC).
+"""Browser-based "Call Sarah" widget.
 
-Two endpoints:
-  POST /token          -- public. Mints a short-lived Twilio Access Token so
-                           a marketing-site visitor's browser can place a
-                           WebRTC call without ever seeing a real Twilio
-                           credential.
-  POST /browser-call    -- Twilio's Voice Request URL for the TwiML
-                           Application the token above is scoped to. Twilio
-                           calls this the same way it calls /incoming-call
-                           for a real phone call; the difference is there's
-                           no real "To" number, so this always routes into
-                           the seeded is_demo clinic instead of doing a
-                           phone-number lookup.
+Three endpoints:
+  WS   /demo-stream    -- the live path. Raw PCM16 in, PCM16 out, over a
+                           plain WebSocket, driving the real STT/AI/TTS
+                           pipeline directly (see demo_call_manager.py).
+                           No Twilio involved at all, so it works even
+                           while the Twilio account is still on Trial, and
+                           needs nothing but this container running --
+                           no RDS, no Redis, no S3.
+  POST /token           -- Twilio Voice SDK (WebRTC) path, kept for when
+                           Twilio is fully activated and a TwiML App/API
+                           Key exist. Mints a short-lived Access Token.
+  POST /browser-call     -- Twilio's Voice Request URL for the TwiML
+                           Application the token above is scoped to. Always
+                           routes into the seeded is_demo clinic since a
+                           WebRTC call has no real "To" number to look up.
 """
 
 import logging
+import time
 import uuid
+from collections import defaultdict
 from xml.sax.saxutils import escape as xml_escape
 
 import redis.asyncio as redis_lib
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, WebSocket
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -34,6 +39,7 @@ from app.routes.call_handler import (
     _mark_call_validated,
     _validate_twilio_request,
 )
+from app.services.demo_call_manager import DEMO_CLINIC_CONFIG, DemoCallManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["voice-widget"])
@@ -141,3 +147,61 @@ async def browser_call(request: Request):
 
     logger.info(f"Browser demo call {call_sid} from {caller_identity}")
     return Response(content=twiml, media_type="application/xml")
+
+
+# ── /demo-stream: the no-Twilio, no-infra-dependency path ──────────────────
+#
+# In-memory, not Redis-backed: this endpoint's whole point is to run on a
+# single lightweight container with nothing else behind it. A per-process
+# limiter is not correct across multiple replicas (each container gets its
+# own budget), but for a low-traffic marketing demo running on one task,
+# that's a fine trade against not needing Redis at all. If this ever runs
+# on N>1 replicas, move these back to Redis the same way _check_widget_rate_limit
+# does above.
+_DEMO_MAX_CONCURRENT_CALLS = 5
+_DEMO_RATE_LIMIT_MAX_PER_HOUR = 10
+_DEMO_RATE_LIMIT_WINDOW_SECONDS = 3600
+
+_demo_active_calls = 0
+_demo_ip_attempts: dict[str, list[float]] = defaultdict(list)
+
+
+def _demo_rate_limit_ok(client_ip: str) -> bool:
+    now = time.monotonic()
+    attempts = _demo_ip_attempts[client_ip]
+    attempts[:] = [t for t in attempts if now - t < _DEMO_RATE_LIMIT_WINDOW_SECONDS]
+    if len(attempts) >= _DEMO_RATE_LIMIT_MAX_PER_HOUR:
+        return False
+    attempts.append(now)
+    return True
+
+
+@router.websocket("/demo-stream")
+async def demo_stream(websocket: WebSocket):
+    """The live "Call Sarah" demo. Accepts raw PCM16/16kHz mic frames as
+    binary WebSocket messages, streams JSON transcript/action events and
+    binary PCM16/16kHz Sarah-speech frames back."""
+    global _demo_active_calls
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    if not _demo_rate_limit_ok(client_ip):
+        await websocket.close(code=4429, reason="Too many demo calls from this network. Try again later.")
+        return
+
+    if _demo_active_calls >= _DEMO_MAX_CONCURRENT_CALLS:
+        await websocket.close(code=4503, reason="Sarah is at capacity for live demos right now. Try again shortly.")
+        return
+
+    await websocket.accept()
+    _demo_active_calls += 1
+    session_id = uuid.uuid4().hex[:12]
+    logger.info(f"Demo call {session_id} started from {client_ip} ({_demo_active_calls} active)")
+
+    manager = DemoCallManager(clinic_config=DEMO_CLINIC_CONFIG, session_id=session_id)
+    try:
+        await manager.run(websocket)
+    except Exception as e:
+        logger.error(f"Demo call {session_id} crashed: {e}")
+    finally:
+        _demo_active_calls -= 1
+        logger.info(f"Demo call {session_id} ended ({_demo_active_calls} active)")

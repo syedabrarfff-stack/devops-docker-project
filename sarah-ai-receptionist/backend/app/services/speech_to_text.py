@@ -41,29 +41,32 @@ class _StreamEnded(Exception):
 _MAX_RECONNECT_ATTEMPTS = 3
 _RECONNECT_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 
-def deepgram_url(language: str) -> str:
-    """Build the Deepgram listen URL for a given transcription language.
-
-    `language` is stated explicitly rather than omitted. Deepgram falls back to
-    English when the parameter is absent, so leaving it out is not
-    "auto-detect" -- it is a silent, unlogged commitment to one language.
-
-    That distinction decides whether Sarah works in this market at all. Her
-    system prompt tells her she is fully bilingual in Modern Standard Arabic
-    and English, and her ElevenLabs voice model renders Arabic speech, so
-    transcription was the only link in the chain that would refuse -- and it
-    would refuse without erroring. An Arabic-speaking caller heard no failure:
-    they heard Sarah answer fluently about something they never said.
-    """
+def _deepgram_url(encoding: str, sample_rate: int, language: str) -> str:
     return (
         "wss://api.deepgram.com/v1/listen"
         "?model=nova-3"
+        # Stated explicitly rather than omitted. Deepgram falls back to English
+        # when no language is given, so an absent parameter is not
+        # "auto-detect" -- it is a silent, unlogged commitment to one language.
+        #
+        # That distinction decides whether Sarah works in a market at all. Her
+        # prompt tells her she is fully bilingual in Modern Standard Arabic and
+        # English, and her ElevenLabs voice renders Arabic speech, so
+        # transcription was the only link in the chain that would refuse -- and
+        # it refused without erroring. An Arabic caller heard no failure: they
+        # heard Sarah answer fluently about something they never said.
         f"&language={language}"
-        "&encoding=mulaw"
-        "&sample_rate=8000"
+        f"&encoding={encoding}"
+        f"&sample_rate={sample_rate}"
         "&channels=1"
         "&interim_results=true"
-        "&endpointing=300"
+        # Deliberately tighter than the usual 300ms. Acoustic silence alone
+        # no longer has to decide whether a caller is finished -- the caller
+        # loop adds a grace period when the words look mid-thought (see
+        # turn_detection.py) -- so this can be tuned for a snappy reply to a
+        # clearly-completed sentence without cutting off someone who pauses
+        # to think.
+        "&endpointing=200"
         "&smart_format=true"
         "&punctuate=true"
     )
@@ -77,9 +80,13 @@ class TranscriptEvent:
 
 
 class SpeechToText:
-    def __init__(self):
+    def __init__(self, encoding: str = "mulaw", sample_rate: int = 8000):
+        """encoding/sample_rate default to Twilio's telephony format (mulaw/
+        8kHz) -- the real call path never overrides these. The browser demo
+        path (no Twilio involved) passes linear16/16000, which Deepgram
+        supports natively with no server-side transcoding needed."""
         self.settings = get_settings()
-        self._url = deepgram_url(self.settings.deepgram_language)
+        self._url = _deepgram_url(encoding, sample_rate, self.settings.deepgram_language)
         self._ws: "websockets.asyncio.client.ClientConnection" | None = None
         self._events: asyncio.Queue[TranscriptEvent | None] = asyncio.Queue()
         self._listen_task: asyncio.Task | None = None

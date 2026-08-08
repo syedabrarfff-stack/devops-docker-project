@@ -22,7 +22,13 @@ settings = get_settings()
 
 TRIAL_DAYS = 14
 DEFAULT_PLAN = "starter"
-DEFAULT_MONTHLY_PRICE_USD = 299.0
+# Saudi Arabia / GCC is now the primary go-to-market (see CLAUDE.md) -- new
+# clinics default to SAR pricing. This is local tracking only; the currency
+# actually charged comes from whatever Stripe Price `settings.stripe_price_id`
+# points at, which must itself be a SAR-denominated Price created in the
+# Stripe Dashboard before this reflects reality.
+DEFAULT_MONTHLY_PRICE = 1099.0
+DEFAULT_CURRENCY = "SAR"
 
 
 class BillingSetupResult:
@@ -59,7 +65,8 @@ async def create_stripe_customer_and_subscription(
     subscription = Subscription(
         clinic_id=clinic.id,
         plan=DEFAULT_PLAN,
-        monthly_price_usd=DEFAULT_MONTHLY_PRICE_USD,
+        monthly_price=DEFAULT_MONTHLY_PRICE,
+        currency=DEFAULT_CURRENCY,
         status="trialing",
         current_period_start=now,
         current_period_end=trial_ends_at,
