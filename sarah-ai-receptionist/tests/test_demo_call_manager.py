@@ -24,6 +24,7 @@ from app.services.demo_call_manager import (
     DemoCallManager,
 )
 from app.services.speech_to_text import TranscriptEvent
+from app.services.text_to_speech import SynthesisFailed
 
 
 class _FakeWebSocket:
@@ -265,3 +266,48 @@ async def test_a_completed_sentence_is_answered_without_waiting():
     await manager._turn_task
 
     assert replied == ["I need a cleaning next Tuesday."]
+
+
+@pytest.mark.asyncio
+async def test_greeting_audio_is_synthesized_once_then_reused():
+    """First impression latency: the greeting is identical on every call, so
+    re-synthesizing it makes every visitor wait on ElevenLabs before hearing
+    anything."""
+    from app.services import demo_call_manager as dcm
+
+    dcm._GREETING_AUDIO_CACHE.clear()
+    try:
+        first, _, _, tts_a = _make_manager("", turns={})
+        await first.run(_FakeWebSocket(incoming=[]))
+        assert len(tts_a.synthesized) == 1, "first call must actually synthesize"
+
+        second, _, _, tts_b = _make_manager("", turns={})
+        ws_b = _FakeWebSocket(incoming=[])
+        await second.run(ws_b)
+
+        assert tts_b.synthesized == [], "second call must not hit TTS again"
+        assert ws_b.bytes_sent, "but the caller must still hear the greeting"
+    finally:
+        dcm._GREETING_AUDIO_CACHE.clear()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_greeting_synthesis_is_never_cached():
+    """Caching a partial/failed stream would permanently truncate the greeting
+    for every future caller off one transient blip."""
+    from app.services import demo_call_manager as dcm
+
+    dcm._GREETING_AUDIO_CACHE.clear()
+    try:
+        manager, _, _, tts = _make_manager("", turns={})
+
+        async def _failing(text, output_format="ulaw_8000"):
+            raise SynthesisFailed("simulated outage")
+            yield b""  # pragma: no cover -- makes this an async generator
+
+        tts.stream_synthesize = _failing
+        await manager.run(_FakeWebSocket(incoming=[]))
+
+        assert dcm._GREETING_AUDIO_CACHE == {}
+    finally:
+        dcm._GREETING_AUDIO_CACHE.clear()

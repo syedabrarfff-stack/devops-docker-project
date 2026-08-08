@@ -44,6 +44,12 @@ _DEMO_TTS_OUTPUT_FORMAT = "pcm_16000"
 # sentence, short enough that being wrong is barely perceptible.
 _INCOMPLETE_UTTERANCE_GRACE_SECONDS = 0.7
 
+# Synthesized greeting audio, keyed by the exact greeting text. Process-local
+# and unbounded only in theory -- the key space is the set of distinct demo
+# greetings, which is one. A per-clinic rollout would want Redis and an
+# eviction policy; this path deliberately has no Redis dependency.
+_GREETING_AUDIO_CACHE: dict[str, list[bytes]] = {}
+
 # Hardcoded, not read from Postgres -- this call path is deliberately
 # infra-independent (no RDS, no Redis, nothing but the running container and
 # the three third-party API keys) so the demo widget can go live without
@@ -89,7 +95,7 @@ class DemoCallManager:
                 f"{self.clinic_config.get('name', 'the practice')}'s AI receptionist. "
                 "How can I help you today?"
             )
-            self._speak_task = asyncio.create_task(self._speak(websocket, greeting))
+            self._speak_task = asyncio.create_task(self._speak_greeting(websocket, greeting))
             await self._safe_await(self._speak_task)
 
             while self.is_active:
@@ -172,6 +178,45 @@ class DemoCallManager:
                 await self._speak(websocket, value)
             elif kind == "action" and value is not None:
                 await self._handle_action(websocket, value)
+
+    async def _speak_greeting(self, websocket: WebSocket, text: str) -> None:
+        """Speak the greeting, reusing cached audio after the first call.
+
+        The greeting is byte-for-byte identical on every call, so
+        re-synthesizing it means every visitor pays a full ElevenLabs
+        round-trip before hearing anything -- on the one exchange where a
+        first impression is actually being formed. Cached, it's the network
+        send alone.
+
+        Only complete syntheses are cached: caching a partial stream from a
+        failed request would make one transient blip permanently truncate the
+        greeting for every future caller.
+        """
+        cached = _GREETING_AUDIO_CACHE.get(text)
+        if cached is not None:
+            for chunk in cached:
+                if not self.is_active:
+                    return
+                await websocket.send_bytes(chunk)
+            return
+
+        chunks: list[bytes] = []
+        try:
+            async for chunk in self.tts.stream_synthesize(text, output_format=_DEMO_TTS_OUTPUT_FORMAT):
+                if not self.is_active:
+                    return  # partial -- deliberately not cached
+                chunks.append(chunk)
+                await websocket.send_bytes(chunk)
+        except asyncio.CancelledError:
+            raise
+        except SynthesisFailed:
+            await _send_json(
+                websocket,
+                {"type": "error", "message": "Sarah had trouble speaking that — continuing."},
+            )
+            return
+        if chunks:
+            _GREETING_AUDIO_CACHE[text] = chunks
 
     async def _speak(self, websocket: WebSocket, text: str) -> None:
         try:
