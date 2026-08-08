@@ -41,17 +41,32 @@ class _StreamEnded(Exception):
 _MAX_RECONNECT_ATTEMPTS = 3
 _RECONNECT_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 
-DEEPGRAM_URL = (
-    "wss://api.deepgram.com/v1/listen"
-    "?model=nova-3"
-    "&encoding=mulaw"
-    "&sample_rate=8000"
-    "&channels=1"
-    "&interim_results=true"
-    "&endpointing=300"
-    "&smart_format=true"
-    "&punctuate=true"
-)
+def deepgram_url(language: str) -> str:
+    """Build the Deepgram listen URL for a given transcription language.
+
+    `language` is stated explicitly rather than omitted. Deepgram falls back to
+    English when the parameter is absent, so leaving it out is not
+    "auto-detect" -- it is a silent, unlogged commitment to one language.
+
+    That distinction decides whether Sarah works in this market at all. Her
+    system prompt tells her she is fully bilingual in Modern Standard Arabic
+    and English, and her ElevenLabs voice model renders Arabic speech, so
+    transcription was the only link in the chain that would refuse -- and it
+    would refuse without erroring. An Arabic-speaking caller heard no failure:
+    they heard Sarah answer fluently about something they never said.
+    """
+    return (
+        "wss://api.deepgram.com/v1/listen"
+        "?model=nova-3"
+        f"&language={language}"
+        "&encoding=mulaw"
+        "&sample_rate=8000"
+        "&channels=1"
+        "&interim_results=true"
+        "&endpointing=300"
+        "&smart_format=true"
+        "&punctuate=true"
+    )
 
 
 @dataclass
@@ -64,6 +79,7 @@ class TranscriptEvent:
 class SpeechToText:
     def __init__(self):
         self.settings = get_settings()
+        self._url = deepgram_url(self.settings.deepgram_language)
         self._ws: "websockets.asyncio.client.ClientConnection" | None = None
         self._events: asyncio.Queue[TranscriptEvent | None] = asyncio.Queue()
         self._listen_task: asyncio.Task | None = None
@@ -76,7 +92,7 @@ class SpeechToText:
 
     async def _open_socket(self) -> "websockets.asyncio.client.ClientConnection":
         return await websockets.connect(
-            DEEPGRAM_URL,
+            self._url,
             additional_headers={"Authorization": f"Token {self.settings.deepgram_api_key}"},
             ping_interval=5,
             ping_timeout=20,

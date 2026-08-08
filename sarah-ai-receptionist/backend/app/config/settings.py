@@ -29,6 +29,17 @@ class Settings(BaseSettings):
 
     # Deepgram
     deepgram_api_key: str
+    # Transcription language. Sarah's prompt makes her bilingual (Modern
+    # Standard Arabic and English) and her ElevenLabs voice can speak Arabic,
+    # so this single value decides whether she can also *understand* an Arabic
+    # caller. Threaded through settings rather than hardcoded so serving a new
+    # market is a deployment decision, not a code change.
+    #
+    # Verify the value against Deepgram's live model/language matrix before
+    # serving a non-English market: not every language is offered on every
+    # model, and an unsupported pairing returns wrong-language text instead of
+    # an error -- so it must be confirmed on a real call, never assumed.
+    deepgram_language: str = "en"
 
     # ElevenLabs
     elevenlabs_api_key: str
