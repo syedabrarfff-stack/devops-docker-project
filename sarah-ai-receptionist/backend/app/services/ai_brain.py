@@ -113,7 +113,26 @@ class AIBrain:
                 },
                 json={
                     "model": self.model,
-                    "messages": [{"role": "system", "content": self.system_prompt}, *self.conversation_history],
+                    # cache_control on the system block asks Claude to cache it
+                    # server-side (Anthropic prompt caching, passed through by
+                    # OpenRouter) so every turn after the first in a call reuses
+                    # it instead of reprocessing the whole system prompt from
+                    # scratch -- the system prompt has grown substantially and
+                    # was becoming a real, measurable chunk of response latency
+                    # on every single turn, not just the first.
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": self.system_prompt,
+                                    "cache_control": {"type": "ephemeral"},
+                                }
+                            ],
+                        },
+                        *self.conversation_history,
+                    ],
                     "max_tokens": 280,
                     "temperature": 0.7,
                     "top_p": 0.9,
