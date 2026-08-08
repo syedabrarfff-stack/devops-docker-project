@@ -50,7 +50,11 @@ DEMO_CLINIC_CONFIG = {
     "hours": "Open every day, 24 hours -- this is a live demo",
     "address": "King Fahd Road, Riyadh, Saudi Arabia",
     "services": ["cleanings", "fillings", "root canals", "crowns", "whitening", "emergency care"],
-    "providers": ["Dr. Aslam", "Dr. Al-Rashid", "Dr. Chen"],
+    "providers": [
+        {"name": "Dr. Aslam", "specialty": "root canals and endodontics"},
+        {"name": "Dr. Al-Rashid", "specialty": "general and cosmetic dentistry"},
+        {"name": "Dr. Chen", "specialty": "orthodontics and pediatric dentistry"},
+    ],
     "insurance_accepted": ["Bupa Arabia", "Tawuniya", "MedGulf", "AXA Gulf"],
     "emergency_instructions": "For a real dental emergency, please call your own dentist or 911.",
 }
