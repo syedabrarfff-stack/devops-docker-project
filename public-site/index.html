@@ -182,6 +182,7 @@
   var micSourceNode = null;
   var workletNode = null;
   var nextPlaybackTime = 0;
+  var activeSources = []; // currently scheduled/playing PCM chunks, so a barge-in can stop them instantly
 
   function setStatus(text, isError) {
     statusEl.textContent = text || "";
@@ -220,10 +221,24 @@
     var source = audioCtx.createBufferSource();
     source.buffer = buffer;
     source.connect(audioCtx.destination);
+    source.onended = function () {
+      var i = activeSources.indexOf(source);
+      if (i !== -1) activeSources.splice(i, 1);
+    };
+    activeSources.push(source);
 
     var startAt = Math.max(audioCtx.currentTime, nextPlaybackTime);
     source.start(startAt);
     nextPlaybackTime = startAt + buffer.duration;
+  }
+
+  // Barge-in: the backend detected the caller talking over Sarah and told us
+  // to flush -- stop every scheduled/playing chunk immediately, the browser
+  // equivalent of Twilio's "clear" event on a real phone call.
+  function stopAllPlayback() {
+    activeSources.forEach(function (s) { try { s.stop(); } catch (e) {} });
+    activeSources = [];
+    nextPlaybackTime = audioCtx ? audioCtx.currentTime : 0;
   }
 
   async function startCall() {
@@ -249,12 +264,13 @@
           processorOptions: { targetRate: PLAYBACK_SAMPLE_RATE },
         });
         workletNode.port.onmessage = function (event) {
-          // Half-duplex gate: don't forward mic frames while Sarah's own
-          // voice is still playing (+ a short tail), or her TTS leaks back
-          // through the speakers into the mic and gets transcribed as if
-          // the caller said it -- which reads as Sarah repeating herself.
-          var sarahSpeaking = audioCtx && nextPlaybackTime > audioCtx.currentTime + 0.25;
-          if (ws && ws.readyState === WebSocket.OPEN && !sarahSpeaking) {
+          // Full duplex, by design: the mic streams continuously, even while
+          // Sarah is talking, so the backend's Deepgram stream can detect a
+          // real barge-in and interrupt her -- exactly like a real phone
+          // call. This leans on the browser's own echoCancellation (enabled
+          // above) to stop her voice from re-triggering itself; headphones
+          // give the cleanest result, same as any live voice-AI demo.
+          if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(event.data);
           }
         };
@@ -273,6 +289,8 @@
             var msg = JSON.parse(event.data);
             if (msg.type === "error") {
               setStatus(msg.message, true);
+            } else if (msg.type === "interrupt") {
+              stopAllPlayback();
             } else if (msg.type === "action" && msg.action === "END") {
               setStatus("Sarah ended the call. Thanks for trying the demo!");
             }
@@ -318,6 +336,7 @@
     if (micSourceNode) { try { micSourceNode.disconnect(); } catch (e) {} micSourceNode = null; }
     if (micStream) { micStream.getTracks().forEach(function (t) { t.stop(); }); micStream = null; }
     if (audioCtx) { try { audioCtx.close(); } catch (e) {} audioCtx = null; }
+    activeSources = [];
   }
 
   function endCall() {

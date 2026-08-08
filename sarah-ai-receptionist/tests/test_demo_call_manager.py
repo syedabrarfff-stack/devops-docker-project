@@ -18,9 +18,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from app.services.ai_brain import ActionCommand  # noqa: E402
-from app.services.demo_call_manager import DEMO_CLINIC_CONFIG, DemoCallManager  # noqa: E402
-from app.services.speech_to_text import TranscriptEvent  # noqa: E402
+from app.services.ai_brain import ActionCommand
+from app.services.demo_call_manager import (
+    DEMO_CLINIC_CONFIG,
+    DemoCallManager,
+)
+from app.services.speech_to_text import TranscriptEvent
 
 
 class _FakeWebSocket:
@@ -175,6 +178,51 @@ async def test_cleanup_closes_every_underlying_service():
     assert stt.closed is True
     assert ai.closed is True
     assert tts.closed is True
+
+
+@pytest.mark.asyncio
+async def test_interrupt_cancels_in_flight_speech_and_notifies_client():
+    manager, _, _, _ = _make_manager("", turns={})
+    ws = _FakeWebSocket(incoming=[])
+    manager._speak_task = asyncio.create_task(asyncio.sleep(3600))
+    assert manager._is_speaking() is True
+
+    await manager._interrupt_speech(ws)
+
+    assert manager._speak_task.cancelled()
+    assert {"type": "interrupt"} in ws.json_sent
+
+
+@pytest.mark.asyncio
+async def test_barge_in_interrupts_speech_and_flushes_client_playback():
+    # A real (non-tiny) interim transcript arriving while Sarah is mid-speech
+    # is exactly what a caller talking over her looks like -- it should cut
+    # her off immediately, the same as call_manager.py does for a real call.
+    manager, stt, _, _ = _make_manager("", turns={})
+    ws = _FakeWebSocket(incoming=[])
+    stt._events = [TranscriptEvent(text="wait, actually", is_final=False, speech_final=False), None]
+    manager._speak_task = asyncio.create_task(asyncio.sleep(3600))
+
+    await manager._handle_transcripts(ws)
+
+    assert manager._speak_task.cancelled()
+    assert {"type": "interrupt"} in ws.json_sent
+
+
+@pytest.mark.asyncio
+async def test_tiny_noise_blip_does_not_trigger_a_barge_in():
+    # "uh"/"um" style blips are filtered by barge_in.is_real_interruption --
+    # a real caller clearing their throat shouldn't cut Sarah off mid-word.
+    manager, stt, _, _ = _make_manager("", turns={})
+    ws = _FakeWebSocket(incoming=[])
+    stt._events = [TranscriptEvent(text="uh", is_final=False, speech_final=False), None]
+    manager._speak_task = asyncio.create_task(asyncio.sleep(3600))
+
+    await manager._handle_transcripts(ws)
+
+    assert manager._speak_task.cancelled() is False
+    assert {"type": "interrupt"} not in ws.json_sent
+    manager._speak_task.cancel()
 
 
 @pytest.mark.asyncio

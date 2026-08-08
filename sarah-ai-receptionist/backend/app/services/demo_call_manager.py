@@ -11,10 +11,12 @@ unmodified, but:
     up per-turn) instead of a real clinic
   - never touches Postgres or S3 -- no call_log row, no recording persisted,
     no appointment actually created even if the AI emits a [BOOK:...] tag
-  - has no barge-in/interruption handling -- caller and Sarah take turns.
-    Real phone calls need barge-in because hanging up mid-sentence is
-    common; a five-minute marketing demo doesn't carry the same cost of
-    getting that wrong, and it's a meaningful separate piece of work.
+
+Barge-in mirrors call_manager.py's proven approach exactly: Deepgram's
+interim (non-final) transcripts drive interruption detection, the in-flight
+AI/TTS task is cancelled, and the frontend is told to flush its queued audio
+instantly via a control message (the browser-audio equivalent of Twilio's
+"clear" event, since there's no Twilio Media Stream here to clear).
 """
 
 import asyncio
@@ -23,6 +25,7 @@ import logging
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.services.ai_brain import ActionCommand, AIBrain
+from app.services.barge_in import is_real_interruption
 from app.services.speech_to_text import SpeechToText
 from app.services.text_to_speech import SynthesisFailed, TextToSpeech
 
@@ -61,6 +64,7 @@ class DemoCallManager:
         self.ai_brain = AIBrain(clinic_config=clinic_config)
         self.tts = TextToSpeech()
         self.is_active = True
+        self._speak_task: asyncio.Task | None = None
 
     async def run(self, websocket: WebSocket) -> None:
         await self.stt.connect()
@@ -72,7 +76,8 @@ class DemoCallManager:
                 f"{self.clinic_config.get('name', 'the practice')}'s AI receptionist. "
                 "How can I help you today?"
             )
-            await self._speak(websocket, greeting)
+            self._speak_task = asyncio.create_task(self._speak(websocket, greeting))
+            await self._safe_await(self._speak_task)
 
             while self.is_active:
                 message = await websocket.receive()
@@ -94,6 +99,9 @@ class DemoCallManager:
                 await transcript_task
             except (asyncio.CancelledError, Exception):
                 pass
+            if self._speak_task and not self._speak_task.done():
+                self._speak_task.cancel()
+                await self._safe_await(self._speak_task)
             await self._cleanup()
 
     async def _handle_transcripts(self, websocket: WebSocket) -> None:
@@ -101,12 +109,20 @@ class DemoCallManager:
             event = await self.stt.next_event()
             if event is None:
                 break
+
+            # Barge-in: caller started talking while Sarah is still speaking.
+            if self._is_speaking() and is_real_interruption(event.text):
+                await self._interrupt_speech(websocket)
+
             if event.speech_final and event.text.strip():
                 await self._respond(websocket, event.text)
 
     async def _respond(self, websocket: WebSocket, caller_text: str) -> None:
         await _send_json(websocket, {"type": "transcript", "role": "caller", "text": caller_text})
+        self._speak_task = asyncio.create_task(self._stream_ai_response(websocket, caller_text))
+        await self._safe_await(self._speak_task)
 
+    async def _stream_ai_response(self, websocket: WebSocket, caller_text: str) -> None:
         async for kind, value in self.ai_brain.stream_response(caller_text):
             if not self.is_active:
                 return
@@ -122,11 +138,33 @@ class DemoCallManager:
                 if not self.is_active:
                     return
                 await websocket.send_bytes(chunk)
+        except asyncio.CancelledError:
+            raise
         except SynthesisFailed:
             await _send_json(
                 websocket,
                 {"type": "error", "message": "Sarah had trouble speaking that — continuing."},
             )
+
+    def _is_speaking(self) -> bool:
+        return self._speak_task is not None and not self._speak_task.done()
+
+    async def _interrupt_speech(self, websocket: WebSocket) -> None:
+        """Cancel whatever Sarah is mid-saying and tell the browser to flush
+        its queued/playing audio instantly -- the browser-audio equivalent of
+        call_manager.py's send_clear_event() for a real Twilio call."""
+        if self._speak_task and not self._speak_task.done():
+            self._speak_task.cancel()
+            await self._safe_await(self._speak_task)
+        await _send_json(websocket, {"type": "interrupt"})
+
+    async def _safe_await(self, task: asyncio.Task) -> None:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Demo call {self.session_id} task error: {e}")
 
     async def _handle_action(self, websocket: WebSocket, action: ActionCommand) -> None:
         """Demo mode never actually books/transfers/ends for real -- we just
