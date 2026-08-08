@@ -83,6 +83,9 @@ locals {
     { name = "JWT_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:jwt_secret_key::" },
     { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:stripe_secret_key::" },
     { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secrets_arn}:stripe_webhook_secret::" },
+    { name = "TWILIO_VOICE_API_KEY_SID", valueFrom = "${var.app_secrets_arn}:twilio_voice_api_key_sid::" },
+    { name = "TWILIO_VOICE_API_KEY_SECRET", valueFrom = "${var.app_secrets_arn}:twilio_voice_api_key_secret::" },
+    { name = "TWILIO_VOICE_TWIML_APP_SID", valueFrom = "${var.app_secrets_arn}:twilio_voice_twiml_app_sid::" },
   ]
 }
 

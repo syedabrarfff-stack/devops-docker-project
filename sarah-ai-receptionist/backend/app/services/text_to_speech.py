@@ -39,10 +39,12 @@ class TextToSpeech:
     async def close(self):
         await self._client.aclose()
 
-    async def stream_synthesize(self, text: str):
+    async def stream_synthesize(self, text: str, output_format: str = "ulaw_8000"):
         """
-        Streams raw mulaw/8000 audio chunks from ElevenLabs as they arrive.
-        Caller should forward each chunk to Twilio immediately (do not buffer the whole thing).
+        Streams audio chunks from ElevenLabs as they arrive, in the requested
+        output_format (default: raw mulaw/8000, Twilio's native format --
+        the real call path never overrides this). Caller should forward each
+        chunk to its destination immediately (do not buffer the whole thing).
 
         Retries once on a failure that happens before any audio has been
         yielded (a connection error, a 5xx before the stream opens) -- that's
@@ -58,7 +60,7 @@ class TextToSpeech:
         url = (
             f"https://api.elevenlabs.io/v1/text-to-speech/"
             f"{self.settings.elevenlabs_voice_id}/stream"
-            f"?output_format=ulaw_8000"
+            f"?output_format={output_format}"
         )
         payload = {
             "text": text,

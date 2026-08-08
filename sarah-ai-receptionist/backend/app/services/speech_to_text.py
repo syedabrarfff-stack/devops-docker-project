@@ -41,17 +41,24 @@ class _StreamEnded(Exception):
 _MAX_RECONNECT_ATTEMPTS = 3
 _RECONNECT_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 
-DEEPGRAM_URL = (
-    "wss://api.deepgram.com/v1/listen"
-    "?model=nova-3"
-    "&encoding=mulaw"
-    "&sample_rate=8000"
-    "&channels=1"
-    "&interim_results=true"
-    "&endpointing=300"
-    "&smart_format=true"
-    "&punctuate=true"
-)
+def _deepgram_url(encoding: str, sample_rate: int) -> str:
+    return (
+        "wss://api.deepgram.com/v1/listen"
+        "?model=nova-3"
+        f"&encoding={encoding}"
+        f"&sample_rate={sample_rate}"
+        "&channels=1"
+        "&interim_results=true"
+        # Deliberately tighter than the usual 300ms. Acoustic silence alone
+        # no longer has to decide whether a caller is finished -- the caller
+        # loop adds a grace period when the words look mid-thought (see
+        # turn_detection.py) -- so this can be tuned for a snappy reply to a
+        # clearly-completed sentence without cutting off someone who pauses
+        # to think.
+        "&endpointing=200"
+        "&smart_format=true"
+        "&punctuate=true"
+    )
 
 
 @dataclass
@@ -62,8 +69,13 @@ class TranscriptEvent:
 
 
 class SpeechToText:
-    def __init__(self):
+    def __init__(self, encoding: str = "mulaw", sample_rate: int = 8000):
+        """encoding/sample_rate default to Twilio's telephony format (mulaw/
+        8kHz) -- the real call path never overrides these. The browser demo
+        path (no Twilio involved) passes linear16/16000, which Deepgram
+        supports natively with no server-side transcoding needed."""
         self.settings = get_settings()
+        self._url = _deepgram_url(encoding, sample_rate)
         self._ws: "websockets.asyncio.client.ClientConnection" | None = None
         self._events: asyncio.Queue[TranscriptEvent | None] = asyncio.Queue()
         self._listen_task: asyncio.Task | None = None
@@ -76,7 +88,7 @@ class SpeechToText:
 
     async def _open_socket(self) -> "websockets.asyncio.client.ClientConnection":
         return await websockets.connect(
-            DEEPGRAM_URL,
+            self._url,
             additional_headers={"Authorization": f"Token {self.settings.deepgram_api_key}"},
             ping_interval=5,
             ping_timeout=20,

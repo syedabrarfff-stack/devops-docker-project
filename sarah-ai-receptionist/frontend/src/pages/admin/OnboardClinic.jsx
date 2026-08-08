@@ -8,8 +8,8 @@ const EMPTY = {
   address: "",
   city: "",
   state: "",
-  country: "US",
-  timezone: "America/New_York",
+  country: "SA",
+  timezone: "Asia/Riyadh",
   admin_email: "",
   admin_password: "",
   admin_full_name: "",
@@ -75,12 +75,12 @@ export default function OnboardClinic() {
               onChange={(e) => set("country", e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
+              <option value="SA">Saudi Arabia</option>
+              <option value="AE">United Arab Emirates</option>
               <option value="US">United States</option>
               <option value="GB">United Kingdom</option>
               <option value="CA">Canada</option>
               <option value="AU">Australia</option>
-              <option value="AE">United Arab Emirates</option>
-              <option value="SA">Saudi Arabia</option>
             </select>
           </div>
           <Field label="Timezone" value={form.timezone} onChange={(v) => set("timezone", v)} />

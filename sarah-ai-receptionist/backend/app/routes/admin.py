@@ -32,8 +32,8 @@ class OnboardClinicRequest(BaseModel):
     address: str | None = None
     city: str | None = None
     state: str | None = None
-    country: str = "US"  # ISO 3166-1 alpha-2, e.g. US/GB/CA/AU/AE — drives Twilio number search
-    timezone: str = "America/New_York"
+    country: str = "SA"  # ISO 3166-1 alpha-2, e.g. SA/AE/US/GB — drives Twilio number search
+    timezone: str = "Asia/Riyadh"
     admin_email: str
     admin_password: str
     admin_full_name: str

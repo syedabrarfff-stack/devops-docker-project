@@ -100,6 +100,10 @@ async def login(
 class RefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    role: str
+    clinic_id: str | None
+    organization_id: str | None
+    full_name: str
 
 
 @router.post("/refresh", response_model=RefreshResponse)
@@ -118,6 +122,18 @@ async def refresh(
     Returns 401 rather than 403 on invalid/expired cookies so the frontend
     can distinguish "session over, redirect to login" from "user lacks
     permission" cleanly.
+
+    Also returns the same identity fields login does (role, clinic_id,
+    organization_id, full_name) -- NOT just the access token. The refresh
+    cookie is Domain=.aliyarsolutions.com, shared across app./admin./sarah.
+    subdomains, each of which keeps its own persisted "who am I" in
+    per-origin localStorage. If this browser was ever logged into two of
+    those subdomains as two different accounts, the cookie now silently
+    belongs to whichever account logged in most recently -- omitting the
+    identity fields here left the frontend trusting its stale persisted
+    role/clinic_id instead of resyncing to whoever the cookie actually
+    resolves to, which is how the UI could render "platform_admin" while
+    every subsequent API call 403'd as some other role.
     """
     if not sarah_refresh:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh cookie")
@@ -136,7 +152,13 @@ async def refresh(
 
     new_refresh = await issue_refresh_token(user.id)
     _set_refresh_cookie(response, new_refresh)
-    return RefreshResponse(access_token=_mint_access_token(user))
+    return RefreshResponse(
+        access_token=_mint_access_token(user),
+        role=user.role,
+        clinic_id=user.clinic_id,
+        organization_id=user.organization_id,
+        full_name=user.full_name,
+    )
 
 
 @router.post("/logout")

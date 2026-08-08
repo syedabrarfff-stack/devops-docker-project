@@ -49,9 +49,9 @@ async def test_book_appointment_persists_with_clinic_local_time(db_session):
 
     # Round-trip check: read it back and re-render for the caller. Should
     # come out as 3:00 PM in their clinic's tz.
-    from sqlalchemy import select
-    from app.models.appointment import Appointment
     from app.core.clinic_time import format_for_caller
+    from app.models.appointment import Appointment
+    from sqlalchemy import select
     row = await db_session.scalar(select(Appointment).where(Appointment.id == appt.id))
     assert "3:00 PM" in format_for_caller(row.appointment_datetime, "America/New_York")
 
@@ -62,7 +62,8 @@ async def test_reschedule_finds_and_moves_upcoming_appointment(db_session):
     the original and the new time to the same instant when clocks tick."""
     clinic = await _seed_clinic(db_session)
     from app.services.appointment_service import (
-        book_appointment_from_action, reschedule_appointment_from_action,
+        book_appointment_from_action,
+        reschedule_appointment_from_action,
     )
 
     orig = await book_appointment_from_action(
@@ -110,10 +111,11 @@ async def test_cancel_keeps_row_marks_status(db_session):
     """Cancellation must NOT delete the row -- the freed slot needs to stay
     visible on the dashboard so staff know a spot opened up."""
     clinic = await _seed_clinic(db_session)
-    from app.services.appointment_service import (
-        book_appointment_from_action, cancel_appointment_from_action,
-    )
     from app.models.appointment import Appointment
+    from app.services.appointment_service import (
+        book_appointment_from_action,
+        cancel_appointment_from_action,
+    )
     from sqlalchemy import select
 
     appt = await book_appointment_from_action(
@@ -158,3 +160,79 @@ async def test_patient_lookup_recognizes_existing_upcoming_appointment(db_sessio
     assert "no existing patient" in miss.lower() or "no record" in miss.lower()
     # The critical assertion: nothing about a fake upcoming appointment
     assert "cleaning" not in miss.lower()
+
+
+@pytest.mark.asyncio
+async def test_second_booking_at_the_same_time_is_flagged_not_double_booked(db_session):
+    """The bug this catches: Sarah confirming the same slot to two different
+    callers and both landing as 'scheduled' -- a double-booked chair and two
+    patients told they're confirmed. The second must survive (the caller was
+    promised it) but be visibly flagged for the front desk."""
+    clinic = await _seed_clinic(db_session)
+    from app.services.appointment_service import book_appointment_from_action
+
+    first = await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15551110001", "name": "First Caller", "service": "cleaning",
+         "datetime": "tomorrow at 2pm"},
+    )
+    second = await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15551110002", "name": "Second Caller", "service": "filling",
+         "datetime": "tomorrow at 2pm"},
+    )
+    await db_session.commit()
+
+    assert first.status == "scheduled"
+    assert second.status == "needs_review", "second booking must not silently take the same slot"
+    assert second.id is not None, "the caller was promised this slot -- it must not vanish"
+    assert first.id in (second.notes or ""), "staff need to see which appointment it collides with"
+
+
+@pytest.mark.asyncio
+async def test_a_flagged_conflict_does_not_cascade_to_later_bookings(db_session):
+    """A needs_review row must not itself block the next booking at that time,
+    or one collision would poison that slot for every caller afterwards."""
+    clinic = await _seed_clinic(db_session)
+    from app.services.appointment_service import book_appointment_from_action
+
+    await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15552220001", "name": "A", "service": "cleaning", "datetime": "tomorrow at 4pm"},
+    )
+    flagged = await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15552220002", "name": "B", "service": "cleaning", "datetime": "tomorrow at 4pm"},
+    )
+    await db_session.commit()
+    assert flagged.status == "needs_review"
+
+    # A different, clearly free slot must still book cleanly.
+    third = await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15552220003", "name": "C", "service": "cleaning", "datetime": "tomorrow at 9am"},
+    )
+    await db_session.commit()
+    assert third.status == "scheduled"
+
+
+@pytest.mark.asyncio
+async def test_back_to_back_bookings_are_allowed(db_session):
+    """Half-open intervals: a 2pm and a 3pm booking are normal consecutive
+    patients, not a collision. Getting this wrong blocks a clinic's whole day."""
+    clinic = await _seed_clinic(db_session)
+    from app.services.appointment_service import book_appointment_from_action
+
+    await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15553330001", "name": "Earlier", "service": "cleaning",
+         "datetime": "tomorrow at 2pm"},
+    )
+    later = await book_appointment_from_action(
+        db_session, clinic.id,
+        {"phone": "+15553330002", "name": "Later", "service": "cleaning",
+         "datetime": "tomorrow at 3pm"},
+    )
+    await db_session.commit()
+
+    assert later.status == "scheduled"
