@@ -3,12 +3,48 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from app.services.ai_brain import (  # noqa: E402
+from app.services.ai_brain import (
+    _CLAUSE_BOUNDARY,
+    _FIRST_FLUSH_MIN_CHARS,
     _SENTENCE_BOUNDARY,
     _extract_action,
     _strip_action_tags,
     parse_action_params,
 )
+
+
+def _stream_flush(tokens: list[str]) -> list[str]:
+    """Replays AIBrain.stream_response's flush loop token by token.
+
+    Feeding tokens incrementally (rather than splitting a finished string) is
+    the only way to exercise the first-chunk fast flush: it fires precisely
+    when the buffer holds a clause but no sentence has completed yet, which
+    a whole-string split can never reproduce.
+    """
+    out: list[str] = []
+    buf = ""
+    flushed_any = False
+    for token in tokens:
+        buf += token
+        while True:
+            match = _SENTENCE_BOUNDARY.search(buf)
+            if match is None and not flushed_any and "[" not in buf:
+                clause = _CLAUSE_BOUNDARY.search(buf)
+                if clause and len(buf[: clause.end()].strip()) >= _FIRST_FLUSH_MIN_CHARS:
+                    match = clause
+            if match is None:
+                break
+            end = match.end()
+            piece = buf[:end].strip()
+            buf = buf[end:]
+            clean = _strip_action_tags(piece).strip()
+            if clean:
+                flushed_any = True
+                out.append(clean)
+    tail = _strip_action_tags(buf).strip()
+    if tail:
+        out.append(tail)
+    return out
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -73,6 +109,43 @@ def test_titles_do_not_split_sentences():
 def test_initials_and_decimals_do_not_split():
     assert _split_sentences("J. Smith is our hygienist.") == ["J. Smith is our hygienist."]
     assert _split_sentences("That costs $3.50 total.") == ["That costs $3.50 total."]
+
+
+def test_opening_clause_flushes_before_the_sentence_finishes():
+    """The latency fix: TTS must start on the opening clause rather than
+    waiting for the whole (deliberately conversational, therefore long)
+    first sentence to finish generating."""
+    tokens = ["Of course", ", ", "I can get ", "you in with ", "Dr. Aslam ", "this afternoon."]
+    out = _stream_flush(tokens)
+    assert out[0] == "Of course,"
+    assert out[1] == "I can get you in with Dr. Aslam this afternoon."
+
+
+def test_only_the_first_chunk_flushes_early():
+    """Later clauses must keep normal sentence prosody -- flushing every
+    comma would make her speech choppy mid-thought."""
+    tokens = ["Absolutely happy to help", ", ", "let's do that. ", "Morning works", ", ", "or afternoon?"]
+    out = _stream_flush(tokens)
+    assert out[0] == "Absolutely happy to help,"
+    # The second sentence keeps its internal comma instead of being split on it.
+    assert "Morning works, or afternoon?" in out
+
+
+def test_short_opening_fragment_is_not_flushed_as_a_stutter():
+    tokens = ["So", ", ", "when would you like to come in?"]
+    out = _stream_flush(tokens)
+    assert out[0] != "So,"
+    assert out == ["So, when would you like to come in?"]
+
+
+def test_action_tag_commas_never_trigger_an_early_flush():
+    """[BOOK: service=x, name=y] is full of commas. Splitting one would leak
+    half a tag into spoken audio, since _strip_action_tags only removes whole
+    tags."""
+    tokens = ["[BOOK: service=cleaning", ", ", "name=Jane Doe", ", ", "phone=555-0001]"]
+    out = _stream_flush(tokens)
+    assert out == []  # entire response was the tag; nothing spoken
+    assert not any("BOOK" in piece for piece in out)
 
 
 def test_real_sentence_boundaries_still_split():

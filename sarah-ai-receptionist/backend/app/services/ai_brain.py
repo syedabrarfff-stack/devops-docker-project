@@ -29,6 +29,23 @@ _SENTENCE_BOUNDARY = re.compile(
 )
 _ACTION_TAG = re.compile(r"\[(\w+)(?::\s*(.+?))?\]")
 
+# Clause boundaries (comma, semicolon, colon, dash) used ONLY for the first
+# flush of a turn. Waiting for a full sentence before starting TTS means the
+# caller hears nothing until the model has generated an entire sentence --
+# and Sarah's sentences are deliberately conversational, so that dead air is
+# the single largest contributor to "she takes a long time to respond".
+# Flushing the opening clause ("Of course," / "I can definitely help with
+# that,") gets her voice started while the rest of the sentence is still
+# generating; every subsequent chunk uses normal sentence boundaries so
+# prosody stays natural mid-thought.
+_CLAUSE_BOUNDARY = re.compile(r"[,;:—–]\s+")
+# Tuned against real openers: "So," (3) and "Sure," (5) are too short to send
+# alone -- they'd land as a clipped stutter and cost a TTS round-trip for
+# almost no audio. "Of course," (10) and "I understand," (13) are complete
+# conversational units that sound natural standing on their own, which is
+# exactly how a person actually talks. 10 is the boundary between the two.
+_FIRST_FLUSH_MIN_CHARS = 10
+
 
 @dataclass
 class ActionCommand:
@@ -100,6 +117,9 @@ class AIBrain:
         buffer = ""
         full_response = ""
         action: ActionCommand | None = None
+        # Whether anything has been handed to TTS yet this turn -- gates the
+        # early clause-level flush to the opening fragment only.
+        flushed_any = False
 
         try:
             async with self._client.stream(
@@ -137,6 +157,12 @@ class AIBrain:
                     "temperature": 0.7,
                     "top_p": 0.9,
                     "stream": True,
+                    # OpenRouter fronts several upstream providers for the same
+                    # model, and picks one by its own default heuristics. On a
+                    # live phone call time-to-first-token is what the caller
+                    # actually feels, so ask for the lowest-latency provider
+                    # rather than the cheapest.
+                    "provider": {"sort": "latency"},
                 },
             ) as response:
                 response.raise_for_status()
@@ -162,13 +188,23 @@ class AIBrain:
                     # Flush complete sentences to the caller for immediate TTS
                     while True:
                         match = _SENTENCE_BOUNDARY.search(buffer)
-                        if not match:
+                        if match is None and not flushed_any and "[" not in buffer:
+                            # Opening fragment only, and only while no action
+                            # tag has started: splitting on a comma inside
+                            # "[BOOK: service=x, name=y]" would cut the tag in
+                            # half and leak its text into spoken audio, since
+                            # _strip_action_tags can only remove a whole tag.
+                            clause = _CLAUSE_BOUNDARY.search(buffer)
+                            if clause and len(buffer[: clause.end()].strip()) >= _FIRST_FLUSH_MIN_CHARS:
+                                match = clause
+                        if match is None:
                             break
                         end = match.end()
                         sentence = buffer[:end].strip()
                         buffer = buffer[end:]
                         clean = _strip_action_tags(sentence).strip()
                         if clean:
+                            flushed_any = True
                             yield ("sentence", clean)
 
             # Flush whatever remains after stream ends
