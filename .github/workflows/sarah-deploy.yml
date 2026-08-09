@@ -7,6 +7,18 @@ on:
       - "sarah-ai-receptionist/**"
   workflow_dispatch: {}
 
+# Two runs landing on the same commit at once (a double-click on "Run
+# workflow", or a manual re-trigger overlapping a push-triggered run) used
+# to race: both would find the image tag missing, both would build and
+# push, and whichever lost the race would fail on ECR's immutable-tag
+# rejection -- a real failure caused entirely by concurrency, not by
+# anything wrong with the code being deployed. Queue same-ref runs instead
+# of letting them race; don't cancel one mid-deploy, since that could leave
+# an ECS service mid-rollout with nothing watching it.
+concurrency:
+  group: sarah-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   AWS_REGION: us-east-1
   ECR_REPO_VOICE: sarah-receptionist-voice
