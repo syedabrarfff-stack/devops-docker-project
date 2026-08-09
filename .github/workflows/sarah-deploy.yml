@@ -63,10 +63,28 @@ jobs:
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           SHA: ${{ github.sha }}
         run: |
-          docker build -f ${{ env.WORKDIR }}/docker/Dockerfile.backend -t $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA ${{ env.WORKDIR }}
-          docker tag $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
-          docker push $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA
-          docker push $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+          # Images are tagged by commit SHA and the ECR repos have tag
+          # immutability on (deliberately -- it stops a tag being silently
+          # swapped under a running deployment). That means re-running this
+          # workflow against a commit that was already pushed once -- a
+          # manual re-trigger, a retry after an unrelated infra failure --
+          # would otherwise always fail on the push, even though the image
+          # is already sitting there unchanged. Check first and skip the
+          # rebuild/push instead of treating "already deployed" as an error.
+          voice_exists=$(aws ecr describe-images \
+            --repository-name ${{ env.ECR_REPO_VOICE }} \
+            --image-ids imageTag=$SHA \
+            --query 'imageDetails[0].imageTags' --output text 2>/dev/null || echo "")
+
+          if [ -n "$voice_exists" ] && [ "$voice_exists" != "None" ]; then
+            echo "Image for $SHA already in ECR -- skipping build/push."
+          else
+            docker build -f ${{ env.WORKDIR }}/docker/Dockerfile.backend -t $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA ${{ env.WORKDIR }}
+            docker tag $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+            docker push $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA
+            docker push $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+          fi
+
           echo "voice=$REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA" >> "$GITHUB_OUTPUT"
           echo "api=$REGISTRY/${{ env.ECR_REPO_API }}:$SHA" >> "$GITHUB_OUTPUT"
 
@@ -95,25 +113,72 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update voice-service (blue/green via ECS deployment circuit breaker)
+      # `--force-new-deployment` alone only restarts a service on whatever
+      # image its *existing* task definition already points at -- it does
+      # NOT pick up the image build-and-push just pushed. Terraform pins
+      # each task definition's image to a fixed tag at apply time, so
+      # without this step every deploy after the first would build a new
+      # image, push it, and then silently keep running the old one. Register
+      # a new task definition revision with the freshly built image first,
+      # then point the service at that revision.
+      - name: Deploy voice-service
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image_voice }}
         run: |
+          aws ecs describe-task-definition \
+            --task-definition sarah-receptionist-prod-voice \
+            --query 'taskDefinition' > voice-task-def.json
+          NEW_TASK_DEF=$(jq --arg IMAGE "$IMAGE" \
+            '.containerDefinitions[0].image = $IMAGE |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            voice-task-def.json)
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-voice \
+            --task-definition "$NEW_ARN" \
             --force-new-deployment
 
-      - name: Update api-service
+      - name: Deploy api-service
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image_api }}
         run: |
+          aws ecs describe-task-definition \
+            --task-definition sarah-receptionist-prod-api \
+            --query 'taskDefinition' > api-task-def.json
+          NEW_TASK_DEF=$(jq --arg IMAGE "$IMAGE" \
+            '.containerDefinitions[0].image = $IMAGE |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            api-task-def.json)
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-api \
+            --task-definition "$NEW_ARN" \
             --force-new-deployment
 
-      - name: Update worker-service
+      - name: Deploy worker-service
+        env:
+          IMAGE: ${{ needs.build-and-push.outputs.image_api }}
         run: |
+          aws ecs describe-task-definition \
+            --task-definition sarah-receptionist-prod-worker \
+            --query 'taskDefinition' > worker-task-def.json
+          NEW_TASK_DEF=$(jq --arg IMAGE "$IMAGE" \
+            '.containerDefinitions[0].image = $IMAGE |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            worker-task-def.json)
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-worker \
+            --task-definition "$NEW_ARN" \
             --force-new-deployment
 
       - name: Wait for voice-service stability
