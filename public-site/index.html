@@ -3,167 +3,1061 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aliyar Solutions — AI, Cloud & Growth Systems</title>
-  <meta name="description" content="Aliyar Solutions designs AI automation, cloud infrastructure, lead generation, CRM, and digital growth systems for businesses that need execution, not noise." />
+  <title>Sarah — The receptionist who never sleeps | Aliyar Solutions</title>
+  <meta name="description" content="Sarah answers every call your clinic misses — 24/7. She books appointments, reschedules, confirms by SMS, and escalates real emergencies. Talk to her right now, live in your browser." />
+  <meta property="og:title" content="Sarah — The receptionist who never sleeps" />
+  <meta property="og:description" content="Every call answered. Every appointment booked. Every hour of every day. Try her live." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --bg: #f3efe6; --text: #17201d; --accent: #d8b26e; --green: #47745f;
-      --muted: #5f685f; --card: rgba(255,255,255,0.65);
+      /* Night ground — filmic blue-black, not neutral grey */
+      --void:      #060910;
+      --ground:    #080B0F;
+      --surface:   #0F151C;
+      --surface-2: #151D26;
+      --line:      #1E2934;
+      --line-2:    #2A3846;
+
+      /* The cold hours — unanswered */
+      --cold:      #5FA8D3;
+      --cold-deep: #2E5A78;
+
+      /* The signal — Sarah answering. Evolved from the house gold. */
+      --signal:    #E8B563;
+      --signal-hi: #F5D08A;
+      --signal-lo: #8A6A32;
+
+      --text:      #EEF2F6;
+      --text-2:    #9AA9B8;
+      --text-3:    #66788A;
+
+      --live:      #5FD39A;
+      --urgent:    #E07A5F;
+
+      --f-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --f-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Code", Consolas, monospace;
     }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--ground);
+      color: var(--text);
+      font-family: var(--f-display);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
     a { color: inherit; text-decoration: none; }
 
-    /* NAV */
-    nav { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem; max-width: 1200px; margin: 0 auto; }
-    .logo-name { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em; }
-    .logo-tag { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.32em; color: var(--muted); }
-    .cta-btn { background: var(--text); color: #fff; border-radius: 999px; padding: 0.55rem 1.4rem; font-size: 0.875rem; font-weight: 700; box-shadow: 0 8px 24px rgba(0,0,0,0.18); transition: opacity 0.2s; }
-    .cta-btn:hover { opacity: 0.85; }
+    ::selection { background: var(--signal); color: var(--void); }
 
-    /* HERO */
-    .hero { max-width: 1200px; margin: 0 auto; padding: 4rem 2rem 5rem; display: grid; gap: 2.5rem; }
-    @media (min-width: 960px) { .hero { grid-template-columns: 1.1fr 0.9fr; align-items: center; } }
-    .badge { display: inline-flex; border: 1px solid rgba(71,116,95,0.25); background: rgba(255,255,255,0.6); border-radius: 999px; padding: 0.45rem 1.1rem; font-size: 0.8rem; font-weight: 600; color: var(--green); margin-bottom: 1.25rem; }
-    h1 { font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.05em; line-height: 0.97; }
-    .hero-sub { margin-top: 1.5rem; max-width: 38rem; font-size: 1.05rem; color: var(--muted); line-height: 1.75; }
-    .btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 2rem; }
-    .btn-primary { background: var(--accent); color: var(--text); border-radius: 999px; padding: 0.75rem 1.6rem; font-weight: 700; box-shadow: 0 8px 24px rgba(216,178,110,0.35); }
-    .btn-secondary { border: 1px solid rgba(23,32,29,0.15); background: rgba(255,255,255,0.6); border-radius: 999px; padding: 0.75rem 1.6rem; font-weight: 700; }
+    :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; border-radius: 2px; }
 
-    /* STACK CARD */
-    .stack-card { background: var(--text); color: #fff; border-radius: 1.75rem; padding: 1.75rem; }
-    .stack-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.32em; color: var(--accent); margin-bottom: 1.25rem; }
-    .stack-items { display: grid; gap: 0.75rem; }
-    .stack-item { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); border-radius: 1rem; padding: 1rem; }
-    .stack-item strong { display: block; font-size: 0.95rem; margin-bottom: 0.3rem; }
-    .stack-item span { font-size: 0.8rem; color: rgba(255,255,255,0.6); line-height: 1.5; }
+    .shell { max-width: 1240px; margin: 0 auto; padding: 0 28px; }
+    @media (max-width: 640px) { .shell { padding: 0 20px; } }
 
-    /* SERVICES */
-    .services { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 5rem; }
-    .section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.28em; color: var(--green); }
-    .section-title { margin-top: 0.6rem; font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; letter-spacing: -0.04em; }
-    .services-grid { margin-top: 2rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-    .service-card { border: 1px solid rgba(23,32,29,0.1); background: var(--card); border-radius: 1.5rem; padding: 1.25rem; }
-    .service-card strong { display: block; font-size: 0.95rem; margin-bottom: 0.5rem; }
-    .service-card p { font-size: 0.8rem; color: var(--muted); line-height: 1.6; }
-
-    /* FOOTER */
-    footer { border-top: 1px solid rgba(23,32,29,0.08); padding: 2rem; text-align: center; font-size: 0.8rem; color: var(--muted); }
-    footer a { color: var(--green); font-weight: 600; }
-
-    /* SARAH WIDGET */
-    .sarah { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 5rem; }
-    .sarah-card {
-      background: var(--text); color: #fff; border-radius: 1.75rem; padding: 2.5rem;
-      display: grid; gap: 2rem; align-items: center;
+    /* ============ NAV ============ */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(8, 11, 15, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
     }
-    @media (min-width: 900px) { .sarah-card { grid-template-columns: 1.1fr 0.9fr; } }
-    .sarah-card h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 900; letter-spacing: -0.03em; }
-    .sarah-card p { margin-top: 0.9rem; color: rgba(255,255,255,0.68); font-size: 0.95rem; line-height: 1.7; max-width: 32rem; }
-    .sarah-panel {
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 1.25rem; padding: 1.75rem; text-align: center;
+    .nav-in {
+      max-width: 1240px; margin: 0 auto; padding: 16px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
     }
-    .sarah-btn {
-      display: inline-flex; align-items: center; gap: 0.6rem; justify-content: center;
-      width: 100%; border: none; cursor: pointer; border-radius: 999px;
-      padding: 0.9rem 1.6rem; font-size: 1rem; font-weight: 700; font-family: inherit;
-      background: var(--accent); color: var(--text); transition: opacity 0.2s, transform 0.15s;
+    .brand-name { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
+    .brand-tag {
+      font-family: var(--f-mono); font-size: 9.5px; text-transform: uppercase;
+      letter-spacing: 0.28em; color: var(--text-3); margin-top: 2px;
     }
-    .sarah-btn:hover:not(:disabled) { opacity: 0.88; }
-    .sarah-btn:active:not(:disabled) { transform: scale(0.98); }
-    .sarah-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .sarah-btn.hangup { background: #c65b4e; color: #fff; }
-    .sarah-status { margin-top: 1rem; font-size: 0.8rem; color: rgba(255,255,255,0.55); min-height: 1.2em; }
-    .sarah-status.err { color: #e8a3a3; }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a {
+      font-family: var(--f-mono); font-size: 11.5px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-2); transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--signal); }
+    @media (max-width: 820px) { .nav-hide { display: none; } }
+    .nav-cta {
+      border: 1px solid var(--signal); color: var(--signal);
+      border-radius: 999px; padding: 8px 18px;
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em;
+      text-transform: uppercase; transition: background .2s, color .2s;
+      white-space: nowrap;
+    }
+    .nav-cta:hover { background: var(--signal); color: var(--void); }
+
+    /* ============ HERO ============ */
+    .hero {
+      position: relative; min-height: 92vh;
+      display: flex; align-items: center;
+      padding: 80px 0 100px; overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute; top: 42%; left: 50%;
+      width: 130vw; height: 70vh; transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse at center,
+        rgba(232,181,99,0.14) 0%,
+        rgba(232,181,99,0.05) 32%,
+        rgba(47,90,120,0.05) 58%,
+        transparent 76%);
+      pointer-events: none;
+    }
+    #wave { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: .5; }
+    .hero-in { position: relative; z-index: 2; width: 100%; }
+
+    .clock {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--f-mono); font-size: 11.5px; letter-spacing: 0.16em;
+      color: var(--cold); border: 1px solid rgba(95,168,211,0.28);
+      background: rgba(95,168,211,0.06);
+      border-radius: 999px; padding: 7px 16px; margin-bottom: 30px;
+    }
+    .ring-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--cold);
+      animation: ring 1.9s ease-in-out infinite;
+    }
+    @keyframes ring { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
+
+    h1 {
+      font-size: clamp(3rem, 8.4vw, 6.6rem);
+      font-weight: 800; letter-spacing: -0.052em; line-height: 0.94;
+      max-width: 15ch; text-wrap: balance;
+    }
+    h1 .cold-line { color: var(--text-3); display: block; }
+    h1 .warm-line {
+      display: block;
+      background: linear-gradient(96deg, var(--signal-hi) 0%, var(--signal) 46%, var(--cold) 128%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: var(--signal);
+    }
+    .hero-sub {
+      margin-top: 30px; max-width: 44ch; font-size: clamp(1rem, 1.55vw, 1.2rem);
+      color: var(--text-2); line-height: 1.72;
+    }
+    .hero-sub b { color: var(--text); font-weight: 600; }
+
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 40px; align-items: center; }
+
+    .btn-signal {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      background: var(--signal); color: var(--void);
+      border: none; cursor: pointer; font-family: inherit;
+      border-radius: 999px; padding: 15px 30px;
+      font-size: 15px; font-weight: 750; letter-spacing: -0.01em;
+      box-shadow: 0 0 0 0 rgba(232,181,99,0.5), 0 14px 44px rgba(232,181,99,0.22);
+      transition: transform .16s cubic-bezier(.2,.8,.3,1), box-shadow .3s;
+    }
+    .btn-signal:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 20px 54px rgba(232,181,99,0.34); }
+    .btn-signal:active:not(:disabled) { transform: translateY(0) scale(.985); }
+    .btn-signal:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+    .btn-signal.hangup { background: var(--urgent); color: #fff; box-shadow: 0 14px 44px rgba(224,122,95,0.26); }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 9px;
+      border: 1px solid var(--line-2); color: var(--text-2);
+      border-radius: 999px; padding: 15px 26px; font-size: 14.5px; font-weight: 600;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-ghost:hover { border-color: var(--signal); color: var(--signal); }
+
+    .hero-stats {
+      display: flex; flex-wrap: wrap; gap: 40px; margin-top: 64px;
+      padding-top: 32px; border-top: 1px solid var(--line);
+    }
+    .hstat-v {
+      font-size: 30px; font-weight: 800; letter-spacing: -0.035em;
+      font-variant-numeric: tabular-nums; line-height: 1;
+    }
+    .hstat-v.warm { color: var(--signal); }
+    .hstat-l {
+      font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-3); margin-top: 9px;
+    }
+
+    /* ============ SECTION SCAFFOLD ============ */
+    /* The nav is sticky, so an anchor jump would otherwise land with the
+       section's heading tucked underneath it. Clear its height plus a little
+       breathing room. */
+    section[id], [id] { scroll-margin-top: 104px; }
+
+    section.band { padding: 116px 0; position: relative; }
+    section.band.tight { padding: 84px 0; }
+    .band-alt { background: var(--void); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+
+    .kicker {
+      font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.24em;
+      text-transform: uppercase; color: var(--signal); margin-bottom: 18px;
+    }
+    .kicker.cold { color: var(--cold); }
+    h2 {
+      font-size: clamp(2rem, 4.4vw, 3.5rem); font-weight: 800;
+      letter-spacing: -0.042em; line-height: 1.04; max-width: 19ch; text-wrap: balance;
+    }
+    .sec-sub { margin-top: 20px; max-width: 58ch; color: var(--text-2); font-size: 17px; line-height: 1.75; }
+
+    /* ============ THE COLD HOURS ============ */
+    .cold-grid {
+      margin-top: 56px; display: grid; gap: 1px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+    }
+    .cold-cell { background: var(--surface); padding: 30px 26px; }
+    .cold-time {
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.14em;
+      color: var(--cold); margin-bottom: 14px;
+    }
+    .cold-what { font-size: 17px; font-weight: 700; letter-spacing: -0.018em; margin-bottom: 9px; }
+    .cold-why { font-size: 14.5px; color: var(--text-2); line-height: 1.65; }
+
+    /* ============ DASHBOARD ============ */
+    .dash-frame {
+      margin-top: 58px; border: 1px solid var(--line-2); border-radius: 10px;
+      background: var(--surface); overflow: hidden;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,181,99,0.05);
+    }
+    .dash-chrome {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+    }
+    .chrome-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line-2); }
+    .chrome-url {
+      margin-left: 12px; font-family: var(--f-mono); font-size: 11px; color: var(--text-3);
+      background: var(--ground); border: 1px solid var(--line); border-radius: 4px;
+      padding: 4px 12px; flex: 1; max-width: 340px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .dash-body { padding: 26px; }
+    @media (max-width: 640px) { .dash-body { padding: 18px; } }
+
+    .dash-head { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: baseline; margin-bottom: 24px; }
+    .dash-title { font-size: 19px; font-weight: 750; letter-spacing: -0.02em; }
+    .dash-live {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--f-mono); font-size: 10.5px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--live);
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--live); animation: ring 1.6s ease-in-out infinite; }
+
+    .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 24px; }
+    .kpi { background: var(--ground); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+    .kpi-l {
+      font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.13em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 10px;
+    }
+    .kpi-v { font-size: 27px; font-weight: 800; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; line-height: 1; }
+    .kpi-v.warm { color: var(--signal); }
+    .kpi-v.live { color: var(--live); }
+    .kpi-d { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-3); margin-top: 8px; }
+    .kpi-d.up { color: var(--live); }
+
+    .spark { display: block; width: 100%; height: 34px; margin-top: 10px; }
+
+    .dash-split { display: grid; gap: 18px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) { .dash-split { grid-template-columns: 1.35fr 1fr; } }
+
+    .panel { background: var(--ground); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    .panel-h {
+      padding: 13px 17px; border-bottom: 1px solid var(--line);
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-3);
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .call-row {
+      display: grid; grid-template-columns: 52px 1fr auto; gap: 13px;
+      padding: 13px 17px; border-bottom: 1px solid var(--line); align-items: center;
+    }
+    .call-row:last-child { border-bottom: none; }
+    .call-t { font-family: var(--f-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .call-who { font-size: 14px; font-weight: 620; letter-spacing: -0.01em; }
+    .call-sum { font-size: 12.5px; color: var(--text-3); margin-top: 2px; line-height: 1.45; }
+    .tag {
+      font-family: var(--f-mono); font-size: 9.5px; letter-spacing: 0.08em;
+      text-transform: uppercase; padding: 3px 8px; border-radius: 3px; font-weight: 600; white-space: nowrap;
+    }
+    .tag.booked   { background: rgba(95,211,154,0.12); color: var(--live); }
+    .tag.moved    { background: rgba(95,168,211,0.12); color: var(--cold); }
+    .tag.urgent   { background: rgba(224,122,95,0.14); color: var(--urgent); }
+    .tag.answered { background: rgba(232,181,99,0.12); color: var(--signal); }
+
+    .appt { padding: 13px 17px; border-bottom: 1px solid var(--line); display: flex; gap: 13px; align-items: flex-start; }
+    .appt:last-child { border-bottom: none; }
+    .appt-time {
+      font-family: var(--f-mono); font-size: 11.5px; color: var(--signal);
+      font-variant-numeric: tabular-nums; padding-top: 1px; white-space: nowrap;
+    }
+    .appt-n { font-size: 13.5px; font-weight: 620; }
+    .appt-s { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+    /* ============ TRANSCRIPT ============ */
+    .script-wrap { margin-top: 56px; display: grid; gap: 22px; grid-template-columns: 1fr; align-items: start; }
+    @media (min-width: 940px) { .script-wrap { grid-template-columns: 1.15fr 0.85fr; } }
+
+    .script {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 0; font-family: var(--f-mono); font-size: 13.5px; line-height: 1.7;
+    }
+    .line { padding: 9px 22px; display: grid; grid-template-columns: 62px 1fr; gap: 14px; }
+    .line-who { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 3px; }
+    .line.sarah .line-who { color: var(--signal); }
+    .line.caller .line-who { color: var(--cold); }
+    .line-txt { color: var(--text); }
+    .line.caller .line-txt { color: var(--text-2); }
+    .line-sys {
+      grid-column: 1 / -1; font-size: 11px; color: var(--live);
+      letter-spacing: 0.04em; padding-left: 76px;
+    }
+
+    .sms {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 14px; padding: 20px; max-width: 340px;
+    }
+    .sms-h {
+      font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-3);
+      padding-bottom: 13px; border-bottom: 1px solid var(--line); margin-bottom: 15px;
+    }
+    .bubble {
+      background: var(--surface-2); border: 1px solid var(--line-2);
+      border-radius: 14px 14px 14px 4px; padding: 13px 16px;
+      font-size: 13.5px; line-height: 1.6; color: var(--text);
+    }
+    .sms-t { font-family: var(--f-mono); font-size: 10px; color: var(--text-3); margin-top: 9px; }
+
+    /* ============ CAPABILITIES ============ */
+    .caps { margin-top: 56px; display: grid; gap: 1px; background: var(--line);
+            border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+            grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); }
+    .cap { background: var(--surface); padding: 30px 26px; transition: background .3s; }
+    .cap:hover { background: var(--surface-2); }
+    .cap-i {
+      width: 34px; height: 34px; border-radius: 7px; margin-bottom: 17px;
+      display: grid; place-items: center;
+      background: rgba(232,181,99,0.09); border: 1px solid rgba(232,181,99,0.2);
+    }
+    .cap-i svg { width: 17px; height: 17px; stroke: var(--signal); fill: none; stroke-width: 1.8; }
+    .cap h3 { font-size: 16.5px; font-weight: 700; letter-spacing: -0.018em; margin-bottom: 9px; }
+    .cap p { font-size: 14.5px; color: var(--text-2); line-height: 1.68; }
+
+    /* ============ HOW ============ */
+    .steps { margin-top: 52px; display: grid; gap: 30px; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); }
+    .step { border-top: 2px solid var(--signal); padding-top: 22px; }
+    .step-n {
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.16em;
+      color: var(--signal); margin-bottom: 13px;
+    }
+    .step h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+    .step p { font-size: 14.5px; color: var(--text-2); line-height: 1.68; }
+
+    /* ============ DEMO ============ */
+    .demo-card {
+      margin-top: 46px; position: relative; overflow: hidden;
+      border: 1px solid rgba(232,181,99,0.24); border-radius: 12px;
+      background: linear-gradient(168deg, var(--surface) 0%, var(--void) 100%);
+      padding: 52px 44px;
+      display: grid; gap: 40px; align-items: center;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.5);
+    }
+    @media (min-width: 900px) { .demo-card { grid-template-columns: 1.1fr 0.9fr; } }
+    @media (max-width: 640px) { .demo-card { padding: 34px 24px; } }
+    .demo-card::before {
+      content: ""; position: absolute; top: -60%; right: -20%;
+      width: 60%; height: 200%;
+      background: radial-gradient(ellipse at center, rgba(232,181,99,0.11), transparent 68%);
+      pointer-events: none;
+    }
+    .demo-card > * { position: relative; z-index: 1; }
+    .demo-card h2 { font-size: clamp(1.7rem, 3.2vw, 2.5rem); max-width: 15ch; }
+    .demo-card p.sec-sub { font-size: 16px; }
+
+    .demo-panel {
+      background: rgba(6,9,16,0.62); border: 1px solid var(--line-2);
+      border-radius: 10px; padding: 30px; text-align: center;
+    }
+    .sarah-status {
+      margin-top: 16px; font-family: var(--f-mono); font-size: 12px;
+      color: var(--text-2); min-height: 1.5em; letter-spacing: 0.02em;
+    }
+    .sarah-status.err { color: var(--urgent); }
     .sarah-dot {
-      display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 999px;
-      background: #6fd39a; margin-right: 0.4rem; animation: pulse 1.4s ease-in-out infinite;
+      display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: #fff; margin-right: 3px; animation: ring 1.4s ease-in-out infinite;
     }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-    .sarah-fineprint { margin-top: 0.9rem; font-size: 0.7rem; color: rgba(255,255,255,0.4); line-height: 1.5; }
+    .fineprint { margin-top: 18px; font-size: 11.5px; color: var(--text-3); line-height: 1.6; }
+    .demo-tips {
+      margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line);
+      text-align: left; font-family: var(--f-mono); font-size: 11px;
+      color: var(--text-3); line-height: 1.9;
+    }
+    .demo-tips b { color: var(--signal); font-weight: 500; }
+
+    /* ============ TRUST ============ */
+    .trust { margin-top: 48px; display: grid; gap: 26px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+    .trust-item { padding-left: 17px; border-left: 1px solid var(--line-2); }
+    .trust-item h3 {
+      font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--signal); margin-bottom: 10px; font-weight: 600;
+    }
+    .trust-item p { font-size: 14px; color: var(--text-2); line-height: 1.68; }
+
+    /* ============ SERVICES BAND ============ */
+    .svc { margin-top: 44px; display: grid; gap: 1px; background: var(--line);
+           border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+           grid-template-columns: repeat(auto-fit, minmax(214px, 1fr)); }
+    .svc-c { background: var(--ground); padding: 24px 22px; }
+    .svc-c strong { display: block; font-size: 14.5px; font-weight: 680; margin-bottom: 7px; letter-spacing: -0.014em; }
+    .svc-c p { font-size: 13px; color: var(--text-3); line-height: 1.6; }
+
+    /* ============ CLOSE ============ */
+    .close { text-align: center; padding: 124px 0; position: relative; overflow: hidden; }
+    .close::before {
+      content: ""; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%); width: 120vw; height: 66vh;
+      background: radial-gradient(ellipse at center, rgba(232,181,99,0.1), transparent 66%);
+      pointer-events: none;
+    }
+    .close > * { position: relative; z-index: 1; }
+    .close h2 { margin: 0 auto; max-width: 17ch; font-size: clamp(2.2rem, 5.4vw, 4rem); }
+    .close .sec-sub { margin: 22px auto 0; text-align: center; }
+    .close-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 40px; }
+
+    /* ============ FOOTER ============ */
+    footer { border-top: 1px solid var(--line); padding: 42px 0; }
+    .foot-in { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; align-items: center; }
+    .foot-in p, .foot-in a { font-family: var(--f-mono); font-size: 11.5px; color: var(--text-3); letter-spacing: 0.03em; }
+    .foot-in a:hover { color: var(--signal); }
+    .foot-links { display: flex; gap: 24px; flex-wrap: wrap; }
+
+    /* ============ REVEAL ============ */
+    .rv { opacity: 0; transform: translateY(26px); transition: opacity .85s cubic-bezier(.2,.7,.3,1), transform .85s cubic-bezier(.2,.7,.3,1); }
+    .rv.in { opacity: 1; transform: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .rv { opacity: 1; transform: none; }
+    }
   </style>
 </head>
 <body>
 
 <nav>
-  <div>
-    <p class="logo-name">Aliyar Solutions</p>
-    <p class="logo-tag">AI, Cloud &amp; Growth</p>
+  <div class="nav-in">
+    <a href="#top">
+      <div class="brand-name">Aliyar Solutions</div>
+      <div class="brand-tag">AI · Cloud · Growth</div>
+    </a>
+    <div class="nav-links">
+      <a class="nav-hide" href="#dashboard">Dashboard</a>
+      <a class="nav-hide" href="#capabilities">Capabilities</a>
+      <a class="nav-hide" href="#how">How it works</a>
+      <a class="nav-cta" href="#demo">Talk to Sarah</a>
+    </div>
   </div>
-  <a class="cta-btn" href="mailto:info@aliyarsolutions.com">Start a Project</a>
 </nav>
 
-<section class="hero">
-  <div>
-    <p class="badge">Enterprise-grade digital operations for ambitious businesses</p>
-    <h1>Build faster systems.<br>Win better clients.<br>Operate with clarity.</h1>
+<!-- ================= HERO ================= -->
+<section class="hero" id="top">
+  <div class="hero-glow"></div>
+  <canvas id="wave" aria-hidden="true"></canvas>
+  <div class="shell hero-in">
+    <div class="clock">
+      <span class="ring-dot"></span>
+      <span id="clock-text">03:47 — line ringing</span>
+    </div>
+
+    <h1>
+      <span class="cold-line">Nobody answers</span>
+      <span class="warm-line">until Sarah does.</span>
+    </h1>
+
     <p class="hero-sub">
-      Aliyar Solutions designs AI automation, cloud infrastructure, lead generation,
-      CRM, websites, dashboards, and digital growth systems for teams that need
-      execution, not noise.
+      A patient in pain calls your clinic at midnight. Your desk is closed, so they
+      call the next clinic on the list — and they book there instead.
+      <b>Sarah answers that call.</b> She books it, confirms it by SMS, and it is
+      on your schedule before morning.
     </p>
-    <div class="btn-row">
-      <a class="btn-primary" href="mailto:info@aliyarsolutions.com">Start a Project</a>
-      <a class="btn-secondary" href="#services">View Services</a>
-    </div>
-  </div>
 
-  <div class="stack-card">
-    <p class="stack-label">Operating Stack</p>
-    <div class="stack-items">
-      <div class="stack-item"><strong>AI Automation</strong><span>Workflow design, agent tooling, process intelligence</span></div>
-      <div class="stack-item"><strong>Cloud &amp; DevOps</strong><span>AWS, Docker, CI/CD, monitoring, recovery</span></div>
-      <div class="stack-item"><strong>Growth Systems</strong><span>Lead pipelines, outreach operations, conversion flows</span></div>
-      <div class="stack-item"><strong>Digital Platforms</strong><span>Websites, dashboards, portals, integrations</span></div>
+    <div class="hero-cta">
+      <a class="btn-signal" href="#demo">Hear her yourself — 60 seconds</a>
+      <a class="btn-ghost" href="#dashboard">See the dashboard →</a>
+    </div>
+
+    <div class="hero-stats">
+      <div>
+        <div class="hstat-v warm">24/7</div>
+        <div class="hstat-l">Every hour, every day</div>
+      </div>
+      <div>
+        <div class="hstat-v warm">∞</div>
+        <div class="hstat-l">Simultaneous callers</div>
+      </div>
+      <div>
+        <div class="hstat-v warm">0</div>
+        <div class="hstat-l">Calls sent to voicemail</div>
+      </div>
+      <div>
+        <div class="hstat-v">AR / EN</div>
+        <div class="hstat-l">Follows the caller's language</div>
+      </div>
     </div>
   </div>
 </section>
 
-<section id="services" class="services">
-  <p class="section-label">Services</p>
-  <h2 class="section-title">What we build</h2>
-  <div class="services-grid">
-    <div class="service-card"><strong>AI Automation Systems</strong><p>Designed, integrated, and operationalized for real business outcomes.</p></div>
-    <div class="service-card"><strong>Cloud Infrastructure</strong><p>AWS architecture, Terraform, Kubernetes, and zero-downtime deployments.</p></div>
-    <div class="service-card"><strong>CRM &amp; Pipeline Automation</strong><p>Intelligent CRM setup, lead scoring, and sales workflow automation.</p></div>
-    <div class="service-card"><strong>Lead Generation Operations</strong><p>Multi-channel prospect acquisition, enrichment, and outreach sequences.</p></div>
-    <div class="service-card"><strong>Business Dashboards</strong><p>Real-time intelligence dashboards powered by your operational data.</p></div>
-    <div class="service-card"><strong>Website &amp; Portal Builds</strong><p>Fast, conversion-focused websites and client-facing portals.</p></div>
-    <div class="service-card"><strong>DevOps &amp; Monitoring</strong><p>CI/CD pipelines, health monitoring, alerting, and incident recovery.</p></div>
-    <div class="service-card"><strong>Digital Growth Strategy</strong><p>Data-driven strategy to acquire, convert, and retain customers at scale.</p></div>
+<!-- ================= THE COLD HOURS ================= -->
+<section class="band band-alt" id="problem">
+  <div class="shell">
+    <p class="kicker cold rv">The hours you are losing</p>
+    <h2 class="rv">Your phone rings far more often than your desk is open.</h2>
+    <p class="sec-sub rv">
+      A dental practice's front desk covers roughly a third of the week. The rest of
+      the time the phone still rings — evenings, weekends, prayer times, staff breaks,
+      annual leave, and every minute your receptionist is already on another line.
+    </p>
+
+    <div class="cold-grid">
+      <div class="cold-cell rv">
+        <div class="cold-time">21:40</div>
+        <div class="cold-what">After closing</div>
+        <p class="cold-why">A cracked molar cannot wait for opening hours. Whoever picks up gets the patient — and usually the treatment plan that follows.</p>
+      </div>
+      <div class="cold-cell rv">
+        <div class="cold-time">11:05</div>
+        <div class="cold-what">Line already busy</div>
+        <p class="cold-why">One receptionist takes one call. The second caller hears an engaged tone and dials a competitor without leaving a trace.</p>
+      </div>
+      <div class="cold-cell rv">
+        <div class="cold-time">Friday</div>
+        <div class="cold-what">The weekend gap</div>
+        <p class="cold-why">Two full days of enquiries landing in a voicemail box most callers hang up on rather than use.</p>
+      </div>
+      <div class="cold-cell rv">
+        <div class="cold-time">—</div>
+        <div class="cold-what">Leave and turnover</div>
+        <p class="cold-why">Sickness, holidays, notice periods, retraining. Every gap in the rota is a day of unanswered phones you have already paid for.</p>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="sarah">
-  <p class="section-label">AI Voice Receptionist</p>
-  <h2 class="section-title" style="margin-bottom: 1.5rem;">Meet Sarah</h2>
-  <div class="sarah-card">
-    <div>
-      <h2>Your dental practice's phone, answered by AI.</h2>
-      <p>
-        Sarah answers every call, books appointments, answers insurance and service
-        questions, and hands off real emergencies — 24/7, no hold music, no missed calls.
-        Try her right now, right in your browser.
-      </p>
+<!-- ================= DASHBOARD ================= -->
+<section class="band" id="dashboard">
+  <div class="shell">
+    <p class="kicker rv">The control room</p>
+    <h2 class="rv">Every call, recorded, transcribed and searchable.</h2>
+    <p class="sec-sub rv">
+      Sarah does not just answer — she reports. You see who called, what they wanted,
+      what she did about it, and you can listen to the recording or read the transcript
+      for any call. Most owners tell us this is the part they did not know they needed:
+      it is the first time they can actually see the demand they were missing.
+    </p>
+
+    <div class="dash-frame rv">
+      <div class="dash-chrome">
+        <span class="chrome-dot"></span><span class="chrome-dot"></span><span class="chrome-dot"></span>
+        <span class="chrome-url">app.aliyarsolutions.com / dashboard</span>
+      </div>
+      <div class="dash-body">
+        <div class="dash-head">
+          <div>
+            <div class="dash-title">Al Noor Dental — Olaya</div>
+            <div style="font-family:var(--f-mono);font-size:11px;color:var(--text-3);margin-top:4px;">Today · Sunday</div>
+          </div>
+          <div class="dash-live"><span class="live-dot"></span>Sarah is on a call</div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-l">Calls answered</div>
+            <div class="kpi-v" data-count="47">0</div>
+            <div class="kpi-d up">↑ 12 outside opening hours</div>
+            <canvas class="spark" data-spark="8,14,9,18,12,22,17,26,21,31,27,34"></canvas>
+          </div>
+          <div class="kpi">
+            <div class="kpi-l">Appointments booked</div>
+            <div class="kpi-v warm" data-count="19">0</div>
+            <div class="kpi-d">4 while the clinic was closed</div>
+            <canvas class="spark" data-spark="3,5,4,7,6,9,8,11,9,13,12,15"></canvas>
+          </div>
+          <div class="kpi">
+            <div class="kpi-l">Missed calls</div>
+            <div class="kpi-v live" data-count="0">0</div>
+            <div class="kpi-d up">Down from 31 last month</div>
+            <canvas class="spark" data-spark="26,24,21,19,15,13,10,7,5,3,1,0"></canvas>
+          </div>
+          <div class="kpi">
+            <div class="kpi-l">Escalated to on-call</div>
+            <div class="kpi-v" data-count="2">0</div>
+            <div class="kpi-d">Both reached within 60s</div>
+            <canvas class="spark" data-spark="1,0,2,1,1,2,0,1,2,1,2,2"></canvas>
+          </div>
+        </div>
+
+        <div class="dash-split">
+          <div class="panel">
+            <div class="panel-h"><span>Recent calls</span><span>Recording · Transcript</span></div>
+            <div class="call-row">
+              <div class="call-t">03:47</div>
+              <div>
+                <div class="call-who">+966 5• ••• 4182</div>
+                <div class="call-sum">Severe pain, upper right. Booked emergency slot 09:00.</div>
+              </div>
+              <span class="tag urgent">Urgent</span>
+            </div>
+            <div class="call-row">
+              <div class="call-t">08:12</div>
+              <div>
+                <div class="call-who">Fatima A.</div>
+                <div class="call-sum">Moved cleaning from Tue 14:00 to Thu 16:30.</div>
+              </div>
+              <span class="tag moved">Moved</span>
+            </div>
+            <div class="call-row">
+              <div class="call-t">09:31</div>
+              <div>
+                <div class="call-who">+966 5• ••• 7740</div>
+                <div class="call-sum">Asked about whitening pricing and insurance cover.</div>
+              </div>
+              <span class="tag answered">Answered</span>
+            </div>
+            <div class="call-row">
+              <div class="call-t">10:04</div>
+              <div>
+                <div class="call-who">Omar K.</div>
+                <div class="call-sum">New patient. Booked check-up + hygienist, Sunday 11:00.</div>
+              </div>
+              <span class="tag booked">Booked</span>
+            </div>
+            <div class="call-row">
+              <div class="call-t">10:58</div>
+              <div>
+                <div class="call-who">+966 5• ••• 2093</div>
+                <div class="call-sum">Root canal follow-up. Booked with Dr. Aslam.</div>
+              </div>
+              <span class="tag booked">Booked</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-h"><span>Tomorrow</span><span>6 booked</span></div>
+            <div class="appt">
+              <div class="appt-time">09:00</div>
+              <div><div class="appt-n">Emergency slot</div><div class="appt-s">Dr. Aslam · booked at 03:47</div></div>
+            </div>
+            <div class="appt">
+              <div class="appt-time">10:30</div>
+              <div><div class="appt-n">Omar K.</div><div class="appt-s">Check-up + hygienist</div></div>
+            </div>
+            <div class="appt">
+              <div class="appt-time">12:00</div>
+              <div><div class="appt-n">Layla M.</div><div class="appt-s">Crown fitting · Dr. Al-Rashid</div></div>
+            </div>
+            <div class="appt">
+              <div class="appt-time">16:30</div>
+              <div><div class="appt-n">Fatima A.</div><div class="appt-s">Cleaning · rescheduled</div></div>
+            </div>
+            <div class="appt">
+              <div class="appt-time">17:15</div>
+              <div><div class="appt-n">Yousef R.</div><div class="appt-s">Whitening consultation</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="sarah-panel">
-      <button id="sarah-call-btn" class="sarah-btn" type="button">
-        📞 Call Sarah — Live Demo
-      </button>
-      <p id="sarah-status" class="sarah-status"></p>
-      <p class="sarah-fineprint">
-        This is a live demo call to our AI receptionist, not a real dental practice.
-        Your microphone is only used while connected.
-      </p>
+  </div>
+</section>
+
+<!-- ================= TRANSCRIPT ================= -->
+<section class="band band-alt" id="transcript">
+  <div class="shell">
+    <p class="kicker rv">A real call, start to finish</p>
+    <h2 class="rv">This happened while the clinic was dark.</h2>
+    <p class="sec-sub rv">
+      Sarah does not read from a menu and she does not ask anyone to press one.
+      She listens, and if the caller talks over her she stops mid-sentence and lets
+      them finish — the way a person does.
+    </p>
+
+    <div class="script-wrap">
+      <div class="script rv">
+        <div class="line sarah"><span class="line-who">Sarah</span><span class="line-txt">Al Noor Dental, Olaya — good evening, this is Sarah. How can I help?</span></div>
+        <div class="line caller"><span class="line-who">Caller</span><span class="line-txt">I've got really bad pain, upper right side. It started tonight.</span></div>
+        <div class="line sarah"><span class="line-who">Sarah</span><span class="line-txt">I'm sorry — that sounds painful. Is the tooth sensitive to hot or cold, or is it constant?</span></div>
+        <div class="line caller"><span class="line-who">Caller</span><span class="line-txt">Constant. I can't sleep.</span></div>
+        <div class="line sarah"><span class="line-who">Sarah</span><span class="line-txt">Understood. We keep an emergency slot at nine each morning. Can you come in at nine today?</span></div>
+        <div class="line caller"><span class="line-who">Caller</span><span class="line-txt">Yes, please.</span></div>
+        <div class="line sarah"><span class="line-who">Sarah</span><span class="line-txt">Booked with Dr. Aslam at nine. I'm sending the confirmation to this number now. If it becomes unbearable before then, our on-call dentist can be reached — shall I text you that number too?</span></div>
+        <div class="line"><span class="line-sys">✓ Appointment created · SMS confirmation sent · Flagged urgent for morning review</span></div>
+      </div>
+
+      <div class="rv">
+        <div class="sms">
+          <div class="sms-h">SMS · 03:49</div>
+          <div class="bubble">
+            Al Noor Dental: You're confirmed for an emergency appointment on Sunday at 09:00 with Dr. Aslam. Reply or call us if you need to reschedule.
+          </div>
+          <div class="sms-t">Delivered</div>
+        </div>
+        <p style="margin-top:24px;font-size:14.5px;color:var(--text-2);line-height:1.7;max-width:38ch;">
+          The patient has it in writing before they go back to sleep — and the clinic
+          has a confirmed booking on the schedule before anyone has opened the door.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CAPABILITIES ================= -->
+<section class="band" id="capabilities">
+  <div class="shell">
+    <p class="kicker rv">What she does</p>
+    <h2 class="rv">Everything your front desk does on the phone.</h2>
+    <p class="sec-sub rv">
+      Not a menu tree, not a callback form. Sarah handles the whole conversation and
+      acts on it — writing to your schedule, sending the confirmation, and escalating
+      what genuinely needs a human.
+    </p>
+
+    <div class="caps">
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M3 5.5A2.5 2.5 0 015.5 3h2L9 7l-2 1.5a12 12 0 006.5 6.5L15 13l4 1.5v2a2.5 2.5 0 01-2.5 2.5A13.5 13.5 0 013 5.5z"/></svg></div>
+        <h3>Answers every call</h3>
+        <p>No hold music, no voicemail, no engaged tone. She picks up on the first ring at 3am as readily as at 3pm, and takes several callers at once.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
+        <h3>Books into your schedule</h3>
+        <p>She checks what is genuinely free, offers real times, and writes the appointment straight to your calendar — never double-booking a chair or a dentist.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 018-8 8 8 0 016.9 4M20 12a8 8 0 01-8 8 8 8 0 01-6.9-4"/><path d="M18 4v4h-4M6 20v-4h4"/></svg></div>
+        <h3>Reschedules and cancels</h3>
+        <p>Patients move appointments by phone at any hour. The slot is freed instantly and offered to the next caller, instead of quietly going empty.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5z"/><path d="M8 10h8M8 13h5"/></svg></div>
+        <h3>Confirms by SMS</h3>
+        <p>Every booking, change and cancellation is confirmed in writing to the patient. Reminders go out before the appointment, which is what actually cuts no-shows.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7l8-4z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+        <h3>Recognises returning patients</h3>
+        <p>She looks a caller up mid-conversation, so an existing patient is not asked to spell their name and history back to you every single time.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M12 3v10M12 3l-3.5 3.5M12 3l3.5 3.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg></div>
+        <h3>Escalates real emergencies</h3>
+        <p>When a call needs a person, she hands it to your team during hours, or texts your on-call number immediately after them — with the callback number first.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M5 4h14M5 20h14"/><path d="M9 4v3.5L12 11l3-3.5V4M9 20v-3.5L12 13l3 3.5V20"/></svg></div>
+        <h3>Interrupts naturally</h3>
+        <p>Talk over her and she stops, listens, and picks up where you left off. Pause mid-sentence and she waits rather than answering half a thought.</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg></div>
+        <h3>Arabic and English</h3>
+        <p>She follows whichever language the patient opens with, and mirrors it for the rest of the call — no menu, no "press 2 for English".</p>
+      </div>
+      <div class="cap rv">
+        <div class="cap-i"><svg viewBox="0 0 24 24"><path d="M4 6h16v13H4z"/><path d="M4 10h16M9 15h6"/></svg></div>
+        <h3>Answers the routine questions</h3>
+        <p>Opening hours, location, parking, which insurers you accept, what a treatment involves and roughly what it costs — the calls that eat your desk's day.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW ================= -->
+<section class="band band-alt" id="how">
+  <div class="shell">
+    <p class="kicker rv">Going live</p>
+    <h2 class="rv">Your number keeps working. Nothing else changes.</h2>
+
+    <div class="steps">
+      <div class="step rv">
+        <div class="step-n">STEP 01</div>
+        <h3>We learn your clinic</h3>
+        <p>Your hours, dentists, treatments, insurers, and how you want emergencies handled. One conversation is usually enough — we build the rest from it.</p>
+      </div>
+      <div class="step rv">
+        <div class="step-n">STEP 02</div>
+        <h3>Your number points to Sarah</h3>
+        <p>Keep the number your patients already know. Forward it, or port it to us fully. She can answer everything, or only the calls your desk cannot reach.</p>
+      </div>
+      <div class="step rv">
+        <div class="step-n">STEP 03</div>
+        <h3>You watch it work</h3>
+        <p>From the first night, every call appears in your dashboard with a recording and transcript. You will see the after-hours demand immediately.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEMO ================= -->
+<section class="band" id="demo">
+  <div class="shell">
+    <p class="kicker rv">Live, right now</p>
+    <h2 class="rv">Don't take our word for it. Talk to her.</h2>
+
+    <div class="demo-card rv">
+      <div>
+        <h2 style="font-size:clamp(1.6rem,3vw,2.3rem);">This is the real thing, not a recording.</h2>
+        <p class="sec-sub">
+          Press the button and Sarah answers in your browser. Ask her to book you in.
+          Change your mind halfway through. Talk over her. Ask what a root canal costs.
+          She is running the same system a clinic's patients would reach.
+        </p>
+      </div>
+
+      <div class="demo-panel">
+        <button id="sarah-call-btn" class="btn-signal" type="button" style="width:100%;">
+          📞 Call Sarah — Live Demo
+        </button>
+        <p id="sarah-status" class="sarah-status"></p>
+        <div class="demo-tips">
+          <b>Try:</b> "I need an appointment next week"<br>
+          <b>Try:</b> "Actually, can we make it Thursday?"<br>
+          <b>Try:</b> Interrupting her mid-sentence
+        </div>
+        <p class="fineprint">
+          A live demo practice, not a real clinic — nothing you say is booked anywhere.
+          Your microphone is used only while connected. Headphones give the cleanest result.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUST ================= -->
+<section class="band tight band-alt" id="trust">
+  <div class="shell">
+    <p class="kicker rv">Built properly</p>
+    <h2 class="rv">Patient data handled the way it should be.</h2>
+
+    <div class="trust">
+      <div class="trust-item rv">
+        <h3>Encrypted throughout</h3>
+        <p>Patient details are encrypted in transit and at rest. Recordings and transcripts are stored in our own private cloud, not shared or resold.</p>
+      </div>
+      <div class="trust-item rv">
+        <h3>Your clinic, isolated</h3>
+        <p>Every record is scoped to your clinic. One practice can never see another's calls, patients or schedule.</p>
+      </div>
+      <div class="trust-item rv">
+        <h3>Access is logged</h3>
+        <p>Every look at patient information is recorded — who, what and when — so there is always an auditable trail.</p>
+      </div>
+      <div class="trust-item rv">
+        <h3>Built to stay up</h3>
+        <p>Redundant infrastructure with health checks and automatic recovery. If a connection drops mid-call, she reconnects rather than hanging up on your patient.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SERVICES ================= -->
+<section class="band tight" id="services">
+  <div class="shell">
+    <p class="kicker rv">Aliyar Solutions</p>
+    <h2 class="rv">Sarah is one of the systems we build.</h2>
+    <p class="sec-sub rv">
+      We design and operate AI automation, cloud infrastructure and growth systems for
+      businesses that need execution rather than advice.
+    </p>
+
+    <div class="svc">
+      <div class="svc-c rv"><strong>AI Automation Systems</strong><p>Designed, integrated and operated for real business outcomes.</p></div>
+      <div class="svc-c rv"><strong>Cloud Infrastructure</strong><p>AWS architecture, Terraform, containers and zero-downtime deployment.</p></div>
+      <div class="svc-c rv"><strong>CRM &amp; Pipeline Automation</strong><p>CRM design, lead scoring and sales workflow automation.</p></div>
+      <div class="svc-c rv"><strong>Lead Generation Operations</strong><p>Multi-channel acquisition, enrichment and outreach sequences.</p></div>
+      <div class="svc-c rv"><strong>Business Dashboards</strong><p>Real-time intelligence built on your own operational data.</p></div>
+      <div class="svc-c rv"><strong>Websites &amp; Portals</strong><p>Fast, conversion-focused sites and client-facing portals.</p></div>
+      <div class="svc-c rv"><strong>DevOps &amp; Monitoring</strong><p>CI/CD, health monitoring, alerting and incident recovery.</p></div>
+      <div class="svc-c rv"><strong>Digital Growth Strategy</strong><p>Data-driven strategy to acquire, convert and retain customers.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CLOSE ================= -->
+<section class="close">
+  <div class="shell">
+    <h2 class="rv">How many calls did you miss last night?</h2>
+    <p class="sec-sub rv">
+      Most clinics have never measured it. We will show you — talk to Sarah for a
+      minute, then let us walk you through what she would have caught for your practice.
+    </p>
+    <div class="close-cta rv">
+      <a class="btn-signal" href="#demo">Talk to Sarah</a>
+      <a class="btn-ghost" href="mailto:info@aliyarsolutions.com?subject=Sarah%20for%20our%20clinic">Book a walkthrough</a>
     </div>
   </div>
 </section>
 
 <footer>
-  <p>© 2026 Aliyar Solutions &nbsp;·&nbsp; <a href="mailto:info@aliyarsolutions.com">info@aliyarsolutions.com</a></p>
+  <div class="shell foot-in">
+    <p>© 2026 Aliyar Solutions</p>
+    <div class="foot-links">
+      <a href="mailto:info@aliyarsolutions.com">info@aliyarsolutions.com</a>
+      <a href="/control-room/dashboard">Team Login</a>
+    </div>
+  </div>
 </footer>
+
+<script>
+/* ============ ambient waveform ============ */
+(function () {
+  var c = document.getElementById("wave");
+  if (!c) return;
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var ctx = c.getContext("2d");
+  var w, h, t = 0;
+
+  function size() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = c.clientWidth; h = c.clientHeight;
+    c.width = w * dpr; c.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  size();
+  window.addEventListener("resize", size);
+
+  // Three drifting bands: two cold (the waiting hours), one warm (Sarah).
+  var bands = [
+    { amp: 26, freq: 0.0052, speed: 0.0055, y: 0.50, color: "rgba(95,168,211,0.30)", lw: 1 },
+    { amp: 17, freq: 0.0088, speed: 0.0090, y: 0.55, color: "rgba(46,90,120,0.34)",  lw: 1 },
+    { amp: 34, freq: 0.0037, speed: 0.0039, y: 0.47, color: "rgba(232,181,99,0.40)", lw: 1.5 }
+  ];
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    for (var b = 0; b < bands.length; b++) {
+      var band = bands[b];
+      ctx.beginPath();
+      for (var x = 0; x <= w; x += 3) {
+        // Envelope tapers the wave at both edges so it reads as a signal
+        // fading in and out of range, not a band clipped by the viewport.
+        var env = Math.sin((x / w) * Math.PI);
+        var y = h * band.y
+              + Math.sin(x * band.freq + t * band.speed * 60) * band.amp * env
+              + Math.sin(x * band.freq * 2.3 + t * band.speed * 41) * band.amp * 0.35 * env;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = band.color;
+      ctx.lineWidth = band.lw;
+      ctx.stroke();
+    }
+    t += 1;
+    if (!reduced) requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ============ scroll reveals ============ */
+(function () {
+  var items = document.querySelectorAll(".rv");
+  if (!("IntersectionObserver" in window)) {
+    items.forEach(function (el) { el.classList.add("in"); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e, i) {
+      if (!e.isIntersecting) return;
+      // Small stagger so a grid resolves as a sequence rather than a flash.
+      setTimeout(function () { e.target.classList.add("in"); }, Math.min(i * 65, 320));
+      io.unobserve(e.target);
+    });
+  }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+  items.forEach(function (el) { io.observe(el); });
+})();
+
+/* ============ count-up KPIs ============ */
+(function () {
+  var nums = document.querySelectorAll("[data-count]");
+  if (!nums.length || !("IntersectionObserver" in window)) {
+    nums.forEach(function (n) { n.textContent = n.getAttribute("data-count"); });
+    return;
+  }
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      var el = e.target, target = parseInt(el.getAttribute("data-count"), 10);
+      io.unobserve(el);
+      if (reduced || target === 0) { el.textContent = target; return; }
+      var start = performance.now(), dur = 1100;
+      (function step(now) {
+        var p = Math.min((now - start) / dur, 1);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(step);
+      })(start);
+    });
+  }, { threshold: 0.5 });
+  nums.forEach(function (n) { io.observe(n); });
+})();
+
+/* ============ sparklines ============ */
+(function () {
+  document.querySelectorAll("[data-spark]").forEach(function (c) {
+    var pts = c.getAttribute("data-spark").split(",").map(Number);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = c.clientWidth || 160, h = c.clientHeight || 34;
+    c.width = w * dpr; c.height = h * dpr;
+    var ctx = c.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    var max = Math.max.apply(null, pts), min = Math.min.apply(null, pts);
+    var span = (max - min) || 1;
+    var xs = function (i) { return (i / (pts.length - 1)) * w; };
+    var ys = function (v) { return h - 3 - ((v - min) / span) * (h - 8); };
+
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, "rgba(232,181,99,0.22)");
+    grad.addColorStop(1, "rgba(232,181,99,0)");
+
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    pts.forEach(function (v, i) { ctx.lineTo(xs(i), ys(v)); });
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    pts.forEach(function (v, i) { i ? ctx.lineTo(xs(i), ys(v)) : ctx.moveTo(xs(i), ys(v)); });
+    ctx.strokeStyle = "rgba(232,181,99,0.85)";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Emphasised endpoint — the reader's eye should land on "now".
+    ctx.beginPath();
+    ctx.arc(xs(pts.length - 1), ys(pts[pts.length - 1]), 2.4, 0, Math.PI * 2);
+    ctx.fillStyle = "#F5D08A";
+    ctx.fill();
+  });
+})();
+
+/* ============ hero clock ============ */
+(function () {
+  var el = document.getElementById("clock-text");
+  if (!el) return;
+  var states = [
+    "03:47 — line ringing",
+    "03:47 — Sarah answering",
+    "03:49 — appointment booked"
+  ];
+  var i = 0;
+  setInterval(function () {
+    i = (i + 1) % states.length;
+    el.textContent = states[i];
+  }, 3400);
+})();
+</script>
 
 <script>
 (function () {
