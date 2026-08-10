@@ -34,6 +34,24 @@ def test_serving_a_new_language_market_is_configuration_not_code():
     assert "&language=en" not in url
 
 
+def test_multi_language_mode_uses_deepgrams_recommended_tighter_endpointing():
+    """Deepgram's own guidance for language=multi (code-switching) is
+    endpointing=100, not the 200ms tuned for a single pinned language. Left
+    at 200ms, barge-in and turn-taking read as sluggish under multi mode
+    because the caller loop waits on events that arrive later than a
+    single-language stream would produce them."""
+    multi_url = _deepgram_url("mulaw", 8000, "multi")
+    assert "&endpointing=100" in multi_url
+    assert "&endpointing=200" not in multi_url
+
+
+def test_single_language_mode_keeps_the_original_endpointing():
+    ar_url = _deepgram_url("mulaw", 8000, "ar")
+    assert "&endpointing=200" in ar_url
+    en_url = _deepgram_url("mulaw", 8000, "en")
+    assert "&endpointing=200" in en_url
+
+
 def test_the_demo_and_the_phone_agree_on_language():
     """Two call paths reach Deepgram: the browser demo (linear16/16kHz), which
     is what a prospect evaluates Sarah on, and Twilio telephony (mulaw/8kHz),

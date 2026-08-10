@@ -113,9 +113,15 @@ class CallManager:
 
         await self.stt.connect()
 
+        # Always opens in English -- there is no caller speech yet to mirror,
+        # so the prompt's "match the caller's language" instruction has
+        # nothing to go on for this one line. Names Arabic explicitly so a
+        # Saudi caller knows within the first sentence that they don't have
+        # to speak English, without assuming either way.
         greeting = (
             f"Hi, thank you for calling {self.ai_brain.clinic_config['name']}! "
-            f"This is {self.ai_brain.clinic_config.get('sarah_name', 'Sarah')}, how can I help you today?"
+            f"This is {self.ai_brain.clinic_config.get('sarah_name', 'Sarah')}. "
+            "I can help you in English or Arabic -- how can I help you today?"
         )
         self._speak_task = asyncio.create_task(self._speak_text(greeting))
         self._log("assistant", greeting)

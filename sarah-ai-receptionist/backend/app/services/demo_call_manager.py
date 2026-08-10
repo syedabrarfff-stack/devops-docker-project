@@ -93,7 +93,7 @@ class DemoCallManager:
             greeting = (
                 f"Hi! I'm {self.clinic_config.get('sarah_name', 'Sarah')}, "
                 f"{self.clinic_config.get('name', 'the practice')}'s AI receptionist. "
-                "How can I help you today?"
+                "I can help you in English or Arabic -- how can I help you today?"
             )
             self._speak_task = asyncio.create_task(self._speak_greeting(websocket, greeting))
             await self._safe_await(self._speak_task)
