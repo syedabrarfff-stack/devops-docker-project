@@ -101,6 +101,32 @@ resource "aws_cloudwatch_metric_alarm" "voice_running_count" {
   }
 }
 
+resource "aws_cloudwatch_metric_alarm" "api_running_count" {
+  alarm_name          = "${var.project_name}-${var.environment}-api-running-count-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "RunningTaskCount"
+  namespace           = "ECS/ContainerInsights"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+  treat_missing_data  = "breaching"
+  # UnHealthyHostCount (api_unhealthy_hosts, above) only fires when a
+  # registered target fails its health check -- it stays at 0, not
+  # "breaching", when a service is scaled to zero and has no targets
+  # registered at all. voice-service and worker-service both had an
+  # explicit RunningTaskCount alarm to catch exactly that case; api-service
+  # was missing one, so a scale-to-zero on api-service (the same failure
+  # mode that caused the ALB 503s this pipeline now self-heals from) would
+  # have gone completely silent.
+  alarm_description = "api-service has fewer than 1 running task — dashboard/admin API and booking are unreachable"
+  alarm_actions     = [aws_sns_topic.alarms.arn]
+  dimensions = {
+    ClusterName = var.ecs_cluster_name
+    ServiceName = var.ecs_api_service_name
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "worker_running_count" {
   alarm_name          = "${var.project_name}-${var.environment}-worker-running-count-low"
   comparison_operator = "LessThanThreshold"
