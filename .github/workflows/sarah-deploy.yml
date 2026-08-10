@@ -137,9 +137,22 @@ jobs:
       # image, push it, and then silently keep running the old one. Register
       # a new task definition revision with the freshly built image first,
       # then point the service at that revision.
+      #
+      # A service's desiredCount can drift below Terraform's declared
+      # minimum (a manual console scale-down, an incident response action
+      # that was never reverted) and nothing in this pipeline used to
+      # notice -- force-new-deployment happily redeploys a service sitting
+      # at 0 tasks, so the deploy goes green while the service serves
+      # nothing and the ALB returns 503. Read the Terraform-declared
+      # minimum for each service and floor desiredCount up to it on every
+      # deploy. This never fights autoscaling (which only ever scales
+      # voice/api *up* from these minimums) -- it only corrects drift
+      # below the floor, so a deploy can heal a scaled-to-zero service
+      # instead of perpetuating it forever.
       - name: Deploy voice-service
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image_voice }}
+          MIN_DESIRED_COUNT: 2 # infra/terraform/environments/prod/variables.tf: ecs_voice_desired_count
         run: |
           aws ecs describe-task-definition \
             --task-definition sarah-receptionist-prod-voice \
@@ -151,15 +164,27 @@ jobs:
           NEW_ARN=$(aws ecs register-task-definition \
             --cli-input-json "$NEW_TASK_DEF" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          CURRENT_DESIRED=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-voice \
+            --query 'services[0].desiredCount' --output text)
+          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
+            echo "::warning::voice-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+          fi
+
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-voice \
             --task-definition "$NEW_ARN" \
+            --desired-count "$DESIRED" \
             --force-new-deployment
 
       - name: Deploy api-service
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image_api }}
+          MIN_DESIRED_COUNT: 2 # infra/terraform/environments/prod/variables.tf: ecs_api_desired_count
         run: |
           aws ecs describe-task-definition \
             --task-definition sarah-receptionist-prod-api \
@@ -171,15 +196,27 @@ jobs:
           NEW_ARN=$(aws ecs register-task-definition \
             --cli-input-json "$NEW_TASK_DEF" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          CURRENT_DESIRED=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-api \
+            --query 'services[0].desiredCount' --output text)
+          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
+            echo "::warning::api-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+          fi
+
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-api \
             --task-definition "$NEW_ARN" \
+            --desired-count "$DESIRED" \
             --force-new-deployment
 
       - name: Deploy worker-service
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image_api }}
+          MIN_DESIRED_COUNT: 2 # infra/terraform/modules/compute/variables.tf: ecs_worker_desired_count
         run: |
           aws ecs describe-task-definition \
             --task-definition sarah-receptionist-prod-worker \
@@ -191,10 +228,21 @@ jobs:
           NEW_ARN=$(aws ecs register-task-definition \
             --cli-input-json "$NEW_TASK_DEF" \
             --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          CURRENT_DESIRED=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-worker \
+            --query 'services[0].desiredCount' --output text)
+          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
+            echo "::warning::worker-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+          fi
+
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-worker \
             --task-definition "$NEW_ARN" \
+            --desired-count "$DESIRED" \
             --force-new-deployment
 
       - name: Wait for voice-service stability
@@ -208,6 +256,17 @@ jobs:
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
             --services sarah-receptionist-prod-api
+
+      # Previously missing entirely -- a worker rollout that crash-looped or
+      # got rolled back by the deployment circuit breaker went completely
+      # unnoticed, since nothing after this step ever checked the worker.
+      # The pipeline would report a green deploy while background jobs
+      # (SMS confirmations, reminders, call summaries) silently stopped.
+      - name: Wait for worker-service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services sarah-receptionist-prod-worker
 
       - name: Post-deploy smoke test
         run: python3 ${{ env.WORKDIR }}/scripts/smoke_test.py
