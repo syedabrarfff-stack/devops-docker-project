@@ -83,6 +83,12 @@ locals {
     { name = "JWT_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:jwt_secret_key::" },
     { name = "STRIPE_SECRET_KEY", valueFrom = "${var.app_secrets_arn}:stripe_secret_key::" },
     { name = "STRIPE_WEBHOOK_SECRET", valueFrom = "${var.app_secrets_arn}:stripe_webhook_secret::" },
+    # Was missing entirely -- billing_service.py reads settings.stripe_price_id
+    # to attach a real subscription, but with no env var wiring here it was
+    # always empty in every container regardless of what was set in Stripe or
+    # Secrets Manager, so billing_service always fell back to "Customer
+    # created, nothing charges" with no error surfaced.
+    { name = "STRIPE_PRICE_ID", valueFrom = "${var.app_secrets_arn}:stripe_price_id::" },
     { name = "TWILIO_VOICE_API_KEY_SID", valueFrom = "${var.app_secrets_arn}:twilio_voice_api_key_sid::" },
     { name = "TWILIO_VOICE_API_KEY_SECRET", valueFrom = "${var.app_secrets_arn}:twilio_voice_api_key_secret::" },
     { name = "TWILIO_VOICE_TWIML_APP_SID", valueFrom = "${var.app_secrets_arn}:twilio_voice_twiml_app_sid::" },
