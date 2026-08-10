@@ -140,6 +140,24 @@ async def onboard_clinic(
     twilio_number: str | None = None
     if payload.existing_twilio_number:
         twilio_number = payload.existing_twilio_number.strip()
+    elif payload.auto_buy_twilio_number and payload.country.upper() == "SA":
+        # Buying a Saudi-local Twilio number outright requires a pre-approved
+        # Twilio Regulatory Bundle (business registration + address docs) --
+        # without one this call returns no available numbers or fails, and
+        # either way onboarding stalls silently at exactly the step a real
+        # clinic launch depends on. Production Saudi clinics keep their
+        # existing carrier number as the number patients dial and forward it
+        # to a Twilio number Sarah already holds (existing_twilio_number,
+        # above) -- no purchase or port needed for that number at all, since
+        # it's never the one given out to patients. Surface that clearly
+        # instead of attempting a purchase likely to fail.
+        warnings.append(
+            "Skipped auto-buying a Saudi Twilio number: Twilio requires an approved "
+            "Regulatory Bundle for SA local numbers, which onboarding cannot obtain "
+            "automatically. Use existing_twilio_number instead -- the clinic keeps "
+            "answering calls on their own number and forwards them (via their carrier) "
+            "to a Twilio number Sarah already holds; no purchase or port is required."
+        )
     elif payload.auto_buy_twilio_number:
         try:
             twilio_number = await _buy_twilio_number(payload.area_code, payload.country)

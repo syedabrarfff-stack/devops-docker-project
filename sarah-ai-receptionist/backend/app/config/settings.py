@@ -35,11 +35,28 @@ class Settings(BaseSettings):
     # caller. Threaded through settings rather than hardcoded so serving a new
     # market is a deployment decision, not a code change.
     #
-    # Verify the value against Deepgram's live model/language matrix before
-    # serving a non-English market: not every language is offered on every
-    # model, and an unsupported pairing returns wrong-language text instead of
-    # an error -- so it must be confirmed on a real call, never assumed.
-    deepgram_language: str = "en"
+    # ar-SA confirmed against Deepgram's current model/language matrix:
+    # Nova-3 (the model this app requests) explicitly lists ar-SA as a
+    # supported dialect. Saudi Arabia/GCC is the primary go-to-market (see
+    # billing_service.py, CLAUDE.md), so this is the production default
+    # rather than "en".
+    #
+    # NOT yet verified: automatic mid-call Arabic<->English code-switching
+    # (Deepgram's `language=multi` parameter). The prompt (dental_receptionist.py)
+    # already instructs Sarah to mirror whichever language the caller speaks,
+    # sentence by sentence -- but Deepgram's own documentation is inconsistent
+    # on whether Arabic is included in that specific multilingual
+    # code-switching set (one doc page lists Arabic under Nova-3's general
+    # "Multilingual" capabilities; another explicitly enumerates a
+    # code-switching language list that does not include Arabic). Pinning to
+    # the single confirmed-working ar-SA is the safe default: a caller who
+    # switches to English mid-call may be transcribed less accurately during
+    # those turns, but the AI (already bilingual) will still respond
+    # appropriately to whatever text it receives. Do not switch this to
+    # "multi" without a live test call confirming Arabic code-switching
+    # quality -- an unsupported pairing returns wrong-language text instead
+    # of an error, so it must be confirmed on a real call, never assumed.
+    deepgram_language: str = "ar-SA"
 
     # ElevenLabs
     elevenlabs_api_key: str
