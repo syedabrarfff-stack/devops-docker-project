@@ -191,13 +191,18 @@ async def _escalate_unanswered_transfer(call_sid: str, caller_phone: str | None)
                 return
             escalate_to = clinic.after_hours_escalation_number
             clinic_name = clinic.name
+            clinic_number = clinic.twilio_phone_number
             last_turn = next(
                 (t.get("content") for t in reversed(call_log.transcript or [])
                  if t.get("role") == "caller"),
                 None,
             )
         await send_urgent_escalation(
-            escalate_to, clinic_name, caller_phone or call_log.caller_phone, last_turn
+            escalate_to,
+            clinic_name,
+            caller_phone or call_log.caller_phone,
+            last_turn,
+            from_number=clinic_number,
         )
     except Exception as e:
         logger.error(f"Failed to escalate unanswered transfer for {call_sid}: {e}")

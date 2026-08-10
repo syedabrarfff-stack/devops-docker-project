@@ -118,6 +118,7 @@ async def save_call_transcript(call_sid: str, clinic_config: dict | None, result
             (clinic_config or {}).get("name", "Your clinic"),
             result.get("caller_phone"),
             last_caller_turn,
+            from_number=(clinic_config or {}).get("_twilio_phone_number"),
         )
         if not sent:
             # The caller was promised a callback nobody was told about — this
@@ -142,6 +143,7 @@ async def _send_change_confirmations(
     persistence transaction open. A booking marks confirmation_sms_sent so the
     dashboard can tell a delivered confirmation from a silent failure."""
     clinic_name = (clinic_config or {}).get("name", "our clinic")
+    from_number = (clinic_config or {}).get("_twilio_phone_number")
     for change in changes:
         phone = change.get("phone")
         if not phone:
@@ -149,7 +151,7 @@ async def _send_change_confirmations(
         when = format_for_caller(change["when"], clinic_timezone)
         if change["kind"] == "booked":
             sent = await send_appointment_confirmation(
-                phone, clinic_name, change["service"] or "your appointment", when
+                phone, clinic_name, change["service"] or "your appointment", when, from_number=from_number
             )
             if sent:
                 async with get_db_context() as db:
@@ -160,7 +162,12 @@ async def _send_change_confirmations(
                     )
         else:
             await send_appointment_change(
-                phone, clinic_name, change["kind"], change["service"] or "your appointment", when
+                phone,
+                clinic_name,
+                change["kind"],
+                change["service"] or "your appointment",
+                when,
+                from_number=from_number,
             )
 
 
