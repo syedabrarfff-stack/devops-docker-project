@@ -83,18 +83,22 @@ jobs:
           # would otherwise always fail on the push, even though the image
           # is already sitting there unchanged. Check first and skip the
           # rebuild/push instead of treating "already deployed" as an error.
-          voice_exists=$(aws ecr describe-images \
+
+          if aws ecr describe-images \
             --repository-name ${{ env.ECR_REPO_VOICE }} \
             --image-ids imageTag=$SHA \
-            --query 'imageDetails[0].imageTags' --output text 2>/dev/null || echo "")
-
-          if [ -n "$voice_exists" ] && [ "$voice_exists" != "None" ]; then
-            echo "Image for $SHA already in ECR -- skipping build/push."
+            --region ${{ env.AWS_REGION }} \
+            &>/dev/null; then
+            echo "✓ Image SHA:$SHA already exists in ECR — skipping rebuild"
           else
+            echo "⚙ Building image SHA:$SHA (first deploy of this commit)"
             docker build -f ${{ env.WORKDIR }}/docker/Dockerfile.backend -t $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA ${{ env.WORKDIR }}
             docker tag $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+
+            echo "⬆ Pushing image to ECR..."
             docker push $REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA
             docker push $REGISTRY/${{ env.ECR_REPO_API }}:$SHA
+            echo "✓ Push complete"
           fi
 
           echo "voice=$REGISTRY/${{ env.ECR_REPO_VOICE }}:$SHA" >> "$GITHUB_OUTPUT"
