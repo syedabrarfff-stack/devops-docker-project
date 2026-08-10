@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import get_settings
 from app.core.database import get_db
 from app.core.security import hash_password, require_admin
 from app.models.call_log import CallLog
@@ -138,7 +139,22 @@ async def onboard_clinic(
     # Phase 2: Twilio. Each sub-step is guarded so a partial failure leaves a
     # visible warning, not an orphaned purchase or a number with no webhook.
     twilio_number: str | None = None
-    if payload.existing_twilio_number:
+    if not get_settings().twilio_enabled:
+        # Twilio is paused platform-wide (no subscription). Onboarding must
+        # still succeed end to end -- the org, clinic, user, and Stripe
+        # subscription are all real and independent of telephony -- so this
+        # skips number provisioning and says so, rather than failing the
+        # whole onboarding over a feature that is deliberately switched off.
+        # An existing number is still recorded when supplied, since that is
+        # just data about the clinic and costs no Twilio API call.
+        if payload.existing_twilio_number:
+            twilio_number = payload.existing_twilio_number.strip()
+        warnings.append(
+            "Twilio is paused on this deployment -- no number was provisioned and no webhook "
+            "was wired. Sarah will not answer phone calls for this clinic until Twilio is "
+            "re-enabled; the browser demo is unaffected."
+        )
+    elif payload.existing_twilio_number:
         twilio_number = payload.existing_twilio_number.strip()
     elif skip_reason := _sa_autobuy_skip_reason(payload.auto_buy_twilio_number, payload.country):
         warnings.append(skip_reason)
@@ -158,7 +174,12 @@ async def onboard_clinic(
         clinic.twilio_phone_number = twilio_number
         await db.commit()
         try:
-            await _configure_twilio_webhook(twilio_number)
+            # Recording the clinic's number is just data and always safe; only
+            # the webhook call reaches Twilio's API, so it is the one thing
+            # that has to be skipped while paused. The warning above already
+            # told the operator calls won't be answered.
+            if get_settings().twilio_enabled:
+                await _configure_twilio_webhook(twilio_number)
         except Exception as e:
             logger.exception(f"Twilio webhook configuration failed for {twilio_number}")
             warnings.append(
@@ -538,7 +559,6 @@ async def _buy_twilio_number(area_code: str | None, country: str = "US") -> str 
 async def _configure_twilio_webhook(phone_number: str):
     import asyncio
 
-    from app.config.settings import get_settings
     from app.services.twilio_client import get_twilio_client
 
     settings = get_settings()

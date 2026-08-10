@@ -166,9 +166,10 @@ resource "aws_secretsmanager_secret_version" "redis_url" {
 module "compute" {
   source = "../../modules/compute"
 
-  project_name = var.project_name
-  environment  = var.environment
-  aws_region   = var.aws_region
+  project_name  = var.project_name
+  environment   = var.environment
+  aws_region    = var.aws_region
+  twilio_paused = var.twilio_paused
 
   private_subnet_ids     = module.networking.private_subnet_ids
   ecs_security_group_id  = module.loadbalancer.ecs_security_group_id

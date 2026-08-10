@@ -41,3 +41,18 @@ variable "root_domain" {
   description = "Parent domain (e.g. aliyarsolutions.com). Refresh-token cookies are scoped to .<root_domain> so app./admin./sarah. can share the session."
   type        = string
 }
+
+variable "twilio_paused" {
+  type        = bool
+  description = <<-DESC
+    Whether the phone product is switched off. True means the platform makes no
+    Twilio API calls at all: no inbound-call webhook, no SMS confirmations or
+    reminders, no number purchase during onboarding. The browser demo,
+    dashboard, bookings, auth and billing are unaffected -- none of them go
+    through Twilio.
+
+    Exists so pausing does not require emptying the Twilio secret in Secrets
+    Manager, which would destroy the values needed to switch the product back
+    on. Flip this to false to re-enable.
+  DESC
+}

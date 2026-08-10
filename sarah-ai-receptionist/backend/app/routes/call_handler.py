@@ -70,6 +70,24 @@ async def _consume_call_validation(call_sid: str) -> str | None:
         await r.aclose()
 
 
+def _require_twilio_enabled() -> None:
+    """Reject phone-path requests outright while Twilio is paused.
+
+    Without this the endpoints still "work" in the worst way: RequestValidator
+    built on an empty auth token rejects every signature, so each request
+    returns 403 "Invalid request signature". That is indistinguishable in the
+    logs from a genuine attacker or a misconfigured webhook URL, and it sends
+    whoever debugs it hunting a security problem that does not exist. 503 with
+    an explicit reason says the true thing: the feature is switched off, not
+    broken.
+    """
+    if not settings.twilio_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Phone calling is paused on this deployment (Twilio is not configured).",
+        )
+
+
 def _validate_twilio_request(request: Request, form: dict) -> bool:
     validator = RequestValidator(settings.twilio_auth_token)
     signature = request.headers.get("X-Twilio-Signature", "")
@@ -82,6 +100,7 @@ def _validate_twilio_request(request: Request, form: dict) -> bool:
 @router.post("/incoming-call")
 async def incoming_call(request: Request):
     """Twilio hits this webhook when a call comes in. Returns TwiML to open a media stream."""
+    _require_twilio_enabled()
     form = await request.form()
     form_dict = dict(form)
 
@@ -128,6 +147,7 @@ async def transfer_status(request: Request):
     pick up, and the call log would claim a transfer succeeded when it rang
     out. Both outcomes are recorded from what actually happened.
     """
+    _require_twilio_enabled()
     form = await request.form()
     form_dict = dict(form)
 
