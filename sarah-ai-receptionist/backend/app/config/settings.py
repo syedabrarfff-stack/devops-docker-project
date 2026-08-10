@@ -35,28 +35,24 @@ class Settings(BaseSettings):
     # caller. Threaded through settings rather than hardcoded so serving a new
     # market is a deployment decision, not a code change.
     #
-    # ar-SA confirmed against Deepgram's current model/language matrix:
-    # Nova-3 (the model this app requests) explicitly lists ar-SA as a
-    # supported dialect. Saudi Arabia/GCC is the primary go-to-market (see
-    # billing_service.py, CLAUDE.md), so this is the production default
-    # rather than "en".
+    # Pinning this to a single language (previously "ar-SA") is a real
+    # production hazard, confirmed live: any caller speaking a different
+    # language than the pin doesn't just transcribe less accurately --
+    # Deepgram can't confidently match the audio to the pinned language, so
+    # it never cleanly finalizes the utterance. It keeps revising interim
+    # transcripts instead of emitting speech_final, and the whole call loop
+    # waits on that before Sarah can respond -- multi-second dead air on
+    # every turn, not a quality degradation. Saudi Arabia/GCC is the primary
+    # go-to-market and Sarah's prompt is bilingual, so neither "en" nor
+    # "ar-SA" alone is acceptable as the default.
     #
-    # NOT yet verified: automatic mid-call Arabic<->English code-switching
-    # (Deepgram's `language=multi` parameter). The prompt (dental_receptionist.py)
-    # already instructs Sarah to mirror whichever language the caller speaks,
-    # sentence by sentence -- but Deepgram's own documentation is inconsistent
-    # on whether Arabic is included in that specific multilingual
-    # code-switching set (one doc page lists Arabic under Nova-3's general
-    # "Multilingual" capabilities; another explicitly enumerates a
-    # code-switching language list that does not include Arabic). Pinning to
-    # the single confirmed-working ar-SA is the safe default: a caller who
-    # switches to English mid-call may be transcribed less accurately during
-    # those turns, but the AI (already bilingual) will still respond
-    # appropriately to whatever text it receives. Do not switch this to
-    # "multi" without a live test call confirming Arabic code-switching
-    # quality -- an unsupported pairing returns wrong-language text instead
-    # of an error, so it must be confirmed on a real call, never assumed.
-    deepgram_language: str = "ar-SA"
+    # "multi" is Deepgram's real multilingual code-switching mode, confirmed
+    # against current docs to work with Nova-3 (the model this app
+    # requests): each turn is recognized in its own language natively,
+    # rather than every turn being forced through one pinned language's
+    # acoustic model. This is what actually delivers "seamless Arabic/English
+    # switching," not a single-language pin with a hopeful prompt on top.
+    deepgram_language: str = "multi"
 
     # ElevenLabs
     elevenlabs_api_key: str
