@@ -27,6 +27,7 @@ from app.services.transfer_service import (
     plan_transfer,
     redirect_call_to_human,
 )
+from app.services.turn_detection import INCOMPLETE_UTTERANCE_GRACE_SECONDS, looks_incomplete
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,9 @@ class CallManager:
 
         self._speak_task: asyncio.Task | None = None
         self._utterance_buffer: str = ""
+        # Latched when Deepgram's event stream ends mid-turn, so the listen
+        # loop exits instead of awaiting a queue that will never be refilled.
+        self._stt_closed: bool = False
         # Twilio echoes a mark back once the audio before it has actually been
         # played to the caller. Handing the call to a human discards whatever is
         # still buffered, so the transfer path waits on these.
@@ -131,6 +135,12 @@ class CallManager:
     async def _listen_loop(self):
         """Main event loop: consumes Deepgram transcript events, handles barge-in and turn-taking."""
         while self.is_active:
+            # Set when the transcript stream ended during a grace-period wait
+            # (see _await_continuation). The caller's last utterance is still
+            # answered first; we exit here rather than calling next_event()
+            # again, which would block forever on a queue nothing will refill.
+            if self._stt_closed:
+                break
             try:
                 event: TranscriptEvent | None = await asyncio.wait_for(
                     self.stt.next_event(), timeout=SILENCE_PROMPT_SECONDS
@@ -154,6 +164,29 @@ class CallManager:
                 self._utterance_buffer = (self._utterance_buffer + " " + event.text).strip()
 
             if event.speech_final and self._utterance_buffer:
+                # speech_final is purely acoustic: Deepgram fires it on N ms of
+                # silence, which a caller drawing breath mid-sentence produces
+                # just as reliably as one who has actually finished. Answering
+                # it unconditionally is what makes Sarah reply to a fragment
+                # and then talk over the rest of the caller's sentence.
+                #
+                # Hold the turn briefly when the words themselves look
+                # unfinished (turn_detection.py), folding in whatever the
+                # caller says next. This costs the grace period ONLY on
+                # mid-thought utterances -- a completed sentence is still
+                # answered with no added delay.
+                #
+                # This existed on the browser-demo path from the start and
+                # never on this one, so the path real patients use was the
+                # only one that cut a thinking caller off. It matters more now
+                # that endpointing is 100ms under multilingual mode:
+                # speech_final fires on less silence than it used to.
+                while looks_incomplete(self._utterance_buffer):
+                    continuation = await self._await_continuation()
+                    if continuation is None:
+                        break
+                    self._utterance_buffer = f"{self._utterance_buffer} {continuation}".strip()
+
                 transcript = self._utterance_buffer
                 self._utterance_buffer = ""
                 self._log("caller", transcript)
@@ -188,6 +221,41 @@ class CallManager:
                     break
                 if self.pending_action and self.pending_action.action == "END":
                     break
+
+    async def _await_continuation(self) -> str | None:
+        """Wait briefly for a caller who sounded mid-thought to resume.
+
+        Returns the additional words they spoke, or None if they had in fact
+        finished (or the stream ended). Collects across several transcript
+        events so a caller who resumes with more than one fragment inside the
+        grace window is folded in whole, and returns as soon as Deepgram marks
+        the resumed speech final rather than always burning the full window.
+
+        Barge-in is deliberately not consulted here: Sarah is not speaking
+        during this wait -- it happens between the caller stopping and Sarah
+        starting -- so there is nothing to interrupt.
+        """
+        deadline = time.monotonic() + INCOMPLETE_UTTERANCE_GRACE_SECONDS
+        collected: list[str] = []
+
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                event = await asyncio.wait_for(self.stt.next_event(), timeout=remaining)
+            except asyncio.TimeoutError:
+                break
+
+            if event is None:
+                self._stt_closed = True
+                break
+            if event.is_final and event.text.strip():
+                collected.append(event.text.strip())
+                if event.speech_final:
+                    break
+
+        return " ".join(collected) if collected else None
 
     async def _respond_now(self, caller_text: str):
         """Wait for any in-flight speech to finish, then stream a fresh AI response."""
