@@ -144,11 +144,22 @@ jobs:
       # notice -- force-new-deployment happily redeploys a service sitting
       # at 0 tasks, so the deploy goes green while the service serves
       # nothing and the ALB returns 503. Read the Terraform-declared
-      # minimum for each service and floor desiredCount up to it on every
-      # deploy. This never fights autoscaling (which only ever scales
-      # voice/api *up* from these minimums) -- it only corrects drift
-      # below the floor, so a deploy can heal a scaled-to-zero service
-      # instead of perpetuating it forever.
+      # minimum for each service and, ONLY when the current value is below
+      # it, pass --desired-count to correct it -- otherwise omit the flag
+      # entirely so update-service leaves ECS's live value untouched.
+      #
+      # This distinction matters: every appautoscaling_target's min_capacity
+      # equals this same floor, so Application Auto Scaling itself never
+      # drives desiredCount below it -- the only way we ever observe a
+      # reading below the floor is exactly the drift this step exists to
+      # fix, not a legitimate in-flight scaling action. Earlier this always
+      # passed --desired-count "$(max(current, floor))"; if autoscaling
+      # scaled a service up between the describe-services read and the
+      # update-service write (a real possibility under load, since they're
+      # two separate API calls), that unconditional write would silently
+      # stomp the scale-up back down to the stale value just read --
+      # fighting the exact autoscaling it was meant to leave alone. Omitting
+      # the flag in the common case removes that race entirely.
       - name: Deploy voice-service
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image_voice }}
@@ -169,16 +180,17 @@ jobs:
             --cluster ${{ env.ECS_CLUSTER }} \
             --services sarah-receptionist-prod-voice \
             --query 'services[0].desiredCount' --output text)
-          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          DESIRED_COUNT_ARGS=()
           if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
-            echo "::warning::voice-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+            echo "::warning::voice-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $MIN_DESIRED_COUNT"
+            DESIRED_COUNT_ARGS=(--desired-count "$MIN_DESIRED_COUNT")
           fi
 
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-voice \
             --task-definition "$NEW_ARN" \
-            --desired-count "$DESIRED" \
+            "${DESIRED_COUNT_ARGS[@]}" \
             --force-new-deployment
 
       - name: Deploy api-service
@@ -201,16 +213,17 @@ jobs:
             --cluster ${{ env.ECS_CLUSTER }} \
             --services sarah-receptionist-prod-api \
             --query 'services[0].desiredCount' --output text)
-          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          DESIRED_COUNT_ARGS=()
           if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
-            echo "::warning::api-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+            echo "::warning::api-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $MIN_DESIRED_COUNT"
+            DESIRED_COUNT_ARGS=(--desired-count "$MIN_DESIRED_COUNT")
           fi
 
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-api \
             --task-definition "$NEW_ARN" \
-            --desired-count "$DESIRED" \
+            "${DESIRED_COUNT_ARGS[@]}" \
             --force-new-deployment
 
       - name: Deploy worker-service
@@ -233,40 +246,31 @@ jobs:
             --cluster ${{ env.ECS_CLUSTER }} \
             --services sarah-receptionist-prod-worker \
             --query 'services[0].desiredCount' --output text)
-          DESIRED=$(( CURRENT_DESIRED > MIN_DESIRED_COUNT ? CURRENT_DESIRED : MIN_DESIRED_COUNT ))
+          DESIRED_COUNT_ARGS=()
           if [ "$CURRENT_DESIRED" -lt "$MIN_DESIRED_COUNT" ]; then
-            echo "::warning::worker-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $DESIRED"
+            echo "::warning::worker-service desiredCount was $CURRENT_DESIRED (below the Terraform-declared minimum of $MIN_DESIRED_COUNT) -- correcting to $MIN_DESIRED_COUNT"
+            DESIRED_COUNT_ARGS=(--desired-count "$MIN_DESIRED_COUNT")
           fi
 
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service sarah-receptionist-prod-worker \
             --task-definition "$NEW_ARN" \
-            --desired-count "$DESIRED" \
+            "${DESIRED_COUNT_ARGS[@]}" \
             --force-new-deployment
 
-      - name: Wait for voice-service stability
+      # A single wait call across all three services checks them in
+      # parallel server-side -- three separate sequential `wait` steps (as
+      # this used to be, and as adding the worker wait as a fourth
+      # sequential step would have made it) each block for their own full
+      # stabilization time one after another, needlessly stretching the
+      # pipeline by however long the slowest of the three takes, on top of
+      # the others.
+      - name: Wait for voice/api/worker service stability
         run: |
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --services sarah-receptionist-prod-voice
-
-      - name: Wait for api-service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services sarah-receptionist-prod-api
-
-      # Previously missing entirely -- a worker rollout that crash-looped or
-      # got rolled back by the deployment circuit breaker went completely
-      # unnoticed, since nothing after this step ever checked the worker.
-      # The pipeline would report a green deploy while background jobs
-      # (SMS confirmations, reminders, call summaries) silently stopped.
-      - name: Wait for worker-service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services sarah-receptionist-prod-worker
+            --services sarah-receptionist-prod-voice sarah-receptionist-prod-api sarah-receptionist-prod-worker
 
       - name: Post-deploy smoke test
         run: python3 ${{ env.WORKDIR }}/scripts/smoke_test.py

@@ -180,6 +180,51 @@ resource "aws_wafv2_web_acl" "alb" {
     }
   }
 
+  # The common rule set catches generic XSS/protocol abuse but not SQLi or
+  # known-exploit signatures (log4j-style payloads, malformed headers, etc)
+  # specifically -- those are separate AWS managed rule groups. The app uses
+  # SQLAlchemy's parameterized queries everywhere so direct SQLi risk is
+  # already low, but this is defense-in-depth on a public endpoint that's
+  # about to receive real outreach-driven traffic, including from unvetted
+  # callers/browsers.
+  rule {
+    name     = "aws-managed-sqli"
+    priority = 3
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesSQLiRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-sqli-rules"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "aws-managed-known-bad-inputs"
+    priority = 4
+    override_action {
+      none {}
+    }
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project_name}-${var.environment}-known-bad-inputs-rules"
+      sampled_requests_enabled   = true
+    }
+  }
+
   visibility_config {
     cloudwatch_metrics_enabled = true
     metric_name                = "${var.project_name}-${var.environment}-alb-waf"
