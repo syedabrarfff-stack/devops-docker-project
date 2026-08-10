@@ -259,18 +259,34 @@ jobs:
             "${DESIRED_COUNT_ARGS[@]}" \
             --force-new-deployment
 
-      # A single wait call across all three services checks them in
-      # parallel server-side -- three separate sequential `wait` steps (as
-      # this used to be, and as adding the worker wait as a fourth
-      # sequential step would have made it) each block for their own full
-      # stabilization time one after another, needlessly stretching the
-      # pipeline by however long the slowest of the three takes, on top of
-      # the others.
+      # `aws ecs wait services-stable` has a fixed budget (40 attempts x 15s
+      # ~= 10 minutes) NO MATTER HOW MANY --services names you pass it --
+      # passing all three here doesn't parallelize with three independent
+      # budgets, it makes all three SHARE one 10-minute budget. Confirmed
+      # the hard way: this single-call form timed out ("Waiter ServicesStable
+      # failed: Max attempts exceeded") on a routine deploy where every
+      # service was doing a real rolling replacement (force-new-deployment
+      # always registers a fresh task-definition revision, so this happens
+      # on every deploy, not just the first one) -- three services'
+      # stabilization time added up past the one shared window that three
+      # sequential waiters (each with their own full budget) had always
+      # comfortably covered. Backgrounding three separate waiter processes
+      # gets the actual goal -- running them concurrently -- without
+      # collapsing their budgets into one.
       - name: Wait for voice/api/worker service stability
         run: |
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services sarah-receptionist-prod-voice sarah-receptionist-prod-api sarah-receptionist-prod-worker
+          aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER }} --services sarah-receptionist-prod-voice &
+          PID_VOICE=$!
+          aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER }} --services sarah-receptionist-prod-api &
+          PID_API=$!
+          aws ecs wait services-stable --cluster ${{ env.ECS_CLUSTER }} --services sarah-receptionist-prod-worker &
+          PID_WORKER=$!
+
+          FAILED=0
+          wait "$PID_VOICE" || { echo "::error::voice-service did not stabilize"; FAILED=1; }
+          wait "$PID_API" || { echo "::error::api-service did not stabilize"; FAILED=1; }
+          wait "$PID_WORKER" || { echo "::error::worker-service did not stabilize"; FAILED=1; }
+          exit "$FAILED"
 
       - name: Post-deploy smoke test
         run: python3 ${{ env.WORKDIR }}/scripts/smoke_test.py
