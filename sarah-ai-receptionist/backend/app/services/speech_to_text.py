@@ -42,6 +42,14 @@ _MAX_RECONNECT_ATTEMPTS = 3
 _RECONNECT_BACKOFF_SECONDS = (0.5, 1.5, 3.0)
 
 def _deepgram_url(encoding: str, sample_rate: int, language: str) -> str:
+    # Deepgram's own guidance for `language=multi` (code-switching) is a
+    # tighter endpointing than single-language mode -- 100ms, not the 200ms
+    # tuned for a single pinned language. Left at 200ms for multi, barge-in
+    # and turn-taking read as sluggish/unresponsive ("talks over the caller,
+    # doesn't react while they're talking") because the caller loop is
+    # waiting on interim/final events that arrive later than a single-language
+    # stream would produce them.
+    endpointing = 100 if language == "multi" else 200
     return (
         "wss://api.deepgram.com/v1/listen"
         "?model=nova-3"
@@ -60,13 +68,13 @@ def _deepgram_url(encoding: str, sample_rate: int, language: str) -> str:
         f"&sample_rate={sample_rate}"
         "&channels=1"
         "&interim_results=true"
-        # Deliberately tighter than the usual 300ms. Acoustic silence alone
-        # no longer has to decide whether a caller is finished -- the caller
-        # loop adds a grace period when the words look mid-thought (see
+        # Deliberately tighter than the usual 300ms default. Acoustic silence
+        # alone no longer has to decide whether a caller is finished -- the
+        # caller loop adds a grace period when the words look mid-thought (see
         # turn_detection.py) -- so this can be tuned for a snappy reply to a
         # clearly-completed sentence without cutting off someone who pauses
         # to think.
-        "&endpointing=200"
+        f"&endpointing={endpointing}"
         "&smart_format=true"
         "&punctuate=true"
     )
