@@ -22,6 +22,17 @@ is trying to avoid, which defeats the purpose.
 
 import re
 
+# Extra wait before answering when the caller's words look mid-thought. Long
+# enough to cover drawing a breath while assembling the rest of a sentence,
+# short enough that being wrong is barely perceptible.
+#
+# Owned here rather than in each call manager on purpose: this module is the
+# single source of truth for turn-taking policy, and the phone path and the
+# browser-demo path drifting apart on it is not hypothetical -- the grace
+# period shipped on the demo path alone for some time, so the call path real
+# patients use was the only one that would cut a thinking caller off.
+INCOMPLETE_UTTERANCE_GRACE_SECONDS = 0.7
+
 # Words that essentially cannot end a finished sentence -- if the caller
 # stopped here, they are mid-thought and still assembling the rest.
 _TRAILING_INCOMPLETE_WORDS = frozenset(

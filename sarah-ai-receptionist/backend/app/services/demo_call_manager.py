@@ -28,7 +28,7 @@ from app.services.ai_brain import ActionCommand, AIBrain
 from app.services.barge_in import is_real_interruption
 from app.services.speech_to_text import SpeechToText
 from app.services.text_to_speech import SynthesisFailed, TextToSpeech
-from app.services.turn_detection import looks_incomplete
+from app.services.turn_detection import INCOMPLETE_UTTERANCE_GRACE_SECONDS, looks_incomplete
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,6 @@ _DEMO_STT_SAMPLE_RATE = 16000
 # Raw PCM playback needs no client-side MP3/Opus decoder -- the browser just
 # feeds the bytes straight into an AudioBuffer.
 _DEMO_TTS_OUTPUT_FORMAT = "pcm_16000"
-
-# Extra wait when the caller's words look mid-thought (see turn_detection.py).
-# Long enough to cover drawing a breath while assembling the rest of a
-# sentence, short enough that being wrong is barely perceptible.
-_INCOMPLETE_UTTERANCE_GRACE_SECONDS = 0.7
 
 # Synthesized greeting audio, keyed by the exact greeting text. Process-local
 # and unbounded only in theory -- the key space is the set of distinct demo
@@ -151,7 +146,7 @@ class DemoCallManager:
         if self._turn_task and not self._turn_task.done():
             self._turn_task.cancel()
             await self._safe_await(self._turn_task)
-        delay = _INCOMPLETE_UTTERANCE_GRACE_SECONDS if looks_incomplete(self._pending_utterance) else 0.0
+        delay = INCOMPLETE_UTTERANCE_GRACE_SECONDS if looks_incomplete(self._pending_utterance) else 0.0
         self._turn_task = asyncio.create_task(self._respond_after(websocket, delay))
 
     async def _respond_after(self, websocket: WebSocket, delay: float) -> None:

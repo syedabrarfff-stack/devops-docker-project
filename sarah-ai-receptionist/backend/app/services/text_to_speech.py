@@ -71,7 +71,19 @@ class TextToSpeech:
                 "style": 0.3,
                 "use_speaker_boost": True,
             },
-            "optimize_streaming_latency": 4,
+            # 3, not 4. ElevenLabs' level 4 is "max optimizations AND the text
+            # normalizer turned off" -- and with the normalizer off the model
+            # reads raw text, which their own docs warn mispronounces numbers
+            # and dates. For a receptionist those are the highest-stakes words
+            # in the entire call: appointment times ("2:30"), dates, phone
+            # numbers read back for confirmation, prices. A caller hearing
+            # "two three zero" instead of "two thirty" on the one sentence
+            # they need to get right reads as broken, not as fast.
+            #
+            # 3 is still the maximum latency optimization; it only gives back
+            # the normalizer pass, which costs milliseconds on a one- or
+            # two-sentence utterance. Correct times are worth that.
+            "optimize_streaming_latency": 3,
         }
         headers = {
             "xi-api-key": self.settings.elevenlabs_api_key,
