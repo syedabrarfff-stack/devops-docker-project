@@ -30,6 +30,14 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
     jwt_secret_key        = "REPLACE_ME"
     stripe_secret_key     = "REPLACE_ME"
     stripe_webhook_secret = "REPLACE_ME"
+    # The Stripe Price ID a new clinic's subscription attaches to
+    # (billing_service.py). Without it, billing_service creates a Stripe
+    # Customer only -- nothing ever charges, and clinics onboard as free
+    # forever with no error. Must be a Price object created in the Stripe
+    # Dashboard in the currency/amount the deployment actually bills in
+    # (SAR for the Saudi go-to-market -- see DEFAULT_CURRENCY in
+    # billing_service.py) before this stops being REPLACE_ME.
+    stripe_price_id = "REPLACE_ME"
     # Browser "Call Sarah" widget (Twilio Voice SDK). Separate API Key/Secret
     # pair + TwiML App SID -- not the main twilio_auth_token above -- so a
     # leaked widget token can't touch the rest of the Twilio account. Leave
