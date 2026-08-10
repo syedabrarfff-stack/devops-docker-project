@@ -115,3 +115,24 @@ variable "alarm_email" {
   description = "Email address that receives CloudWatch alarm notifications (ALB 5xx, unhealthy targets, ECS task loss, RDS CPU/storage/memory)"
   type        = string
 }
+
+variable "twilio_paused" {
+  type    = bool
+  default = true
+
+  description = <<-DESC
+    Phone product on/off. Defaults to true (paused) because there is currently
+    no Twilio subscription: with a lapsed account the stored credentials are
+    dead, so leaving the product "on" means every booking confirmation and
+    every inbound call spends a network round-trip to be rejected, and the
+    logs fill with 401s that look exactly like a real outage.
+
+    Paused affects telephony only -- inbound calls, SMS, and number purchase
+    during onboarding. The browser demo, dashboard, bookings, auth and billing
+    do not touch Twilio and are unaffected.
+
+    Set to false once the subscription is active. The Twilio credentials in
+    Secrets Manager are left untouched by pausing, so re-enabling is this flag
+    alone.
+  DESC
+}

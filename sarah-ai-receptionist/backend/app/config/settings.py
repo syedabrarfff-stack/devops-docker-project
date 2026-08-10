@@ -19,10 +19,38 @@ class Settings(BaseSettings):
     ai_model_fast: str = "anthropic/claude-haiku-4-5-20251001"
     ai_model_summary: str = "google/gemini-flash-1.5"
 
-    # Twilio
-    twilio_account_sid: str
-    twilio_auth_token: str
-    twilio_phone_number: str
+    # Twilio — PAUSED. No active subscription, so the platform must boot and
+    # run correctly with none of these set. They are deliberately optional
+    # rather than deleted: the phone product is coming back, and every code
+    # path that uses them is still here and still tested. Setting the three
+    # values below is the whole of turning it back on.
+    #
+    # Optional, not required-with-a-dummy-default: a required field means the
+    # container will not start at all without a Twilio credential, which is
+    # exactly the failure this pause has to avoid. Empty string is the honest
+    # "not configured" value, and `twilio_enabled` is what code branches on --
+    # never a truthiness check on an individual field, so a half-filled
+    # config can't read as enabled.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
+
+    # Explicit kill switch, independent of whether credentials happen to be
+    # present. Needed because "pause the phone product" and "delete the
+    # credentials" are not the same operation: the credentials live in Secrets
+    # Manager, and emptying them there is a privileged, easy-to-fumble change
+    # that also destroys the values needed to switch the product back on.
+    #
+    # With a lapsed subscription the stored credentials are dead anyway, so
+    # without this the platform would keep making Twilio API calls that fail
+    # with 401 on every booking confirmation and every inbound call -- noisy,
+    # slow (each one a network round-trip and retry), and indistinguishable in
+    # the logs from a real outage. This turns that into a clean, intentional
+    # "off".
+    #
+    # Set TWILIO_PAUSED=false to bring the phone product back; the credentials
+    # never had to move.
+    twilio_paused: bool = False
 
     # Twilio Voice SDK (browser "Call Sarah" widget). Separate from the main
     # auth token: the Voice SDK issues short-lived client access tokens
@@ -129,6 +157,26 @@ class Settings(BaseSettings):
     # Data retention (HIPAA/GDPR) — days a call transcript/recording is kept
     # before it's redacted. Override per clinic-contract requirements.
     call_transcript_retention_days: int = 365
+
+    @property
+    def twilio_enabled(self) -> bool:
+        """Whether the phone product is switched on.
+
+        Both halves of the credential are required: an account SID with no
+        auth token cannot sign or validate anything, and treating that as
+        "enabled" would send inbound-call webhooks into signature validation
+        that rejects every request -- a silently dead phone line rather than
+        a clearly disabled one.
+
+        The clinic-facing consequence of this being False is narrow and
+        deliberate: no inbound phone calls, no SMS confirmations or
+        reminders, no number purchase during onboarding. Everything else --
+        the browser demo, the dashboard, bookings, auth, billing -- is
+        untouched, because none of it goes through Twilio.
+        """
+        if self.twilio_paused:
+            return False
+        return bool(self.twilio_account_sid and self.twilio_auth_token)
 
     @property
     def is_production(self) -> bool:

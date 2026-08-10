@@ -66,6 +66,10 @@ locals {
     # sarah. and never reaches from app. on /auth/refresh, breaking silent
     # refresh and forcing a re-login every 15 minutes.
     { name = "REFRESH_COOKIE_DOMAIN", value = ".${var.root_domain}" },
+    # Phone product on/off. Plain env var, not a secret, because it carries no
+    # credential -- and because pausing must not require rewriting the Twilio
+    # secret, which is what you need intact to switch the product back on.
+    { name = "TWILIO_PAUSED", value = tostring(var.twilio_paused) },
   ]
 
   common_secrets = [

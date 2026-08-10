@@ -12,6 +12,24 @@ from app.services.twilio_client import get_twilio_client
 logger = logging.getLogger(__name__)
 
 
+def _sms_unavailable(kind: str, to_phone: str) -> bool:
+    """Whether SMS is switched off rather than broken.
+
+    Every send below already returns False on failure, so a paused Twilio was
+    never going to crash anything -- but it would log an ERROR per attempted
+    message for what is a deliberate configuration state. That buries a real
+    Twilio outage in expected noise and makes the logs read like the platform
+    is failing when it is doing exactly what it was told.
+
+    Checked before the send rather than caught after it so no Twilio API call
+    is attempted at all.
+    """
+    if get_settings().twilio_enabled:
+        return False
+    logger.info(f"SMS ({kind}) not sent to {redact_phone(to_phone)}: Twilio is paused.")
+    return True
+
+
 def _resolve_from_number(clinic_number: str | None) -> str:
     """The number an SMS should appear to come from.
 
@@ -34,6 +52,8 @@ async def send_appointment_confirmation(
     to_phone: str, clinic_name: str, service: str, when: str, from_number: str | None = None
 ) -> bool:
     if not to_phone:
+        return False
+    if _sms_unavailable("confirmation", to_phone):
         return False
     body = (
         f"{clinic_name}: You're confirmed for {service} on {when}. "
@@ -59,6 +79,8 @@ async def send_appointment_change(
     """Confirm a reschedule or cancellation by SMS, the same way a booking is
     confirmed — so the caller has it in writing, not just a spoken 'done'."""
     if not to_phone:
+        return False
+    if _sms_unavailable("change", to_phone):
         return False
     if kind == "rescheduled":
         body = f"{clinic_name}: your {service} has been moved to {when}. See you then."
@@ -95,6 +117,8 @@ async def send_urgent_escalation(
     """
     if not to_phone:
         return False
+    if _sms_unavailable("urgent escalation", to_phone):
+        return False
     body = (
         f"{clinic_name} — urgent call needs a callback.\n"
         f"Caller: {caller_phone or 'number withheld'}\n"
@@ -119,6 +143,8 @@ async def send_appointment_reminder(
     to_phone: str, clinic_name: str, service: str, when: str, from_number: str | None = None
 ) -> bool:
     if not to_phone:
+        return False
+    if _sms_unavailable("reminder", to_phone):
         return False
     body = f"Reminder from {clinic_name}: your {service} appointment is coming up on {when}."
     try:
