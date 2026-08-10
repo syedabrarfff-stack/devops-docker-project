@@ -8,7 +8,14 @@ class Settings(BaseSettings):
 
     # OpenRouter / AI
     openrouter_api_key: str
-    ai_model: str = "anthropic/claude-sonnet-4-6"
+    # Verified against OpenRouter's live model catalog (api/v1/models), not
+    # assumed: "anthropic/claude-sonnet-4-6" does not appear in it at all --
+    # the model this app was requesting on every single conversational turn
+    # had already fallen off OpenRouter's current lineup. claude-sonnet-5 is
+    # confirmed present and is the current top-tier Sonnet -- both the more
+    # capable and (as a current-generation model) typically the faster of
+    # the two, not a speed/intelligence tradeoff between them.
+    ai_model: str = "anthropic/claude-sonnet-5"
     ai_model_fast: str = "anthropic/claude-haiku-4-5-20251001"
     ai_model_summary: str = "google/gemini-flash-1.5"
 
