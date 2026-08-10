@@ -97,6 +97,7 @@ async def send_reminders(ctx):
                 appointment.service_type,
                 # Stored as UTC — the patient must be told their own local time.
                 format_for_caller(appointment.appointment_datetime, clinic.timezone),
+                from_number=clinic.twilio_phone_number,
             )
             if sent:
                 appointment.reminder_sent = True
