@@ -38,3 +38,16 @@ def test_providers_with_specialty_render_the_specialty_so_sarah_can_match_compla
 def test_no_providers_key_does_not_crash_or_mention_dentists():
     prompt = build_system_prompt(_base_config())
     assert "Dentists on staff" not in prompt
+
+
+def test_prompt_explicitly_forbids_diagnosis_and_medication_advice():
+    """A healthcare-adjacent receptionist that never explicitly draws this
+    line can drift into answering "is this an infection?" or "should I take
+    ibuprofen?" as if general dentistry knowledge covers a specific caller's
+    symptoms -- it doesn't, and doing so is medical advice. This pins the
+    boundary's presence in every generated prompt, not just the default
+    clinic's, since build_system_prompt is what every real clinic renders."""
+    prompt = " ".join(build_system_prompt(_base_config()).split())
+    assert "Never diagnose a condition" in prompt
+    assert "never tell a caller what medication or dosage to take" in prompt
+    assert "medical advice" in prompt
