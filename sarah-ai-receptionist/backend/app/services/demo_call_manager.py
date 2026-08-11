@@ -165,14 +165,45 @@ class DemoCallManager:
         await self._safe_await(self._speak_task)
 
     async def _stream_ai_response(self, websocket: WebSocket, caller_text: str) -> None:
-        async for kind, value in self.ai_brain.stream_response(caller_text):
-            if not self.is_active:
-                return
-            if kind == "sentence":
-                await _send_json(websocket, {"type": "transcript", "role": "sarah", "text": value})
-                await self._speak(websocket, value)
-            elif kind == "action" and value is not None:
-                await self._handle_action(websocket, value)
+        """Reads the AI's token stream and speaks each sentence concurrently,
+        not alternately -- see call_manager.py's _stream_ai_response for why
+        this queue exists. Same fix, same reasoning: this is the demo a
+        prospect evaluates Sarah on, so it cannot be the one place the
+        "she's slow" bug survives."""
+        queue: asyncio.Queue[tuple[str, ActionCommand | None] | None] = asyncio.Queue(maxsize=1)
+
+        async def _produce() -> None:
+            try:
+                async for kind, value in self.ai_brain.stream_response(caller_text):
+                    if kind == "sentence":
+                        await queue.put(("sentence", value))
+                    elif kind == "action" and value is not None:
+                        await queue.put(("action", value))
+            finally:
+                await queue.put(None)
+
+        producer = asyncio.create_task(_produce())
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                if not self.is_active:
+                    return
+                kind, value = item
+                if kind == "sentence":
+                    await _send_json(websocket, {"type": "transcript", "role": "sarah", "text": value})
+                    await self._speak(websocket, value)
+                elif kind == "action":
+                    await self._handle_action(websocket, value)
+            await producer
+        except asyncio.CancelledError:
+            producer.cancel()
+            await self._safe_await(producer)
+            raise
+        finally:
+            if not producer.done():
+                producer.cancel()
 
     async def _speak_greeting(self, websocket: WebSocket, text: str) -> None:
         """Speak the greeting, reusing cached audio after the first call.
