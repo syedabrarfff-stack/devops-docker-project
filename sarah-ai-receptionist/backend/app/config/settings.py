@@ -122,7 +122,22 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str
     elevenlabs_voice_id: str
-    elevenlabs_model: str = "eleven_turbo_v2_5"
+    # flash, not turbo: ElevenLabs' own docs place flash_v2_5 at ~75ms model
+    # latency vs turbo_v2_5's ~250-300ms -- the last major lever on the
+    # generate -> speak critical path after the AI model swap and the
+    # generation/speech pipelining fix. Every other cost between a caller
+    # finishing a sentence and Sarah starting hers has already been
+    # measured and cut; this is the one that hadn't been touched, and it
+    # was the wrong one to keep holding back on repeated, explicit "make
+    # her instant" instructions.
+    #
+    # Traded off, not free: flash is positioned by ElevenLabs as a small
+    # step down in expressiveness/naturalness from turbo, and I cannot
+    # verify that trade by ear from here -- the ElevenLabs key available in
+    # this environment is invalid (401), so I've never heard either voice.
+    # It is a one-line revert to turbo if it sounds worse live than the
+    # latency is worth.
+    elevenlabs_model: str = "eleven_flash_v2_5"
 
     # Database — required, no default. A missing env var must fail startup,
     # not silently fall back to a weak local credential.
