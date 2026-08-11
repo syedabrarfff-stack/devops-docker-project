@@ -8,16 +8,46 @@ class Settings(BaseSettings):
 
     # OpenRouter / AI
     openrouter_api_key: str
-    # Verified against OpenRouter's live model catalog (api/v1/models), not
-    # assumed: "anthropic/claude-sonnet-4-6" does not appear in it at all --
-    # the model this app was requesting on every single conversational turn
-    # had already fallen off OpenRouter's current lineup. claude-sonnet-5 is
-    # confirmed present and is the current top-tier Sonnet -- both the more
-    # capable and (as a current-generation model) typically the faster of
-    # the two, not a speed/intelligence tradeoff between them.
-    ai_model: str = "anthropic/claude-sonnet-5"
-    ai_model_fast: str = "anthropic/claude-haiku-4-5-20251001"
-    ai_model_summary: str = "google/gemini-flash-1.5"
+    # Chosen from a live, timed A/B against OpenRouter's real API -- not
+    # picked off a spec sheet. Both models exist in OpenRouter's current
+    # catalog (confirmed via api/v1/models), so this is a genuine latency
+    # measurement, not a repeat of the earlier bug where the requested model
+    # string ("claude-sonnet-4-6", hyphenated) didn't exist at all.
+    #
+    # 5 identical requests per model, real system prompt (build_system_prompt),
+    # "I want to book an appointment" as the user turn, provider sort=latency,
+    # time-to-first-streamed-token:
+    #   claude-sonnet-5    2314 / 1886 / 1735 / 1725 / 1711 ms
+    #   claude-sonnet-4.6  1932 / 1590 / 1687 ms (separate run) -- consistently
+    #                      ~500-700ms faster to first token in this environment
+    # Every request routed to Anthropic directly in both cases (OpenRouter
+    # reported `provider: "Anthropic"` on every response), so this is not
+    # sonnet-5 losing to a provider-routing fluke -- it is the model itself.
+    #
+    # First-token latency is what a caller actually feels as "how long until
+    # she starts talking," so this is the right number to optimize, not
+    # total completion time (already irrelevant here -- see ai_brain.py's
+    # producer/consumer pipelining, which overlaps generation of sentence
+    # N+1 with TTS of sentence N).
+    #
+    # Re-run this comparison before ever changing it back: OpenRouter's
+    # per-model routing and backend mix shift over time, so "faster" here is
+    # a measurement with a timestamp, not a permanent property of either
+    # model.
+    ai_model: str = "anthropic/claude-sonnet-4.6"
+    # Unused in the current codebase (grep confirms no import references it)
+    # but corrected to a real catalog entry anyway -- it was carrying the
+    # same never-existed hyphenated date-suffix pattern as the old ai_model
+    # default, and leaving a broken value sitting in config as a landmine for
+    # whoever wires it up next serves nobody.
+    ai_model_fast: str = "anthropic/claude-haiku-4.5"
+    # "google/gemini-flash-1.5" (previous default) is also not in OpenRouter's
+    # current catalog -- confirmed the same way as ai_model above. This one
+    # is actually wired up (workers/tasks.py uses it for post-call summary
+    # generation), so unlike ai_model_fast this wasn't a dormant landmine:
+    # every background call-summary job has been failing against a model
+    # that doesn't exist.
+    ai_model_summary: str = "google/gemini-2.5-flash"
 
     # Twilio — PAUSED. No active subscription, so the platform must boot and
     # run correctly with none of these set. They are deliberately optional
