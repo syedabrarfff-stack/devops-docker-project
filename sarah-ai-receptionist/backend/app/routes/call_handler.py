@@ -7,7 +7,6 @@ import json
 import logging
 from xml.sax.saxutils import escape as xml_escape
 
-import redis.asyncio as redis_lib
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -15,6 +14,7 @@ from twilio.request_validator import RequestValidator
 
 from app.config.settings import get_settings
 from app.core.database import get_db_context
+from app.core.redis import get_redis_client
 from app.models.clinic import Clinic
 from app.services.call_manager import CallManager
 from app.services.call_recorder import save_call_transcript
@@ -35,8 +35,8 @@ CONSENT_DISCLOSURE = (
 _PENDING_CALL_TTL_SECONDS = 120
 
 
-def _redis() -> redis_lib.Redis:
-    return redis_lib.from_url(settings.redis_url)
+def _redis():
+    return get_redis_client()
 
 
 async def _mark_call_validated(call_sid: str, caller_phone: str | None = None) -> None:
@@ -309,25 +309,40 @@ async def _run_call(call_manager: CallManager, websocket: WebSocket):
 
 
 async def _load_clinic_config(twilio_number: str | None) -> dict | None:
+    """Look up the calling clinic. Returns None both when no clinic matches
+    AND when the database itself is unreachable -- CallManager/AIBrain
+    already treat None as "fall back to the default sample clinic," a path
+    that's exercised (and safe) for the "no clinic found" case today.
+
+    Without the try/except, a database outage raised straight out of this
+    function, uncaught, all the way through the WebSocket handler -- killing
+    the call outright (dead air, then a hangup) rather than degrading to a
+    generic greeting. A caller getting a less personalized Sarah is a much
+    better outcome than a caller getting nobody.
+    """
     if not twilio_number:
         return None
-    async with get_db_context() as db:
-        result = await db.execute(select(Clinic).where(Clinic.twilio_phone_number == twilio_number))
-        clinic = result.scalar_one_or_none()
-        if not clinic:
-            logger.warning(f"No clinic found for Twilio number {twilio_number}")
-            return None
-        config = dict(clinic.clinic_config or {})
-        config["name"] = clinic.name
-        config["sarah_name"] = clinic.sarah_name
-        config["_clinic_id"] = clinic.id
-        # Booking and SMS confirmation both resolve caller-spoken times against
-        # this — without it they'd fall back to UTC and be hours off.
-        config["_timezone"] = clinic.timezone
-        # Escalation routing. Prefixed with _ like the other internal fields so
-        # they're never interpolated into the AI system prompt.
-        config["_transfer_phone_number"] = clinic.transfer_phone_number
-        config["_after_hours_escalation_number"] = clinic.after_hours_escalation_number
-        config["_business_hours"] = clinic.business_hours
-        config["_twilio_phone_number"] = clinic.twilio_phone_number
-        return config
+    try:
+        async with get_db_context() as db:
+            result = await db.execute(select(Clinic).where(Clinic.twilio_phone_number == twilio_number))
+            clinic = result.scalar_one_or_none()
+            if not clinic:
+                logger.warning(f"No clinic found for Twilio number {twilio_number}")
+                return None
+            config = dict(clinic.clinic_config or {})
+            config["name"] = clinic.name
+            config["sarah_name"] = clinic.sarah_name
+            config["_clinic_id"] = clinic.id
+            # Booking and SMS confirmation both resolve caller-spoken times against
+            # this — without it they'd fall back to UTC and be hours off.
+            config["_timezone"] = clinic.timezone
+            # Escalation routing. Prefixed with _ like the other internal fields so
+            # they're never interpolated into the AI system prompt.
+            config["_transfer_phone_number"] = clinic.transfer_phone_number
+            config["_after_hours_escalation_number"] = clinic.after_hours_escalation_number
+            config["_business_hours"] = clinic.business_hours
+            config["_twilio_phone_number"] = clinic.twilio_phone_number
+            return config
+    except Exception as e:
+        logger.error(f"Clinic lookup failed for {twilio_number} (database unavailable?): {e}")
+        return None
