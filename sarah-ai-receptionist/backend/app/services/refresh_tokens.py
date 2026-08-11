@@ -21,9 +21,8 @@ import logging
 import secrets
 from typing import Optional
 
-import redis.asyncio as redis_lib
-
 from app.config.settings import get_settings
+from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ async def issue_refresh_token(user_id: str) -> str:
     plaintext (only time it's ever readable)."""
     settings = get_settings()
     token = secrets.token_urlsafe(48)  # ~64 chars, 384 bits of entropy
-    r = redis_lib.from_url(settings.redis_url)
+    r = get_redis_client()
     try:
         await r.set(
             _key(token),
@@ -67,8 +66,7 @@ async def consume_refresh_token(token: str) -> Optional[str]:
     """
     if not token:
         return None
-    settings = get_settings()
-    r = redis_lib.from_url(settings.redis_url)
+    r = get_redis_client()
     try:
         pipe = r.pipeline()
         await pipe.get(_key(token))
@@ -87,8 +85,7 @@ async def revoke_refresh_token(token: str) -> None:
     """Idempotent revoke -- deletes the key whether it exists or not."""
     if not token:
         return
-    settings = get_settings()
-    r = redis_lib.from_url(settings.redis_url)
+    r = get_redis_client()
     try:
         await r.delete(_key(token))
     finally:

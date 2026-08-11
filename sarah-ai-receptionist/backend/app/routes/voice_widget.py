@@ -23,7 +23,6 @@ import uuid
 from collections import defaultdict
 from xml.sax.saxutils import escape as xml_escape
 
-import redis.asyncio as redis_lib
 from fastapi import APIRouter, HTTPException, Request, WebSocket
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -33,6 +32,7 @@ from twilio.jwt.access_token.grants import VoiceGrant
 
 from app.config.settings import get_settings
 from app.core.database import get_db_context
+from app.core.redis import get_redis_client
 from app.models.clinic import Clinic
 from app.routes.call_handler import (
     CONSENT_DISCLOSURE,
@@ -61,7 +61,7 @@ async def _check_widget_rate_limit(client_ip: str) -> None:
     guards against a scripted flood driving up call minutes -- separate from
     (and stricter than) Sarah's own login rate limit, since this endpoint
     has no auth at all."""
-    r = redis_lib.from_url(settings.redis_url)
+    r = get_redis_client()
     try:
         key = f"voice-widget:token-attempts:{client_ip}"
         attempts = await r.incr(key)

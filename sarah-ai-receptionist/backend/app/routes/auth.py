@@ -1,4 +1,3 @@
-import redis.asyncio as redis_lib
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
@@ -6,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import get_settings
 from app.core.database import get_db
+from app.core.redis import get_redis_client
 from app.core.security import create_access_token, get_current_user, verify_password
 from app.models.user import User
 from app.services.refresh_tokens import (
@@ -30,7 +30,7 @@ _DUMMY_HASH = "$2b$12$2/f.sDv9fZqEogfcEWIZY.nTamxBuXJxrUSzzrBFBSFnkZNw/HvHa"
 
 
 async def _check_login_rate_limit(key: str) -> None:
-    r = redis_lib.from_url(settings.redis_url)
+    r = get_redis_client()
     try:
         attempts = await r.incr(f"login:attempts:{key}")
         if attempts == 1:
