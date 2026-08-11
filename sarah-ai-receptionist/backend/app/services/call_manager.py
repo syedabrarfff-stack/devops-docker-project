@@ -265,28 +265,72 @@ class CallManager:
         await self._safe_await(self._speak_task)
 
     async def _stream_ai_response(self, caller_text: str | None):
-        """Streams sentence chunks from the AI brain straight into TTS, tracking latency.
+        """Streams sentence chunks from the AI brain into TTS, tracking latency.
 
         caller_text=None continues from existing history (used after a lookup
         injects a system note) rather than adding a new caller turn.
+
+        Reading OpenRouter's token stream and speaking a sentence run
+        concurrently, on separate tasks joined by a one-slot queue -- they do
+        NOT alternate. Awaiting `_speak_sentence` directly inside the `async for`
+        (the previous shape) pauses the SSE read for as long as ElevenLabs
+        takes to synthesize and Twilio takes to receive that sentence's audio,
+        so sentence 2 cannot even start generating until sentence 1 has
+        finished being spoken. For any reply longer than one sentence --
+        Sarah's style guide asks for 1-3 -- those two costs stack per
+        sentence instead of overlapping, and it reads as her getting slower
+        the more she has to say.
         """
         t0 = time.monotonic()
         first_token_ms = None
         spoken_parts: list[str] = []
         action: ActionCommand | None = None
 
+        # maxsize=1: the producer may generate at most one sentence beyond
+        # what is currently being spoken. That is exactly enough to keep the
+        # pipeline full (sentence N+1 is ready the moment sentence N finishes)
+        # without letting the model race arbitrarily far ahead and burn
+        # tokens on a reply a barge-in is about to throw away.
+        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=1)
+
+        async def _produce() -> None:
+            nonlocal first_token_ms, action
+            try:
+                async for kind, payload in self.ai_brain.stream_response(caller_text):
+                    if kind == "sentence":
+                        if first_token_ms is None:
+                            first_token_ms = (time.monotonic() - t0) * 1000
+                        spoken_parts.append(payload)
+                        await queue.put(payload)
+                    elif kind == "action":
+                        action = payload
+            finally:
+                # Always signals end-of-stream, including on an exception --
+                # otherwise the consumer's queue.get() blocks forever on an
+                # item that will never arrive, since the producer task is
+                # already done. ai_brain.stream_response catches its own
+                # errors and yields a spoken fallback rather than raising, so
+                # this is a defensive backstop, not the expected path.
+                await queue.put(None)
+
+        producer = asyncio.create_task(_produce())
         try:
-            async for kind, payload in self.ai_brain.stream_response(caller_text):
-                if kind == "sentence":
-                    if first_token_ms is None:
-                        first_token_ms = (time.monotonic() - t0) * 1000
-                    spoken_parts.append(payload)
-                    await self._speak_sentence(payload)
-                elif kind == "action":
-                    action = payload
+            while True:
+                sentence = await queue.get()
+                if sentence is None:
+                    break
+                await self._speak_sentence(sentence)
+            await producer  # re-raise anything _produce() actually raised
         except asyncio.CancelledError:
+            # Barge-in cancelled this task while we were mid-loop. The
+            # producer must be cancelled too, or OpenRouter keeps streaming
+            # (and getting billed) a response nobody will ever hear.
+            producer.cancel()
+            await self._safe_await(producer)
             raise
         finally:
+            if not producer.done():
+                producer.cancel()
             elapsed_ms = (time.monotonic() - t0) * 1000
             self._latencies_ms.append(elapsed_ms)
 
