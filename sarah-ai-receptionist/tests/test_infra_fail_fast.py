@@ -30,7 +30,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app.core import database as database_module
-from app.core.redis import CONNECT_TIMEOUT_SECONDS, get_redis_client
+from app.core.redis import CONNECT_TIMEOUT_SECONDS, get_redis_client, get_request_scoped_arq_settings
 
 
 def test_the_database_engine_will_not_wait_asyncpgs_60_second_default():
@@ -93,4 +93,61 @@ def test_call_setup_uses_the_bounded_client_not_a_bare_from_url():
     assert "get_redis_client()" in source
     assert "redis_lib.from_url" not in source, (
         "call_handler.py still constructs an unbounded redis client directly"
+    )
+
+
+def test_arqs_own_default_retries_are_the_dominant_remaining_gap():
+    """Confirmed against the actually-installed arq package (not assumed):
+    RedisSettings defaults to conn_timeout=1, conn_retries=5,
+    conn_retry_delay=1 -- up to ~9 seconds of retrying against a genuinely
+    unreachable Redis before create_pool() gives up. This is a SEPARATE
+    connection path from get_redis_client() (arq wraps redis-py with its own
+    pool construction), which is exactly why /readyz's Redis check stayed
+    slow even after every redis.asyncio.from_url() call site elsewhere in
+    the app was fixed -- and why get_request_scoped_arq_settings() has to
+    exist as its own thing rather than being folded into get_redis_client().
+    """
+    from arq.connections import RedisSettings
+
+    defaults = RedisSettings()
+    assert defaults.conn_retries == 5, (
+        "arq's default retry count changed -- re-check whether "
+        "get_request_scoped_arq_settings() is still needed and re-time /readyz"
+    )
+
+
+def test_request_scoped_arq_settings_do_not_retry():
+    """The fix: a request-path arq pool (health check, post-call enqueue)
+    gets one attempt, not five. Retrying five times makes sense for the
+    long-running worker process riding out a transient blip over its whole
+    lifetime (see worker.py, deliberately untouched) -- it makes no sense
+    for a single request that has already decided to give up everywhere
+    else in this app after one failed attempt."""
+    redis_settings = get_request_scoped_arq_settings()
+    assert redis_settings.conn_retries == 1
+    assert redis_settings.conn_timeout == int(CONNECT_TIMEOUT_SECONDS)
+
+
+def test_readyz_and_the_post_call_summary_enqueue_both_use_it():
+    """Pins that both request-path arq call sites were actually migrated,
+    not just that the bounded settings exist unused somewhere -- the same
+    gap this whole file exists to close previously slipped through on
+    get_redis_client() until it was checked call-site by call-site."""
+    import inspect
+
+    from app import main as main_module
+    from app.services import call_recorder
+
+    main_source = inspect.getsource(main_module)
+    recorder_source = inspect.getsource(call_recorder)
+
+    assert "get_request_scoped_arq_settings" in main_source
+    assert "get_request_scoped_arq_settings" in recorder_source
+    assert "RedisSettings.from_dsn" not in main_source, (
+        "main.py's /readyz still builds arq's RedisSettings directly, "
+        "bypassing the bounded retry count"
+    )
+    assert "RedisSettings.from_dsn" not in recorder_source, (
+        "call_recorder.py's summary enqueue still builds arq's RedisSettings "
+        "directly, bypassing the bounded retry count"
     )

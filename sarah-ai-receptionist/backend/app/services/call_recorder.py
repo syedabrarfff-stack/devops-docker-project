@@ -6,12 +6,12 @@ import logging
 from datetime import datetime, timezone
 
 from arq import create_pool
-from arq.connections import RedisSettings
 from sqlalchemy import update
 
 from app.config.settings import get_settings
 from app.core.clinic_time import format_for_caller
 from app.core.database import get_db_context
+from app.core.redis import get_request_scoped_arq_settings
 from app.models.appointment import Appointment
 from app.models.call_log import CallLog
 from app.services.appointment_service import (
@@ -172,8 +172,14 @@ async def _send_change_confirmations(
 
 
 async def _enqueue_summary(call_log_id: str) -> None:
+    """Fires after the caller has already hung up (see save_call_transcript's
+    call site), so this isn't in front of anything the caller hears -- but a
+    slow-to-fail Redis here still delays closing out the call cleanly, and
+    arq's own retry defaults (~9s worst case against an unreachable Redis)
+    are exactly the wrong shape for a fire-and-forget enqueue that either
+    works now or should give up and let the outer except log it."""
     try:
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        redis = await create_pool(get_request_scoped_arq_settings())
         await redis.enqueue_job("summarize_call", call_log_id)
         await redis.close()
     except Exception as e:
