@@ -16,10 +16,14 @@ didn't fail fast there -- it silently added several seconds to every single
 call, indistinguishable from Sarah just being slow.
 """
 
+from typing import TYPE_CHECKING
+
 import redis.asyncio as redis_lib
-from arq.connections import RedisSettings
 
 from app.config.settings import get_settings
+
+if TYPE_CHECKING:
+    from arq.connections import RedisSettings
 
 # Deliberately short: every call site here talks to an in-VPC ElastiCache
 # node, not a service across the public internet. A healthy Redis answers a
@@ -38,7 +42,7 @@ def get_redis_client() -> redis_lib.Redis:
     )
 
 
-def get_request_scoped_arq_settings() -> RedisSettings:
+def get_request_scoped_arq_settings() -> "RedisSettings":
     """RedisSettings for a request-path arq pool -- /readyz's own check and
     call_recorder.py's post-call summary enqueue, NOT the long-running worker
     process (see worker.py, deliberately untouched below).
@@ -57,7 +61,18 @@ def get_request_scoped_arq_settings() -> RedisSettings:
     conn_retries=1 (not 0): arq's RedisSettings doesn't treat 0 as "no
     retries" cleanly in every version, so 1 is the safe way to say "try
     once, don't keep going."
+
+    Import is deliberately local, not at module top: this module is on the
+    long-running worker process's own mandatory startup import chain
+    (worker.py -> tasks.py -> notification_service.py -> here), and that
+    process's ECS container health check is a bare `python -c "import
+    app.workers.worker"` -- any new top-level import added here becomes a
+    new way for that specific health check to fail. This function is the
+    only thing in this module that needs arq at all; nothing about the
+    worker's own startup should depend on it.
     """
+    from arq.connections import RedisSettings
+
     settings = get_settings()
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     redis_settings.conn_timeout = int(CONNECT_TIMEOUT_SECONDS)
