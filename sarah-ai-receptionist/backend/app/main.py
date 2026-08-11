@@ -90,9 +90,14 @@ async def readyz():
 
     try:
         from arq import create_pool
-        from arq.connections import RedisSettings
 
-        redis = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        from app.core.redis import get_request_scoped_arq_settings
+
+        # arq's own default (conn_retries=5, ~1s apart) means create_pool()
+        # against a genuinely unreachable Redis takes up to ~9s to give up --
+        # exactly wrong for a readiness probe, which needs the fastest
+        # possible truthful answer, not the most persistent one.
+        redis = await create_pool(get_request_scoped_arq_settings())
         await redis.ping()
         await redis.close()
         checks["redis"] = True
