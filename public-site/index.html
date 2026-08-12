@@ -443,6 +443,18 @@
       .rv { opacity: 1; transform: none; }
     }
   </style>
+  <!-- HubSpot tracking. Portal 246113715. The loader is async and can take a
+       moment to actually execute -- queuing onto window._hsq (HubSpot's own
+       documented pattern) rather than calling _hsq.push directly means every
+       event below is captured even if it fires before the loader finishes,
+       instead of silently doing nothing. When a visitor arrives by clicking
+       a link inside a HubSpot marketing email, HubSpot ties this page's
+       activity back to that contact automatically -- nothing else to wire
+       for that part. -->
+  <script>
+    var _hsq = window._hsq = window._hsq || [];
+  </script>
+  <script type="text/javascript" id="hs-script-loader" async defer src="//js.hs-scripts.com/246113715.js"></script>
 </head>
 <body>
 
@@ -1175,6 +1187,17 @@
 
         setState("in-call");
         setStatus("Connected — say hello.");
+
+        // Recorded as a virtual pageview (not a custom behavioral event,
+        // which needs a paid HubSpot tier and per-event setup in the
+        // portal) -- this shows up on the visitor's own timeline the same
+        // way any page view does, works on every HubSpot plan, and needs
+        // no extra HubSpot-side configuration. Fired here, not on the
+        // button click, because this is the moment the mic is live and
+        // Sarah can actually hear them -- a click that fails before this
+        // (denied mic permission, connection error) isn't real engagement.
+        _hsq.push(["setPath", "/demo/sarah-started"]);
+        _hsq.push(["trackPageView"]);
       };
 
       ws.onmessage = function (event) {
