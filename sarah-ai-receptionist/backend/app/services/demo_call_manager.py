@@ -26,9 +26,15 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from app.services.ai_brain import ActionCommand, AIBrain
 from app.services.barge_in import is_real_interruption
+from app.services.hubspot_service import upsert_lead_from_call
 from app.services.speech_to_text import SpeechToText
 from app.services.text_to_speech import SynthesisFailed, TextToSpeech
 from app.services.turn_detection import INCOMPLETE_UTTERANCE_GRACE_SECONDS, looks_incomplete
+
+# Actions worth logging to HubSpot as a lead -- a caller who gave Sarah a
+# phone number for one of these is worth following up with even though the
+# demo itself never touches a real clinic's booking data.
+_LEAD_WORTHY_ACTIONS = frozenset({"BOOK", "RESCHEDULE", "CANCEL"})
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +85,13 @@ class DemoCallManager:
         # A turn waiting out the grace period, plus the text it will answer.
         self._turn_task: asyncio.Task | None = None
         self._pending_utterance: str = ""
+        # HubSpot lead-capture calls, fired in the background so a slow or
+        # down CRM never delays Sarah's next turn. Held here only so the
+        # task objects aren't garbage-collected mid-flight (a real asyncio
+        # gotcha for a task nothing else references) -- never awaited or
+        # cancelled, since a lead write finishing after the caller hangs up
+        # is still a lead worth having.
+        self._background_tasks: list[asyncio.Task] = []
 
     async def run(self, websocket: WebSocket) -> None:
         await self.stt.connect()
@@ -282,10 +295,27 @@ class DemoCallManager:
         """Demo mode never actually books/transfers/ends for real -- we just
         surface what the action *would have been*, which is the proof point
         (the AI genuinely decided to book, with real extracted details) that
-        matters for a sales demo, without writing to any real clinic's data."""
+        matters for a sales demo, without writing to any real clinic's
+        appointment data.
+
+        The one deliberate exception: a caller who gave Sarah a phone number
+        during a BOOK/RESCHEDULE/CANCEL is a real sales lead regardless of
+        whether the demo clinic is real, so that (and only that) gets
+        written to HubSpot when configured."""
         await _send_json(
             websocket, {"type": "action", "action": action.action, "params": action.params}
         )
+        if action.action in _LEAD_WORTHY_ACTIONS:
+            task = asyncio.create_task(
+                upsert_lead_from_call(
+                    phone=action.params.get("phone"),
+                    name=action.params.get("name"),
+                    clinic_name=self.clinic_config.get("name", "the demo practice"),
+                    action=action.action,
+                    params=action.params,
+                )
+            )
+            self._background_tasks.append(task)
         if action.action == "END":
             self.is_active = False
 

@@ -18,6 +18,7 @@ from app.core.database import get_db_context
 from app.services.ai_brain import ActionCommand, AIBrain
 from app.services.barge_in import is_real_interruption, send_clear_event
 from app.services.call_recorder import upload_recording_to_s3
+from app.services.hubspot_service import upsert_lead_from_call
 from app.services.patient_lookup import lookup_patient_context
 from app.services.speech_to_text import SpeechToText, TranscriptEvent
 from app.services.text_to_speech import SynthesisFailed, TextToSpeech, audio_to_twilio_payload
@@ -110,6 +111,12 @@ class CallManager:
         # duplex would multiplex two timestamped tracks; this captures full
         # audio content, which is what compliance/QA review actually needs.)
         self._recorded_audio: list[bytes] = []
+        # HubSpot lead-capture calls, fired in the background so a slow or
+        # down CRM never delays Sarah's next turn. Held here only so the
+        # task objects aren't garbage-collected mid-flight -- never awaited
+        # or cancelled, since a lead write finishing after the caller hangs
+        # up is still a lead worth having.
+        self._background_tasks: list[asyncio.Task] = []
 
     async def start(self, twilio_ws):
         self.twilio_ws = twilio_ws
@@ -346,6 +353,22 @@ class CallManager:
             # action standing at call end.
             if action.action in _FULFILLMENT_ACTIONS:
                 self.fulfillment_actions.append(action)
+                # Real callers are real leads regardless of whether Sarah
+                # already recognized them as an existing patient -- HubSpot
+                # is a sales/marketing view, not a clinical record, so a
+                # returning patient rescheduling is still worth a note.
+                # caller_phone (from Twilio) backstops action.params in case
+                # the model didn't echo the phone back in this specific tag.
+                task = asyncio.create_task(
+                    upsert_lead_from_call(
+                        phone=action.params.get("phone") or self.caller_phone,
+                        name=action.params.get("name"),
+                        clinic_name=self.ai_brain.clinic_config.get("name", "the clinic"),
+                        action=action.action,
+                        params=action.params,
+                    )
+                )
+                self._background_tasks.append(task)
             if action.action == "TRANSFER":
                 await self._handle_transfer()
 
