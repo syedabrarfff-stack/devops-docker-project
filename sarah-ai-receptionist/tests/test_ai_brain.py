@@ -7,6 +7,7 @@ from app.services.ai_brain import (
     _CLAUSE_BOUNDARY,
     _FIRST_FLUSH_MIN_CHARS,
     _SENTENCE_BOUNDARY,
+    AIBrain,
     _extract_action,
     _strip_action_tags,
     parse_action_params,
@@ -155,3 +156,58 @@ def test_real_sentence_boundaries_still_split():
         "See you then!",
     ]
     assert _split_sentences("Is 3pm okay? I can do 4pm.") == ["Is 3pm okay?", "I can do 4pm."]
+
+
+def _brain_with_history(turns: list[dict]) -> AIBrain:
+    brain = AIBrain.__new__(AIBrain)
+    brain.conversation_history = list(turns)
+    return brain
+
+
+def test_a_single_turn_has_nothing_to_cache_yet():
+    """No prior turn exists to mark as a cache breakpoint -- only the system
+    prompt's own cache_control (set elsewhere) applies on the very first
+    request of a call."""
+    brain = _brain_with_history([{"role": "user", "content": "I want to book an appointment"}])
+    messages = brain._build_messages()
+    assert messages == [{"role": "user", "content": "I want to book an appointment"}]
+
+
+def test_the_newest_turn_stays_uncached_but_everything_before_it_is_marked():
+    """The regression this exists for: every turn's growing history was
+    reprocessed as fresh tokens because nothing past the system prompt was
+    ever marked cacheable. The newest user turn is new by definition on
+    every request, so caching it would never hit -- only the prefix before
+    it should carry the breakpoint."""
+    brain = _brain_with_history(
+        [
+            {"role": "user", "content": "I want to book an appointment"},
+            {"role": "assistant", "content": "Sure, what service?"},
+            {"role": "user", "content": "A cleaning please"},
+        ]
+    )
+    messages = brain._build_messages()
+
+    assert messages[-1] == {"role": "user", "content": "A cleaning please"}
+    cached = messages[-2]
+    assert cached["role"] == "assistant"
+    assert cached["content"] == [
+        {"type": "text", "text": "Sure, what service?", "cache_control": {"type": "ephemeral"}}
+    ]
+
+
+def test_building_messages_never_mutates_the_stored_history():
+    """conversation_history itself must stay plain strings -- every other
+    reader of it (inject_system_note, the >40-message trim, tests) expects
+    that shape. The cache breakpoint is a property of the outgoing request,
+    not of the stored conversation."""
+    original = [
+        {"role": "user", "content": "I want to book an appointment"},
+        {"role": "assistant", "content": "Sure, what service?"},
+        {"role": "user", "content": "A cleaning please"},
+    ]
+    brain = _brain_with_history(original)
+    brain._build_messages()
+
+    assert brain.conversation_history == original
+    assert all(isinstance(m["content"], str) for m in brain.conversation_history)

@@ -123,7 +123,7 @@ async def test_greeting_is_spoken_before_anything_else():
 
     await manager.run(ws)
 
-    assert tts.synthesized[0].startswith("Hi! I'm Sarah")
+    assert tts.synthesized[0].startswith("Assalamu Alaykum. This is Sarah")
 
 
 @pytest.mark.asyncio
