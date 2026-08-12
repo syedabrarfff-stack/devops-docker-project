@@ -203,6 +203,18 @@ class Settings(BaseSettings):
     # before it's redacted. Override per clinic-contract requirements.
     call_transcript_retention_days: int = 365
 
+    # HubSpot — a Private App access token (Settings -> Integrations ->
+    # Private Apps in HubSpot, crm.objects.contacts.write scope), not an
+    # OAuth app. Optional like Stripe/Twilio: a caller talking to the demo
+    # and never giving a name or phone has nothing HubSpot can index a
+    # contact on, and the rest of the product must not depend on a CRM
+    # being configured.
+    hubspot_access_token: str = ""
+
+    @property
+    def hubspot_enabled(self) -> bool:
+        return bool(self.hubspot_access_token)
+
     @property
     def twilio_enabled(self) -> bool:
         """Whether the phone product is switched on.
