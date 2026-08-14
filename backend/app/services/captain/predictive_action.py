@@ -4,6 +4,7 @@ Revenue triggers, war room briefings, action priority scoring.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -62,12 +63,17 @@ Return ONLY a valid JSON array with exactly 5 objects, each with:
 Priority 1 = most urgent. Sort by priority ascending."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
-                max_tokens=1000,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=1000,
+                ),
+                timeout=60.0,
             )
-            parsed = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, list):
                 return parsed[:5]
         except Exception as exc:
@@ -136,12 +142,17 @@ Return ONLY valid JSON:
 confidence must be float 0.0–1.0."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
-                max_tokens=500,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=500,
+                ),
+                timeout=60.0,
             )
-            parsed = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, dict):
                 return parsed
         except Exception as exc:
@@ -187,12 +198,17 @@ Return ONLY valid JSON:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.STRATEGY,
-                max_tokens=900,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=900,
+                ),
+                timeout=60.0,
             )
-            parsed = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            parsed = _parse_json_response(response.content or "")
             if isinstance(parsed, dict):
                 parsed["generated_at"] = datetime.now(UTC).isoformat()
                 parsed["tenant_id"] = str(tenant_uuid)

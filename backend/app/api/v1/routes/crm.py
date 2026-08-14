@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from uuid import UUID
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.crm import service as crm
 
-router = APIRouter(prefix="/crm", tags=["CRM"])
+router = APIRouter(prefix="/crm", tags=["CRM"], dependencies=[Depends(get_current_captain)])
 
 
 class ContactIn(BaseModel):
@@ -67,9 +70,17 @@ class DealUpdate(BaseModel):
 # ── Contacts ────────────────────────────────────────────────────────────────
 
 @router.post("/contacts")
-async def create_contact(body: ContactIn, db: AsyncSession = Depends(get_db)):
-    contact = await crm.create_contact(db, body.model_dump(exclude_none=True))
-    await db.commit()
+@limiter.limit("20/minute")
+async def create_contact(request: Request, body: ContactIn, db: AsyncSession = Depends(get_db)):
+    try:
+        contact = await crm.create_contact(db, body.model_dump(exclude_none=True))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Contact with this email already exists")
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail="Database error") from exc
     return {"id": contact.id, "name": contact.name, "email": contact.email}
 
 
@@ -87,14 +98,17 @@ async def list_contacts(
 
 
 @router.patch("/contacts/{contact_id}")
+@limiter.limit("30/minute")
 async def update_contact(contact_id: int, request: Request, body: ContactUpdate, db: AsyncSession = Depends(get_db)):
     resolved = _resolve_crm_tenant_id(request, None)
-    contact = await crm.update_contact(db, contact_id, body.model_dump(exclude_none=True))
+    contact = await crm.update_contact(db, contact_id, body.model_dump(exclude_none=True), tenant_id=resolved)
     if not contact:
         raise HTTPException(404, "Contact not found")
-    if contact.tenant_id != resolved:
-        raise HTTPException(404, "Contact not found")
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Update conflicts with existing record")
     return {"id": contact.id, "status": contact.status}
 
 
@@ -106,9 +120,17 @@ async def contact_stats(db: AsyncSession = Depends(get_db)):
 # ── Companies ────────────────────────────────────────────────────────────────
 
 @router.post("/companies")
-async def create_company(body: CompanyIn, db: AsyncSession = Depends(get_db)):
-    company = await crm.create_company(db, body.model_dump(exclude_none=True))
-    await db.commit()
+@limiter.limit("20/minute")
+async def create_company(request: Request, body: CompanyIn, db: AsyncSession = Depends(get_db)):
+    try:
+        company = await crm.create_company(db, body.model_dump(exclude_none=True))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Company already exists")
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail="Database error") from exc
     return {"id": company.id, "name": company.name}
 
 
@@ -127,9 +149,17 @@ async def list_companies(
 # ── Deals ────────────────────────────────────────────────────────────────────
 
 @router.post("/deals")
-async def create_deal(body: DealIn, db: AsyncSession = Depends(get_db)):
-    deal = await crm.create_deal(db, body.model_dump(exclude_none=True))
-    await db.commit()
+@limiter.limit("20/minute")
+async def create_deal(request: Request, body: DealIn, db: AsyncSession = Depends(get_db)):
+    try:
+        deal = await crm.create_deal(db, body.model_dump(exclude_none=True))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Deal already exists")
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail="Database error") from exc
     return {"id": deal.id, "title": deal.title, "stage": deal.stage}
 
 
@@ -147,14 +177,17 @@ async def list_deals(
 
 
 @router.patch("/deals/{deal_id}")
+@limiter.limit("30/minute")
 async def update_deal(deal_id: int, request: Request, body: DealUpdate, db: AsyncSession = Depends(get_db)):
     resolved = _resolve_crm_tenant_id(request, None)
-    deal = await crm.update_deal(db, deal_id, body.model_dump(exclude_none=True))
+    deal = await crm.update_deal(db, deal_id, body.model_dump(exclude_none=True), tenant_id=resolved)
     if not deal:
         raise HTTPException(404, "Deal not found")
-    if deal.tenant_id != resolved:
-        raise HTTPException(404, "Deal not found")
-    await db.commit()
+    try:
+        await db.commit()
+    except SQLAlchemyError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=503, detail="Database error") from exc
     return {"id": deal.id, "stage": deal.stage, "value": deal.value}
 
 
@@ -212,7 +245,8 @@ async def get_relationship_graph(
 
 
 @router.post("/relationship-graph/node")
-async def add_relationship_node(body: RelationshipNodeIn, request: Request):
+@limiter.limit("20/minute")
+async def add_relationship_node(request: Request, body: RelationshipNodeIn):
     """Add or update a node in the relationship graph."""
     from app.services.crm.relationship_graph import relationship_graph
 
@@ -224,7 +258,8 @@ async def add_relationship_node(body: RelationshipNodeIn, request: Request):
 
 
 @router.post("/relationship-graph/edge")
-async def add_relationship_edge(body: RelationshipEdgeIn, request: Request):
+@limiter.limit("20/minute")
+async def add_relationship_edge(request: Request, body: RelationshipEdgeIn):
     """Add a relationship edge between two nodes."""
     from app.services.crm.relationship_graph import relationship_graph
 
@@ -259,7 +294,8 @@ class HubSpotSyncRequest(BaseModel):
 
 
 @router.post("/hubspot-sync")
-async def sync_to_hubspot(body: HubSpotSyncRequest, request: Request):
+@limiter.limit("5/minute")
+async def sync_to_hubspot(request: Request, body: HubSpotSyncRequest):
     """Push qualified JARVIS leads to HubSpot CRM as contacts and deals."""
     from app.services.integrations.hubspot_sync import hubspot_sync
 
@@ -273,7 +309,8 @@ async def sync_to_hubspot(body: HubSpotSyncRequest, request: Request):
 
 
 @router.post("/hubspot-sync/{lead_id}")
-async def sync_single_lead_to_hubspot(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
+@limiter.limit("10/minute")
+async def sync_single_lead_to_hubspot(request: Request, lead_id: UUID, tenant_id: Optional[UUID] = None):
     """Push one specific lead to HubSpot immediately."""
     from app.services.integrations.hubspot_sync import hubspot_sync
 

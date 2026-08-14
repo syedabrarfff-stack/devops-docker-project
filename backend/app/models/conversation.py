@@ -1,10 +1,13 @@
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON
+from sqlalchemy import Column, Index, String, Text, DateTime, Integer, JSON
 from sqlalchemy.sql import func
 from app.models.base import JarvisBase as Base
 
 
 class Conversation(Base):
     __tablename__ = "conversations"
+    __table_args__ = (
+        Index("ix_conversations_tenant_session_id", "tenant_id", "session_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), index=True)

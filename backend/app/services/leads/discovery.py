@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import uuid
@@ -106,14 +107,17 @@ class LeadDiscoveryEngine:
             f"no tech team. Lead: {lead_data}. Return only a number 0-100."
         )
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.RESEARCH,
-                force_provider="google",
-                max_tokens=32,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.RESEARCH,
+                    force_provider="google",
+                    max_tokens=32,
+                ),
+                timeout=30.0,
             )
             if not response.demo and not response.error:
-                parsed = _parse_score(response.content)
+                parsed = _parse_score(response.content or "")
                 if parsed is not None:
                     return parsed
         except Exception as exc:
@@ -137,7 +141,11 @@ class LeadDiscoveryEngine:
                 return []
 
         fetch_tasks = [_fetch_one(nt, ot) for nt, ot in normalized_targets]
-        results_by_target = await _asyncio.gather(*fetch_tasks, return_exceptions=False)
+        raw_target_results = await _asyncio.gather(*fetch_tasks, return_exceptions=True)
+        for _v in raw_target_results:
+            if isinstance(_v, BaseException):
+                logger.warning("Discovery fetch task raised: %s", _v)
+        results_by_target = [v if isinstance(v, list) else [] for v in raw_target_results]
 
         # Phase 2: flatten and dedupe before DB writes
         all_records: list[tuple[dict, dict]] = []

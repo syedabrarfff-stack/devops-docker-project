@@ -6,7 +6,8 @@ import {
   Brain, Shield, Layers, Inbox, FileText, Receipt, Database,
   Search, BriefcaseBusiness, Volume2, BookOpen, Microscope, Settings, Building2,
   DollarSign, Cpu, MessageCircle, Network, MonitorDot, Crosshair,
-  TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle,
+  TrendingUp, HeartPulse, PiggyBank, GraduationCap, UserMinus, Castle, Ghost,
+  Radio, Infinity, Scale,
 } from 'lucide-react'
 import useJarvisStore from '../../store/useJarvisStore'
 
@@ -55,6 +56,12 @@ const NAV = [
   { id: 'learningEngine',   path: '/control-room/learning-engine',   label: 'Learning Engine',   icon: GraduationCap },
   { id: 'founderDependency', path: '/control-room/founder-dependency', label: 'Founder Dependency', icon: UserMinus },
   { id: 'moatEngine',       path: '/control-room/moat-engine',       label: 'Competitive Moat',  icon: Castle },
+  { id: 'omega',            path: '/control-room/omega',             label: 'OMEGA Swarm',       icon: Zap },
+  { id: 'ghost',            path: '/control-room/ghost',             label: 'GHOST Writer',      icon: Ghost },
+  { id: 'autopilot',        path: '/control-room/autopilot',         label: 'AUTOPILOT',         icon: Cpu },
+  { id: 'signal',           path: '/control-room/signal',            label: 'SIGNAL',            icon: Radio },
+  { id: 'nexus',            path: '/control-room/nexus',             label: 'NEXUS Core',        icon: Infinity },
+  { id: 'supreme',         path: '/control-room/supreme',           label: 'Supreme Intel',     icon: Scale },
   { id: 'settings',       path: '/control-room/settings', label: 'Settings',      icon: Settings },
 ]
 

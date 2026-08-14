@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getResilienceStatus, getActiveIncidents, getPlaybooks, triggerIncident } from '../../services/api'
 
 const SEVERITY_COLORS = { critical: 'bg-rose-500/20 text-rose-400 border-rose-500/30', high: 'bg-amber-500/20 text-amber-400 border-amber-500/30', medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30', low: 'bg-gray-500/20 text-gray-400 border-gray-500/30' }
 const INCIDENT_TYPES = ['aws_outage','db_outage','ai_provider_outage','ses_outage','stripe_outage','redis_outage','dns_outage','security_incident','client_churn','captain_unavailable']
@@ -18,9 +19,9 @@ export default function ResilienceEngine() {
     setLoading(true)
     try {
       const [s, a, p] = await Promise.all([
-        fetch('/api/v1/resilience/status', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/resilience/active', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/resilience/playbooks', { credentials: 'include' }).then(r => r.json()),
+        getResilienceStatus(),
+        getActiveIncidents(),
+        getPlaybooks(),
       ])
       setStatus(s); setActive(Array.isArray(a) ? a : []); setPlaybooks(p || {})
     } catch (e) { setError(e.message) }
@@ -29,15 +30,10 @@ export default function ResilienceEngine() {
 
   useEffect(() => { load() }, [])
 
-  const triggerIncident = async () => {
+  const handleTriggerIncident = async () => {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/v1/resilience/incident', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ incident_type: incidentType, details: {} }),
-      })
-      const data = await res.json()
+      const data = await triggerIncident({ incident_type: incidentType, details: {} })
       setMsg(`Incident triggered: ${data.playbook} (${data.severity})`)
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }
@@ -127,7 +123,7 @@ export default function ResilienceEngine() {
           <select className="flex-1 bg-white/10 border border-white/20 rounded-lg p-2 text-white text-sm" value={incidentType} onChange={e => setIncidentType(e.target.value)}>
             {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
           </select>
-          <button onClick={triggerIncident} disabled={submitting} className="bg-rose-600 hover:bg-rose-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">{submitting ? '...' : 'Trigger'}</button>
+          <button onClick={handleTriggerIncident} disabled={submitting} className="bg-rose-600 hover:bg-rose-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50">{submitting ? '...' : 'Trigger'}</button>
           <button onClick={load} className="bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2 rounded-lg">Refresh</button>
         </div>
       </div>

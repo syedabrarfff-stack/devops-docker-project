@@ -82,7 +82,7 @@ def _parse_agent_response(content: str, agent_name: str) -> dict[str, Any]:
     """Parse JSON from AI response, fall back gracefully."""
     try:
         # Try to extract JSON block
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -116,12 +116,17 @@ async def _run_agent(
     )
 
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=agent_config["task_type"],
-            system_prompt=agent_config["system"],
-            max_tokens=800,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=agent_config["task_type"],
+                system_prompt=agent_config["system"],
+                max_tokens=800,
+            ),
+            timeout=60.0,
         )
+        if response.error:
+            raise ValueError(response.error)
         parsed = _parse_agent_response(response.content, agent_name)
         parsed["agent"] = agent_name
         return parsed
@@ -217,7 +222,11 @@ class ExpertCouncilEngine:
             _run_agent(name, AGENTS[name], question, context)
             for name in agent_names
         ]
-        agent_responses = await asyncio.gather(*tasks, return_exceptions=False)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Expert council agent raised: %s", _v)
+        agent_responses = [v for v in raw if isinstance(v, dict)]
 
         consensus = _synthesize_council(list(agent_responses))
 
@@ -245,7 +254,11 @@ class ExpertCouncilEngine:
             _run_agent(name, AGENTS[name], question, None)
             for name in quick_agents
         ]
-        agent_responses = await asyncio.gather(*tasks, return_exceptions=False)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        for _v in raw:
+            if isinstance(_v, BaseException):
+                logger.warning("Expert council quick agent raised: %s", _v)
+        agent_responses = [v for v in raw if isinstance(v, dict)]
 
         consensus = _synthesize_council(list(agent_responses))
 

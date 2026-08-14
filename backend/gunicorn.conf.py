@@ -34,3 +34,13 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s %(D)sus'
 
 # ── Process naming ────────────────────────────────────────────────────────────
 proc_name = "jarvis"
+
+
+# ── Scheduler isolation ───────────────────────────────────────────────────────
+# APScheduler is NOT safe to run in multiple gunicorn workers against the same
+# database — it would execute every job N times (once per worker).  Mark workers
+# beyond the first so the FastAPI lifespan can skip starting the scheduler there.
+def post_fork(server, worker):
+    import os
+    if worker.age > 0:
+        os.environ["JARVIS_SCHEDULER_DISABLED"] = "1"

@@ -66,10 +66,10 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY_J: Optional[str] = None
     ELEVENLABS_API_KEY: Optional[str] = None
     ELEVENLABS_VOICE_ID: str = "onwK4e9ZLuTAKqWW03F9"  # Daniel — British male
-    CLAUDE_BUDGET_TOTAL_USD: float = 5.0
+    CLAUDE_BUDGET_TOTAL_USD: float = 50.0
     CLAUDE_BUDGET_WINDOW_DAYS: int = 14
     CLAUDE_RESERVE_RATIO: float = 0.20
-    CLAUDE_SINGLE_CALL_MAX_USD: float = 0.20
+    CLAUDE_SINGLE_CALL_MAX_USD: float = 1.00
 
     # Lead discovery
     GOOGLE_MAPS_API_KEY: Optional[str] = None
@@ -181,12 +181,18 @@ class Settings(BaseSettings):
                     "SECRET_KEY is the insecure default — all JWTs are compromised. "
                     "Set a strong random value in .env or AWS Secrets Manager."
                 )
+            elif len(self.SECRET_KEY) < 32:
+                errors.append(
+                    f"SECRET_KEY is too short ({len(self.SECRET_KEY)} chars) — "
+                    "HS256 requires at least 32 characters (256 bits). "
+                    "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                )
             if self.CAPTAIN_PASSWORD in ("CHANGE_ME_IN_ENV", "change_me", "", None):
                 errors.append(
                     "CAPTAIN_PASSWORD is the insecure default — "
                     "Set a strong password in .env or AWS Secrets Manager."
                 )
-            if "jarvis_pass" in self.DATABASE_URL:
+            if any(p in self.DATABASE_URL for p in ("jarvis_pass", "jarvis_secret", "CHANGE_ME", "password")):
                 errors.append(
                     "DATABASE_URL contains the default development password — "
                     "Set a strong password in .env or AWS Secrets Manager."

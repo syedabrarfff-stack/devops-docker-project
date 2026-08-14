@@ -146,16 +146,20 @@ async def run_convergence_session(
     session.session_phase = "POSITION"
     positions: list[dict[str, Any]] = []
     try:
-        position_synthesis = await route_task(
-            task_type=TaskType.STRATEGY,
-            prompt=(
-                f"Grand Convergence Council — Trigger: {session.trigger_event}\n"
-                f"Type: {session.trigger_type}\n"
-                f"Historical patterns loaded: {len(session.context_loaded.get('historical_patterns', []))}\n\n"
-                "Each council member states their position on this trigger event. "
-                "Format: [Member]: Position | Confidence | Evidence"
+        import asyncio as _asyncio
+        position_synthesis = await _asyncio.wait_for(
+            route_task(
+                task_type=TaskType.STRATEGY,
+                prompt=(
+                    f"Grand Convergence Council — Trigger: {session.trigger_event}\n"
+                    f"Type: {session.trigger_type}\n"
+                    f"Historical patterns loaded: {len(session.context_loaded.get('historical_patterns', []))}\n\n"
+                    "Each council member states their position on this trigger event. "
+                    "Format: [Member]: Position | Confidence | Evidence"
+                ),
+                max_tokens=1200,
             ),
-            max_tokens=1200,
+            timeout=15.0,
         )
         await add_message(
             db, session_id,
@@ -165,7 +169,7 @@ async def run_convergence_session(
             confidence=0.7,
         )
         positions.append({"synthesis": position_synthesis})
-    except Exception as exc:
+    except (_asyncio.TimeoutError, Exception) as exc:
         logger.warning("Council: position synthesis failed: %s", exc)
         positions.append({"synthesis": "SYNTHESIS_UNAVAILABLE"})
 
@@ -189,7 +193,12 @@ async def run_convergence_session(
         from app.models.aionx_organs import ClientDigitalTwin
         from app.services.aionx.client_trust_index import compute_trust_score
 
-        twins = (await db.execute(select(ClientDigitalTwin).limit(500))).scalars().all()
+        from app.core.config import settings as _cfg
+        _tq = select(ClientDigitalTwin).limit(500)
+        if _cfg.JARVIS_DEFAULT_TENANT_ID:
+            import uuid as _uuid
+            _tq = _tq.where(ClientDigitalTwin.tenant_id == _uuid.UUID(str(_cfg.JARVIS_DEFAULT_TENANT_ID)))
+        twins = (await db.execute(_tq)).scalars().all()
         if twins:
             avg_trust = sum(t.trust_score or 70 for t in twins) / len(twins)
             trust_context = f"\nAverage client trust: {avg_trust:.0f}/100"
@@ -197,21 +206,24 @@ async def run_convergence_session(
         logger.debug("Client trust context unavailable for council session: %s", exc)
 
     try:
-        recommendation = await route_task(
-            task_type=TaskType.REASONING,
-            prompt=(
-                f"Convergence Council Final Recommendation for: {session.trigger_event}\n"
-                f"Council positions: {positions}\n"
-                f"Context: Debt=${context_data.get('institutional_debt', 'unknown')} "
-                f"Accuracy={(context_data.get('counterfactual_accuracy', 0)*100):.0f}%{trust_context}\n\n"
-                "Produce a single clear recommendation. Preserve all dissenting opinions separately. "
-                "Consider debt, accuracy, and trust factors in decision quality. "
-                "Format: RECOMMENDATION | DISSENT | CONFIDENCE | NEXT_ACTION"
+        recommendation = await _asyncio.wait_for(
+            route_task(
+                task_type=TaskType.REASONING,
+                prompt=(
+                    f"Convergence Council Final Recommendation for: {session.trigger_event}\n"
+                    f"Council positions: {positions}\n"
+                    f"Context: Debt=${context_data.get('institutional_debt', 'unknown')} "
+                    f"Accuracy={(context_data.get('counterfactual_accuracy', 0)*100):.0f}%{trust_context}\n\n"
+                    "Produce a single clear recommendation. Preserve all dissenting opinions separately. "
+                    "Consider debt, accuracy, and trust factors in decision quality. "
+                    "Format: RECOMMENDATION | DISSENT | CONFIDENCE | NEXT_ACTION"
+                ),
+                max_tokens=800,
             ),
-            max_tokens=800,
+            timeout=15.0,
         )
         session.recommendation = recommendation
-    except Exception as exc:
+    except (Exception, _asyncio.TimeoutError) as exc:
         logger.warning("Council: final recommendation generation failed: %s", exc)
         session.recommendation = "RECOMMENDATION_DEFERRED"
 
@@ -229,6 +241,7 @@ async def get_live_session_feed(
         select(ConvergenceCouncilMessage)
         .where(ConvergenceCouncilMessage.session_id == session_id)
         .order_by(ConvergenceCouncilMessage.created_at.asc())
+        .limit(500)
     )
     messages = result.scalars().all()
     return [

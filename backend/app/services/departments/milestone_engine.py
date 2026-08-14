@@ -11,6 +11,7 @@ For every milestone a DIO submits:
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -419,13 +420,19 @@ Return only valid JSON, no markdown.
 Analysis: {reasoning[:2000]}"""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
-            items = json.loads(response.content.strip())
+            if response.error:
+                raise ValueError(response.error)
+            items = json.loads((response.content or "").strip())
             return items if isinstance(items, list) else [str(reasoning[:200])]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Milestone recommendation extraction failed: %s", exc)
             return [reasoning[:200]]
 
     def _count_by_status(self, milestones: list) -> dict:

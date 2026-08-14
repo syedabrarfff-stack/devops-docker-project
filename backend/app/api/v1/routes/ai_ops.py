@@ -3,9 +3,11 @@ AI Operations API — provider health, circuit breakers, cost tracking, credenti
 """
 import time
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.ai.base_provider import Message
 from app.services.ai.router import ai_router as jarvis_router
 from app.services.ai.health_monitor import health_monitor
@@ -15,11 +17,12 @@ from app.services.ai.cost_tracker import (
 )
 from app.services.security.credential_validator import run_credential_audit
 
-router = APIRouter(prefix="/ai-ops", tags=["AI Operations"])
+router = APIRouter(prefix="/ai-ops", tags=["AI Operations"], dependencies=[Depends(get_current_captain)])
 
 
 @router.get("/health")
-async def provider_health():
+@limiter.limit("30/minute")
+async def provider_health(request: Request):
     """Circuit breaker state + latency stats for all AI providers."""
     statuses = health_monitor.all_status()
     if not statuses:
@@ -42,7 +45,8 @@ async def provider_health():
 
 
 @router.get("/test-bedrock")
-async def test_bedrock():
+@limiter.limit("5/minute")
+async def test_bedrock(request: Request):
     """Invoke Bedrock directly so configured vs. genuinely callable is clear."""
     provider = jarvis_router._providers.get("bedrock")
     if provider is None:
@@ -87,32 +91,37 @@ async def test_bedrock():
         "status": "ok",
         "model_id": model_id,
         "latency_ms": latency_ms,
-        "response": response.content[:500],
+        "response": (response.content or "")[:500],
         "tokens_used": response.tokens_used,
     }
 
 
 @router.post("/health/{provider}/reset")
-async def reset_circuit(provider: str):
+@limiter.limit("10/minute")
+async def reset_circuit(request: Request, provider: str):
     """Captain override — manually reset a provider's circuit breaker."""
     health_monitor.reset(provider)
     return {"message": f"Circuit breaker for '{provider}' reset by Captain", "provider": provider}
 
 
 @router.get("/cost/today")
-async def cost_today(db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def cost_today(request: Request, db: AsyncSession = Depends(get_db)):
     """Today's AI spend breakdown by provider with surge alert."""
     return await get_daily_cost(db)
 
 
 @router.get("/cost/summary")
-async def cost_summary(days: int = Query(7, ge=1, le=30), db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def cost_summary(request: Request, days: int = Query(7, ge=1, le=30), db: AsyncSession = Depends(get_db)):
     """Rolling N-day cost summary with daily breakdown."""
     return await get_cost_summary(db, days)
 
 
 @router.get("/audit")
+@limiter.limit("20/minute")
 async def request_audit(
+    request: Request,
     limit: int = Query(50, ge=1, le=500),
     provider: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
@@ -123,13 +132,15 @@ async def request_audit(
 
 
 @router.get("/credentials")
-async def credential_audit():
+@limiter.limit("10/minute")
+async def credential_audit(request: Request):
     """Startup credential audit — which API keys are configured vs. missing."""
     return run_credential_audit()
 
 
 @router.get("/routing-table")
-async def routing_table():
+@limiter.limit("30/minute")
+async def routing_table(request: Request):
     """Current task-type → provider routing table with health overlay."""
     from app.services.ai.router import ROUTING_TABLE
     table = {}
@@ -148,7 +159,8 @@ async def routing_table():
 
 
 @router.get("/governance")
-async def ai_governance():
+@limiter.limit("20/minute")
+async def ai_governance(request: Request):
     """Cost governance status for premium model usage."""
     return {
         "claude": await claude_governance_status(),
@@ -162,7 +174,8 @@ async def ai_governance():
 
 
 @router.get("/pulse")
-async def ai_ops_pulse(db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def ai_ops_pulse(request: Request, db: AsyncSession = Depends(get_db)):
     """One-stop summary: provider health + today's cost + credential status."""
     credentials = run_credential_audit()
     cost = await get_daily_cost(db)

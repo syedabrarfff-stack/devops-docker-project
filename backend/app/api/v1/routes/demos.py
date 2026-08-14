@@ -4,13 +4,15 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.demo import DemoPackage
 from app.services.demos.builder import demo_builder
 
@@ -27,7 +29,8 @@ class DemoGenerateRequest(BaseModel):
     tenant_id: Optional[UUID] = None
 
 
-@router.post("/generate")
+@router.post("/generate", dependencies=[Depends(get_current_captain)])
+@limiter.limit("5/minute")
 async def generate_demo(body: DemoGenerateRequest, request: Request, bg: BackgroundTasks):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     demo = await demo_builder.generate(
@@ -44,6 +47,7 @@ async def generate_demo(body: DemoGenerateRequest, request: Request, bg: Backgro
 
 
 @router.get("/{lead_id}")
+@limiter.limit("30/minute")
 async def get_demo_for_lead(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     demo = await _find_demo(resolved_tenant_id, lead_id)
@@ -53,6 +57,7 @@ async def get_demo_for_lead(lead_id: UUID, request: Request, tenant_id: Optional
 
 
 @router.get("/{lead_id}/pdf")
+@limiter.limit("30/minute")
 async def get_demo_pdf(lead_id: UUID, request: Request, tenant_id: Optional[UUID] = None):
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
     demo = await _find_demo(resolved_tenant_id, lead_id)

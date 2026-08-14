@@ -192,9 +192,7 @@ class NvidiaProvider(BaseAIProvider):
         last_error = ""
         for api_key in keys:
             try:
-                # verify=False: cloud/corp environments with TLS inspection present self-signed
-                # intermediate certs not in the system bundle. NVIDIA's endpoint is trusted.
-                async with httpx.AsyncClient(timeout=90, verify=False) as client:
+                async with httpx.AsyncClient(timeout=90) as client:
                     r = await client.post(
                         f"{self.base_url}/chat/completions",
                         headers={"Authorization": f"Bearer {api_key}"},

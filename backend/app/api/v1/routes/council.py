@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from fastapi.responses import StreamingResponse
 from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 from app.services.ai.council import intelligence_council
 
-router = APIRouter(prefix="/council", tags=["AI Council"])
+router = APIRouter(prefix="/council", tags=["AI Council"], dependencies=[Depends(get_current_captain)])
 
 
 class CouncilConveneRequest(BaseModel):
@@ -33,6 +37,64 @@ async def convene_council(request: Request, body: CouncilConveneRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return result.model_dump()
+
+
+@router.post("/stream")
+@limiter.limit("20/minute")
+async def convene_council_stream(request: Request, body: CouncilConveneRequest):
+    """
+    SSE streaming council endpoint. Fires all council members in parallel and
+    streams each vote back as it arrives, then delivers the final result.
+
+    Stream protocol:
+      data: {"type":"start","total":8}
+      data: {"type":"vote","vote":{...},"done":1,"total":8}
+      ...
+      data: {"type":"result","decision":"APPROVE","score":82,...}
+      data: {"type":"done"}
+    """
+    tenant_id = _resolve_tenant_id(request, body.tenant_id)
+
+    async def generate():
+        queue: asyncio.Queue[dict | None] = asyncio.Queue()
+        total = 8  # COUNCIL_MEMBERS count — sent immediately for progress bar
+
+        yield "data: " + json.dumps({"type": "start", "total": total}) + "\n\n"
+
+        async def on_vote(vote: dict, done: int, total_count: int) -> None:
+            await queue.put({"type": "vote", "vote": vote, "done": done, "total": total_count})
+
+        async def run_convene() -> None:
+            try:
+                result = await intelligence_council.convene_streaming(
+                    question=body.question,
+                    context=body.context,
+                    council_type=body.council_type,
+                    tenant_id=tenant_id,
+                    on_vote=on_vote,
+                )
+                await queue.put({"type": "result", **result.model_dump()})
+            except Exception as exc:
+                await queue.put({"type": "error", "message": str(exc)})
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(run_convene())
+
+        while True:
+            event = await queue.get()
+            if event is None:
+                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                break
+            yield "data: " + json.dumps(event, default=str) + "\n\n"
+
+        await task
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/sessions")

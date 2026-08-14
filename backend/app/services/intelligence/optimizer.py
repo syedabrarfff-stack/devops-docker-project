@@ -2,6 +2,7 @@
 JARVIS Self-Optimization Engine — analyzes live operational metrics and generates
 prioritized improvement recommendations across architecture, sales, and automation.
 """
+import asyncio
 import json
 import logging
 import uuid
@@ -87,13 +88,21 @@ async def analyze_system(db: AsyncSession, tenant_id=None) -> int:
     messages = [Message(role="user", content=prompt)]
 
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.REASONING,
-            system_prompt="You are an expert systems architect. Return only valid JSON arrays.",
-            max_tokens=3000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.REASONING,
+                system_prompt="You are an expert systems architect. Return only valid JSON arrays.",
+                max_tokens=3000,
+            ),
+            timeout=60.0,
         )
+        if response.error:
+            raise ValueError(response.error)
 
+        if not response.content:
+            logger.warning("Optimizer: AI returned empty content")
+            return 0
         raw = response.content.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -152,7 +161,7 @@ async def _safe_set_tenant_context(db: AsyncSession, tenant_id: uuid.UUID) -> No
 
 async def get_recommendations(db: AsyncSession, status: str | None = None) -> list[dict]:
     """Return recommendations sorted by priority."""
-    q = select(OptimizationRecommendation)
+    q = select(OptimizationRecommendation).limit(200)
     if status:
         q = q.where(OptimizationRecommendation.status == status)
     result = await db.execute(q)

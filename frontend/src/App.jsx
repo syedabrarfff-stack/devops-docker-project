@@ -90,6 +90,13 @@ import FinancialIntelligence from './components/financial/FinancialIntelligence'
 import LearningEngine from './components/learning/LearningEngine'
 import FounderDependency from './components/founder/FounderDependency'
 import MoatEngine from './components/moat/MoatEngine'
+import OmegaDashboard from './components/omega/OmegaDashboard'
+import GhostWriter from './components/ghost/GhostWriter'
+import AutopilotDashboard from './components/autopilot/AutopilotDashboard'
+import SignalDashboard from './components/signal/SignalDashboard'
+import NexusCore from './components/nexus/NexusCore'
+import SupremeDashboard from './components/supreme/SupremeDashboard'
+import MonitoringDashboard from './components/MonitoringDashboard'
 import useJarvisStore from './store/useJarvisStore'
 
 export const CONTROL_ROOM_BASE = '/control-room'
@@ -153,6 +160,20 @@ export const VIEWS = {
   learningEngine:    { path: controlPath('/learning-engine'),     title: 'Learning Engine',         Component: LearningEngine },
   founderDependency: { path: controlPath('/founder-dependency'),  title: 'Founder Dependency',      Component: FounderDependency },
   moatEngine:        { path: controlPath('/moat-engine'),         title: 'Competitive Moat',        Component: MoatEngine },
+  // OMEGA Global Intelligence Swarm
+  omega:             { path: controlPath('/omega'),               title: 'OMEGA Swarm',             Component: OmegaDashboard },
+  // GHOST — AI Outreach Intelligence Engine
+  ghost:             { path: controlPath('/ghost'),               title: 'GHOST Outreach AI',       Component: GhostWriter },
+  // AUTOPILOT — Autonomous Outreach Pipeline
+  autopilot:         { path: controlPath('/autopilot'),           title: 'AUTOPILOT Pipeline',      Component: AutopilotDashboard },
+  // SIGNAL — AI Pipeline Intelligence Scanner
+  signal:            { path: controlPath('/signal'),              title: 'Pipeline Intelligence',   Component: SignalDashboard },
+  // NEXUS — Supreme Autonomous Intelligence Core
+  nexus:             { path: controlPath('/nexus'),               title: 'JARVIS NEXUS',            Component: NexusCore },
+  // Layer 19 — Supreme Intelligence (Constitution, CEO, Revenue, Platform, Sales)
+  supreme:           { path: controlPath('/supreme'),             title: 'Supreme Intelligence',    Component: SupremeDashboard },
+  // Monitoring & Cost Analytics (Customer-facing)
+  monitoring:        { path: controlPath('/monitoring'),          title: 'System Monitoring',       Component: MonitoringDashboard },
 }
 
 const VIEW_ENTRIES = Object.entries(VIEWS)

@@ -2,6 +2,84 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Council: Ask the AI Council",
+      "type": "shell",
+      "command": "python council.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Install Requirements",
+      "type": "shell",
+      "command": "pip install -r requirements.txt",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Council: Start Telegram Bot",
+      "type": "shell",
+      "command": "python telegram_bot.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Browse Session History",
+      "type": "shell",
+      "command": "python sessions_viewer.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Start REST API Server",
+      "type": "shell",
+      "command": "python api.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
+      "label": "Council: Run Full Diagnostic",
+      "type": "shell",
+      "command": "python test_keys.py",
+      "options": {
+        "cwd": "${workspaceFolder}/council"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      }
+    },
+    {
       "label": "🚀 JARVIS: Start Full Stack",
       "type": "shell",
       "command": "docker compose up -d && echo '\\n✅ Stack started. Logs: docker compose logs -f backend'",

@@ -2,17 +2,20 @@
 JARVIS Pricing Engine — intelligent scope-aware pricing for Aliyar Solutions.
 Never quotes cheap. Prices based on company size, service scope, and complexity.
 """
+import asyncio
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.ai.router import ai_router
 from app.services.intelligence.jarvis_awareness import JARVIS_AWARENESS_PROMPT
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/pricing", tags=["pricing"])
+router = APIRouter(prefix="/pricing", tags=["pricing"], dependencies=[Depends(get_current_captain)])
 
 # ── Pricing brackets ──────────────────────────────────────────────────────────
 
@@ -79,7 +82,8 @@ class PricingRequest(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/estimate")
-async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def generate_pricing_estimate(request: Request, body: PricingRequest, db: AsyncSession = Depends(get_db)):
     """
     Generate a pricing estimate for a prospect. JARVIS analyses requirements
     and returns a Captain-ready proposal package with pricing.
@@ -133,15 +137,18 @@ async def generate_pricing_estimate(body: PricingRequest, db: AsyncSession = Dep
             f"Services requested: {', '.join(body.services_needed) if body.services_needed else 'digital transformation'}. "
             f"Sound premium, confident, outcome-focused. No fluff. First person as 'Aliyar Solutions'."
         )
-        resp = await ai_router.chat(
-            messages=[
-                {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            task_type="FAST",
-            max_tokens=100,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[
+                    {"role": "system", "content": JARVIS_AWARENESS_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+                task_type="FAST",
+                max_tokens=100,
+            ),
+            timeout=30.0,
         )
-        positioning = resp.get("content", "")
+        positioning = resp.content or ""
     except Exception:
         positioning = (
             f"Aliyar Solutions is ready to deploy a complete {tier}-tier solution for {body.company_name}. "

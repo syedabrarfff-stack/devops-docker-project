@@ -25,13 +25,14 @@ class KnowledgeStore:
             from app.core.database import AsyncSessionLocal
             from app.services.knowledge.manager import add_knowledge
             async with AsyncSessionLocal() as db:
-                await add_knowledge(
-                    db,
-                    title=title,
-                    content=content,
-                    category=category,
-                    source=source,
-                )
+                async with db.begin():
+                    await add_knowledge(
+                        db,
+                        title=title,
+                        content=content,
+                        category=category,
+                        source=source,
+                    )
             logger.debug("Knowledge stored: [%s] %s", category, title[:60])
             return True
         except Exception as e:

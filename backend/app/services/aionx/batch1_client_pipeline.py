@@ -462,7 +462,7 @@ async def _mark_stage_milestones_done(db: AsyncSession, state: ClientPipelineSta
             ClientPipelineMilestone.client_id == state.client_id,
             ClientPipelineMilestone.stage_number <= target_stage,
             ClientPipelineMilestone.status == "PENDING",
-        )
+        ).limit(50)
     )
     for milestone in result.scalars().all():
         milestone.status = "DONE"

@@ -52,12 +52,17 @@ class ReferralEngine:
         messages = [Message(role="user", content=prompt)]
 
         try:
-            response, _ = await ai_router.chat(
-                messages,
-                task_type=TaskType.STRATEGY,
-                max_tokens=400,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages,
+                    task_type=TaskType.STRATEGY,
+                    max_tokens=400,
+                ),
+                timeout=30.0,
             )
-            return response.content.strip()
+            if response.error:
+                raise ValueError(response.error)
+            return (response.content or "").strip()
         except Exception as e:
             logger.warning("ReferralEngine: AI failed for %s: %s", request_type, e)
             return f"[{request_type.title()} content for {client_name} at {company} — AI generation unavailable]"
@@ -72,9 +77,14 @@ class ReferralEngine:
         tenant_id=None,
     ) -> dict:
         types = ["testimonial", "referral", "case_study"]
-        contents = await asyncio.gather(
-            *[self._generate_one(t, client_name, company, service_type, mrr) for t in types]
+        raw_contents = await asyncio.gather(
+            *[self._generate_one(t, client_name, company, service_type, mrr) for t in types],
+            return_exceptions=True,
         )
+        contents = [
+            v if isinstance(v, str) else f"[{t} content for {client_name} at {company} — AI generation unavailable]"
+            for t, v in zip(types, raw_contents)
+        ]
 
         result = {}
         async with AsyncSessionLocal() as db:

@@ -24,6 +24,15 @@ from app.middleware import observe_ai_latency, record_ai_cost
 
 logger = logging.getLogger(__name__)
 
+# Per-provider call timeout (seconds). Keeps individual provider hangs from
+# stalling the HTTP request past the ALB 60 s limit or starving APScheduler.
+_PROVIDER_TIMEOUT = 55.0
+
+# Total chat() orchestration budget (seconds). Caps the entire provider-fallback
+# loop so even with 5 providers each timing out at 55s the call never exceeds
+# the ALB / gunicorn worker keepalive window.
+_CHAT_TOTAL_TIMEOUT = 100.0
+
 JARVIS_SYSTEM_PROMPT = """You are JARVIS — the executive operational intelligence infrastructure of Aliyar Solutions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -356,29 +365,48 @@ class AIRouter:
                     model_id = ""
             if provider.is_available() and model_id:
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
-                latency = int((time.monotonic() - t0) * 1000)
-                response.task_type = task_type.value
-                response.latency_ms = latency
-                response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
-                _record_ai_metrics(
-                    force_provider,
-                    model_id,
-                    task_type.value,
-                    latency,
-                    response.cost_estimate_usd,
-                    response.tokens_used,
-                    _estimate_input_tokens(messages, system_prompt),
-                    response.error,
-                )
-                if not response.error and (response.content or "").strip():
-                    health_monitor.record_success(force_provider, latency)
-                    return response, task_type.value
-                health_monitor.record_failure(force_provider, latency)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=_PROVIDER_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    health_monitor.record_failure(force_provider, latency)
+                    logger.warning(
+                        "Force provider %s timed out after %.0fs — falling through to routing table",
+                        force_provider, _PROVIDER_TIMEOUT,
+                    )
+                else:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    response.task_type = task_type.value
+                    response.latency_ms = latency
+                    response.cost_estimate_usd = estimate_cost(force_provider, model_id, response.tokens_used)
+                    _record_ai_metrics(
+                        force_provider,
+                        model_id,
+                        task_type.value,
+                        latency,
+                        response.cost_estimate_usd,
+                        response.tokens_used,
+                        _estimate_input_tokens(messages, system_prompt),
+                        response.error,
+                    )
+                    if not response.error and (response.content or "").strip():
+                        health_monitor.record_success(force_provider, latency)
+                        return response, task_type.value
+                    health_monitor.record_failure(force_provider, latency)
 
         # Route through table with health-aware fallback
         route = ROUTING_TABLE.get(task_type, ROUTING_TABLE[TaskType.GENERAL])
+        _t_chat_start = time.monotonic()
         for provider_key, model_key in route:
+            if time.monotonic() - _t_chat_start >= _CHAT_TOTAL_TIMEOUT:
+                logger.warning(
+                    "chat() global timeout (%.0fs) reached — aborting provider loop for %s",
+                    _CHAT_TOTAL_TIMEOUT, task_type.value,
+                )
+                break
             # Skip providers with open circuit breakers
             if not health_monitor.is_available(provider_key):
                 logger.debug("Skipping %s: circuit OPEN", provider_key)
@@ -404,7 +432,19 @@ class AIRouter:
                     continue
                 logger.info("Routing %s → %s/%s", task_type.value, provider_key, model_id)
                 t0 = time.monotonic()
-                response = await provider.chat(messages, model_id, system_prompt, max_tokens)
+                try:
+                    response = await asyncio.wait_for(
+                        provider.chat(messages, model_id, system_prompt, max_tokens),
+                        timeout=_PROVIDER_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    latency = int((time.monotonic() - t0) * 1000)
+                    health_monitor.record_failure(provider_key, latency)
+                    logger.warning(
+                        "Provider %s timed out after %.0fs — trying next in route",
+                        provider_key, _PROVIDER_TIMEOUT,
+                    )
+                    continue
                 latency = int((time.monotonic() - t0) * 1000)
                 response.task_type = task_type.value
                 response.latency_ms = latency
@@ -485,7 +525,7 @@ def _record_ai_metrics(
         from app.services.economics.tracker import economics_service
 
         tokens_out = max(0, int(tokens_total or 0) - int(tokens_in or 0))
-        asyncio.create_task(
+        _task = asyncio.create_task(
             economics_service.log_ai_call(
                 provider=provider,
                 model=model,
@@ -499,6 +539,9 @@ def _record_ai_metrics(
                 success=not bool(error_message),
                 error_message=error_message,
             )
+        )
+        _task.add_done_callback(
+            lambda t: logger.debug("AI cost persistence failed: %s", t.exception()) if not t.cancelled() and t.exception() else None
         )
     except RuntimeError:
         logger.debug("AI cost persistence skipped: no running event loop")
@@ -556,8 +599,17 @@ async def route_task(
         kwargs = {"task_type": task_type, "max_tokens": max_tokens}
         if system_prompt:
             kwargs["system_prompt"] = system_prompt
-        response, _used = await ai_router.chat(messages, **kwargs)
+        response, _used = await asyncio.wait_for(
+            ai_router.chat(messages, **kwargs),
+            timeout=_CHAT_TOTAL_TIMEOUT,
+        )
         return response.content if response and response.content else "NO_RESPONSE"
+    except asyncio.TimeoutError:
+        logger.warning(
+            "route_task global timeout (%.0fs) for task_type=%s",
+            _CHAT_TOTAL_TIMEOUT, task_type,
+        )
+        return "ROUTE_TASK_UNAVAILABLE"
     except Exception as exc:  # noqa: BLE001 — organs must never crash on AI failure
         logger.warning("route_task failed for %s: %s", task_type, exc)
         return "ROUTE_TASK_UNAVAILABLE"

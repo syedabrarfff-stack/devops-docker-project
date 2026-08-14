@@ -5,6 +5,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -55,13 +56,14 @@ class OneshotJobIn(BaseModel):
     payload: Optional[dict] = None
 
 
-@router.get("/jobs")
+@router.get("/jobs", dependencies=[Depends(get_current_captain)])
 async def list_jobs():
     """List all scheduled jobs from APScheduler."""
     return get_jobs()
 
 
 @router.post("/jobs/cron")
+@limiter.limit("3/minute")
 async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_cron_job(
@@ -87,6 +89,7 @@ async def create_cron_job(body: CronJobIn, request: Request, db: AsyncSession = 
 
 
 @router.post("/jobs/interval")
+@limiter.limit("3/minute")
 async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     tenant_id = _metadata_tenant_id(request)
     add_interval_job(
@@ -112,6 +115,7 @@ async def create_interval_job(body: IntervalJobIn, request: Request, db: AsyncSe
 
 
 @router.delete("/jobs/{job_id}")
+@limiter.limit("5/minute")
 async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(get_db), _: dict = Depends(get_current_captain)):
     removed = remove_job(job_id)
     from sqlalchemy import delete
@@ -126,7 +130,8 @@ async def delete_job(job_id: str, request: Request, db: AsyncSession = Depends(g
 
 
 @router.post("/jobs/{job_id}/pause")
-async def pause(job_id: str, _: dict = Depends(get_current_captain)):
+@limiter.limit("10/minute")
+async def pause(job_id: str, request: Request, _: dict = Depends(get_current_captain)):
     ok = pause_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")
@@ -134,14 +139,15 @@ async def pause(job_id: str, _: dict = Depends(get_current_captain)):
 
 
 @router.post("/jobs/{job_id}/resume")
-async def resume(job_id: str, _: dict = Depends(get_current_captain)):
+@limiter.limit("10/minute")
+async def resume(job_id: str, request: Request, _: dict = Depends(get_current_captain)):
     ok = resume_job(job_id)
     if not ok:
         raise HTTPException(404, "Job not found")
     return {"resumed": True, "job_id": job_id}
 
 
-@router.get("/jobs/db")
+@router.get("/jobs/db", dependencies=[Depends(get_current_captain)])
 async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     """Jobs persisted in JARVIS DB (includes metadata)."""
     from sqlalchemy import select, desc
@@ -161,7 +167,7 @@ async def list_db_jobs(request: Request, db: AsyncSession = Depends(get_db)):
     } for j in rows]
 
 
-@router.get("/failures")
+@router.get("/failures", dependencies=[Depends(get_current_captain)])
 async def list_job_failures(
     request: Request,
     status: Optional[str] = None,
@@ -194,6 +200,44 @@ async def list_job_failures(
         }
         for row in rows
     ]
+
+
+@router.patch("/failures/{failure_id}/resolve", dependencies=[Depends(get_current_captain)])
+@limiter.limit("10/minute")
+async def resolve_job_failure(request: Request, failure_id: str, db: AsyncSession = Depends(get_db)):
+    """Mark an open job failure as resolved."""
+    from sqlalchemy import select
+    from app.models.scheduling import JobFailure
+
+    try:
+        fid = uuid.UUID(failure_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid failure ID")
+
+    row = (await db.execute(select(JobFailure).where(JobFailure.id == fid))).scalar_one_or_none()
+    if not row:
+        raise HTTPException(404, "Failure not found")
+
+    row.status = "resolved"
+    await db.commit()
+    return {"id": failure_id, "status": "resolved"}
+
+
+@router.post("/jobs/{job_id}/trigger", dependencies=[Depends(get_current_captain)])
+@limiter.limit("5/minute")
+async def trigger_job_now(job_id: str, request: Request):
+    """Trigger a scheduled job to run immediately (within 2 seconds)."""
+    from datetime import timezone, timedelta
+    from app.services.scheduler.engine import get_scheduler
+
+    scheduler = get_scheduler()
+    job = scheduler.get_job(job_id)
+    if not job:
+        raise HTTPException(404, f"Job '{job_id}' not found in scheduler")
+
+    run_at = datetime.now(timezone.utc) + timedelta(seconds=2)
+    scheduler.modify_job(job_id, next_run_time=run_at)
+    return {"job_id": job_id, "status": "triggered", "runs_at": run_at.isoformat()}
 
 
 def _metadata_tenant_id(request: Request) -> uuid.UUID:

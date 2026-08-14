@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getFounderDependencyReport, getFounderDependencyScore, getAutomationOpportunities, runFounderAssessment } from '../../services/api'
 
 function SubScoreBar({ label, score }) {
   const color = score > 80 ? 'bg-rose-500' : score > 60 ? 'bg-amber-500' : score > 20 ? 'bg-blue-500' : 'bg-emerald-500'
@@ -28,9 +29,9 @@ export default function FounderDependency() {
     setLoading(true)
     try {
       const [r, s, o] = await Promise.all([
-        fetch('/api/v1/founder/report', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/founder/score', { credentials: 'include' }).then(r => r.json()),
-        fetch('/api/v1/founder/opportunities', { credentials: 'include' }).then(r => r.json()),
+        getFounderDependencyReport(),
+        getFounderDependencyScore(),
+        getAutomationOpportunities(),
       ])
       setReport(r); setQuickScore(s); setOpps(o)
     } catch (e) { setError(e.message) }
@@ -42,7 +43,7 @@ export default function FounderDependency() {
   const runAssessment = async () => {
     setAssessing(true)
     try {
-      await fetch('/api/v1/founder/assess', { method: 'POST', credentials: 'include' })
+      await runFounderAssessment()
       setMsg('Assessment complete.')
       load()
     } catch (e) { setMsg(`Error: ${e.message}`) }

@@ -26,6 +26,9 @@ class InvoiceStatus(str, enum.Enum):
 
 class Client(JarvisBase):
     __tablename__ = "clients"
+    __table_args__ = (
+        Index("ix_clients_tenant_status", "tenant_id", "status"),
+    )
 
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)

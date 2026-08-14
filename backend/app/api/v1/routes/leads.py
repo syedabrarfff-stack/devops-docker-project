@@ -3,17 +3,20 @@ import io
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, BackgroundTasks, Request, UploadFile
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.services.leads import engine as leads
 from app.services.leads.discovery import lead_discovery_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/leads", tags=["Leads"])
+router = APIRouter(prefix="/leads", tags=["Leads"], dependencies=[Depends(get_current_captain)])
 
 _BATCH_IMPORT_MAX = 500
 
@@ -73,18 +76,24 @@ class LeadLossIn(BaseModel):
 
 
 @router.post("/")
+@limiter.limit("30/minute")
 async def create_lead(
+    request: Request,
     body: LeadIn,
     background_tasks: BackgroundTasks,
     auto_score: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    lead = await leads.create_lead(db, body.model_dump(exclude_none=True))
-    await db.commit()
+    try:
+        lead = await leads.create_lead(db, body.model_dump(exclude_none=True))
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Lead with this email already exists")
     if auto_score:
         background_tasks.add_task(_score_in_background, lead.id)
-    background_tasks.add_task(_notify_captain_new_lead, lead.company, lead.email, body.source, lead.contact_name)
-    return {"id": lead.id, "company": lead.company, "status": lead.status}
+    background_tasks.add_task(_notify_captain_new_lead, _lead_company(lead), lead.email, body.source, lead.contact_name)
+    return {"id": lead.id, "company": _lead_company(lead), "status": lead.status}
 
 
 async def _notify_captain_new_lead(company: str, email: str | None, source: str | None, contact: str | None) -> None:
@@ -122,9 +131,9 @@ async def _trigger_auto_outreach(lead_id: UUID, lead, tenant_id: UUID):
     try:
         async with AsyncSessionLocal() as db:
             lead_data = {
-                "name": lead.contact_name or lead.company,
+                "name": lead.contact_name or _lead_company(lead),
                 "email": lead.email,
-                "company": lead.company,
+                "company": _lead_company(lead),
                 "quality_score": float(lead.score or 0.75),
                 "status": str(lead.status),
                 "domain_age_days": getattr(lead, "domain_age_days", 400),
@@ -175,7 +184,8 @@ async def list_leads(
 
 
 @router.post("/{lead_id}/score")
-async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def score_lead(request: Request, lead_id: UUID, db: AsyncSession = Depends(get_db)):
     lead = await leads.qualify_and_score(db, lead_id)
     if not lead:
         raise HTTPException(404, "Lead not found")
@@ -185,21 +195,24 @@ async def score_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/bulk-score")
-async def bulk_score(limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def bulk_score(request: Request, limit: int = Query(20, ge=1, le=50), db: AsyncSession = Depends(get_db)):
     count = await leads.bulk_score(db, limit=limit)
     await db.commit()
     return {"scored": count}
 
 
 @router.post("/score-all")
-async def score_all(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def score_all(request: Request, limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
     count = await leads.bulk_score(db, limit=limit)
     await db.commit()
     return {"scored": count, "limit": limit, "status": "complete"}
 
 
 @router.post("/discover")
-async def discover_leads(body: DiscoverLeadsRequest, request: Request):
+@limiter.limit("3/minute")
+async def discover_leads(request: Request, body: DiscoverLeadsRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     limit = max(1, min(body.limit, 100))
     targets = body.targets or _default_discovery_targets(limit)
@@ -223,9 +236,10 @@ async def discover_leads(body: DiscoverLeadsRequest, request: Request):
 
 
 @router.post("/bulk-discover")
+@limiter.limit("2/minute")
 async def bulk_discover_leads(
-    background_tasks: BackgroundTasks,
     request: Request,
+    background_tasks: BackgroundTasks,
     limit: int = Query(200, ge=10, le=500),
     tenant_id: Optional[UUID] = None,
 ):
@@ -251,6 +265,7 @@ async def bulk_discover_leads(
 
 
 @router.post("/batch-import")
+@limiter.limit("3/minute")
 async def batch_import_leads(
     request: Request,
     leads_data: list[dict],
@@ -368,13 +383,14 @@ async def csv_template():
 
 
 @router.post("/import-csv")
+@limiter.limit("3/minute")
 async def import_leads_csv(
     request: Request,
+    bg: BackgroundTasks,
     file: UploadFile = File(...),
     tenant_id: Optional[UUID] = None,
     auto_score: bool = Query(default=True),
     db: AsyncSession = Depends(get_db),
-    bg: BackgroundTasks = None,
 ):
     """
     Import leads from a CSV file. Accepts any column order; maps common header variants.
@@ -389,7 +405,10 @@ async def import_leads_csv(
 
     resolved_tenant_id = _resolve_tenant_id(request, tenant_id)
 
-    raw_bytes = await file.read()
+    _MAX_CSV_BYTES = 5 * 1024 * 1024  # 5 MB — sufficient for 500 rows
+    raw_bytes = await file.read(_MAX_CSV_BYTES + 1)
+    if len(raw_bytes) > _MAX_CSV_BYTES:
+        raise HTTPException(status_code=413, detail="CSV file exceeds 5 MB limit. Split into smaller files.")
     try:
         text = raw_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -508,8 +527,8 @@ async def _score_newly_imported(tenant_id: UUID, limit: int) -> None:
             for lead in unscored.all():
                 try:
                     await leads_engine.score_lead(db, lead)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Background scoring failed for lead %s: %s", lead.id, exc)
             await db.commit()
     except Exception as exc:
         logger.warning("Background CSV scoring failed: %s", exc)
@@ -599,7 +618,7 @@ async def get_lead_profile(
 
     outreach_rows = (await db.scalars(
         select(OutreachLog)
-        .where(OutreachLog.lead_id == lead_id)
+        .where(OutreachLog.tenant_id == resolved, OutreachLog.lead_id == lead_id)
         .order_by(OutreachLog.sent_at.desc())
         .limit(8)
     )).all()
@@ -692,10 +711,11 @@ async def get_lead_profile(
 
 
 @router.post("/{lead_id}/loss")
+@limiter.limit("10/minute")
 async def record_lead_loss(
+    request: Request,
     lead_id: UUID,
     body: LeadLossIn,
-    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select
@@ -722,14 +742,16 @@ async def record_lead_loss(
             after_json={"status": lead.status.value, "loss_reason": lead.loss_reason},
         )
     )
+    await db.commit()
     return {"id": str(lead.id), "status": lead.status.value, "loss_reason": lead.loss_reason}
 
 
 @router.patch("/{lead_id}/status")
+@limiter.limit("20/minute")
 async def update_lead_status(
+    request: Request,
     lead_id: UUID,
     status: str,
-    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):

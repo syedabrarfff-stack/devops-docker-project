@@ -4,6 +4,7 @@ Client Project → Lessons Learned → SOP Update → Proposal Improvement → O
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -142,14 +143,17 @@ Return 2-3 specific, actionable lessons in JSON array format:
 [{{"title": "...", "body": "...", "category": "technical|communication|scoping|timeline|pricing|client_management", "do_next_time": "...", "tags": ["..."]}}]
 
 Return only valid JSON."""
-            response = await ai_router.route(
-                task_type=TaskType.ANALYSIS,
-                prompt=prompt,
-                tenant_id=None,
-                max_tokens=800,
+            from app.services.ai.base_provider import Message
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
             import json
-            content = response.get("content", "[]")
+            content = response.content or "[]"
             start = content.find("[")
             end = content.rfind("]") + 1
             if start >= 0 and end > start:
@@ -187,7 +191,7 @@ Return only valid JSON."""
                 select(DeliveryLesson).where(
                     DeliveryLesson.tenant_id == tid,
                     DeliveryLesson.id.in_(lesson_ids),
-                )
+                ).limit(200)
             )
             lessons = result.scalars().all()
             if not lessons:

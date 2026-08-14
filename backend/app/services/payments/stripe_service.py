@@ -64,7 +64,11 @@ async def create_payment_link(
         )
         price_resp.raise_for_status()
         price = price_resp.json()
-        price_id = price["id"]
+        try:
+            price_id = price["id"]
+        except KeyError:
+            err = price.get("error", {}).get("message", "Unknown Stripe error")
+            raise ValueError(f"Stripe price creation failed: {err}")
 
         # 2. Create the Payment Link
         link_resp = await client.post(
@@ -84,11 +88,17 @@ async def create_payment_link(
         )
         link_resp.raise_for_status()
         link = link_resp.json()
+        try:
+            link_url = link["url"]
+            link_id = link["id"]
+        except KeyError:
+            err = link.get("error", {}).get("message", "Unknown Stripe error")
+            raise ValueError(f"Stripe payment link creation failed: {err}")
 
-    logger.info("Stripe payment link created for invoice %s: %s", invoice_number, link["url"])
+    logger.info("Stripe payment link created for invoice %s: %s", invoice_number, link_url)
     return {
-        "url": link["url"],
-        "payment_link_id": link["id"],
+        "url": link_url,
+        "payment_link_id": link_id,
         "price_id": price_id,
         "amount_cents": amount_cents,
         "currency": currency,
@@ -99,8 +109,8 @@ def verify_webhook_signature(payload: bytes, sig_header: str) -> bool:
     """Verify Stripe webhook signature using STRIPE_WEBHOOK_SECRET."""
     secret = settings.STRIPE_WEBHOOK_SECRET
     if not secret:
-        logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature not verified")
-        return True  # permissive fallback; lock down once secret is set
+        logger.warning("STRIPE_WEBHOOK_SECRET not configured — rejecting Stripe webhook")
+        return False
 
     try:
         parts = {k: v for k, v in (item.split("=", 1) for item in sig_header.split(","))}

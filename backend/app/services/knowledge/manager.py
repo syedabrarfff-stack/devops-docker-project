@@ -2,14 +2,31 @@
 JARVIS Knowledge System — SOPs, learning records, and centralized operational knowledge base.
 Everything JARVIS learns from execution is archived here for reuse and continuous improvement.
 """
+import asyncio
 import json
 import logging
+import uuid as _uuid_mod
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.knowledge import SOPDocument, LearningRecord, KnowledgeBase
 from app.services.ai.base_provider import Message
 
 logger = logging.getLogger(__name__)
+
+_SYSTEM_TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+def _resolve_tenant(tenant_id=None) -> _uuid_mod.UUID:
+    if tenant_id:
+        return _uuid_mod.UUID(str(tenant_id))
+    try:
+        from app.core.config import settings
+        tid = settings.JARVIS_DEFAULT_TENANT_ID
+        if tid:
+            return _uuid_mod.UUID(str(tid))
+    except Exception:
+        pass
+    return _uuid_mod.UUID(_SYSTEM_TENANT)
 
 SOP_GEN_PROMPT = """You are JARVIS — the operations intelligence of Aliyar Solutions.
 
@@ -39,6 +56,7 @@ async def generate_sop(
     title: str,
     category: str,
     context: str = "",
+    tenant_id=None,
 ) -> dict | None:
     from app.services.ai.router import ai_router
     from app.services.ai.base_provider import TaskType
@@ -46,13 +64,18 @@ async def generate_sop(
     prompt = SOP_GEN_PROMPT.format(title=title, category=category, context=context)
     messages = [Message(role="user", content=prompt)]
     try:
-        response, _ = await ai_router.chat(
-            messages,
-            task_type=TaskType.REASONING,
-            system_prompt="You are an operations expert. Return only valid JSON.",
-            max_tokens=2000,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages,
+                task_type=TaskType.REASONING,
+                system_prompt="You are an operations expert. Return only valid JSON.",
+                max_tokens=2000,
+            ),
+            timeout=60.0,
         )
-        raw = response.content.strip()
+        if response.error:
+            raise ValueError(response.error)
+        raw = (response.content or "").strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -60,6 +83,7 @@ async def generate_sop(
         data = json.loads(raw.strip())
 
         sop = SOPDocument(
+            tenant_id=_resolve_tenant(tenant_id),
             title=str(data.get("title", title)),
             category=category,
             summary=data.get("summary", ""),
@@ -87,8 +111,10 @@ async def log_learning(
     what_failed: str = "",
     impact_score: int = 5,
     source: str = "system",
+    tenant_id=None,
 ) -> dict:
     record = LearningRecord(
+        tenant_id=_resolve_tenant(tenant_id),
         category=category,
         event_type=event_type,
         title=title,
@@ -112,8 +138,10 @@ async def add_knowledge(
     content: str,
     tags: list[str] = None,
     source: str = "manual",
+    tenant_id=None,
 ) -> dict:
     entry = KnowledgeBase(
+        tenant_id=_resolve_tenant(tenant_id),
         title=title,
         category=category,
         content=content,
@@ -126,26 +154,40 @@ async def add_knowledge(
     return _serialize_kb(entry)
 
 
-async def get_sops(db: AsyncSession, category: str | None = None) -> list[dict]:
-    q = select(SOPDocument).where(SOPDocument.is_active == True).order_by(SOPDocument.created_at.desc())
+async def get_sops(db: AsyncSession, category: str | None = None, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
+    q = (
+        select(SOPDocument)
+        .where(SOPDocument.is_active == True, SOPDocument.tenant_id == tid)
+        .order_by(SOPDocument.created_at.desc())
+        .limit(200)
+    )
     if category:
         q = q.where(SOPDocument.category == category)
     result = await db.execute(q)
     return [_serialize_sop(s) for s in result.scalars().all()]
 
 
-async def get_learnings(db: AsyncSession, category: str | None = None, limit: int = 50) -> list[dict]:
-    q = select(LearningRecord).order_by(LearningRecord.created_at.desc()).limit(limit)
+async def get_learnings(db: AsyncSession, category: str | None = None, limit: int = 50, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
+    q = (
+        select(LearningRecord)
+        .where(LearningRecord.tenant_id == tid)
+        .order_by(LearningRecord.created_at.desc())
+        .limit(limit)
+    )
     if category:
         q = q.where(LearningRecord.category == category)
     result = await db.execute(q)
     return [_serialize_learning(r) for r in result.scalars().all()]
 
 
-async def search_knowledge(db: AsyncSession, query: str, limit: int = 20) -> list[dict]:
+async def search_knowledge(db: AsyncSession, query: str, limit: int = 20, tenant_id=None) -> list[dict]:
+    tid = _resolve_tenant(tenant_id)
     result = await db.execute(
         select(KnowledgeBase)
         .where(
+            KnowledgeBase.tenant_id == tid,
             KnowledgeBase.content.ilike(f"%{query}%") |
             KnowledgeBase.title.ilike(f"%{query}%")
         )
@@ -153,9 +195,9 @@ async def search_knowledge(db: AsyncSession, query: str, limit: int = 20) -> lis
         .limit(limit)
     )
     entries = result.scalars().all()
-    # Increment use count
     for e in entries:
         e.use_count += 1
+    await db.flush()
     return [_serialize_kb(e) for e in entries]
 
 

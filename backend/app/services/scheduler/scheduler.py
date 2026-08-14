@@ -908,7 +908,7 @@ async def _record_job_result(job_id: str, status: str, payload: dict) -> None:
                             JobFailure.tenant_id == SYSTEM_TENANT_ID,
                             JobFailure.job_name == job_id,
                             JobFailure.status.in_(("open", "retry_scheduled", "failed")),
-                        )
+                        ).limit(100)
                     )
                 ).scalars().all()
                 for failure in failures:
@@ -1008,6 +1008,7 @@ async def _target_tenant_ids() -> list[str]:
             select(Tenant.id)
             .where(Tenant.is_active.is_(True))
             .order_by(Tenant.created_at)
+            .limit(200)
         )
         return [str(row[0]) for row in result.all()]
 

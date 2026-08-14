@@ -24,7 +24,7 @@ env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
   TASK_FAMILY:  jarvis-production-backend
   APP_BASE_URL: https://aliyarsolutions.com
-  OIDC_ROLE:    arn:aws:iam::824232273953:role/JarvisGitHubActionsRole
+  OIDC_ROLE:    ${{ secrets.AWS_OIDC_ROLE_ARN }}
 
 jobs:
   # ── Build & push Docker images ─────────────────────────────────────────────

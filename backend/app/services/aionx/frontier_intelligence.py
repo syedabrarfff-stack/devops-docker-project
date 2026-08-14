@@ -511,11 +511,19 @@ async def agent_capacity(db: AsyncSession, payload: dict[str, Any] | None = None
         {"department": "Client Success", "tasks_queued": 6, "response_time_minutes": 18, "backlog_size": 2},
         {"department": "Cloud", "tasks_queued": 4, "response_time_minutes": 22, "backlog_size": 1},
     ]
-    proposals = []
     snapshots = []
+    insert_params = []
+    over_capacity_depts: list[str] = []
     for dept in departments:
         capacity = min(100, int(dept.get("tasks_queued", 0)) * 4 + int(dept.get("backlog_size", 0)) * 6)
         status = "over_capacity" if capacity >= 80 else "normal"
+        row_params = {**dept, "tenant_id": payload.get("tenant_id"), "capacity_percent": capacity, "status": status}
+        insert_params.append(row_params)
+        snapshots.append({**dept, "capacity_percent": capacity, "status": status})
+        if status == "over_capacity":
+            over_capacity_depts.append(dept["department"])
+
+    if insert_params:
         await db.execute(
             text(
                 """
@@ -525,11 +533,13 @@ async def agent_capacity(db: AsyncSession, payload: dict[str, Any] | None = None
                     (:tenant_id, :department, :tasks_queued, :response_time_minutes, :backlog_size, :capacity_percent, :status)
                 """
             ),
-            {**dept, "tenant_id": payload.get("tenant_id"), "capacity_percent": capacity, "status": status},
+            insert_params,
         )
-        snapshots.append({**dept, "capacity_percent": capacity, "status": status})
-        if status == "over_capacity":
-            proposals.append(await propose_agent(db, dept["department"], payload.get("tenant_id")))
+
+    proposals = [
+        await propose_agent(db, dept_name, payload.get("tenant_id"))
+        for dept_name in over_capacity_depts
+    ]
     await db.commit()
     return {"capacity_checked": True, "departments": snapshots, "agent_proposals": proposals}
 

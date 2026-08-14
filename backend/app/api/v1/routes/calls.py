@@ -3,13 +3,15 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Body, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from app.api.v1.routes.auth import get_current_captain
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.revenue_activation.calls import call_room_service
 
-router = APIRouter(prefix="/calls", tags=["Call Rooms"])
+router = APIRouter(prefix="/calls", tags=["Call Rooms"], dependencies=[Depends(get_current_captain)])
 
 
 class PreBriefRequest(BaseModel):
@@ -26,6 +28,7 @@ class DebriefRequest(BaseModel):
 
 
 @router.post("/pre-brief")
+@limiter.limit("10/minute")
 async def pre_brief_call(request: Request, body: PreBriefRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:
@@ -44,6 +47,7 @@ async def live_call_support(lead_id: UUID, request: Request, tenant_id: Optional
 
 
 @router.post("/debrief")
+@limiter.limit("10/minute")
 async def debrief_call(request: Request, body: DebriefRequest = Body(...)):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     outcome = body.call_outcome.replace("_", "-")

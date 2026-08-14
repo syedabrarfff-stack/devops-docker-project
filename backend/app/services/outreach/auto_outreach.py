@@ -76,7 +76,7 @@ BODY: [email body]"""
             timeout_sec=10,
         )
 
-        content = response.content if hasattr(response, 'content') else str(response)
+        content = (response.content if hasattr(response, "content") else str(response)) or ""
 
         # Parse response
         lines = content.split('\n')

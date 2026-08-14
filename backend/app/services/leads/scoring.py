@@ -254,6 +254,7 @@ class LeadScoringEngine:
                             Lead.created_at < yesterday_end,
                         )
                         .order_by(Lead.created_at.asc())
+                        .limit(500)
                     )
                 ).scalars().all()
 

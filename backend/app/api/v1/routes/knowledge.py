@@ -1,13 +1,15 @@
 """
 JARVIS Knowledge System API — SOPs, learning records, and operational knowledge base.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(get_current_captain)])
 
 
 class SOPRequest(BaseModel):
@@ -43,7 +45,8 @@ async def list_sops(category: Optional[str] = None, db: AsyncSession = Depends(g
 
 
 @router.post("/sops/generate")
-async def generate_sop(req: SOPRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def generate_sop(request: Request, req: SOPRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import generate_sop
     async with db.begin():
         sop = await generate_sop(db, req.title, req.category, req.context)
@@ -55,8 +58,8 @@ async def generate_sop(req: SOPRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/learnings")
 async def list_learnings(
-    category: Optional[str] = None,
-    limit: int = 50,
+    category: Optional[str] = Query(default=None, max_length=100),
+    limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.knowledge.manager import get_learnings
@@ -64,7 +67,8 @@ async def list_learnings(
 
 
 @router.post("/learnings")
-async def log_learning(req: LearningRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def log_learning(request: Request, req: LearningRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import log_learning
     async with db.begin():
         record = await log_learning(
@@ -83,13 +87,18 @@ async def log_learning(req: LearningRequest, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/search")
-async def search_knowledge(q: str, limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def search_knowledge(
+    q: str = Query(..., min_length=1, max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
     from app.services.knowledge.manager import search_knowledge
     return {"results": await search_knowledge(db, query=q, limit=limit)}
 
 
 @router.post("/entries")
-async def add_knowledge_entry(req: KnowledgeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def add_knowledge_entry(request: Request, req: KnowledgeRequest, db: AsyncSession = Depends(get_db)):
     from app.services.knowledge.manager import add_knowledge
     async with db.begin():
         entry = await add_knowledge(db, req.title, req.category, req.content, req.tags, req.source)

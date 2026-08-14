@@ -4,6 +4,7 @@ JARVIS Cialdini Engine — persuasion engineering based on Robert Cialdini's
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -53,7 +54,7 @@ SEQUENCE_TEMPLATES = {
 def _parse_json_response(content: str) -> dict:
     """Extract JSON from AI response."""
     try:
-        match = re.search(r"\{.*\}", content, re.DOTALL)
+        match = re.search(r"\{.*\}", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -64,7 +65,7 @@ def _parse_json_response(content: str) -> dict:
 def _parse_json_array(content: str) -> list:
     """Extract JSON array from AI response."""
     try:
-        match = re.search(r"\[.*\]", content, re.DOTALL)
+        match = re.search(r"\[.*\]", content or "", re.DOTALL)
         if match:
             return json.loads(match.group())
     except (json.JSONDecodeError, AttributeError):
@@ -101,12 +102,17 @@ class CialdiniEngine:
         )
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.REASONING,
-                system_prompt=CIALDINI_SYSTEM,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.REASONING,
+                    system_prompt=CIALDINI_SYSTEM,
+                    max_tokens=1200,
+                ),
+                timeout=60.0,
             )
+            if response.error:
+                raise ValueError(response.error)
             parsed = _parse_json_response(response.content)
 
             # Normalize principles_applied
@@ -179,12 +185,17 @@ class CialdiniEngine:
             )
 
             try:
-                response, _ = await ai_router.chat(
-                    [Message(role="user", content=prompt)],
-                    task_type=TaskType.REASONING,
-                    system_prompt=CIALDINI_SYSTEM,
-                    max_tokens=800,
+                response, _ = await asyncio.wait_for(
+                    ai_router.chat(
+                        [Message(role="user", content=prompt)],
+                        task_type=TaskType.REASONING,
+                        system_prompt=CIALDINI_SYSTEM,
+                        max_tokens=800,
+                    ),
+                    timeout=60.0,
                 )
+                if response.error:
+                    raise ValueError(response.error)
                 parsed = _parse_json_response(response.content)
 
                 sequence.append({

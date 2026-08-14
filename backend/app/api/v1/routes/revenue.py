@@ -4,15 +4,17 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import case, func, select
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.database import AsyncSessionLocal, set_tenant_context
+from app.core.rate_limit import limiter
 from app.models.lead import Lead, LeadStatus
 from app.models.revenue import Client, ClientStatus, Invoice, InvoiceStatus, RevenueSnapshot
 from app.services.governance.invoice_engine import invoice_engine
 
-router = APIRouter(prefix="/revenue", tags=["revenue"])
+router = APIRouter(prefix="/revenue", tags=["revenue"], dependencies=[Depends(get_current_captain)])
 
 # ── Tier / pipeline value estimates ───────────────────────────────────────────
 _TIER_ACV = {"A": 8000.0, "B": 4000.0, "C": 2000.0}
@@ -31,12 +33,14 @@ _STATUS_PROBABILITY = {
 # ── Existing endpoints (preserved) ────────────────────────────────────────────
 
 @router.get("/snapshot")
+@limiter.limit("30/minute")
 async def revenue_snapshot(request: Request, tenant_id: Optional[uuid.UUID] = None):
     tid = _resolve_tenant(request, tenant_id)
     return await invoice_engine.revenue_snapshot(tid)
 
 
 @router.get("/mrr-chart")
+@limiter.limit("20/minute")
 async def revenue_mrr_chart(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -49,30 +53,35 @@ async def revenue_mrr_chart(
 # ── ARR ───────────────────────────────────────────────────────────────────────
 
 @router.get("/arr")
+@limiter.limit("30/minute")
 async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Annual Recurring Revenue = MRR × 12, plus derived projections."""
     tid = _resolve_tenant(request, tenant_id)
     async with AsyncSessionLocal() as session:
         async with session.begin():
             await set_tenant_context(session, str(tid))
-            mrr = float(await session.scalar(
-                select(func.coalesce(func.sum(Client.mrr_usd), 0.0)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
+            # Single GROUP BY replaces 3 sequential scalar queries
+            client_rows = (await session.execute(
+                select(
+                    Client.status,
+                    func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
+                    func.count(Client.id).label("cnt"),
                 )
-            ) or 0)
-            active = int(await session.scalar(
-                select(func.count(Client.id)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
-                )
-            ) or 0)
-            churned = int(await session.scalar(
-                select(func.count(Client.id)).where(
-                    Client.tenant_id == tid, Client.status == ClientStatus.CHURNED
-                )
-            ) or 0)
-            total_clients = active + churned
-            churn_rate = (churned / total_clients * 100) if total_clients else 0.0
-            avg_mrr_per_client = (mrr / active) if active else 0.0
+                .where(Client.tenant_id == tid)
+                .group_by(Client.status)
+            )).all()
+
+    c_agg: dict = {}
+    for row in client_rows:
+        key = row.status.value if hasattr(row.status, "value") else str(row.status)
+        c_agg[key] = {"mrr": float(row.mrr or 0), "cnt": int(row.cnt or 0)}
+
+    mrr = c_agg.get("ACTIVE", {}).get("mrr", 0.0)
+    active = c_agg.get("ACTIVE", {}).get("cnt", 0)
+    churned = c_agg.get("CHURNED", {}).get("cnt", 0)
+    total_clients = active + churned
+    churn_rate = (churned / total_clients * 100) if total_clients else 0.0
+    avg_mrr_per_client = (mrr / active) if active else 0.0
 
     arr = mrr * 12
     return {
@@ -89,6 +98,7 @@ async def revenue_arr(request: Request, tenant_id: Optional[uuid.UUID] = None):
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 @router.get("/pipeline")
+@limiter.limit("20/minute")
 async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Lead pipeline value weighted by conversion probability and tier ACV."""
     tid = _resolve_tenant(request, tenant_id)
@@ -98,6 +108,7 @@ async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = No
             rows = (await session.execute(
                 select(Lead.status, Lead.tier, Lead.score, Lead.industry, Lead.country)
                 .where(Lead.tenant_id == tid)
+                .limit(2000)
             )).all()
 
     stages: dict[str, dict] = {}
@@ -130,6 +141,7 @@ async def revenue_pipeline(request: Request, tenant_id: Optional[uuid.UUID] = No
 # ── Forecast ──────────────────────────────────────────────────────────────────
 
 @router.get("/forecast")
+@limiter.limit("10/minute")
 async def revenue_forecast(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -204,6 +216,7 @@ async def revenue_forecast(
 # ── Cohorts ───────────────────────────────────────────────────────────────────
 
 @router.get("/cohorts")
+@limiter.limit("10/minute")
 async def revenue_cohorts(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Client retention cohort analysis grouped by start month."""
     tid = _resolve_tenant(request, tenant_id)
@@ -251,6 +264,7 @@ async def revenue_cohorts(request: Request, tenant_id: Optional[uuid.UUID] = Non
 # ── Segments ──────────────────────────────────────────────────────────────────
 
 @router.get("/segments")
+@limiter.limit("20/minute")
 async def revenue_segments(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -272,6 +286,7 @@ async def revenue_segments(
             leads = (await session.execute(
                 select(Lead.industry, Lead.country, Lead.tier, Lead.status)
                 .where(Lead.tenant_id == tid)
+                .limit(2000)
             )).all()
 
     # Build client segment breakdown by package_tier
@@ -333,6 +348,7 @@ async def revenue_segments(
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @router.get("/health")
+@limiter.limit("20/minute")
 async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """Cash health: collected vs invoiced, outstanding, overdue amounts and counts."""
     tid = _resolve_tenant(request, tenant_id)
@@ -340,41 +356,32 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
         async with session.begin():
             await set_tenant_context(session, str(tid))
 
-            total_invoiced = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tid)
-            ) or 0)
-            total_paid = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.PAID
+            # Single GROUP BY replaces 7 sequential scalar queries
+            status_rows = (await session.execute(
+                select(
+                    Invoice.status,
+                    func.coalesce(func.sum(Invoice.total), 0.0).label("total_amount"),
+                    func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0).label("paid_amount"),
+                    func.count(Invoice.id).label("cnt"),
                 )
-            ) or 0)
-            overdue_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                )
-            ) or 0)
-            overdue_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                )
-            ) or 0)
-            sent_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.SENT
-                )
-            ) or 0)
-            sent_amount = float(await session.scalar(
-                select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.SENT
-                )
-            ) or 0)
-            draft_count = int(await session.scalar(
-                select(func.count(Invoice.id)).where(
-                    Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.DRAFT
-                )
-            ) or 0)
+                .where(Invoice.tenant_id == tid)
+                .group_by(Invoice.status)
+            )).all()
 
-            # 30-day collection
+            agg: dict = {}
+            for row in status_rows:
+                key = row.status.value if hasattr(row.status, "value") else str(row.status)
+                agg[key] = {"total": float(row.total_amount or 0), "paid": float(row.paid_amount or 0), "cnt": int(row.cnt or 0)}
+
+            total_invoiced = sum(v["total"] for v in agg.values())
+            total_paid = agg.get("PAID", {}).get("paid", 0.0)
+            overdue_amount = agg.get("OVERDUE", {}).get("total", 0.0)
+            overdue_count = agg.get("OVERDUE", {}).get("cnt", 0)
+            sent_count = agg.get("SENT", {}).get("cnt", 0)
+            sent_amount = agg.get("SENT", {}).get("total", 0.0)
+            draft_count = agg.get("DRAFT", {}).get("cnt", 0)
+
+            # 30-day collection (time-filtered — separate query required)
             cutoff_30d = datetime.now(UTC) - timedelta(days=30)
             collected_30d = float(await session.scalar(
                 select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
@@ -404,6 +411,7 @@ async def revenue_health(request: Request, tenant_id: Optional[uuid.UUID] = None
 # ── Clients ───────────────────────────────────────────────────────────────────
 
 @router.get("/clients")
+@limiter.limit("20/minute")
 async def revenue_clients(
     request: Request,
     tenant_id: Optional[uuid.UUID] = None,
@@ -475,6 +483,7 @@ async def revenue_clients(
 # ── War Room (all-in-one) ─────────────────────────────────────────────────────
 
 @router.get("/war-room")
+@limiter.limit("10/minute")
 async def revenue_war_room(request: Request, tenant_id: Optional[uuid.UUID] = None):
     """All 5 Revenue Command Center metrics in a single call."""
     tid = _resolve_tenant(request, tenant_id)
@@ -532,21 +541,25 @@ async def _gather_war_room(tid: uuid.UUID):
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tid))
-                mrr = float(await session.scalar(
-                    select(func.coalesce(func.sum(Client.mrr_usd), 0.0)).where(
-                        Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
+                # Single GROUP BY replaces 3 sequential scalar queries
+                rows = (await session.execute(
+                    select(
+                        Client.status,
+                        func.coalesce(func.sum(Client.mrr_usd), 0.0).label("mrr"),
+                        func.count(Client.id).label("cnt"),
                     )
-                ) or 0)
-                active = int(await session.scalar(
-                    select(func.count(Client.id)).where(
-                        Client.tenant_id == tid, Client.status == ClientStatus.ACTIVE
-                    )
-                ) or 0)
-                churned = int(await session.scalar(
-                    select(func.count(Client.id)).where(
-                        Client.tenant_id == tid, Client.status == ClientStatus.CHURNED
-                    )
-                ) or 0)
+                    .where(Client.tenant_id == tid)
+                    .group_by(Client.status)
+                )).all()
+
+        c: dict = {}
+        for row in rows:
+            key = row.status.value if hasattr(row.status, "value") else str(row.status)
+            c[key] = {"mrr": float(row.mrr or 0), "cnt": int(row.cnt or 0)}
+
+        mrr = c.get("ACTIVE", {}).get("mrr", 0.0)
+        active = c.get("ACTIVE", {}).get("cnt", 0)
+        churned = c.get("CHURNED", {}).get("cnt", 0)
         total = active + churned
         churn = (churned / total * 100) if total else 0.0
         arr = mrr * 12
@@ -563,7 +576,7 @@ async def _gather_war_room(tid: uuid.UUID):
             async with session.begin():
                 await set_tenant_context(session, str(tid))
                 rows = (await session.execute(
-                    select(Lead.status, Lead.tier).where(Lead.tenant_id == tid)
+                    select(Lead.status, Lead.tier).where(Lead.tenant_id == tid).limit(2000)
                 )).all()
         stages: dict = {}
         total_w = 0.0
@@ -587,24 +600,27 @@ async def _gather_war_room(tid: uuid.UUID):
         async with AsyncSessionLocal() as session:
             async with session.begin():
                 await set_tenant_context(session, str(tid))
-                invoiced = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.total), 0.0)).where(Invoice.tenant_id == tid)
-                ) or 0)
-                paid = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0)).where(
-                        Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.PAID
+                # Single GROUP BY replaces 4 sequential scalar queries
+                rows = (await session.execute(
+                    select(
+                        Invoice.status,
+                        func.coalesce(func.sum(Invoice.total), 0.0).label("total_amount"),
+                        func.coalesce(func.sum(Invoice.paid_amount_usd), 0.0).label("paid_amount"),
+                        func.count(Invoice.id).label("cnt"),
                     )
-                ) or 0)
-                overdue_amt = float(await session.scalar(
-                    select(func.coalesce(func.sum(Invoice.total), 0.0)).where(
-                        Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                    )
-                ) or 0)
-                overdue_cnt = int(await session.scalar(
-                    select(func.count(Invoice.id)).where(
-                        Invoice.tenant_id == tid, Invoice.status == InvoiceStatus.OVERDUE
-                    )
-                ) or 0)
+                    .where(Invoice.tenant_id == tid)
+                    .group_by(Invoice.status)
+                )).all()
+
+        agg: dict = {}
+        for row in rows:
+            key = row.status.value if hasattr(row.status, "value") else str(row.status)
+            agg[key] = {"total": float(row.total_amount or 0), "paid": float(row.paid_amount or 0), "cnt": int(row.cnt or 0)}
+
+        invoiced = sum(v["total"] for v in agg.values())
+        paid = agg.get("PAID", {}).get("paid", 0.0)
+        overdue_amt = agg.get("OVERDUE", {}).get("total", 0.0)
+        overdue_cnt = agg.get("OVERDUE", {}).get("cnt", 0)
         rate = round(paid / invoiced * 100, 1) if invoiced > 0 else 0.0
         return {
             "total_invoiced_usd": round(invoiced, 2),
@@ -621,7 +637,7 @@ async def _gather_war_room(tid: uuid.UUID):
             async with session.begin():
                 await set_tenant_context(session, str(tid))
                 clients = (await session.execute(
-                    select(Client.status).where(Client.tenant_id == tid)
+                    select(Client.status).where(Client.tenant_id == tid).limit(2000)
                 )).all()
         total = len(clients)
         active = sum(1 for c in clients if c.status == ClientStatus.ACTIVE)

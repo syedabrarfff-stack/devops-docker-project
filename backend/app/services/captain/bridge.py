@@ -4,6 +4,7 @@ Processes raw input, brain dumps, email threads, and generates situation reports
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -70,12 +71,17 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("AI lead intake failed: %s", exc)
             structured = {}
@@ -133,12 +139,17 @@ Return ONLY valid JSON with these exact keys:
 }}"""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=1200,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=1200,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Brain dump parsing failed: %s", exc)
             structured = {}
@@ -182,12 +193,17 @@ Return ONLY valid JSON with these exact keys:
 urgency_score must be integer 1–10. 10 = extremely urgent."""
 
         try:
-            response, _ = await ai_router.chat(
-                messages=[Message(role="user", content=prompt)],
-                task_type=TaskType.ANALYSIS,
-                max_tokens=800,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    messages=[Message(role="user", content=prompt)],
+                    task_type=TaskType.ANALYSIS,
+                    max_tokens=800,
+                ),
+                timeout=30.0,
             )
-            structured = _parse_json_response(response.content)
+            if response.error:
+                raise ValueError(response.error)
+            structured = _parse_json_response(response.content or "")
         except Exception as exc:
             logger.warning("Email intelligence extraction failed: %s", exc)
             structured = {}

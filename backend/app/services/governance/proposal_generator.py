@@ -147,7 +147,7 @@ class ProposalGenerator:
                     proposal.id,
                     {"client_email": proposal.client_email, "pdf_url": proposal.pdf_url, "pdf_path": proposal.pdf_path, "method": method},
                 )
-        return {"sent": True, "proposal_id": int(proposal_id)}
+        return {"sent": True, "proposal_id": str(proposal_id)}
 
     async def _generate_record(self, lead: Lead, package_tier: str, tenant_id) -> Proposal:
         tenant_uuid = uuid.UUID(str(tenant_id))
@@ -221,14 +221,17 @@ class ProposalGenerator:
 async def _generate_sections(lead: Lead, tier: str, invoice_number: str) -> dict[str, Any]:
     prompt = _proposal_prompt(lead, tier, invoice_number)
     try:
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=prompt)],
-            task_type=TaskType.SALES,
-            force_provider="anthropic",
-            force_model="claude-opus-4-7",
-            max_tokens=2200,
+        response, _ = await asyncio.wait_for(
+            ai_router.chat(
+                [Message(role="user", content=prompt)],
+                task_type=TaskType.SALES,
+                force_provider="anthropic",
+                force_model="claude-opus-4-7",
+                max_tokens=2200,
+            ),
+            timeout=60.0,
         )
-        if response.error or response.demo:
+        if response.error or response.demo or not response.content:
             return _fallback_sections(lead, tier, invoice_number)
         parsed = _parse_sections(response.content)
         return parsed or _fallback_sections(lead, tier, invoice_number)

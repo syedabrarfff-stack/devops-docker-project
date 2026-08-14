@@ -4,7 +4,9 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -13,7 +15,7 @@ from app.models.revenue import Invoice, InvoiceStatus
 from app.services.governance.invoice_engine import invoice_engine
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/invoices", tags=["invoices"])
+router = APIRouter(prefix="/invoices", tags=["invoices"], dependencies=[Depends(get_current_captain)])
 
 
 class InvoiceGenerateRequest(BaseModel):
@@ -59,6 +61,7 @@ async def list_invoices(
 
 
 @router.post("/generate")
+@limiter.limit("10/minute")
 async def generate_invoice(request: Request, body: InvoiceGenerateRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:
@@ -75,6 +78,7 @@ async def generate_invoice(request: Request, body: InvoiceGenerateRequest):
 
 
 @router.post("/{invoice_id}/send")
+@limiter.limit("5/minute")
 async def send_invoice(invoice_id: UUID, request: Request, body: InvoiceTenantRequest | None = None):
     tenant_id = _resolve_tenant_id(request, body.tenant_id if body else None)
     try:
@@ -85,6 +89,7 @@ async def send_invoice(invoice_id: UUID, request: Request, body: InvoiceTenantRe
 
 
 @router.post("/{invoice_id}/pay")
+@limiter.limit("5/minute")
 async def record_invoice_payment(invoice_id: UUID, request: Request, body: InvoicePaymentRequest):
     tenant_id = _resolve_tenant_id(request, body.tenant_id)
     try:

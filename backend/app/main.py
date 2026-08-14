@@ -12,6 +12,7 @@ from app.api.v1 import api_router
 from app.middleware import (
     ObservabilityRefreshMiddleware,
     RequestContextMiddleware,
+    SecurityHeadersMiddleware,
     TenantContextMiddleware,
     http_exception_handler,
     setup_observability,
@@ -200,17 +201,27 @@ async def lifespan(app: FastAPI):
         await requeue_pending()
         logger.info("✅ Task queue initialized — starting worker")
         worker_task = asyncio.create_task(worker())
+        worker_task.add_done_callback(
+            lambda t: logger.error("Task worker exited unexpectedly: %s", t.exception()) if not t.cancelled() and t.exception() else logger.warning("Task worker stopped")
+        )
     except Exception as e:
         logger.warning(f"Task worker skipped: {e}")
         worker_task = None
 
     # ── APScheduler ───────────────────────────────────────────────────────────
-    try:
-        from app.services.scheduler.scheduler import start_scheduler
-        await start_scheduler()
-        logger.info("✅ Scheduler started")
-    except Exception as e:
-        logger.warning(f"Scheduler skipped: {e}")
+    # Only start in the primary worker (age==0) to prevent each gunicorn worker
+    # running every job independently. gunicorn.conf.py sets JARVIS_SCHEDULER_DISABLED
+    # on worker.age > 0 via post_fork.
+    import os as _os
+    if not _os.environ.get("JARVIS_SCHEDULER_DISABLED"):
+        try:
+            from app.services.scheduler.scheduler import start_scheduler
+            await start_scheduler()
+            logger.info("✅ Scheduler started")
+        except Exception as e:
+            logger.warning(f"Scheduler skipped: {e}")
+    else:
+        logger.info("Scheduler disabled in this worker (non-primary)")
 
     logger.info("🚀 JARVIS operational — Aliyar Solutions v9.0.0")
     yield
@@ -239,12 +250,15 @@ app.state.limiter = limiter
 
 if RATE_LIMITING_ENABLED:
     try:
+        from slowapi import SlowAPIMiddleware
         from slowapi.errors import RateLimitExceeded
         from slowapi import _rate_limit_exceeded_handler
+        app.add_middleware(SlowAPIMiddleware)
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     except ImportError:
         pass
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(TenantContextMiddleware)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(ObservabilityRefreshMiddleware)

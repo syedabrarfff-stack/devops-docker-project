@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -99,19 +100,24 @@ class OutreachEngine:
                     "email_format_version": EMAIL_FORMAT_VERSION,
                 }
 
-                created = 0
-                for log in logs:
-                    existing = await session.scalar(
-                        select(FollowUpQueue.id)
+                # Batch-check existing queue entries for all steps in one query
+                steps_to_check = [log.sequence_step for log in logs]
+                existing_steps: set[int] = set()
+                if steps_to_check:
+                    _existing_rows = (await session.execute(
+                        select(FollowUpQueue.sequence_step)
                         .where(
                             FollowUpQueue.tenant_id == tenant_uuid,
                             FollowUpQueue.lead_id == lead.id,
-                            FollowUpQueue.sequence_step == log.sequence_step,
+                            FollowUpQueue.sequence_step.in_(steps_to_check),
                             FollowUpQueue.status == FollowUpStatus.PENDING,
                         )
-                        .limit(1)
-                    )
-                    if existing:
+                    )).scalars().all()
+                    existing_steps = set(_existing_rows)
+
+                created = 0
+                for log in logs:
+                    if log.sequence_step in existing_steps:
                         continue
                     session.add(
                         FollowUpQueue(
@@ -163,8 +169,32 @@ class OutreachEngine:
                     if item.lead_id:
                         pending_by_lead.setdefault(item.lead_id, []).append(item)
 
+                # Batch-load all pending approvals once, before the loop
+                all_pending_approvals = (
+                    await session.execute(
+                        select(ApprovalRequest).where(
+                            ApprovalRequest.tenant_id == tenant_uuid,
+                            ApprovalRequest.status == ApprovalStatus.PENDING,
+                        ).limit(500)
+                    )
+                ).scalars().all()
+
+                # Batch-load all leads for pending items in one query
+                _all_lead_ids = list(pending_by_lead.keys())
+                _leads_by_id: dict[uuid.UUID, Lead] = {}
+                if _all_lead_ids:
+                    for _l in (await session.execute(
+                        select(Lead).where(
+                            Lead.tenant_id == tenant_uuid,
+                            Lead.id.in_(_all_lead_ids),
+                        )
+                    )).scalars().all():
+                        _leads_by_id[_l.id] = _l
+
                 for lead_id, lead_items in pending_by_lead.items():
-                    lead = await self._get_lead(session, tenant_uuid, lead_id)
+                    lead = _leads_by_id.get(lead_id)
+                    if not lead:
+                        continue
                     logs = await self.generate_sequence(lead, tenant_uuid)
                     serialized_steps = [_log_to_sequence_step(log) for log in logs]
                     lead.assigned_persona = PERSONAS["darren_mitchell"]["name"]
@@ -182,14 +212,7 @@ class OutreachEngine:
                             **serialized_steps[0],
                         }
 
-                    approvals = (
-                        await session.execute(
-                            select(ApprovalRequest).where(
-                                ApprovalRequest.tenant_id == tenant_uuid,
-                                ApprovalRequest.status == ApprovalStatus.PENDING,
-                            )
-                        )
-                    ).scalars().all()
+                    approvals = all_pending_approvals
                     item_ids = {str(item.id) for item in lead_items}
                     step_by_queue_id = {str(item.id): int(item.sequence_step or 1) for item in lead_items}
                     email_by_step = {int(step["step"]): step for step in serialized_steps}
@@ -233,6 +256,11 @@ class OutreachEngine:
         }
 
     async def execute_due_outreach(self, tenant_id, limit: int = 48, autonomy_stage: str = "outreach_emails") -> int:
+        from app.core.config import settings as _cfg
+        if not _cfg.AUTO_SEND_OUTREACH:
+            logger.info("execute_due_outreach: AUTO_SEND_OUTREACH is disabled, skipping")
+            return 0
+
         tenant_uuid = uuid.UUID(str(tenant_id))
         now = datetime.now(UTC)
         sent = 0
@@ -270,8 +298,27 @@ class OutreachEngine:
                     )
                 ).scalars().all()
 
+                # Batch-load all leads in one query instead of N per-item selects
+                _lead_ids = [item.lead_id for item in due_items if item.lead_id]
+                _leads_map: dict = {}
+                if _lead_ids:
+                    _leads_map = {
+                        lead.id: lead
+                        for lead in (
+                            await session.execute(
+                                select(Lead).where(
+                                    Lead.tenant_id == tenant_uuid,
+                                    Lead.id.in_(_lead_ids),
+                                )
+                            )
+                        ).scalars().all()
+                    }
+
                 for item in due_items:
-                    lead = await self._get_lead(session, tenant_uuid, item.lead_id)
+                    if not item.lead_id or item.lead_id not in _leads_map:
+                        item.status = FollowUpStatus.FAILED
+                        continue
+                    lead = _leads_map[item.lead_id]
                     email = _email_for_step(lead, item.sequence_step)
                     if not email:
                         logs = await self.generate_sequence(lead, tenant_uuid)
@@ -495,17 +542,20 @@ class OutreachEngine:
     async def _generate_steps_with_ai(self, lead: Lead) -> list[dict]:
         prompt = _sequence_prompt(lead)
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.SALES,
-                force_provider="anthropic",
-                force_model="claude-opus-4-7",
-                max_tokens=1400,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.SALES,
+                    force_provider="anthropic",
+                    force_model="claude-sonnet",
+                    max_tokens=1400,
+                ),
+                timeout=60.0,
             )
             if response.error:
                 logger.warning("AI outreach sequence failed: %s", response.error)
                 return []
-            steps = _parse_steps(response.content)
+            steps = _parse_steps(response.content or "")
             return _clean_steps(steps, lead)
         except Exception as exc:
             logger.warning("AI outreach sequence generation failed: %s", exc)
@@ -654,7 +704,7 @@ def _fallback_steps(lead: Lead) -> list[dict]:
 
 
 def _parse_steps(text: str) -> list[dict]:
-    clean = text.strip()
+    clean = (text or "").strip()
     if "```" in clean:
         parts = clean.split("```")
         clean = next((part for part in parts if "[" in part and "]" in part), clean)

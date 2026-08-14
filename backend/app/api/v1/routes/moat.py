@@ -5,13 +5,15 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.api.v1.routes.auth import get_current_captain
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.services.intelligence.moat_engine import moat_engine, _defensibility_label
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/moat", tags=["Competitive Moat"])
+router = APIRouter(prefix="/moat", tags=["Competitive Moat"], dependencies=[Depends(get_current_captain)])
 
 
 def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> UUID:
@@ -30,6 +32,7 @@ def _resolve_tenant_id(request: Request, explicit_tenant_id: Optional[UUID]) -> 
 
 
 @router.post("/scan")
+@limiter.limit("5/minute")
 async def run_moat_scan(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -40,6 +43,7 @@ async def run_moat_scan(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/report")
+@limiter.limit("10/minute")
 async def get_moat_report(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -50,6 +54,7 @@ async def get_moat_report(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/score")
+@limiter.limit("20/minute")
 async def get_moat_score(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -80,6 +85,7 @@ async def get_moat_score(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/dimensions")
+@limiter.limit("20/minute")
 async def get_dimensions(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:
@@ -113,6 +119,7 @@ async def get_dimensions(request: Request, tenant_id: Optional[UUID] = None):
 
 
 @router.get("/threats")
+@limiter.limit("20/minute")
 async def get_threats(request: Request, tenant_id: Optional[UUID] = None):
     tid = _resolve_tenant_id(request, tenant_id)
     try:

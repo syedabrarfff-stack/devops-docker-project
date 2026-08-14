@@ -14,13 +14,19 @@ services:
     image: redis:7-alpine
     container_name: jarvis_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --save 60 1
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 384mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     volumes:
       - redis_data:/data
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,9 +50,17 @@ services:
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-jarvis}
       POSTGRES_USER:     ${POSTGRES_USER:-jarvis}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jarvis_secret}
-      POSTGRES_SHARED_BUFFERS: 128MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 256MB
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c effective_cache_size=256MB
+      -c max_connections=100
+      -c work_mem=4MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c log_min_duration_statement=1000
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -80,20 +94,20 @@ services:
     env_file:
       - ../.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${POSTGRES_DB:-jarvis}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-jarvis}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379/0
       JARVIS_REPO_DATA_PATH: /jarvis-data
       WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
       WHATSAPP_INSTANCE_NAME: ${WHATSAPP_INSTANCE_NAME:-jarvis-main}
       WHATSAPP_DISPLAY_IDENTITY: ${WHATSAPP_DISPLAY_IDENTITY:-Joseph David}
       EVOLUTION_API_URL: http://evolution:8080
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-jarvis-master-key}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:?EVOLUTION_API_KEY must be set in .env}
       EVOLUTION_PUBLIC_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
       EVOLUTION_WEBHOOK_URL: http://backend:8000/api/v1/webhooks/whatsapp
       PYTHONUNBUFFERED: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-      WEB_CONCURRENCY: "1"
-      GUNICORN_WORKERS: "1"
+      WEB_CONCURRENCY: "${WEB_CONCURRENCY:-3}"
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-3}"
       GUNICORN_TIMEOUT: "240"
       GUNICORN_GRACEFUL_TIMEOUT: "45"
     volumes:
@@ -135,11 +149,11 @@ services:
     environment:
       SERVER_URL: ${EVOLUTION_PUBLIC_URL:-https://aliyarsolutions.com/evolution}
       DEL_INSTANCE: "false"
-      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-jarvis-master-key}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:?EVOLUTION_API_KEY must be set in .env}
       LOG_LEVEL: ${EVOLUTION_LOG_LEVEL:-ERROR}
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${EVOLUTION_POSTGRES_DB:-evolution}
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD}@postgres:5432/${EVOLUTION_POSTGRES_DB:-evolution}
       DATABASE_CONNECTION_CLIENT_NAME: evolution_api
       DATABASE_SAVE_DATA_INSTANCE: "true"
       DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
@@ -149,7 +163,7 @@ services:
       DATABASE_SAVE_DATA_LABELS: "true"
       DATABASE_SAVE_DATA_HISTORIC: "true"
       CACHE_REDIS_ENABLED: "true"
-      CACHE_REDIS_URI: redis://redis:6379/1
+      CACHE_REDIS_URI: redis://:${REDIS_PASSWORD}@redis:6379/1
       CACHE_REDIS_PREFIX_KEY: evolution_api
       CACHE_REDIS_SAVE_INSTANCES: "false"
       CACHE_LOCAL_ENABLED: "false"
@@ -159,6 +173,17 @@ services:
       - evolution_instances:/evolution/instances
     ports:
       - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ 2>/dev/null | grep -q . || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       - jarvis_net
     deploy:
@@ -291,7 +316,7 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-jarvis_admin_change_me}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
@@ -348,7 +373,7 @@ services:
     container_name: jarvis_postgres_exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:-jarvis_secret}@postgres:5432/${POSTGRES_DB:-jarvis}?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jarvis}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -366,12 +391,10 @@ services:
     container_name: jarvis_redis_exporter
     restart: unless-stopped
     environment:
-      REDIS_ADDR: redis://redis:6379
+      REDIS_ADDR: redis://:${REDIS_PASSWORD}@redis:6379
     depends_on:
       redis:
         condition: service_healthy
-      evolution:
-        condition: service_started
     networks:
       - jarvis_net
     deploy:

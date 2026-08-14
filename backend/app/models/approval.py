@@ -21,6 +21,7 @@ class ApprovalRequest(JarvisBase):
     __tablename__ = "approval_requests"
     __table_args__ = (
         Index("ix_approval_requests_tenant_status", "tenant_id", "status"),
+        Index("ix_approval_requests_tenant_action_status", "tenant_id", "action_type", "status"),
     )
 
     action_type: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)

@@ -935,6 +935,9 @@ export default function LeadsDashboard() {
   const [launching, setLaunching] = useState(false);
   const [campaignResult, setCampaignResult] = useState(null);
   const [profileLeadId, setProfileLeadId] = useState(null);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiResults, setAiResults] = useState(null);
+  const [aiSearching, setAiSearching] = useState(false);
 
   function goGenerateProposal(lead) {
     setProposalPrefill({
@@ -964,6 +967,19 @@ export default function LeadsDashboard() {
       setNotice({ tone: "error", text: errorText(e, "Lead pipeline failed to load.") });
     }
     setLoading(false);
+  }
+
+  async function runAiSearch(q) {
+    if (!q || q.trim().length < 3) { setAiResults(null); return; }
+    setAiSearching(true);
+    try {
+      const r = await api.get('/api/v1/intelligence/semantic-search', { params: { q: q.trim(), limit: 20 } });
+      setAiResults(r.data.results || []);
+    } catch {
+      setAiResults([]);
+      setNotice({ tone: 'error', text: 'Semantic search unavailable — ensure OPENAI_API_KEY is set and leads are embedded.' });
+    }
+    setAiSearching(false);
   }
 
   async function scoreLead(id) {
@@ -1124,7 +1140,8 @@ export default function LeadsDashboard() {
     }
   }
 
-  const filtered = filter === "all" ? leads :
+  const filtered = aiResults !== null ? [] :
+    filter === "all" ? leads :
     filter === "unscored" ? leads.filter(l => l.score === 0) :
     leads.filter(l => normaliseStatus(l.status) === filter);
 
@@ -1198,23 +1215,108 @@ export default function LeadsDashboard() {
         ))}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit flex-wrap">
-        {["all", "unscored", "new", "qualified", "contacted", "interested"].map(f => (
+      {/* Filter Tabs + AI Search */}
+      <div className="space-y-3">
+        <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit flex-wrap">
+          {["all", "unscored", "new", "qualified", "contacted", "interested"].map(f => (
+            <button
+              key={f}
+              onClick={() => { setFilter(f); setAiResults(null); setAiQuery(''); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all capitalize ${
+                filter === f && aiResults === null ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {/* AI Semantic Search Bar */}
+        <div className="flex gap-2">
+          <div className="relative flex-1 max-w-lg">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-400 text-sm">✦</span>
+            <input
+              value={aiQuery}
+              onChange={e => {
+                setAiQuery(e.target.value);
+                if (!e.target.value.trim()) setAiResults(null);
+              }}
+              onKeyDown={e => e.key === 'Enter' && runAiSearch(aiQuery)}
+              placeholder="AI search: e.g. 'logistics companies with automation pain' or 'SaaS CFO hiring'"
+              className="w-full bg-white/5 border border-purple-500/20 rounded-lg pl-8 pr-4 py-2 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
+            />
+          </div>
           <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all capitalize ${
-              filter === f ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-            }`}
+            onClick={() => runAiSearch(aiQuery)}
+            disabled={aiSearching || aiQuery.trim().length < 3}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
           >
-            {f}
+            {aiSearching ? 'Searching…' : 'AI Search'}
           </button>
-        ))}
+          {aiResults !== null && (
+            <button
+              onClick={() => { setAiResults(null); setAiQuery(''); }}
+              className="px-3 py-2 border border-white/10 text-gray-400 hover:text-white rounded-lg text-sm transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Lead Grid */}
-      {loading ? (
+      {/* AI Search Results */}
+      {aiResults !== null && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-purple-300 font-medium">
+              {aiSearching ? 'Searching…' : `${aiResults.length} semantic match${aiResults.length !== 1 ? 'es' : ''} for "${aiQuery}"`}
+            </p>
+            <span className="text-xs text-gray-500 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">AI similarity</span>
+          </div>
+          {aiResults.length === 0 && !aiSearching ? (
+            <p className="text-gray-500 text-sm py-4">No matching leads found. Try a broader query or run the embedding sweep first.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {aiResults.map(r => {
+                const lead = {
+                  id: r.id,
+                  company_name: r.company,
+                  contact_name: r.contact,
+                  email: r.email,
+                  industry: r.industry,
+                  country: r.country,
+                  score: r.lead_score,
+                  tier: r.tier,
+                  status: r.status,
+                  pain_points: r.pain_points || [],
+                };
+                return (
+                  <div key={r.id} className="relative">
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-purple-600/80 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                      <span>✦</span>
+                      <span>{Math.round(r.score * 100)}% match</span>
+                    </div>
+                    <LeadRow
+                      lead={lead}
+                      onScore={scoreLead}
+                      onProposal={goGenerateProposal}
+                      onCallBrief={setCallBriefLead}
+                      onRefresh={loadAll}
+                      onLoss={recordLoss}
+                      onProfile={setProfileLeadId}
+                      selected={selectedIds.has(r.id)}
+                      onToggle={toggleLead}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lead Grid (normal mode) */}
+      {aiResults === null && (loading ? (
         <div className="text-center text-gray-500 py-12">Loading leads...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1224,7 +1326,7 @@ export default function LeadsDashboard() {
             filtered.map(l => <LeadRow key={l.id} lead={l} onScore={scoreLead} onProposal={goGenerateProposal} onCallBrief={setCallBriefLead} onRefresh={loadAll} onLoss={recordLoss} onProfile={setProfileLeadId} selected={selectedIds.has(l.id)} onToggle={toggleLead} />)
           )}
         </div>
-      )}
+      ))}
 
       {/* Call Brief Panel */}
       {callBriefLead && <CallBriefModal lead={callBriefLead} onClose={() => setCallBriefLead(null)} />}

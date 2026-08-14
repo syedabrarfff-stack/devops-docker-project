@@ -7,6 +7,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.api.v1.routes.auth import get_current_captain
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +20,9 @@ from app.models.lead import Lead
 logger = logging.getLogger(__name__)
 from app.services.leads.discovery import lead_discovery_engine
 
-router = APIRouter()
-discover_router = APIRouter(prefix="/discover", tags=["Lead Discovery"])
-legacy_router = APIRouter(prefix="/discovery", tags=["discovery"])
+router = APIRouter(dependencies=[Depends(get_current_captain)])
+discover_router = APIRouter(prefix="/discover", tags=["Lead Discovery"], dependencies=[Depends(get_current_captain)])
+legacy_router = APIRouter(prefix="/discovery", tags=["discovery"], dependencies=[Depends(get_current_captain)])
 
 
 class DiscoveryTarget(BaseModel):

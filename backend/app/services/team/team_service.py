@@ -870,7 +870,7 @@ async def get_all_members(db: AsyncSession, active_only: bool = True) -> list[Te
     q = select(TeamMember)
     if active_only:
         q = q.where(TeamMember.is_active == True)
-    result = await db.execute(q)
+    result = await db.execute(q.limit(50))
     return result.scalars().all()
 
 
@@ -899,7 +899,7 @@ async def get_member_for_service(db: AsyncSession, service_category: str) -> Opt
             return member
 
     # Fallback: find any active member whose service_categories includes the key
-    result = await db.execute(select(TeamMember).where(TeamMember.is_active == True))
+    result = await db.execute(select(TeamMember).where(TeamMember.is_active == True).limit(50))
     all_members = result.scalars().all()
     for m in all_members:
         if service_category.lower() in [c.lower() for c in (m.service_categories or [])]:
@@ -913,7 +913,7 @@ async def get_member_for_service(db: AsyncSession, service_category: str) -> Opt
 
 
 async def get_team_stats(db: AsyncSession) -> dict:
-    result = await db.execute(select(TeamMember))
+    result = await db.execute(select(TeamMember).limit(50))
     all_m = result.scalars().all()
     active = [m for m in all_m if m.is_active]
     departments = {}

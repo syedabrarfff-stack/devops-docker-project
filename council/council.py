@@ -13,6 +13,12 @@ import sys
 import json
 from datetime import datetime
 
+# Always resolve paths relative to THIS script, not the working directory.
+# This means: python council.py OR python council/council.py both work from any location.
+SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+SESSIONS_DIR = os.path.join(SCRIPT_DIR, "sessions")
+ENV_FILE     = os.path.join(SCRIPT_DIR, ".env")
+
 def install(pkg):
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "-q"])
@@ -35,11 +41,11 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ENV_FILE)
 except ImportError:
     install("python-dotenv")
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(ENV_FILE)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -68,6 +74,20 @@ NV_ZAIGLAM      = os.getenv("NVIDIA_KEY_ZAIGLAM",       "")
 NV_DEEPSEEK_V4  = os.getenv("NVIDIA_KEY_DEEPSEEK_V4",  "")
 NV_DEEPSEEK_PRO = os.getenv("NVIDIA_KEY_DEEPSEEK_PRO", "")
 NV_MINIMAX      = os.getenv("NVIDIA_KEY_MINIMAX",       "")
+
+# Collected for startup status display
+NV_KEYS = {
+    "NVIDIA_KEY_LLAMA4_MAV":   NV_LLAMA4_MAV,
+    "NVIDIA_KEY_LLAMA4_SCOUT": NV_LLAMA4_SCOUT,
+    "NVIDIA_KEY_LLAMA33":      NV_LLAMA33,
+    "NVIDIA_KEY_QWEN":         NV_QWEN,
+    "NVIDIA_KEY_KIMI":         NV_KIMI,
+    "NVIDIA_KEY_MISTRAL":      NV_MISTRAL,
+    "NVIDIA_KEY_ZAIGLAM":      NV_ZAIGLAM,
+    "NVIDIA_KEY_DEEPSEEK_V4":  NV_DEEPSEEK_V4,
+    "NVIDIA_KEY_DEEPSEEK_PRO": NV_DEEPSEEK_PRO,
+    "NVIDIA_KEY_MINIMAX":      NV_MINIMAX,
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -199,8 +219,9 @@ GOOGLE_URL     = "https://generativelanguage.googleapis.com/v1beta/models/{model
 
 
 async def call_nvidia(client, member, task):
-    if not member["api_key"]:
-        return "[SKIPPED — NVIDIA key not set in .env]"
+    key = member["api_key"]
+    if not key or not key.startswith("nvapi-"):
+        return "[SKIPPED — invalid or missing NVIDIA key]"
     try:
         r = await client.post(
             NVIDIA_URL,
@@ -421,8 +442,129 @@ async def query_member(client, member, task):
     return "[Unknown provider]"
 
 
+SYNTHESIS_PROMPT_TEMPLATE = """\
+You are the Supreme Strategic Intelligence of Aliyar Solutions — a global technology company.
+
+The full AI Council ({active} active members) has independently analyzed this task for the CEO (Captain):
+
+═══════════════════════════════════════
+TASK: {task}
+═══════════════════════════════════════
+
+COUNCIL INPUTS:
+{inputs}
+
+═══════════════════════════════════════
+YOUR MANDATE:
+═══════════════════════════════════════
+
+Synthesize a DEFINITIVE executive verdict that is superior to any individual response.
+Structure your verdict EXACTLY as follows — no deviation:
+
+## VERDICT
+[One crisp paragraph: the authoritative answer or recommendation. Decisive. No hedging.]
+
+## KEY INSIGHTS
+[3-5 bullet points — the most valuable, non-obvious insights from across the council]
+
+## ACTION PLAN
+[Numbered steps Captain should take. Concrete. Executable. In priority order.]
+
+## RISKS & WATCH-OUTS
+[2-3 critical risks or failure modes Captain must be aware of. Skip if none are significant.]
+
+## COUNCIL CONSENSUS
+[What all or most members agreed on — 1-2 sentences]
+
+RULES:
+- Write as a senior executive advisor, not a chatbot
+- Be specific to Aliyar Solutions context
+- Cut anything generic or obvious
+- If members disagreed significantly, note it under Risks
+- Total length: 400-600 words maximum
+
+COUNCIL VERDICT:"""
+
+
+async def run_council_progressive(task: str, on_model_done=None):
+    """
+    Fire all council members simultaneously with optional live progress callback.
+
+    on_model_done(name: str, success: bool, done: int, total: int) is awaited
+    as each model responds — enables real-time streaming to Telegram or API clients.
+
+    Returns: (council_responses, verdict, active_count, total_count)
+    """
+    members = [m for m in COUNCIL if not m.get("synthesizer")]
+    total   = len(members)
+    done_state = {"count": 0}
+
+    async def run_one(client, member):
+        result = await query_member(client, member, task)
+        if isinstance(result, Exception):
+            result = f"[ERROR: {str(result)[:150]}]"
+        success = not str(result).startswith("[")
+        done_state["count"] += 1
+        if on_model_done:
+            try:
+                await on_model_done(member["name"], success, done_state["count"], total)
+            except Exception:
+                pass
+        return {"member": member["name"], "role": member["role"], "response": str(result)}
+
+    async with httpx.AsyncClient() as client:
+        raw = await asyncio.gather(
+            *[run_one(client, m) for m in members],
+            return_exceptions=True,
+        )
+
+    council_responses = []
+    for i, r in enumerate(raw):
+        if isinstance(r, Exception):
+            council_responses.append({
+                "member":   members[i]["name"],
+                "role":     members[i]["role"],
+                "response": f"[ERROR: {str(r)[:150]}]",
+            })
+        else:
+            council_responses.append(r)
+
+    valid = [r for r in council_responses if not r["response"].startswith("[")]
+
+    synthesis_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
+        active=len(valid),
+        task=task,
+        inputs=json.dumps(
+            [{"expert": r["member"], "role": r["role"], "analysis": r["response"][:600]} for r in valid],
+            indent=2,
+        ),
+    )
+
+    verdict = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
+    return council_responses, verdict, len(valid), len(council_responses)
+
+
+def _save_session(task, council_responses, verdict, prefix="council"):
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = os.path.join(SESSIONS_DIR, f"{prefix}_{ts}.txt")
+    active   = sum(1 for r in council_responses if not r["response"].startswith("["))
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"JARVIS AI COUNCIL SESSION — Aliyar Solutions\n{'='*65}\n")
+        f.write(f"Date   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"Task   : {task}\n")
+        f.write(f"Council: {active}/{len(council_responses)} members active\n")
+        f.write(f"{'='*65}\n\n")
+        f.write(f"COUNCIL VERDICT\n{'='*65}\n{verdict}\n\n")
+        f.write(f"\n{'='*65}\nINDIVIDUAL MEMBER RESPONSES\n{'='*65}\n")
+        for r in council_responses:
+            status = "ACTIVE" if not r["response"].startswith("[") else "SKIPPED"
+            f.write(f"\n{'─'*65}\n[{status}] {r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
+    return filename
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
-#  MAIN COUNCIL SESSION
+#  MAIN COUNCIL SESSION (terminal interactive)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def run_council(task):
@@ -438,83 +580,111 @@ async def run_council(task):
     print(f"{C}{'═'*65}{RS}\n")
     print(f"{Y}⚡  Consulting all {len(members)} council members simultaneously...{RS}\n")
 
-    async with httpx.AsyncClient() as client:
+    completed = [0]
 
-        results = await asyncio.gather(*[query_member(client, m, task) for m in members], return_exceptions=True)
+    async def on_done(name, success, done, total):
+        icon = f"{G}✅{RS}" if success else f"{R}❌{RS}"
+        print(f"  {icon} [{done:02d}/{total}] {B}{name:<30}{RS}")
 
-        council_responses = []
-        for i, (member, result) in enumerate(zip(members, results), 1):
-            if isinstance(result, Exception):
-                result = f"[ERROR: {str(result)[:150]}]"
-            is_err = result.startswith("[")
-            icon = f"{R}❌{RS}" if is_err else f"{G}✅{RS}"
-            print(f"  {icon} [{i:02d}] {B}{member['name']:<30}{RS} {member['role']}")
-            council_responses.append({"member": member["name"], "role": member["role"], "response": result})
+    council_responses, final, active, total = await run_council_progressive(task, on_done)
 
-        print(f"\n{C}{'─'*65}{RS}")
-        print(f"{B}{Y}  🏛️  {synthesizer['name']} synthesizing verdict...{RS}")
-        print(f"{C}{'─'*65}{RS}\n")
+    print(f"\n{C}{'─'*65}{RS}")
+    print(f"{B}{Y}  🏛️  {synthesizer['name']} synthesizing verdict...{RS}")
+    print(f"{C}{'─'*65}{RS}\n")
 
-        valid = [r for r in council_responses if not r["response"].startswith("[")]
+    print(f"{B}{G}{'═'*65}{RS}")
+    print(f"{B}{G}  🏆  COUNCIL VERDICT  ({active}/{total} members active){RS}")
+    print(f"{G}{'═'*65}{RS}\n")
 
-        synthesis_prompt = f"""You are the Chief AI Strategist for Aliyar Solutions, a global technology company.
+    for line in final.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            print(f"{B}{C}{line}{RS}")
+        elif stripped.startswith("- ") or stripped.startswith("• "):
+            print(f"{W}{line}{RS}")
+        elif stripped and stripped[0].isdigit() and stripped[1:3] in (". ", ") "):
+            print(f"{Y}{line}{RS}")
+        else:
+            print(f"{W}{line}{RS}")
 
-The AI Council of {len(valid)} expert models has reviewed this task:
+    print(f"\n{G}{'═'*65}{RS}")
 
-TASK: {task}
+    try:
+        show = input(f"\n{Y}  Show individual responses? (y/n): {RS}").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        show = "n"
 
-COUNCIL INPUTS:
-{json.dumps([{"expert": r["member"], "role": r["role"], "input": r["response"][:500]} for r in valid], indent=2)}
+    if show == "y":
+        for r in council_responses:
+            print(f"\n{C}{'─'*65}{RS}")
+            print(f"{B}{r['member']}{RS}  |  {r['role']}")
+            print(f"{C}{'─'*65}{RS}")
+            print(r["response"])
 
-Your job:
-1. Extract the BEST ideas from each council member
-2. Identify strong consensus points
-3. Flag any important disagreements
-4. Produce ONE definitive, authoritative answer superior to any individual response
-5. Structure it clearly for Captain
+    filename = _save_session(task, council_responses, final, prefix="council")
+    print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
 
-COUNCIL VERDICT:"""
 
-        final = await call_bedrock_synthesizer(synthesis_prompt, max_tokens=2048)
+def _provider_status_line(label, key, hint=""):
+    if key and len(key) > 10:
+        preview = key[:8] + "..." + key[-4:]
+        return f"  {G}✓{RS}  {label:<28} {preview}"
+    msg = f"  {R}✗{RS}  {label:<28} not configured"
+    if hint:
+        msg += f"  {Y}← {hint}{RS}"
+    return msg
 
-        print(f"{B}{G}{'═'*65}{RS}")
-        print(f"{B}{G}  🏆  COUNCIL VERDICT{RS}")
-        print(f"{G}{'═'*65}{RS}\n")
-        print(f"{W}{final}{RS}\n")
-        print(f"{G}{'═'*65}{RS}")
 
-        try:
-            show = input(f"\n{Y}  Show individual responses? (y/n): {RS}").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            show = "n"
+def print_startup_status():
+    print(f"\n{B}{C}{'═'*65}{RS}")
+    print(f"{B}{C}   JARVIS AI Council — Aliyar Solutions{RS}")
+    print(f"{C}{'═'*65}{RS}")
 
-        if show == "y":
-            for r in council_responses:
-                print(f"\n{C}{'─'*65}{RS}")
-                print(f"{B}{r['member']}{RS}  |  {r['role']}")
-                print(f"{C}{'─'*65}{RS}")
-                print(r["response"])
+    # Synthesizer
+    bedrock_active  = bool(BEDROCK_API_KEY and len(BEDROCK_API_KEY) > 10)
+    iam_active      = bool(AWS_ACCESS_KEY and AWS_SECRET_KEY)
+    anthropic_active = bool(ANTHROPIC_KEY and len(ANTHROPIC_KEY) > 10)
 
-        os.makedirs("sessions", exist_ok=True)
-        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"sessions/council_{ts}.txt"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(f"JARVIS AI COUNCIL SESSION\n")
-            f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Task: {task}\n\n")
-            f.write(f"{'='*65}\nCOUNCIL VERDICT\n{'='*65}\n{final}\n\n")
-            for r in council_responses:
-                f.write(f"\n{'─'*65}\n{r['member']} — {r['role']}\n{'─'*65}\n{r['response']}\n")
+    if bedrock_active:
+        synth_line = f"  {G}✓{RS}  Synthesizer: Claude Opus 4.8 via {B}Bedrock API Key{RS} (primary)"
+    elif iam_active:
+        synth_line = f"  {Y}~{RS}  Synthesizer: Claude Opus 4.8 via {B}Bedrock IAM{RS} (API key not set)"
+    elif anthropic_active:
+        synth_line = f"  {Y}~{RS}  Synthesizer: Claude Opus 4.5 via {B}Anthropic direct{RS} (Bedrock not set)"
+    else:
+        synth_line = f"  {R}✗{RS}  Synthesizer: {R}NO CREDENTIALS — add keys to .env{RS}"
 
-        print(f"\n{Y}  💾  Session saved → {filename}{RS}\n")
+    print(f"\n{B}  Synthesizer{RS}")
+    print(synth_line)
+
+    print(f"\n{B}  Council members{RS}")
+    print(_provider_status_line("Claude Sonnet 4.6 (Anthropic)", ANTHROPIC_KEY,
+                                "add ANTHROPIC_API_KEY to .env"))
+    nv_key_any = next((v for v in NV_KEYS.values() if v and v.startswith("nvapi-")), "")
+    nv_count   = sum(1 for v in NV_KEYS.values() if v and v.startswith("nvapi-"))
+    if nv_count:
+        print(f"  {G}✓{RS}  NVIDIA NIM ({nv_count}/10 slots set)        {nv_key_any[:8]}...{nv_key_any[-4:]}")
+    else:
+        print(f"  {R}✗{RS}  NVIDIA NIM (0/10)                      not configured  {Y}← add NVIDIA_KEY_* to .env{RS}")
+    print(_provider_status_line("Google Gemini 2.5 Pro", GOOGLE_KEY,
+                                "get key at aistudio.google.com"))
+    print(_provider_status_line("OpenRouter / AI21 Jamba", OPENROUTER_KEY,
+                                "add OPENROUTER_API_KEY to .env"))
+
+    # Council member count estimate
+    active = sum([
+        bool(ANTHROPIC_KEY),
+        nv_count,
+        bool(GOOGLE_KEY),
+        bool(OPENROUTER_KEY),
+    ])
+    print(f"\n{C}  Ready: ~{active + nv_count - (1 if nv_count else 0)} members active  |  "
+          f"run python test_keys.py for full live test{RS}")
+    print(f"{C}{'═'*65}{RS}\n")
 
 
 def main():
-    print(f"\n{B}{C}{'═'*65}{RS}")
-    print(f"{B}{C}   JARVIS AI Council — Aliyar Solutions{RS}")
-    print(f"{C}   14 models. One task. One verdict.{RS}")
-    print(f"{C}   Type your task and press Enter. Type 'quit' to exit.{RS}")
-    print(f"{B}{C}{'═'*65}{RS}\n")
+    print_startup_status()
 
     # If task passed as command line argument, run once and exit
     if len(sys.argv) > 1:

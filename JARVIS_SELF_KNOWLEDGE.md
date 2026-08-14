@@ -1,5 +1,5 @@
 # JARVIS — Complete Self-Knowledge
-## Installed: 2026-06-22 | Source: Full Codebase Audit
+## Installed: 2026-06-22 | Updated: 2026-06-29 | Source: Full Codebase Audit
 
 *Every JARVIS session must read this file on startup. This is operational self-awareness.*
 
@@ -11,8 +11,8 @@
 |---|---|
 | Backend | FastAPI + SQLAlchemy 2.0 async + PostgreSQL 16 + pgvector |
 | Frontend | React 18 + Vite + Tailwind CSS (60+ views) |
-| Cache | Redis 7 (256MB, LRU) |
-| Scheduler | APScheduler — 25 production jobs |
+| Cache | Redis 7 (384MB, LRU, password-protected) |
+| Scheduler | APScheduler — 64 production jobs |
 | AI Routing | 11-provider router + 14-model council |
 | WhatsApp | Evolution API v2.3.7 |
 | Infrastructure | Docker Compose (local) → AWS ECS Fargate (production) |
@@ -92,32 +92,29 @@ Run with: `python council.py` from `council/` directory
 
 ---
 
-## 25 PRODUCTION SCHEDULER JOBS
+## 64 PRODUCTION SCHEDULER JOBS
 
-### Daily
-- `daily_morning_briefing` — 07:00 UTC — CEO briefing
-- `daily_lead_scoring` — 02:00 UTC — Bulk lead scoring
-- `daily_lead_discovery` — 03:00 UTC — Apollo discovery
-- `daily_follow_up_check` — 06:00 UTC — Follow-up execution
-- `daily_outreach_safety_review` — 01:00 UTC — Compliance check
-- `daily_memory_consolidate` — 04:00 UTC — Episodic→Semantic
-- `daily_optimization_review` — 23:00 UTC — AI performance
-- `daily_free_lead_discovery` — 05:00 UTC — Public scraping
-- `daily_db_backup` — 00:00 UTC — PostgreSQL backup
-- `daily_market_intelligence` — 08:00 UTC — Market scanning
+Full catalog in CLAUDE.md Section 12. Summary by layer:
 
-### Weekly
-- `weekly_outreach_stats` — Monday 08:00
-- `weekly_pipeline_health` — Sunday 20:00
-- `weekly_tech_radar` — Monday 06:00
-- `weekly_innovation_review` — Friday 18:00
-- `weekly_market_scan` — Wednesday 09:00
+### Core Operational (engine.py — 38 jobs)
+**Daily intelligence:** `daily_briefing` 08:00 · `morning_briefing` 07:00 · `captain_dashboard_briefing` 06:55 · `daily_optimization_review` 23:00 · `daily_strategy_report` 23:00 · `daily_self_learning` 00:05 · `memory_consolidation` 00:30 · `lead_embedding_sweep` 03:15 · `nightly_signal_scan` 02:00
 
-### Other
-- `biweekly_research_report` — Sunday 07:00
-- `monthly_weight_adjust` — 1st of month — Council weight recalibration
-- `speed_to_lead_5min` — Webhook-triggered
-- `self_healer` — Continuous health remediation
+**Lead pipeline:** `lead_scoring_sweep` every 6h · `daily_icp_lead_scoring` 05:00 · `outreach_processor` every 1h · `reply_handler_scan` every 2h · `contact_sync` every 12h
+
+**Overnight Revenue Engine (IST-timed):** `overnight_lead_discovery` 18:00 · `overnight_intel_analysis` 18:30 · `overnight_proposal_engine` 19:30 · `overnight_cold_outreach` 20:30 · `overnight_freelance_bids` 21:30 · `overnight_followup_sequences` 23:30 · `overnight_pipeline_health` 01:00 · `overnight_ops_report` 02:30
+
+**Intelligence:** `tech_radar_scan` Mon 06:00 · `competitor_monitoring` Mon 09:00 · `market_intelligence_report` Sun 07:00 · `biweekly_research_report` Sun 07:00 · `tech_evolution_scan` every 6h · `daily_market_intelligence` 04:00
+
+**Connectors:** `daily_scout_network` 01:30 · `daily_connector_hub_ingestion` 14:30 · `pre_call_briefing_trigger` every 30min
+
+**System:** `self_healer` every 15min · `nexus_heartbeat` every 1h · `dio_health_check` 06:30 · `weekly_memory_promotion` Sun 00:45 · `milestone_bulk_review` 10:00 · `weekly_strategy_review` Sun 07:00 · `weekly_performance_briefing` Sat 19:00
+
+### AIONX Organ Jobs (aionx_scheduler.py — 26 jobs)
+**High-frequency:** `aionx_system_state_snapshot` 5min · `aionx_speed_to_lead_check` 5min · `aionx_mission_control_snapshot` 10min · `aionx_preventive_monitoring_snapshot` 15min · `aionx_escalation_processor` 30min · `aionx_execute_due_outreach` 30min · `aionx_sentinel_sweep` 2h · `aionx_predictive_threat_scan` 2h · `aionx_operational_iq` 1h · `aionx_governed_integrity_cycle` 1h · `aionx_agent_capacity_check` 4h · `aionx_idle_intelligence_cycle` 6h
+
+**Daily:** `aionx_retro_30d` 22:00 · `aionx_retro_90d` 22:15 · `aionx_twin_predictions` 03:00 · `aionx_counterfactual_sync` 01:00 · `aionx_debt_assessment` 02:00 · `aionx_trust_erosion_check` 03:30 · `aionx_external_scan_record` 04:15 · `aionx_founder_mirror_analysis` 01:00
+
+**Weekly:** `aionx_wisdom_weekly` Sun 19:00 · `aionx_decision_retrospective` Sun 19:30 · `aionx_authority_recalibration` Sun 20:00 · `aionx_supreme_meta_learning` Sun 21:00 · `aionx_parallel_universe_analysis` Mon 08:00 · `aionx_service_innovation_scan` Sun 10:00
 
 ---
 
@@ -175,7 +172,7 @@ Plus: Working memory (current session) · Knowledge graph (nodes + edges) · Civ
 
 ## API ROUTES (60+ endpoints)
 
-`leads` · `outreach` · `crm` · `proposals` · `revenue` · `approvals` · `captain` · `governance` · `intelligence` · `council` · `departments` · `aionx` · `consciousness` · `scheduler` · `memory` · `knowledge` · `team` · `catalog` · `briefing` · `chat` · `ws` (WebSocket) · `ses_inbound` · `telegram_webhook`
+`leads` · `outreach` · `crm` · `proposals` · `revenue` · `approvals` · `captain` · `governance` · `intelligence` · `council` · `departments` · `aionx` · `consciousness` · `scheduler` · `memory` · `knowledge` · `team` · `catalog` · `briefing` · `chat` · `ws` (WebSocket) · `ses_inbound` · `telegram_webhook` · `supreme` (Layer 19 — 35 constitutional intelligence endpoints)
 
 All registered in: `backend/app/api/v1/__init__.py`
 
@@ -189,7 +186,7 @@ All registered in: `backend/app/api/v1/__init__.py`
 4. Team registry seeded (8 personas)
 5. JARVIS authority instructions stored in memory
 6. Task queue initialized + worker started
-7. APScheduler started (25 jobs loaded)
+7. APScheduler started (64 jobs loaded — 38 core + 26 AIONX)
 
 Health endpoints: `/health` (shallow) · `/readyz` (deep — checks DB, AI, Redis, Evolution, SES, Scheduler)
 
@@ -198,7 +195,23 @@ Health endpoints: `/health` (shallow) · `/readyz` (deep — checks DB, AI, Redi
 ## WHAT IS COMPLETE vs IN PROGRESS
 
 ### Fully Operational
-Multi-provider AI routing · lead discovery & scoring · email outreach & reply handling · proposal generation (4 styles) · invoice management · CRM sync · Gmail OAuth · Google Calendar · team routing · service catalog · memory system · AIONX decision intelligence · WhatsApp (Evolution API) · approval governance · AI council voting · APScheduler (25 jobs)
+Multi-provider AI routing · lead discovery & scoring · email outreach & reply handling · proposal generation (4 styles) · invoice management · CRM sync · Gmail OAuth · Google Calendar · team routing · service catalog · memory system · AIONX decision intelligence · WhatsApp (Evolution API) · approval governance · AI council voting · APScheduler (30+ jobs)
+
+### Phase 25-26 Fully Operational (2026-06-27)
+NEXUS autonomous outreach (Redis-locked, hourly heartbeat) · Semantic lead search (OpenAI embeddings + cosine similarity) · Telegram bot with 15+ commands + inline approval buttons · Captain morning dashboard (06:55 daily, live DB stats) · Weekly performance briefing (Saturday) · Nightly signal scan (HOT/WARM lead alerts) · Full NEXUS heal protocols (all 8 subsystems) · WebSocket real-time events (draft sent/rejected, NEXUS pulse) · Lead reply Telegram alerts (SES inbound → immediate Captain notification) · Revenue snapshot in Telegram · Bulk approve-all with confirmation
+
+### Phase 107-108 Fully Operational (2026-06-29)
+**Supreme Intelligence Layer (Layer 19):** 5 autonomous intelligence engines:
+- `JarvisConstitution` — 12 Constitutional Laws + 3-tier Authority Matrix + 8 Escalation Triggers
+- `AutonomousCEO` — Strategic pillars, opportunity scoring (5 dimensions), expansion roadmap
+- `RevenueConsciousness` — Pricing tiers, LTV, churn risk, upsell triggers, pipeline health
+- `PlatformIntelligence` — Infrastructure assessment, cost posture, SLA monitoring, tech debt
+- `SalesAutonomy` — Lead scoring, outreach sequences, win/loss analysis, objection playbook
+
+35 Supreme API endpoints at `/api/v1/supreme/*` with full rate limiting and Pydantic validation.
+**SupremeDashboard.jsx** — 6-tab frontend: Overview / Constitution / CEO Brain / Revenue / Platform / Sales
+
+**Production Hardening:** All compose secrets use `:?` mandatory syntax · Redis password-protected · OIDC role ARN in GitHub Secret · Workers raised to 3 · AI budget $50/$1.00 · Comprehensive `.env.example` template
 
 ### Partial
 LinkedIn outreach (framework ready, needs activation) · voice systems (Evolution API integrated, prompting pending) · client digital twins (framework ready, calibration pending) · counterfactual simulations (models ready, optimization ongoing)
@@ -210,6 +223,13 @@ White-label licensing · real-time speech-to-text · video generation · mobile 
 
 ## INVOICE NUMBERING
 Format: `ALY-YYYYMM-XXXX` — e.g., `ALY-202406-0047`
+
+## TELEGRAM BOT COMMANDS (Phase 25-26)
+/status · /heal · /nexus · /leads · /pipeline · /revenue · /scout · /briefing
+/drafts · /draft <id> · /approve_draft <id> · /reject_draft <id> · /approve_all
+/approve <id> · /reject <id> · /queue · /help
+Inline buttons: approve_draft: · reject_draft: · approve_all_drafts:confirm · approve: · reject:
+Webhook: POST /api/v1/telegram/webhook (registered with Telegram)
 
 ## OUTREACH COMPLIANCE
 Max 5 steps per sequence · Do-Not-Contact enforced · Speed-to-lead SLA: 5 minutes

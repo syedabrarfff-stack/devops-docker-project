@@ -11,6 +11,7 @@ One DIO per department. Each DIO:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -388,13 +389,20 @@ class DepartmentAgentService:
             definitions = _canonical_dio_definitions()
             canonical_codes = {d["department_code"] for d in definitions}
 
+            # Batch-fetch all existing DIOs for this tenant in one query (avoids N+1)
+            canonical_code_values = [_department_code_value(d["department_code"]) for d in definitions]
+            existing_rows = (await db.execute(
+                select(DepartmentIntelligenceOfficer).where(
+                    DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
+                    DepartmentIntelligenceOfficer.department_code.in_(canonical_code_values),
+                ).limit(100)
+            )).scalars().all()
+            existing_by_code: dict[str, DepartmentIntelligenceOfficer] = {
+                _department_code_value(e.department_code): e for e in existing_rows
+            }
+
             for defn in definitions:
-                existing = await db.scalar(
-                    select(DepartmentIntelligenceOfficer).where(
-                        DepartmentIntelligenceOfficer.tenant_id == tenant_uuid,
-                        DepartmentIntelligenceOfficer.department_code == _department_code_value(defn["department_code"]),
-                    )
-                )
+                existing = existing_by_code.get(_department_code_value(defn["department_code"]))
                 if existing:
                     existing.department_name = defn["department_name"]
                     existing.division = defn["division"]
@@ -441,6 +449,7 @@ class DepartmentAgentService:
             .where(DepartmentIntelligenceOfficer.tenant_id == tenant_uuid)
             .where(DepartmentIntelligenceOfficer.is_active.is_(True))
             .order_by(DepartmentIntelligenceOfficer.department_code)
+            .limit(100)
         )
         dios = result.scalars().all()
         return [self._serialize_dio(d) for d in dios]
@@ -481,16 +490,21 @@ Return a JSON object with department_code as keys and metric objects as values.
 Each metric object: {{"health": 85, "kpi_status": "on-track", "achievement": "...", "blocker": "...", "action": "..."}}
 Return only valid JSON, no markdown."""
 
-        response, _ = await ai_router.chat(
-            [Message(role="user", content=metrics_prompt)],
-            task_type=TaskType.ANALYSIS,
-        )
-
         import json
         try:
-            metrics = json.loads(response.content.strip())
-        except Exception:
-            metrics = {"raw": response.content}
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=metrics_prompt)],
+                    task_type=TaskType.ANALYSIS,
+                ),
+                timeout=60.0,
+            )
+            if response.error:
+                raise ValueError(response.error)
+            metrics = json.loads((response.content or "").strip())
+        except Exception as exc:
+            logger.warning("Department metrics parse failed: %s", exc)
+            metrics = {"raw": "unavailable"}
 
         return {
             "tenant_id": str(tenant_uuid),
@@ -589,13 +603,19 @@ Metrics: {str(metrics)[:200]}
 Return only a single number between 0 and 100."""
 
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.FAST,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.FAST,
+                ),
+                timeout=60.0,
             )
-            score = float(response.content.strip().split()[0])
+            if response.error:
+                raise ValueError(response.error)
+            score = float((response.content or "50").strip().split()[0])
             return max(0.0, min(100.0, score))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impact score calculation failed: %s", exc)
             return 50.0
 
     def _serialize_dio(self, d: DepartmentIntelligenceOfficer) -> dict:

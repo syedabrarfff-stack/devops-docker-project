@@ -136,6 +136,7 @@ class InnovationQueueService:
                         select(InnovationQueueItem)
                         .where(InnovationQueueItem.tenant_id == tenant_uuid)
                         .order_by(InnovationQueueItem.priority_score.desc(), InnovationQueueItem.created_at.asc())
+                        .limit(200)
                     )
                 ).scalars().all()
         return {"count": len(rows), "items": [_serialize(row) for row in rows]}

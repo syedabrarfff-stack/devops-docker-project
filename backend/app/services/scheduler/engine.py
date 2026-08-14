@@ -3,7 +3,9 @@ JARVIS Agent Scheduler — APScheduler with SQLite/PostgreSQL persistence.
 Supports cron, interval, and one-shot (date) triggers.
 Jobs survive restarts via job store.
 """
+import asyncio
 import logging
+import traceback as _tb
 from datetime import datetime, timezone
 from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -151,6 +153,54 @@ def resume_job(job_id: str) -> bool:
         return False
 
 
+# ── Job failure persistence ───────────────────────────────────────────────────
+
+_SYSTEM_TENANT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+async def _record_job_failure(job_name: str, error: str, tb_str: str = "") -> None:
+    """Persist a scheduler job failure to DB. Alert Captain after 3 consecutive open failures."""
+    import uuid as _uuid
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.scheduling import JobFailure
+        from sqlalchemy import select, func
+
+        tenant_id = (
+            _uuid.UUID(str(settings.JARVIS_DEFAULT_TENANT_ID))
+            if settings.JARVIS_DEFAULT_TENANT_ID
+            else _uuid.UUID(_SYSTEM_TENANT_ID)
+        )
+
+        async with AsyncSessionLocal() as db:
+            async with db.begin():
+                db.add(JobFailure(
+                    tenant_id=tenant_id,
+                    job_name=job_name,
+                    status="open",
+                    error=error[:2000],
+                    traceback=tb_str[:4000] if tb_str else None,
+                ))
+            open_count = await db.scalar(
+                select(func.count()).select_from(JobFailure)
+                .where(JobFailure.job_name == job_name)
+                .where(JobFailure.status == "open")
+            ) or 0
+
+        if open_count >= 3:
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"⚠️ *Scheduler Failure — {job_name}*\n"
+                    f"{open_count} consecutive failures recorded.\n"
+                    f"`{error[:200]}`"
+                )
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.warning("_record_job_failure itself failed for %s: %s", job_name, exc)
+
+
 # ── Default JARVIS jobs ───────────────────────────────────────────────────────
 
 async def _register_default_jobs() -> None:
@@ -260,11 +310,25 @@ async def _register_default_jobs() -> None:
         logger.warning("AIONX job registration failed: %s", exc)
 
     # ── Autonomous Self-Healer — runs every 15 minutes ────────────────────────
-    # Resets failed AI circuit breakers, refills empty lead pipelines,
-    # resumes paused scheduler jobs, and alerts Captain for what it can't fix.
     add_interval_job("self_healer", _job_self_healer, minutes=15)
 
-    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer)")
+    # ── NEXUS Heartbeat — runs every hour ─────────────────────────────────────
+    add_interval_job("nexus_heartbeat", _job_nexus_heartbeat, hours=1)
+
+    # ── Semantic Lead Embedding Sweep — nightly at 03:15 ──────────────────────
+    add_cron_job("lead_embedding_sweep", _job_embed_leads, hour=3, minute=15)
+
+    # ── Captain Dashboard Briefing — 06:55 every day ──────────────────────────
+    add_cron_job("captain_dashboard_briefing", _job_captain_dashboard_briefing, hour=6, minute=55)
+
+    # ── Weekly Performance Briefing — Saturday 19:00 UTC ─────────────────────
+    add_cron_job("weekly_performance_briefing", _job_weekly_performance_briefing,
+                 day_of_week="sat", hour=19, minute=0)
+
+    # ── Nightly Signal Pipeline Scan — 02:00 UTC ─────────────────────────────
+    add_cron_job("nightly_signal_scan", _job_nightly_signal_scan, hour=2, minute=0)
+
+    logger.info("✅ Default JARVIS jobs registered (6-Layer Intelligence + 9-Connector Pipeline + AIONX Organs + Self-Healer + NEXUS Heartbeat + Semantic Embeddings + Daily Briefing + Weekly Performance + Nightly Signal Scan)")
 
 
 async def _job_morning_briefing() -> None:
@@ -276,7 +340,8 @@ async def _job_morning_briefing() -> None:
             from app.core.config import settings
             await _handle_briefing(str(settings.TELEGRAM_CHAT_ID or ""), db)
     except Exception as e:
-        logger.warning(f"Morning briefing job failed: {e}")
+        logger.warning("Morning briefing job failed: %s", e)
+        await _record_job_failure("daily_briefing", str(e), _tb.format_exc())
 
 
 async def _job_score_leads() -> None:
@@ -289,7 +354,8 @@ async def _job_score_leads() -> None:
                 count = await bulk_score(db, limit=20)
         logger.info(f"Lead scoring: {count} leads processed")
     except Exception as e:
-        logger.warning(f"Lead scoring job failed: {e}")
+        logger.warning("Lead scoring job failed: %s", e)
+        await _record_job_failure("lead_scoring_sweep", str(e), _tb.format_exc())
 
 
 async def _job_daily_icp_lead_scoring() -> None:
@@ -306,6 +372,7 @@ async def _job_daily_icp_lead_scoring() -> None:
         logger.info(f"Daily ICP scoring: {promoted} leads promoted")
     except Exception as e:
         logger.warning(f"Daily ICP scoring job failed: {e}")
+        await _record_job_failure("daily_icp_lead_scoring", str(e), _tb.format_exc())
 
 
 async def _job_process_outreach() -> None:
@@ -344,6 +411,7 @@ async def _job_process_outreach() -> None:
         logger.info(f"Outreach: {sent}/{len(due)} emails sent")
     except Exception as e:
         logger.warning(f"Outreach job failed: {e}")
+        await _record_job_failure("outreach_processor", str(e), _tb.format_exc())
 
 
 async def _job_sync_contacts() -> None:
@@ -357,6 +425,7 @@ async def _job_sync_contacts() -> None:
         logger.info(f"Contact sync: {count} synced")
     except Exception as e:
         logger.warning(f"Contact sync job failed: {e}")
+        await _record_job_failure("contact_sync", str(e), _tb.format_exc())
 
 
 # ── Phase 5 — Intelligence jobs ───────────────────────────────────────────────
@@ -373,6 +442,7 @@ async def _job_tech_radar_scan() -> None:
         logger.info(f"Tech radar: {count} entries updated")
     except Exception as e:
         logger.warning(f"Tech radar scan failed: {e}")
+        await _record_job_failure("tech_radar_scan", str(e), _tb.format_exc())
 
 
 async def _job_market_intelligence_report() -> None:
@@ -392,6 +462,7 @@ async def _job_market_intelligence_report() -> None:
         logger.info(f"Market intelligence: {generated} tenant reports generated")
     except Exception as e:
         logger.warning(f"Market intelligence report failed: {e}")
+        await _record_job_failure("market_intelligence_report", str(e), _tb.format_exc())
 
 
 async def _job_competitor_monitoring() -> None:
@@ -406,6 +477,7 @@ async def _job_competitor_monitoring() -> None:
         logger.info(f"Competitor monitoring: {changes} changes detected")
     except Exception as e:
         logger.warning(f"Competitor monitoring failed: {e}")
+        await _record_job_failure("competitor_monitoring", str(e), _tb.format_exc())
 
 
 async def _job_intelligence_morning_briefing() -> None:
@@ -422,6 +494,7 @@ async def _job_intelligence_morning_briefing() -> None:
         logger.info(f"Morning briefing: {generated} tenant briefings generated")
     except Exception as e:
         logger.warning(f"Morning briefing failed: {e}")
+        await _record_job_failure("intelligence_morning_briefing", str(e), _tb.format_exc())
 
 
 async def _job_optimization_review() -> None:
@@ -435,6 +508,7 @@ async def _job_optimization_review() -> None:
         logger.info(f"Optimization review: {count} recommendations generated")
     except Exception as e:
         logger.warning(f"Optimization review failed: {e}")
+        await _record_job_failure("optimization_review", str(e), _tb.format_exc())
 
 
 async def _job_research_report() -> None:
@@ -448,6 +522,7 @@ async def _job_research_report() -> None:
         logger.info(f"Research reports: {count} generated")
     except Exception as e:
         logger.warning(f"Research report generation failed: {e}")
+        await _record_job_failure("research_report", str(e), _tb.format_exc())
 
 
 async def _job_self_learning() -> None:
@@ -460,6 +535,7 @@ async def _job_self_learning() -> None:
         logger.info(f"Self-learning complete: {result.get('learnings_stored', 0)} learnings stored")
     except Exception as e:
         logger.warning(f"Self-learning job failed: {e}")
+        await _record_job_failure("self_learning", str(e), _tb.format_exc())
 
 
 async def _job_memory_consolidation() -> None:
@@ -474,6 +550,7 @@ async def _job_memory_consolidation() -> None:
         logger.info(f"Memory consolidation complete: {result}")
     except Exception as e:
         logger.warning(f"Memory consolidation failed: {e}")
+        await _record_job_failure("memory_consolidation", str(e), _tb.format_exc())
 
 
 async def _job_memory_promotion() -> None:
@@ -488,6 +565,7 @@ async def _job_memory_promotion() -> None:
         logger.info(f"Memory promotion complete: {result}")
     except Exception as e:
         logger.warning(f"Memory promotion failed: {e}")
+        await _record_job_failure("memory_promotion", str(e), _tb.format_exc())
 
 
 async def _job_gmail_inbox() -> None:
@@ -513,6 +591,7 @@ async def _job_overnight_lead_discovery() -> None:
         logger.info(f"Overnight lead discovery: {count} leads scored")
     except Exception as e:
         logger.warning(f"Overnight lead discovery failed: {e}")
+        await _record_job_failure("overnight_lead_discovery", str(e), _tb.format_exc())
 
 
 async def _job_overnight_intel_analysis() -> None:
@@ -522,10 +601,12 @@ async def _job_overnight_intel_analysis() -> None:
         from app.core.database import AsyncSessionLocal
         from app.services.intelligence.optimizer import analyze_system
         async with AsyncSessionLocal() as db:
-            count = await analyze_system(db)
+            async with db.begin():
+                count = await analyze_system(db)
         logger.info(f"Overnight intel analysis: {count} insights generated")
     except Exception as e:
         logger.warning(f"Overnight intel analysis failed: {e}")
+        await _record_job_failure("overnight_intel_analysis", str(e), _tb.format_exc())
 
 
 async def _job_overnight_proposal_engine() -> None:
@@ -536,32 +617,38 @@ async def _job_overnight_proposal_engine() -> None:
         from app.services.ai.router import ai_router
         from app.services.memory.manager import store_memory
         from sqlalchemy import select, and_
-        from app.models.lead import Lead
+        from app.models.lead import Lead, LeadStatus
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Lead)
-                .where(and_(Lead.score >= 7, Lead.status == "new"))
+                .where(and_(Lead.score >= 7, Lead.status == LeadStatus.NEW))
                 .order_by(Lead.score.desc())
                 .limit(5)
             )
             leads = result.scalars().all()
             for lead in leads:
                 try:
-                    response = await ai_router.chat(
-                        messages=[{
-                            "role": "user",
-                            "content": (
-                                f"Write a personalised proposal for {lead.company_name or lead.contact_name}. "
-                                f"Industry: {lead.industry or 'technology'}. "
-                                f"Pain points: {lead.pain_points or 'operational efficiency, scaling'}. "
-                                "Keep it concise, demo-first, no pricing. "
-                                "Sign off as Aliyar Solutions team."
-                            )
-                        }],
-                        task_type="STRATEGY",
-                        max_tokens=800,
+                    response, _ = await asyncio.wait_for(
+                        ai_router.chat(
+                            messages=[{
+                                "role": "user",
+                                "content": (
+                                    f"Write a personalised proposal for {lead.company_name or lead.contact_name}. "
+                                    f"Industry: {lead.industry or 'technology'}. "
+                                    f"Pain points: {lead.pain_points or 'operational efficiency, scaling'}. "
+                                    "Keep it concise, demo-first, no pricing. "
+                                    "Sign off as Aliyar Solutions team."
+                                )
+                            }],
+                            task_type="STRATEGY",
+                            max_tokens=800,
+                        ),
+                        timeout=60.0,
                     )
-                    proposal_text = response.get("content", "")
+                    if response.error:
+                        logger.warning("Proposal AI failed for lead %s: %s", lead.id, response.error)
+                        continue
+                    proposal_text = response.content or ""
                     if proposal_text:
                         await store_memory(
                             db,
@@ -571,13 +658,14 @@ async def _job_overnight_proposal_engine() -> None:
                             tags=["proposal", "overnight", str(lead.id)],
                             key=f"proposal:lead:{lead.id}",
                         )
-                        lead.status = "proposal_drafted"
+                        lead.status = LeadStatus.PROPOSAL
                 except Exception as ex:
                     logger.warning(f"Proposal draft failed for lead {lead.id}: {ex}")
             await db.commit()
         logger.info(f"Overnight proposals: {len(leads)} proposals drafted")
     except Exception as e:
         logger.warning(f"Overnight proposal engine failed: {e}")
+        await _record_job_failure("overnight_proposal_engine", str(e), _tb.format_exc())
 
 
 async def _job_overnight_cold_outreach() -> None:
@@ -609,6 +697,7 @@ async def _job_overnight_cold_outreach() -> None:
         logger.info(f"Overnight cold outreach: {sent} emails sent")
     except Exception as e:
         logger.warning(f"Overnight cold outreach failed: {e}")
+        await _record_job_failure("overnight_cold_outreach", str(e), _tb.format_exc())
 
 
 async def _job_overnight_freelance_bids() -> None:
@@ -622,6 +711,7 @@ async def _job_overnight_freelance_bids() -> None:
         logger.info(f"Overnight freelance scan complete — report generated")
     except Exception as e:
         logger.warning(f"Overnight freelance bids failed: {e}")
+        await _record_job_failure("overnight_freelance_bids", str(e), _tb.format_exc())
 
 
 async def _job_overnight_followup_sequences() -> None:
@@ -655,6 +745,7 @@ async def _job_overnight_followup_sequences() -> None:
         logger.info(f"Overnight follow-ups: {sent} sequences sent")
     except Exception as e:
         logger.warning(f"Overnight follow-up sequences failed: {e}")
+        await _record_job_failure("overnight_followup_sequences", str(e), _tb.format_exc())
 
 
 async def _job_overnight_pipeline_health() -> None:
@@ -668,6 +759,7 @@ async def _job_overnight_pipeline_health() -> None:
         logger.info(f"Pipeline health: {count} leads re-scored")
     except Exception as e:
         logger.warning(f"Overnight pipeline health failed: {e}")
+        await _record_job_failure("overnight_pipeline_health", str(e), _tb.format_exc())
 
 
 async def _job_overnight_ops_report() -> None:
@@ -691,6 +783,7 @@ async def _job_overnight_ops_report() -> None:
         logger.info("Overnight ops report stored and ready for Captain")
     except Exception as e:
         logger.warning(f"Overnight ops report failed: {e}")
+        await _record_job_failure("overnight_ops_report", str(e), _tb.format_exc())
 
 
 # ── 6-Layer Autonomous Intelligence System Jobs ───────────────────────────────
@@ -708,6 +801,7 @@ async def _job_daily_strategy_report() -> None:
             )
     except Exception as exc:
         logger.warning("Daily strategy report failed: %s", exc)
+        await _record_job_failure("daily_strategy_report", str(exc), _tb.format_exc())
 
 
 async def _job_milestone_bulk_review() -> None:
@@ -723,6 +817,7 @@ async def _job_milestone_bulk_review() -> None:
             )
     except Exception as exc:
         logger.warning("Milestone bulk review failed: %s", exc)
+        await _record_job_failure("milestone_bulk_review", str(exc), _tb.format_exc())
 
 
 async def _job_tech_evolution_scan() -> None:
@@ -738,6 +833,7 @@ async def _job_tech_evolution_scan() -> None:
             )
     except Exception as exc:
         logger.warning("Tech evolution scan failed: %s", exc)
+        await _record_job_failure("tech_evolution_scan", str(exc), _tb.format_exc())
 
 
 async def _job_pre_call_briefing_trigger() -> None:
@@ -762,7 +858,7 @@ async def _job_pre_call_briefing_trigger() -> None:
                         ClientCallIntelligence.status == CallStatus.SCHEDULED.value,
                         ClientCallIntelligence.briefing_pdf_url.is_(None),
                     )
-                )
+                ).limit(50)
             )
             calls = result.scalars().all()
             call_pairs = [(str(c.tenant_id), str(c.id)) for c in calls]
@@ -776,6 +872,7 @@ async def _job_pre_call_briefing_trigger() -> None:
 
     except Exception as exc:
         logger.warning("Pre-call briefing trigger failed: %s", exc)
+        await _record_job_failure("pre_call_briefing_trigger", str(exc), _tb.format_exc())
 
 
 async def _job_weekly_strategy_review() -> None:
@@ -791,6 +888,7 @@ async def _job_weekly_strategy_review() -> None:
             )
     except Exception as exc:
         logger.warning("Weekly strategy review failed: %s", exc)
+        await _record_job_failure("weekly_strategy_review", str(exc), _tb.format_exc())
 
 
 async def _job_dio_health_check() -> None:
@@ -803,6 +901,7 @@ async def _job_dio_health_check() -> None:
             logger.info("DIO health check: tenant=%s | 15 departments confirmed", tenant_id)
     except Exception as exc:
         logger.warning("DIO health check failed: %s", exc)
+        await _record_job_failure("dio_health_check", str(exc), _tb.format_exc())
 
 
 async def _job_connector_hub_ingestion() -> None:
@@ -821,6 +920,7 @@ async def _job_connector_hub_ingestion() -> None:
             )
     except Exception as exc:
         logger.warning("ConnectorHub ingestion failed: %s", exc)
+        await _record_job_failure("connector_hub_ingestion", str(exc), _tb.format_exc())
 
 
 async def _job_scout_network() -> None:
@@ -837,6 +937,7 @@ async def _job_scout_network() -> None:
         )
     except Exception as exc:
         logger.warning("ScoutNetwork daily job failed: %s", exc)
+        await _record_job_failure("daily_scout_network", str(exc), _tb.format_exc())
 
 
 async def _job_market_intelligence_generation() -> None:
@@ -846,11 +947,15 @@ async def _job_market_intelligence_generation() -> None:
         from app.services.integrations.market_intelligence_engine import MarketIntelligenceEngine
         engine = MarketIntelligenceEngine()
         for tenant_id in await _target_tenant_ids():
-            report = await engine.generate_daily_market_report()
-            await engine.write_github_intelligence_package(report)
-            logger.info("MarketIntelligence: tenant=%s topic=%s", tenant_id, report.get("topic", "unknown"))
+            _tid = uuid.UUID(str(tenant_id))
+            result = await engine.write_github_intelligence_package(
+                tenant_id=_tid,
+                output_dir="intelligence",
+            )
+            logger.info("MarketIntelligence: tenant=%s files=%d", tenant_id, len(result.get("files_written", [])))
     except Exception as exc:
         logger.warning("Market intelligence generation failed: %s", exc)
+        await _record_job_failure("market_intelligence_generation", str(exc), _tb.format_exc())
 
 
 async def _job_self_healer() -> None:
@@ -860,3 +965,232 @@ async def _job_self_healer() -> None:
         await run_self_healing_cycle()
     except Exception as exc:
         logger.warning("Self-healer job failed: %s", exc)
+        await _record_job_failure("self_healer", str(exc), _tb.format_exc())
+
+
+async def _job_embed_leads() -> None:
+    """Nightly semantic embedding sweep — vectorizes leads without embeddings."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.intelligence.lead_embeddings import embed_pending_leads
+        async with AsyncSessionLocal() as db:
+            result = await embed_pending_leads(db, limit=100)
+        logger.info("Lead embedding sweep: %s", result)
+    except Exception as exc:
+        logger.warning("Lead embedding sweep failed: %s", exc)
+        await _record_job_failure("embed_leads", str(exc), _tb.format_exc())
+
+
+async def _job_nexus_heartbeat() -> None:
+    """
+    NEXUS heartbeat — runs every hour.
+    Pulses pipeline state. If action_signal is OUTREACH_READY and no drafts
+    are pending, autonomously triggers AUTOPILOT (max 5 leads, min_score 75).
+    A Redis lock prevents re-triggering within 4 hours.
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.nexus.heartbeat import run_pulse
+        from app.services.autopilot.pipeline import get_pending_drafts, run_autopilot_cycle
+
+        async with AsyncSessionLocal() as db:
+            pulse = await run_pulse(db)
+
+        action = pulse.get("action_signal", "MONITOR")
+        pending = await get_pending_drafts(None)
+
+        if pending:
+            try:
+                from app.services.notifications.telegram_bot import notify_autopilot_drafts_pending
+                await notify_autopilot_drafts_pending(pending)
+            except Exception as exc:
+                logger.warning("NEXUS: autopilot draft notification failed: %s", exc)
+
+        # Autonomous outreach trigger — fire when pipeline is ready and queue is clear
+        if action == "OUTREACH_READY" and not pending:
+            lock_acquired = False
+            try:
+                import redis.asyncio as aioredis
+                r = aioredis.from_url(settings.REDIS_URL or "redis://localhost:6379")
+                lock_acquired = await r.set(
+                    "nexus:auto_outreach:lock", "1",
+                    nx=True, ex=14400  # 4-hour lock
+                )
+                await r.aclose()
+            except Exception as exc:
+                logger.warning("NEXUS: Redis lock unavailable, skipping autonomous outreach: %s", exc)
+                lock_acquired = False  # safe default: no rate-limit guard = don't trigger
+
+            if lock_acquired:
+                logger.info("NEXUS AUTONOMOUS: OUTREACH_READY — triggering AUTOPILOT (max 5 leads)")
+                try:
+                    result = await run_autopilot_cycle(max_leads=5, min_score=75.0)
+                    logger.info("NEXUS AUTONOMOUS: composed=%s skipped=%s",
+                                result.get("composed", 0), result.get("skipped", 0))
+                    from app.services.nexus.heartbeat import log_decision
+                    await log_decision({
+                        "action": "auto_outreach_triggered",
+                        "composed": result.get("composed", 0),
+                        "source": "nexus_heartbeat",
+                    })
+                except Exception as exc:
+                    logger.warning("NEXUS autonomous outreach failed: %s", exc)
+
+        logger.info("NEXUS heartbeat: signal=%s | drafts=%d | autonomous=%s",
+                    action, len(pending), action == "OUTREACH_READY" and not pending)
+
+        # Push pulse to frontend via WebSocket
+        try:
+            from app.api.v1.routes.ws import broadcast
+            await broadcast("nexus_pulse", {
+                "action_signal": pulse.get("action_signal", "MONITOR"),
+                "hot_leads": pulse.get("pipeline", {}).get("hot_leads", 0),
+                "pending_drafts": len(pending),
+                "ai_available": pulse.get("ai_available", False),
+            })
+        except Exception as exc:
+            logger.warning("NEXUS: WebSocket broadcast failed: %s", exc)
+
+    except Exception as exc:
+        logger.warning("NEXUS heartbeat job failed: %s", exc)
+        await _record_job_failure("nexus_heartbeat", str(exc), _tb.format_exc())
+
+
+async def _job_captain_dashboard_briefing() -> None:
+    """Captain morning dashboard — 06:55 daily. Sends real pipeline stats via Telegram."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.notifications.telegram_bot import notify_captain_morning_briefing
+        async with AsyncSessionLocal() as db:
+            await notify_captain_morning_briefing(db)
+    except Exception as exc:
+        logger.warning("Captain dashboard briefing failed: %s", exc)
+        await _record_job_failure("captain_dashboard_briefing", str(exc), _tb.format_exc())
+
+
+async def _job_weekly_performance_briefing() -> None:
+    """Weekly Saturday 19:00 UTC — full 7-day performance summary via Telegram."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.services.notifications.telegram_bot import notify_weekly_performance_briefing
+        async with AsyncSessionLocal() as db:
+            await notify_weekly_performance_briefing(db)
+    except Exception as exc:
+        logger.warning("Weekly performance briefing failed: %s", exc)
+        await _record_job_failure("weekly_performance_briefing", str(exc), _tb.format_exc())
+
+
+async def _job_nightly_signal_scan() -> None:
+    """Nightly 02:00 UTC — scan all active pipeline leads and brief Captain on high signals."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from app.models.lead import Lead, LeadStatus
+        from sqlalchemy import select, and_
+
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(
+                select(Lead)
+                .where(
+                    and_(
+                        Lead.score >= 45,
+                        Lead.status.in_([LeadStatus.NEW, LeadStatus.NURTURE, LeadStatus.CONTACTED]),
+                    )
+                )
+                .order_by(Lead.score.desc())
+                .limit(30)
+            )).scalars().all()
+
+        if not rows:
+            logger.info("Nightly signal scan: no leads to scan")
+            return
+
+        from app.services.signal.scanner import scan_lead
+        signals = []
+        for lead in rows:
+            try:
+                lead_dict = {
+                    "id": str(lead.id),
+                    "company_name": lead.company_name or "",
+                    "company": lead.company or "",
+                    "industry": lead.industry or "",
+                    "score": lead.score,
+                    "status": lead.status.value if lead.status else "NEW",
+                    "pain_points": lead.pain_points or "",
+                    "contact_name": lead.contact_name or "",
+                    "email": lead.email or "",
+                    "country": lead.country or "",
+                    "notes": lead.notes or "",
+                    "outreach_count": lead.outreach_count or 0,
+                }
+                result = await scan_lead(lead_dict)
+                if result.get("intent_tier") in ("HOT", "WARM"):
+                    signals.append(result)
+            except Exception:
+                continue
+
+        logger.info("Nightly signal scan: %d leads scanned, %d high signals", len(rows), len(signals))
+
+        if signals:
+            from app.services.notifications.telegram import notify_telegram
+            lines = [f"📡 *Nightly Signal Scan — {len(signals)} high-signal lead(s)*\n"]
+            for s in signals[:5]:
+                company = s.get("lead_company", "?")
+                tier = s.get("intent_tier", "?")
+                why_now = (s.get("why_now") or "")[:80]
+                lines.append(f"• *{company}* [{tier}] — {why_now}")
+            if len(signals) > 5:
+                lines.append(f"\n_...and {len(signals) - 5} more. Review in /control-room/signal_")
+            await notify_telegram("\n".join(lines))
+
+        # ── Auto-propose for highest-confidence HOT leads ─────────────────────
+        # Only fires when: intent_tier=HOT, confidence≥85, outreach_count>0
+        # Capped at 2 per nightly run to avoid overwhelming the approval queue
+        hot_candidates = [
+            s for s in signals
+            if s.get("intent_tier") == "HOT"
+            and int(s.get("confidence", 0) or 0) >= 85
+            and int(s.get("lead_score", 0) or 0) >= 75
+        ]
+        proposals_queued = 0
+        for sig in hot_candidates[:2]:
+            if proposals_queued >= 2:
+                break
+            lead_id_str = sig.get("lead_id")
+            if not lead_id_str:
+                continue
+            try:
+                from uuid import UUID
+                from app.services.governance.auto_proposal import auto_generate_proposal_for_lead
+                lead_score = float(sig.get("lead_score", 75))
+                estimated_value = max(3000.0, lead_score * 60)  # score→value heuristic
+                result = await auto_generate_proposal_for_lead(
+                    lead_id=UUID(lead_id_str),
+                    lead_name=sig.get("lead_contact") or "Decision Maker",
+                    lead_email=sig.get("lead_email") or "",
+                    lead_company=sig.get("lead_company") or "Unknown",
+                    estimated_deal_value=estimated_value,
+                    lead_context=f"HOT signal — {sig.get('why_now', '')}",
+                )
+                if result.get("proposal_id"):
+                    proposals_queued += 1
+                    logger.info(
+                        "Auto-proposal queued for HOT lead %s (confidence=%s)",
+                        sig.get("lead_company"), sig.get("confidence")
+                    )
+            except Exception as exc:
+                logger.warning("Auto-proposal failed for lead %s: %s", lead_id_str, exc)
+
+        if proposals_queued:
+            try:
+                from app.services.notifications.telegram import notify_telegram
+                await notify_telegram(
+                    f"📋 *Auto-Proposals Queued*\n"
+                    f"{proposals_queued} proposal(s) drafted for your highest-confidence HOT leads.\n"
+                    f"Review at /control-room/proposals"
+                )
+            except Exception as exc:
+                logger.warning("Auto-proposal Telegram notify failed: %s", exc)
+
+    except Exception as exc:
+        logger.warning("Nightly signal scan failed: %s", exc)
+        await _record_job_failure("nightly_signal_scan", str(exc), _tb.format_exc())

@@ -5,6 +5,7 @@ Inbound email processing is currently disabled until SES inbound routing is
 wired. The helpers in this module remain only for compatibility with stored
 records and future inbound processing.
 """
+import asyncio
 import imaplib
 import email
 import logging
@@ -94,12 +95,15 @@ async def _categorise_email(from_email: str, subject: str, body: str) -> dict:
             subject=subject[:200],
             body=body[:800]
         )
-        resp = await ai_router.chat(
-            messages=[{"role": "user", "content": prompt}],
-            task_type="FAST",
-            max_tokens=200,
+        resp, _ = await asyncio.wait_for(
+            ai_router.chat(
+                messages=[{"role": "user", "content": prompt}],
+                task_type="FAST",
+                max_tokens=200,
+            ),
+            timeout=30.0,
         )
-        content = resp.get("content", "").strip()
+        content = (resp.content or "").strip()
         # strip markdown code fences if present
         if content.startswith("```"):
             content = content.split("```")[1]

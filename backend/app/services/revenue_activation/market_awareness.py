@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -197,13 +198,16 @@ Summary: {article.get('summary')}
 URL: {article.get('url')}
 """.strip()
         try:
-            response, _ = await ai_router.chat(
-                [Message(role="user", content=prompt)],
-                task_type=TaskType.RESEARCH,
-                max_tokens=300,
+            response, _ = await asyncio.wait_for(
+                ai_router.chat(
+                    [Message(role="user", content=prompt)],
+                    task_type=TaskType.RESEARCH,
+                    max_tokens=300,
+                ),
+                timeout=60.0,
             )
             if not response.error:
-                parsed = _parse_json(response.content)
+                parsed = _parse_json(response.content or "")
                 score = float(parsed.get("score", fallback[0]))
                 reason = str(parsed.get("reason") or fallback[1])
                 return max(0.0, min(10.0, score)), reason[:500]

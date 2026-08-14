@@ -15,12 +15,14 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from app.api.v1.routes.auth import get_current_captain
+from app.core.rate_limit import limiter
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"])
+router = APIRouter(prefix="/connector-hub", tags=["Connector Hub"], dependencies=[Depends(get_current_captain)])
 
 SYSTEM_TENANT_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 
@@ -63,7 +65,8 @@ class IngestResponse(BaseModel):
 # ------------------------------------------------------------------
 
 @router.post("/ingest", response_model=IngestResponse, summary="Trigger daily connector hub ingestion")
-async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
+@limiter.limit("5/minute")
+async def trigger_ingestion(http_request: Request, request: IngestRequest, background_tasks: BackgroundTasks):
     """
     Trigger full daily ingestion from /jarvis-data/ folder.
     Called by Codex at 14:30 UTC (20:00 IST) daily, or manually by Captain.
@@ -99,7 +102,8 @@ async def trigger_ingestion(request: IngestRequest, background_tasks: Background
 
 
 @router.post("/intelligence", summary="Trigger market intelligence generation")
-async def trigger_intelligence(request: IntelligenceRequest):
+@limiter.limit("5/minute")
+async def trigger_intelligence(http_request: Request, request: IntelligenceRequest):
     """
     Trigger daily market intelligence report and opportunity scan.
     Writes reports to /jarvis-data/intelligence/.
@@ -215,7 +219,8 @@ async def get_outputs(
 
 
 @router.post("/council-review", summary="Send content to AI Council for quality gate")
-async def council_review(request: CouncilReviewRequest):
+@limiter.limit("5/minute")
+async def council_review(http_request: Request, request: CouncilReviewRequest):
     """
     Sends content through the JARVIS AI Council for quality review.
     content_type: outreach_email | proposal | market_report | lead_score
