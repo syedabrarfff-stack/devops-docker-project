@@ -85,7 +85,7 @@ recordings are on the line:
 aws s3api put-bucket-versioning \
   --bucket sarah-receptionist-prod-recordings \
   --versioning-configuration Status=Enabled,MFADelete=Enabled \
-  --mfa "arn:aws:iam::824232273953:mfa/root-account-mfa-device 123456"
+  --mfa "arn:aws:iam::<ACCOUNT_ID>:mfa/root-account-mfa-device <MFA_CODE>"
 ```
 
 The last argument is the root user's MFA device ARN followed by a space
